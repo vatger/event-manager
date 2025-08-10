@@ -24,7 +24,7 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem><a href="/admin">Admin</a></DropdownMenuItem>
+            <DropdownMenuItem><a href="/admin" className="w-full">Admin</a></DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 signOut();
