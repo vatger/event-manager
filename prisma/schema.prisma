@@ -1,0 +1,44 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Event {
+  id             String    @id @default(uuid())
+  name           String
+  airport        String     
+  startTime      DateTime   
+  endTime        DateTime   
+  description    String?
+  signupDeadline DateTime
+  googleSheetId  String?
+  createdBy      String
+  status         String    @default("upcoming")
+  createdAt      DateTime  @default(now())
+  signups        Signup[]
+}
+
+
+model Signup {
+  id           String   @id @default(uuid())
+  eventId      String
+  userCid      String
+  userName     String
+  rating       Int?
+  endorsements String
+  from         String
+  to           String
+  breaks       String
+  station      String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  event        Event    @relation(fields: [eventId], references: [id])
+
+  @@index([eventId])
+  @@index([userCid])
+}
