@@ -9,7 +9,7 @@ import { useState, useEffect } from "react";
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  event?: any; // Bei dir später gerne mit Event-Typ
+  event?: any; // später mit Typ
   onSuccess: () => void;
 }
 
@@ -17,38 +17,47 @@ export function EventFormDialog({ open, onOpenChange, event, onSuccess }: Props)
   const [form, setForm] = useState({
     name: "",
     airport: "",
-    startTime: "",
-    endTime: "",
+    date: "",
+    startZulu: "",
+    endZulu: "",
     signupDeadline: "",
-    googleSheetId: "",
     createdBy: "Admin",
   });
 
   useEffect(() => {
     if (event) {
+      const start = new Date(event.startTime);
+      const end = new Date(event.endTime);
+
       setForm({
         name: event.name,
         airport: event.airport,
-        startTime: event.startTime?.slice(0, 16) || "",
-        endTime: event.endTime?.slice(0, 16) || "",
-        signupDeadline: event.signupDeadline?.slice(0, 16) || "",
-        googleSheetId: event.googleSheetId || "",
+        date: start.toISOString().slice(0, 10),
+        startZulu: start.toISOString().slice(11, 16), // HH:MM UTC
+        endZulu: end.toISOString().slice(11, 16),
+        signupDeadline: event.signupDeadline
+          ? new Date(event.signupDeadline).toISOString().slice(0, 16)
+          : "",
         createdBy: event.createdBy || "Admin",
       });
     } else {
       setForm({
         name: "",
         airport: "",
-        startTime: "",
-        endTime: "",
+        date: "",
+        startZulu: "",
+        endZulu: "",
         signupDeadline: "",
-        googleSheetId: "",
         createdBy: "Admin",
       });
     }
   }, [event]);
 
   const handleSubmit = async () => {
+    // Kombiniere Datum + Uhrzeit → ISO (UTC)
+    const startTime = new Date(`${form.date}T${form.startZulu}:00Z`).toISOString();
+    const endTime = new Date(`${form.date}T${form.endZulu}:00Z`).toISOString();
+
     const method = event ? "PATCH" : "POST";
     const url = event ? `/api/events/${event.id}` : "/api/events";
 
@@ -56,10 +65,14 @@ export function EventFormDialog({ open, onOpenChange, event, onSuccess }: Props)
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
-        startTime: new Date(form.startTime).toISOString(),
-        endTime: new Date(form.endTime).toISOString(),
-        signupDeadline: new Date(form.signupDeadline).toISOString(),
+        name: form.name,
+        airport: form.airport,
+        startTime,
+        endTime,
+        signupDeadline: form.signupDeadline
+          ? new Date(form.signupDeadline).toISOString()
+          : null,
+        createdBy: form.createdBy,
         status: event ? event.status : "upcoming",
       }),
     });
@@ -75,16 +88,67 @@ export function EventFormDialog({ open, onOpenChange, event, onSuccess }: Props)
           <DialogTitle>{event ? "Edit Event" : "Create New Event"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {["name", "airport", "startTime", "endTime", "signupDeadline", "googleSheetId"].map((field) => (
-            <div key={field}>
-              <Label className="pb-2 capitalize">{field}</Label>
-              <Input
-                type={field.includes("Time") || field === "signupDeadline" ? "datetime-local" : "text"}
-                value={(form as any)[field]}
-                onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-              />
-            </div>
-          ))}
+          {/* Name */}
+          <div>
+            <Label>Name</Label>
+            <Input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+
+          {/* Airport */}
+          <div>
+            <Label>Airport</Label>
+            <Input
+              value={form.airport}
+              onChange={(e) => setForm({ ...form, airport: e.target.value })}
+            />
+          </div>
+
+          {/* Datum */}
+          <div>
+            <Label>Datum</Label>
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+            />
+          </div>
+
+          {/* Startzeit Zulu */}
+          <div>
+            <Label>Startzeit (Zulu)</Label>
+            <Input
+              type="time"
+              value={form.startZulu}
+              onChange={(e) => setForm({ ...form, startZulu: e.target.value })}
+            />
+          </div>
+
+          {/* Endzeit Zulu */}
+          <div>
+            <Label>Endzeit (Zulu)</Label>
+            <Input
+              type="time"
+              value={form.endZulu}
+              onChange={(e) => setForm({ ...form, endZulu: e.target.value })}
+            />
+          </div>
+
+          {/* Signup Deadline */}
+          <div>
+            <Label>Signup Deadline (Optional)</Label>
+            <Input
+              type="datetime-local"
+              value={form.signupDeadline}
+              onChange={(e) =>
+                setForm({ ...form, signupDeadline: e.target.value })
+              }
+            />
+          </div>
+
+          {/* Buttons */}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

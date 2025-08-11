@@ -1,7 +1,7 @@
 # TODO-Liste
 
 ## Admin Panel
-- [ ] **Zulu Times**: Implementiere die Anzeige und Eingabe von Zulu Times beim Erstellen eines Events.
+- [✔] **Zulu Times**: Implementiere die Anzeige und Eingabe von Zulu Times beim Erstellen eines Events.
 
 ## Benutzerverwaltung
 - [ ] **View Signups**: Entwickle eine Ansicht zur Anzeige der Anmeldungen.
