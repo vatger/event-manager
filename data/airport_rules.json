@@ -1,0 +1,60 @@
+{
+    "defaults": {
+      "minRatingByPosition": {
+        "DEL": "S1",
+        "GND": "S1",
+        "TWR": "S2",
+        "APP": "S3",
+        "CTR": "C1"
+      },
+      "endorsementPolicyByTier": {
+        "T1": "required",
+        "UNR": "bypassIfPresent"
+      },
+      "endorsementLogic": "any" 
+    },
+    "airports": {
+      "EDDM": {
+        "tier": "T1",
+        "positions": {
+          "DEL": { "endorsements": ["EDDM_GNDDEL"] },
+          "GND": { "endorsements": ["EDDM_GNDDEL"] },
+          "TWR": { "endorsements": ["EDDM_TWR"] },
+          "APP": { "endorsements": ["EDDM_APP"] }
+        }
+      },
+      "EDDN": {
+        "tier": "UNR",
+        "positions": {
+          "DEL": { "minRating": "S1" },
+          "GND": { "minRating": "S1" },
+          "TWR": {
+            "minRating": "S2",
+            "endorsements": ["EDDN_TWR"]
+          },
+          "APP": {
+            "minRating": "S3",
+            "endorsements": ["EDDN_APP"]
+          },
+          "CTR": { "minRating": "C1" }
+        }
+      },
+      "EDDP": {
+        "tier": "UNR",
+        "positions": {
+          "DEL": { "minRating": "S1" },
+          "GND": { "minRating": "S1" },
+          "TWR": {
+            "minRating": "S2",
+            "endorsements": ["EDDP_TWR"]
+          },
+          "APP": {
+            "minRating": "S3",
+            "endorsements": ["EDDP_APP"]
+          },
+          "CTR": { "minRating": "C1" }
+        }
+      }
+    }
+  }
+  

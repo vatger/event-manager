@@ -8,6 +8,7 @@
 - [ ] **Ratings in User Tabelle speichern**: Wir brauchen das Rating gerne als ID und short
 - [ ] **Statistiken**: Ratings zählen und Endorsements berücksichtigen (Sucht nach Endorsements für den Eventairport)
 
+Massiv Error grad im Endorsementssystem  -> Nochmal neu und Strukturiert anfangen
 
 
 ## Registrierung
