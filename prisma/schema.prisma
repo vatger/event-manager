@@ -7,6 +7,18 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model User {
+  id           String   @id @default(cuid())
+  cid          String   @unique
+  name         String
+  endorsements Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  signups      Signup[]
+}
+
+
 model Event {
   id             String    @id @default(uuid())
   name           String
@@ -38,6 +50,7 @@ model Signup {
   updatedAt    DateTime @updatedAt
 
   event        Event    @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userCid], references: [cid], onDelete: Cascade)
 
   @@index([eventId])
   @@index([userCid])
