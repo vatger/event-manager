@@ -1,41 +1,35 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  await prisma.signup.deleteMany({
-    where: { eventId: params.id },
+export async function GET(_: Request, { params }: { params: { id: string } }) {
+  const event = await prisma.event.findUnique({
+    where: { id: Number(params.id) },
+    include: { signups: true, documents: true }
   });
-
-  await prisma.event.delete({
-    where: { id: params.id },
-  });
-
-  return NextResponse.json({ success: true });
+  if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(event);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-    try {
-      const body = await req.json();
-  
-      const event = await prisma.event.update({
-        where: { id: params.id },
-        data: {
-          name: body.name,
-          airport: body.airport,
-          startTime: body.startTime ? new Date(body.startTime) : undefined,
-          endTime: body.endTime ? new Date(body.endTime) : undefined,
-          signupDeadline: body.signupDeadline ? new Date(body.signupDeadline) : undefined,
-          googleSheetId: body.googleSheetId,
-          status: body.status,
-        },
-      });
-  
-      return NextResponse.json(event);
-    } catch (error) {
-      console.error(error);
-      return NextResponse.json({ error: "Failed to update event" }, { status: 500 });
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
+  const data = await req.json();
+  const event = await prisma.event.update({
+    where: { id: Number(params.id) },
+    data
+  });
+  return NextResponse.json(event);
+}
+
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+  await prisma.event.delete({ where: { id: Number(params.id) } });
+  return NextResponse.json({ success: true });
+}

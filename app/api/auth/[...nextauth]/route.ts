@@ -1,9 +1,6 @@
-import NextAuth from 'next-auth'
-import { OAuthConfig } from 'next-auth/providers'
-import { PrismaClient } from '@prisma/client'
-import { getEndorsementsForCid } from '@/utils/endorsements'
-
-const prisma = new PrismaClient()
+import NextAuth from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { OAuthConfig } from "next-auth/providers/oauth";
 
 const vatsimHost =
   process.env.VATSIM_USE_SANDBOX === 'true'
@@ -28,7 +25,7 @@ const VatsimProvider = {
       id: data.cid?.toString(),
       cid: data.cid?.toString(),
       name: data.personal?.name_full || `${data.personal?.name_first} ${data.personal?.name_last}`,
-      endorsements: null, // später kannst du hier Daten mappen
+      rating: data.vatsim.rating.short,
     }
   }
   ,
@@ -38,51 +35,35 @@ export const authOptions = {
   providers: [VatsimProvider],
   callbacks: {
     async signIn({ user }: any) {
-      if (!user?.cid) return false
-    
-      // CSV-Endorsements laden
-      let csvEndorsements: string[] | null = null
-      try {
-        csvEndorsements = await getEndorsementsForCid(user.cid)
-      } catch (e) {
-        // Falls CSV fehlt/fehlerhaft, Login nicht blockieren
-        console.error('Endorsement / CSV lookup failed:', e)
-      }
-
-      // Beste Quelle wählen: CSV > Provider > bestehend
+      //check if user exists in the database
       const existingUser = await prisma.user.findUnique({
         where: { cid: user.cid },
-      })
-
-      const endorsementsToPersist =
-        csvEndorsements ?? user.endorsements ?? existingUser?.endorsements ?? null
+      });
 
       if (!existingUser) {
+        // If user does not exist, create a new user
         await prisma.user.create({
           data: {
             cid: user.cid,
-            name: user.name || 'Unknown',
-            endorsements: endorsementsToPersist,
+            name: user.name,
+            rating: user.rating,
           },
-        })
+        });
       } else {
-        const shouldUpdate =
-          (existingUser.name ?? '') !== (user.name || existingUser.name) ||
-          JSON.stringify(existingUser.endorsements ?? null) !== JSON.stringify(endorsementsToPersist ?? null)
-
-        if (shouldUpdate) {
+        // Update falls sich Name oder Rating geändert haben
+        if (existingUser.name !== user.name || existingUser.rating !== user.rating) {
           await prisma.user.update({
-            where: { id: existingUser.id },
+            where: { cid: user.cid },
             data: {
-              name: user.name || existingUser.name,
-              endorsements: endorsementsToPersist,
+              name: user.name,
+              rating: user.rating,
             },
-          })
+          });
         }
       }
 
-      return true
-    },    
+      return true;
+    },
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id
@@ -104,5 +85,7 @@ export const authOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 }
 
-const handler = NextAuth(authOptions)
-export { handler as GET, handler as POST }
+
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };

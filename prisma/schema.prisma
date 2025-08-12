@@ -8,50 +8,76 @@ generator client {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  cid          String   @unique
-  name         String
-  endorsements Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  cid       String   @unique
+  name      String
+  rating    String
+  role      Role     @default(CONTROLLER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  signups      Signup[]
+  signups   EventSignup[]
 }
-
 
 model Event {
-  id             String    @id @default(uuid())
-  name           String
-  airport        String     
-  startTime      DateTime   
-  endTime        DateTime   
-  description    String?
-  signupDeadline DateTime
-  googleSheetId  String?
-  createdBy      String
-  status         String    @default("upcoming")
-  createdAt      DateTime  @default(now())
-  signups        Signup[]
+  id              Int        @id @default(autoincrement())
+  name            String
+  description     String
+  bannerUrl       String
+  startTime       DateTime
+  endTime         DateTime
+  airports        Json       // Array of ICAO codes
+  signupDeadline  DateTime?
+  staffedStations Json?       // Array of Callsigns
+  status          EventStatus @default(PLANNING)
+  createdById     Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  signups   EventSignup[]
+  documents EventDocument[]
 }
 
+model EventSignup {
+  id                Int       @id @default(autoincrement())
+  eventId           Int
+  userId            Int
+  availability      Json      // Array of times e.g. ["18:00Z", "18:30Z"]
+  preferredStations Json      // Array of stations e.g. ["EDDM_TWR"]
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-model Signup {
-  id           String   @id @default(uuid())
-  eventId      String
-  userCid      String
-  userName     String
-  rating       Int?
-  endorsements String
-  from         String
-  to           String
-  breaks       String
-  station      String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
 
-  event        Event    @relation(fields: [eventId], references: [id])
-  user  User  @relation(fields: [userCid], references: [cid], onDelete: Cascade)
+model EventDocument {
+  id        Int           @id @default(autoincrement())
+  eventId   Int
+  name      String
+  type      DocumentType
+  url       String
+  createdAt DateTime @default(now())
 
-  @@index([eventId])
-  @@index([userCid])
+  event Event @relation(fields: [eventId], references: [id])
+}
+
+enum Role {
+  CONTROLLER
+  ADMIN
+}
+
+enum EventStatus {
+  PLANNING
+  SIGNUP_OPEN
+  PLAN_UPLOADED
+  COMPLETED
+}
+
+enum DocumentType {
+  PLAN
+  BRIEFING
+  CHART
+  OTHER
 }
