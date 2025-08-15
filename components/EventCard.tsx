@@ -13,11 +13,15 @@ import { useEventSignup } from "@/hooks/useEventSignup";
   
   interface EventCardProps {
     event: {
-      id: number;
+      id: string;
       name: string;
-      start: string;
-      end: string;
-      airport: string;
+      description: string;
+      bannerUrl: string;
+      airports: string;
+      startTime: string;
+      endTime: string;
+      staffedStations: string[];
+      signupDeadline: string;
       registrations: number;
       status: string;
     };
@@ -44,9 +48,10 @@ import { useEventSignup } from "@/hooks/useEventSignup";
     return (
       <Card className="hover:shadow-xl transition-all duration-200 border border-gray-200 rounded-2xl">
         <CardHeader>
+          <img src={event.bannerUrl} className="rounded-sm"/>
           <CardTitle className="text-lg font-semibold">{event.name}</CardTitle>
           <CardDescription className="flex items-center gap-2 text-sm">
-            <MapPin className="w-4 h-4" /> {event.airport}
+            <MapPin className="w-4 h-4" /> {event.airports}
           </CardDescription>
         </CardHeader>
   

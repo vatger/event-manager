@@ -79,6 +79,7 @@ export const authOptions = {
       session.user.cid = token.cid
       session.user.name = token.name
       session.user.rating = token.rating
+      session.user.role = "ADMIN"
       return session
     },
   },

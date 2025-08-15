@@ -5,13 +5,17 @@ import { Button } from "@/components/ui/button";
 import { EventCard } from "./_components/EventCard";
 import { EventFormDialog } from "./_components/EventFormDialog";
 import Protected from "@/components/Protected";
+import AdminEventForm from "./_components/AdminEventForm";
 
 interface Event {
   id: string;
   name: string;
+  description: string;
+  bannerUrl: string;
   airport: string;
   startTime: string;
   endTime: string;
+  staffedStations: string[];
   signupDeadline: string;
   registrations: number;
   status: string;
@@ -92,7 +96,7 @@ export default function AdminEventsPage() {
         </div>
       )}
 
-      <EventFormDialog
+      <AdminEventForm
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         event={editingEvent}

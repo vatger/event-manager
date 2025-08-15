@@ -8,9 +8,12 @@ interface Props {
   event: {
     id: string;
     name: string;
-    airport: string;
+    description: string;
+    bannerUrl: string;
+    airports: string;
     startTime: string;
     endTime: string;
+    staffedStations: string[];
     signupDeadline: string;
     registrations: number;
     status: string;
@@ -39,7 +42,7 @@ export function EventCard({ event, onEdit, onDelete, onStatusChange }: Props) {
       <CardHeader>
         <CardTitle>{event.name}</CardTitle>
         <CardDescription>
-          {formatZuluRange(event.startTime, event.endTime)} — {event.airport}
+          {formatZuluRange(event.startTime, event.endTime)} — {event.airports}
         </CardDescription>
       </CardHeader>
       <CardContent>

@@ -10,6 +10,8 @@
 
 Massiv Error grad im Endorsementssystem  -> Nochmal neu und Strukturiert anfangen
 
+Role noch nicht in der Session
+
 
 ## Registrierung
 - [ ] **Registration Updates**: Aktualisiere und verbessere die Registrierungslogik.
