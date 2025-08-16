@@ -19,3 +19,12 @@ Role noch nicht in der Session
 ## Datenstruktur
 - [ ] **Start- und Endzeit**: Ändere die Datenstruktur, um Startzeit und Endzeit in ein Datum und einen Zeitraum umzuwandeln.
 - [ ] **Anmeldedeadline**: Ermögliche die Angabe der Anmeldedeadline erst nach der Controlleranmeldung.
+
+## ToDo neu:
+- [ ] Eventdetail Beispielseite selber bauen. 
+- [ ] Eventcard anpassen
+    - [ ] Eventdetaipage nur bei status signupopen... verlinken
+    - [ ] is signed up anzeige
+- [ ] Eventdetailpage mit daten Füllen
+- [ ] Admin funktion zum bearbeiten der Daten 
+- [ ] Admin statusänderung (signupdeadline muss gesetzt sein)
