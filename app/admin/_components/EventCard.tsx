@@ -57,14 +57,14 @@ export function EventCard({ event, onEdit, onDelete, onStatusChange }: Props) {
         {event.status=="controlleranmeldung" ? (
             <Button
           variant="outline"
-          onClick={() => onStatusChange(event.id, "closed")}
+          onClick={() => onStatusChange(event.id, "COMPLETED")}
         >
           Controlleranmeldung schließen
         </Button>
         ) : (
         <Button
           variant="outline"
-          onClick={() => onStatusChange(event.id, "controlleranmeldung")}
+          onClick={() => onStatusChange(event.id, "SIGNUP_OPEN")}
         >
           Controlleranmeldung öffnen
         </Button>

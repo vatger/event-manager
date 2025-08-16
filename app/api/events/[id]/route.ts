@@ -36,7 +36,7 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return NextResponse.json(event);
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: { id: string } }) {
   const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -78,4 +78,62 @@ export async function DELETE(_: Request, { params }: { params: { id: string } })
   }
   await prisma.event.delete({ where: { id: Number(params.id) } });
   return NextResponse.json({ success: true });
+}
+
+const updateEventSchema = z.object({
+  name: z.string().min(3).optional(),
+  description: z.string().optional(),
+  bannerUrl: z.string().url().optional(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
+  airports: z.array(z.string().length(4, "ICAO must be 4 letters")).optional(),
+  signupDeadline: z
+    .string()
+    .optional()
+    .refine((val) => !val || !isNaN(Date.parse(val)), {
+      message: "Invalid date format for signupDeadline",
+    }).optional(),
+  staffedStations: z.array(z.string()).optional(),
+  status: z.enum(["PLANNING", "SIGNUP_OPEN", "PLAN_UPLOADED", "COMPLETED"]).optional(),
+});
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+  try {
+    const body = await req.json();
+
+    // Validate input
+    const parsed = updateEventSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Validation failed", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const eventId = parseInt(params.id);
+    if (isNaN(eventId)) {
+      return NextResponse.json(
+        { error: "Invalid event ID" },
+        { status: 400 }
+      );
+    }
+
+    // Update Event
+    const updatedEvent = await prisma.event.update({
+      where: { id: eventId },
+      data: parsed.data,
+    });
+
+    return NextResponse.json(updatedEvent, { status: 200 }, );
+  } catch (error) {
+    console.error("Error updating event:", error);
+    return NextResponse.json(
+      { error: "Failed to update event" },
+      { status: 500 }
+    );
+  }
 }

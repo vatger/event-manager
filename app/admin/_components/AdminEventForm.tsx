@@ -88,7 +88,7 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
       airports: [formData.airport],
     };
 
-    const method = event ? "PATCH" : "POST";
+    const method = event ? "PUT" : "POST";
     const url = event ? `/api/events/${event.id}` : "/api/events";
 
     const res = await fetch(url, {

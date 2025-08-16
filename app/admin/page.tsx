@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "./_components/EventCard";
-import { EventFormDialog } from "./_components/EventFormDialog";
 import Protected from "@/components/Protected";
 import AdminEventForm from "./_components/AdminEventForm";
 
@@ -62,11 +61,13 @@ export default function AdminEventsPage() {
   };
 
   const handleStatusChange = async (id: string, status: string) => {
-    await fetch(`/api/events/${id}`, {
+    const d = await fetch(`/api/events/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    const dd = await d.json()
+    console.log(dd)
     refreshEvents();
   };
 
