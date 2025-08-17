@@ -54,7 +54,7 @@ export function EventCard({ event, onEdit, onDelete, onStatusChange }: Props) {
         </p>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2 justify-end">
-        {event.status=="controlleranmeldung" ? (
+        {event.status=="SIGNUP_OPEN" ? (
             <Button
           variant="outline"
           onClick={() => onStatusChange(event.id, "COMPLETED")}

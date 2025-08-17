@@ -33,7 +33,7 @@ export default function EventsPage() {
             <EventCard
               event={event}
               onClick={() =>
-                event.status === "controlleranmeldung" && setSelectedEvent(event)
+                event.status === "SIGNUP_OPEN" && setSelectedEvent(event)
               }
             />
           </motion.div>

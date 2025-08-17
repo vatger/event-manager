@@ -1,16 +1,19 @@
 "use client"
 
+import SignupForm from "@/components/SignupForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table"
+import { AnimatePresence } from "framer-motion"
+import { useState } from "react"
 
 const eventData = {
-  name: "Munich Overload 2025",
-  startTime: "2025-10-18",
-  endTime: "17:00z - 22:00z",
+  name: "Munich Overload",
+  startTime: "2024-10-26",
+  endTime: "16:00z - 21:00z",
   bannerUrl: "https://dms.vatsim-germany.org/apps/files_sharing/publicpreview/pacA32LoRwkckA6?file=/&fileId=190971&x=2560&y=1440&a=true&etag=2aec907d751ebe55c7f1bb35d62271fc",
-  status: "PLANNING", // planning | signup_open | closed | roster_published
+  status: "SIGNUP_OPEN", // planning | signup_open | closed | roster_published
   airports: ["EDDM"],
   rosterUrl: "https://docs.google.com/spreadsheets/d/xxxx",
   briefingUrl: "https://yourcdn.com/briefing.pdf",
@@ -23,16 +26,19 @@ const eventData = {
   participants: [
     { name: "Yannik Schäffler", cid: "1234567", position: "EDDM_NL_APP" },
     { name: "Max Grafwallner", cid: "2345678", position: "EDDM_NH_APP" },
-    { name: "Niklas Schellhorn", cid: "2345678", position: "EDDM_S_TWR" },
-    { name: "Florian Meiler", cid: "2345678", position: "EDDM_N_GND" },
-    { name: "Justin Korte", cid: "2345678", position: "EDDM_DEL" },
-    { name: "Alex Legler", cid: "2345678", position: "EDMM_ZUG_CTR" },
-    { name: "Leander Greiff", cid: "2345678", position: "EDMM_WLD_CTR" }
+    { name: "Niklas Schellhorn", cid: "2315678", position: "EDDM_S_TWR" },
+    { name: "Florian Meiler", cid: "2335678", position: "EDDM_N_GND" },
+    { name: "Justin Korte", cid: "2345778", position: "EDDM_DEL" },
+    { name: "Alex Legler", cid: "2345608", position: "EDMM_ZUG_CTR" },
+    { name: "Leander Greiff", cid: "2395678", position: "EDMM_WLD_CTR" }
   ],
 }
 export default function EventPage(){
     const { name, startTime, endTime, bannerUrl, status, airports, rosterUrl, briefingUrl, staffedStations, participants } =
         eventData
+
+    const [selectedEvent, setSelectedEvent] = useState<any | null>(null); 
+    
     return (
         // <div className="max-w-5xl mx-auto space-y-6 p-4">
         //     {/* Banner */}
@@ -57,14 +63,14 @@ export default function EventPage(){
             
           </CardHeader>
           <CardContent className="space-y-2">
-            <p><span className="font-semibold">Name:</span> München Overload</p>
-            <p><span className="font-semibold">Datum:</span> 21.09.2025</p>
-            <p><span className="font-semibold">Zeit:</span> 18:00z - 22:00z</p>
-            <p><span className="font-semibold">Organisator:</span> FIR München</p>
+            <p><span className="font-semibold">Name:</span> {name}</p>
+            <p><span className="font-semibold">Datum:</span> {startTime}</p>
+            <p><span className="font-semibold">Zeit:</span> {endTime}</p>
+            <p><span className="font-semibold">Airport:</span> {airports}</p>
             {status=="PLANNING" ? (
                 <Button className="w-full" variant={"secondary"}>Not Open</Button>
             ) : status=="SIGNUP_OPEN" ? (
-                <Button className="w-full mt-2">Jetzt anmelden</Button>
+                <Button className="w-full mt-2" onClick={() => setSelectedEvent(eventData)}>Jetzt anmelden</Button>
             ) : (
                 <Button className="w-full">Closed</Button>
             )}
@@ -81,7 +87,7 @@ export default function EventPage(){
       </div>
 
       {/* Teilnehmer Tabelle */}
-      <Card>
+      <Card className="relative overflow-hidden">
         <CardHeader>
           <CardTitle>Angemeldete Teilnehmer</CardTitle>
         </CardHeader>
@@ -89,31 +95,40 @@ export default function EventPage(){
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>CID</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Station</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell>Max Mustermann</TableCell>
-                <TableCell>München Tower</TableCell>
-                <TableCell>Bestätigt</TableCell>
+            {participants.map((p) => (
+              <TableRow key={p.cid}>
+                <TableCell>{p.cid}</TableCell>
+                <TableCell>{p.name}</TableCell>
+                <TableCell>{p.position}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell>Lisa Müller</TableCell>
-                <TableCell>München Ground</TableCell>
-                <TableCell>Offen</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell>Tom Becker</TableCell>
-                <TableCell>Delivery</TableCell>
-                <TableCell>Bestätigt</TableCell>
-              </TableRow>
+            ))}
             </TableBody>
           </Table>
         </CardContent>
+
+        {status=="ROSTER" && (
+          <div className="absolute inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-10 flex-col gap-3">
+            <h1>Besetzungsplan ist verfügbar!</h1>
+            <Button size="lg">Zum Besetzungsplan</Button>
+          </div>
+        )}
+        
       </Card>
+
+      <AnimatePresence>
+        {selectedEvent && (
+          <SignupForm
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import {
   import { Badge } from "@/components/ui/badge";
   import { Calendar, MapPin, Users } from "lucide-react";
 import { useEventSignup } from "@/hooks/useEventSignup";
+import Link from "next/link";
   
   interface EventCardProps {
     event: {
@@ -41,7 +42,7 @@ import { useEventSignup } from "@/hooks/useEventSignup";
     const { isSignedUp } = useEventSignup(event.id)
   
     const statusColor =
-      event.status === "controlleranmeldung"
+      event.status === "SIGNUP_OPEN"
         ? "bg-green-100 text-green-800"
         : "bg-gray-100 text-gray-700";
   
@@ -66,14 +67,17 @@ import { useEventSignup } from "@/hooks/useEventSignup";
             <span>{event.registrations} Registrations</span>
           </div>
   
-          <Badge variant={event.status=="controlleranmeldung" ? "default" : "secondary"} className={statusColor}>{event.status}</Badge>
+          <Badge variant={event.status=="SIGNUP_OPEN" ? "default" : "secondary"} className={statusColor}>{event.status}</Badge>
         </CardContent>
   
         <CardFooter>
-          {event.status === "controlleranmeldung" ? (
-            <Button className={isSignedUp ? "bg-green-600 hover:bg-green-700 w-full" : "w-full hover:bg-gray-700"} onClick={onClick}>
-              {isSignedUp ? "Edit Sign up" : "Sign up"}
-            </Button>
+          {event.status === "SIGNUP_OPEN" ? (
+            // <Button className={isSignedUp ? "bg-green-600 hover:bg-green-700 w-full" : "w-full hover:bg-gray-700"} onClick={onClick}>
+            //   {isSignedUp ? "Edit Sign up" : "Sign up"}
+            // </Button>
+            <Link className="w-full" href="/events/example">
+              <Button className="w-full hover:bg-gray-700">See More</Button>
+            </Link>
           ) : (
             <Button className="w-full" variant="outline" disabled>
               Not Open
