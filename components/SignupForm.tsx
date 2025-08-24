@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { acceleratedValues, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { DeleteIcon, Trash2Icon, TrashIcon } from "lucide-react";
 import { airportRules } from "@/data/airportRules";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import AvailabilitySlider from "./AvailabilitySlider";
+import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
+import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 interface SignupFormProps {
   event: any;
@@ -25,6 +27,8 @@ interface SignupFormProps {
 }
 
 export default function SignupForm({ event, onClose }: SignupFormProps) {
+  const {data: session} = useSession()
+  
   const [availability, setAvailability] = useState("");
   const [endorsement, setEndorsement] = useState(""); 
   const [desiredPosition, setDesiredPosition] = useState("");
@@ -38,9 +42,11 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
   
   const rules = airportRules[event.airports];
   const areas = Object.keys(rules.areas);
+
+  const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
   
   console.log("SIGNUPDATA", isSignedUp, signupId, signupData)
-  
+
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (signupData && !hydrated) {
@@ -56,11 +62,22 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
   }, [signupData, hydrated]);
 
   async function submitSignup() {
+    
+    const val = avselectorRef.current?.validate();
+    if(!val?.ok) {
+      toast(val?.errors)
+      return;
+    }
+
     setSaving(true)
     setError("")
+    
+    console.log("Available", avselectorRef.current?.getAvailable())
+    console.log("Eventid", event.id)
+
     const method = isSignedUp && signupId ? "PUT" : "POST";
     const url =
-      isSignedUp && signupId ? `/api/signups/${signupId}` : "/api/signups";
+      isSignedUp && signupId ? `/api/events/${event.id}/signup/${session?.user.id}` : `/api/events/${event.id}/signup`;
 
     try {
       const res = await fetch(url, {
@@ -70,10 +87,10 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
         },
         body: JSON.stringify({
           eventId: event.id,
-          availability,
+          availability: {available: avselectorRef.current?.getAvailable(), unavailable: avselectorRef.current?.getUnavailable()},
           endorsement,
           preferredStations: desiredPosition,
-          breaks,
+          breakrequests: breaks,
         }),
       });
 
@@ -145,20 +162,13 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
         >
           <div>
             <Label className="pb-2">Availability</Label>
-            <Input
-              placeholder="e.g. 16:00 - 20:00 UTC"
-              value={availability}
-              onChange={(e) => setAvailability(e.target.value)}
+            <AvailabilitySlider
+            eventStart="16:00"
+            eventEnd="21:00"
+            initialUnavailable={[{ start: "09:00", end: "14:00" },{ start: "18:00", end: "20:00" }]}
+            innerRef={avselectorRef}
             />
           </div>
-          <div>
-          <Label className="pb-2">Availability</Label>
-          <AvailabilitySlider
-          eventStart="09:00"
-          eventEnd="23:00"
-          initialUnavailable={[{ start: "09:00", end: "14:00" },{ start: "18:00", end: "20:00" }]}
-          />
-</div>
           
             {rules.tier === 1 && (
               <div>

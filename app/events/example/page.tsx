@@ -11,6 +11,7 @@ import { useState } from "react"
 
 const eventData = {
   name: "Munich Overload",
+  id: 5,
   description: "Here could be some Remarks of the Event. This is the Munich Overload. The whole Airport will be fully staffed from Delivery up to Center. Take your favourite aircraft and enjoy best bavarian ATC with a Flight from or to Munich.",
   startTime: "2024-10-26",
   endTime: "16:00z - 21:00z",

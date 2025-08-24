@@ -9,7 +9,7 @@ generator client {
 
 model User {
   id        Int      @id @default(autoincrement())
-  cid       String   @unique
+  cid       Int   @unique
   name      String
   rating    String
   role      Role     @default(CONTROLLER)
@@ -41,16 +41,19 @@ model Event {
 model EventSignup {
   id                Int       @id @default(autoincrement())
   eventId           Int
-  userId            Int
-  availability      Json      // Array of times e.g. ["18:00Z", "18:30Z"]
-  endorsement String?
-  preferredStations Json      // Array of stations e.g. ["EDDM_TWR"]
-  notes             String?
+  userCID            Int
+  availability      Json
+  endorsement       String?
+  breakrequests     String?
+  preferredStations String?
+  remarks           String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   event Event @relation(fields: [eventId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userCID], references: [cid])
+
+  @@unique([eventId, userCID]) // verhindert doppelte Signups
 }
 
 model EventDocument {

@@ -276,10 +276,15 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
 
         {/* Preview of current unavailable ranges */}
         <div className="mt-4 space-y-1 text-sm">
-          <div className="font-medium">Nicht verfügbar:</div>
+          
           {ranges.length === 0 ? (
-            <div className="text-muted-foreground">Keine Einschränkungen</div>
+            <div>
+              <div className="font-medium">Availability:</div>
+              <div className="text-muted-foreground">full</div>
+            </div>
           ) : (
+            <div>
+            <div className="font-medium">Unavailable:</div>
             <ul className="list-disc">
               {ranges.map((r, idx) => {
                 const tr = idxRangeToTimeRange(r, slots)
@@ -301,6 +306,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
                 )
               })}
             </ul>
+            </div>
           )}
         </div>
       </CardContent>
