@@ -15,7 +15,7 @@ const eventData = {
   startTime: "2024-10-26",
   endTime: "16:00z - 21:00z",
   bannerUrl: "https://dms.vatsim-germany.org/apps/files_sharing/publicpreview/pacA32LoRwkckA6?file=/&fileId=190971&x=2560&y=1440&a=true&etag=2aec907d751ebe55c7f1bb35d62271fc",
-  status: "ROSTER", // planning | signup_open | closed | ROSTER
+  status: "SIGNUP_OPEN", // planning | signup_open | closed | ROSTER
   airports: ["EDDM"],
   rosterUrl: "https://docs.google.com/spreadsheets/d/xxxx",
   briefingUrl: "https://yourcdn.com/briefing.pdf",

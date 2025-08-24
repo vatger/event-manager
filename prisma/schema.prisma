@@ -43,6 +43,7 @@ model EventSignup {
   eventId           Int
   userId            Int
   availability      Json      // Array of times e.g. ["18:00Z", "18:30Z"]
+  endorsement String?
   preferredStations Json      // Array of stations e.g. ["EDDM_TWR"]
   notes             String?
   createdAt         DateTime  @default(now())

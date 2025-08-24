@@ -4,6 +4,7 @@ import "./globals.css";
 import SessionProviderWrapper from "./SessionProviderWrapper";
 import Header from "@/components/Header";
 import Protected from "@/components/Protected";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
         {children}
         </Protected>
         </SessionProviderWrapper>
+        <Toaster />
       </body>
     </html>
   );

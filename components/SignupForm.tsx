@@ -15,6 +15,9 @@ import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { DeleteIcon, Trash2Icon, TrashIcon } from "lucide-react";
+import { airportRules } from "@/data/airportRules";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import AvailabilitySlider from "./AvailabilitySlider";
 
 interface SignupFormProps {
   event: any;
@@ -23,6 +26,7 @@ interface SignupFormProps {
 
 export default function SignupForm({ event, onClose }: SignupFormProps) {
   const [availability, setAvailability] = useState("");
+  const [endorsement, setEndorsement] = useState(""); 
   const [desiredPosition, setDesiredPosition] = useState("");
   const [breaks, setBreaks] = useState("");
 
@@ -32,13 +36,16 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
   
   const { isSignedUp, signupId, signupData } = useEventSignup(event.id);
   
+  const rules = airportRules[event.airports];
+  const areas = Object.keys(rules.areas);
+  
   console.log("SIGNUPDATA", isSignedUp, signupId, signupData)
   
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (signupData && !hydrated) {
       setAvailability(signupData.availability ?? "");
-      
+      setEndorsement(signupData.endorsement ?? "");
       setDesiredPosition(
         signupData.preferredPositions ??
           ""
@@ -64,7 +71,8 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
         body: JSON.stringify({
           eventId: event.id,
           availability,
-          preferredPosition: desiredPosition,
+          endorsement,
+          preferredStations: desiredPosition,
           breaks,
         }),
       });
@@ -143,7 +151,35 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
               onChange={(e) => setAvailability(e.target.value)}
             />
           </div>
-
+          <div>
+          <Label className="pb-2">Availability</Label>
+          <AvailabilitySlider
+          eventStart="09:00"
+          eventEnd="23:00"
+          initialUnavailable={[{ start: "09:00", end: "14:00" },{ start: "18:00", end: "20:00" }]}
+          />
+</div>
+          
+            {rules.tier === 1 && (
+              <div>
+              <Label className="pb-2">Endorsement</Label>
+              <Select defaultValue={endorsement} onValueChange={(v) => setEndorsement(v)}>
+                <SelectTrigger className="w-full">
+                <SelectValue placeholder="Bitte Wählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                {areas.map((area) => (
+                  <SelectItem key={area} value={area}>
+                    {area}
+                  </SelectItem>
+                ))}
+                </SelectGroup>
+                </SelectContent>
+              </Select>
+              </div>
+            )}
+          
           <div>
             <Label className="pb-2">Desired Position</Label>
             <Input
