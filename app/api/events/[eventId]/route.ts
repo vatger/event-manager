@@ -27,16 +27,16 @@ const eventSchema = z.object({
 });
 
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, { params }: { params: { eventId: string } }) {
   const event = await prisma.event.findUnique({
-    where: { id: Number(params.id) },
+    where: { id: Number(params.eventId) },
     include: { signups: true, documents: true }
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(event);
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: { eventId: string } }) {
   const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -52,7 +52,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
     
   const event = await prisma.event.update({
-    where: { id: Number(params.id) },
+    where: { id: Number(params.eventId) },
     data: {
         name: parsed.data.name,
         description: parsed.data.description,
@@ -71,12 +71,12 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   return NextResponse.json(event);
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_: Request, { params }: { params: { eventId: string } }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-  await prisma.event.delete({ where: { id: Number(params.id) } });
+  await prisma.event.delete({ where: { id: Number(params.eventId) } });
   return NextResponse.json({ success: true });
 }
 
@@ -97,7 +97,7 @@ const updateEventSchema = z.object({
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "PLAN_UPLOADED", "COMPLETED"]).optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: { eventId: string } }) {
   const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -114,7 +114,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       );
     }
 
-    const eventId = parseInt(params.id);
+    const eventId = parseInt(params.eventId);
     if (isNaN(eventId)) {
       return NextResponse.json(
         { error: "Invalid event ID" },

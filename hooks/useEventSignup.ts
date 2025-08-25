@@ -1,30 +1,35 @@
 import { useState, useEffect } from "react";
 
-export function useEventSignup(eventId: number) {
+export function useEventSignup(eventId: number, userId: number) {
   const [loading, setLoading] = useState(true);
   const [isSignedUp, setIsSignedUp] = useState(false);
-  const [signupId, setSignupId] = useState<string | null>(null);
   const [signupData, setSignupData] = useState<any>(null);
 
   useEffect(() => {
-    if (!eventId) return;
+    if (!eventId || !userId) return;
 
     setLoading(true);
-    fetch(`/api/signups/${eventId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.isSignedUp) {
-          setIsSignedUp(true);
-          setSignupId(data.signupId);
-          setSignupData(data.data);
-        } else {
+    fetch(`/api/events/${eventId}/signup/${userId}`)
+      .then(async (res) => {
+        if (res.status === 404) {
           setIsSignedUp(false);
-          setSignupId(null);
           setSignupData(null);
+          return;
         }
+        if (!res.ok) {
+          throw new Error("Fehler beim Abrufen des Signups");
+        }
+        const data = await res.json();
+        setIsSignedUp(true);
+        setSignupData(data);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsSignedUp(false);
+        setSignupData(null);
       })
       .finally(() => setLoading(false));
-  }, [eventId]);
+  }, [eventId, userId]);
 
-  return { loading, isSignedUp, signupId, signupData };
+  return { loading, isSignedUp, signupData };
 }

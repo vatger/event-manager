@@ -25,12 +25,15 @@ interface SignupFormProps {
   event: any;
   onClose: () => void;
 }
+type TimeRange = { start: string; end: string };
+type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
 
 export default function SignupForm({ event, onClose }: SignupFormProps) {
   const {data: session} = useSession()
-  
-  const [availability, setAvailability] = useState("");
-  const [endorsement, setEndorsement] = useState(""); 
+  const userCID = session?.user.id;
+
+  const [availability, setAvailability] = useState<Availability>();
+  const [endorsement, setEndorsement] = useState("");
   const [desiredPosition, setDesiredPosition] = useState("");
   const [breaks, setBreaks] = useState("");
 
@@ -38,27 +41,29 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   
-  const { isSignedUp, signupId, signupData } = useEventSignup(event.id);
+  const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
   
   const rules = airportRules[event.airports];
   const areas = Object.keys(rules.areas);
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
-  
-  console.log("SIGNUPDATA", isSignedUp, signupId, signupData)
+
+
 
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    if (signupData && !hydrated) {
-      setAvailability(signupData.availability ?? "");
-      setEndorsement(signupData.endorsement ?? "");
-      setDesiredPosition(
-        signupData.preferredPositions ??
-          ""
-      );
-      setBreaks(signupData.breaks ?? "");
-      setHydrated(true);
-    }
+    if (!signupData || hydrated) return;
+
+    setAvailability(signupData.availability ?? {});
+    setEndorsement(signupData.endorsement ?? "");
+    setDesiredPosition(signupData.preferredStations ?? "");
+    setBreaks(signupData.breakrequests ?? "");
+
+    setHydrated(true);
+
+    // Achtung: State-Logging direkt nach setXxx zeigt noch alte Werte.
+    // Wenn du debuggen willst, logge signupData direkt:
+    console.log("Hydrating from signupData:", signupData);
   }, [signupData, hydrated]);
 
   async function submitSignup() {
@@ -75,9 +80,9 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
     console.log("Available", avselectorRef.current?.getAvailable())
     console.log("Eventid", event.id)
 
-    const method = isSignedUp && signupId ? "PUT" : "POST";
+    const method = isSignedUp ? "PUT" : "POST";
     const url =
-      isSignedUp && signupId ? `/api/events/${event.id}/signup/${session?.user.id}` : `/api/events/${event.id}/signup`;
+      isSignedUp ? `/api/events/${event.id}/signup/${userCID}` : `/api/events/${event.id}/signup`;
 
     try {
       const res = await fetch(url, {
@@ -110,7 +115,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
     }
   }
   async function deleteSignup() {
-    if (!signupId) return;
+    if (!event.id || !userCID) return;
     const confirmDelete = window.confirm(
       "Möchtest du deine Anmeldung wirklich löschen?"
     );
@@ -120,7 +125,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
     setError("");
 
     try {
-      const res = await fetch(`/api/signups/${signupId}`, {
+      const res = await fetch(`/api/events/${event.id}/signup/${userCID}`, {
         method: "DELETE",
       });
 
@@ -165,7 +170,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
             <AvailabilitySlider
             eventStart="16:00"
             eventEnd="21:00"
-            initialUnavailable={[{ start: "09:00", end: "14:00" },{ start: "18:00", end: "20:00" }]}
+            initialUnavailable={availability?.unavailable}
             innerRef={avselectorRef}
             />
           </div>
@@ -173,7 +178,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
             {rules.tier === 1 && (
               <div>
               <Label className="pb-2">Endorsement</Label>
-              <Select defaultValue={endorsement} onValueChange={(v) => setEndorsement(v)}>
+              <Select value={endorsement} onValueChange={(v) => setEndorsement(v)}>
                 <SelectTrigger className="w-full">
                 <SelectValue placeholder="Bitte Wählen" />
                 </SelectTrigger>
@@ -189,7 +194,6 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
               </Select>
               </div>
             )}
-          
           <div>
             <Label className="pb-2">Desired Position</Label>
             <Input

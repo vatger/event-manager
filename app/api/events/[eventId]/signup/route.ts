@@ -4,8 +4,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 
 // GET: alle Signups für ein Event
-export async function GET(req: Request, { params }: { params: { id: string } }) {
-  const eventId = parseInt(params.id, 10);
+export async function GET(req: Request, { params }: { params: { eventId: string } }) {
+  const eventId = parseInt(params.eventId, 10);
 
   try {
     const signups = await prisma.eventSignup.findMany({
@@ -21,11 +21,11 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // POST: neuen Signup anlegen
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: { eventId: string } }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const eventId = parseInt(params.id, 10);
+  const eventId = parseInt(params.eventId, 10);
   const body = await req.json();
 
   try {
