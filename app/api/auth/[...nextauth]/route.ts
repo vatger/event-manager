@@ -21,9 +21,10 @@ const VatsimProvider = {
   clientSecret: process.env.VATSIM_CLIENT_SECRET,
   profile(profile: any) {
     const data = profile?.data || profile
+    const cid = Number(data.cid)
     return {
-      id: data.cid?.toString(),
-      cid: data.cid?.toString(),
+      id: String(cid),
+      cid: String(cid),
       name: data.personal?.name_full || `${data.personal?.name_first} ${data.personal?.name_last}`,
       rating: data.vatsim.rating.short,
     }
@@ -35,16 +36,23 @@ export const authOptions = {
   providers: [VatsimProvider],
   callbacks: {
     async signIn({ user }: any) {
+      // Immer als Integer verwenden
+      const cid = Number(user.cid);
+      if (!Number.isFinite(cid)) {
+        console.error("Ungültige CID erhalten:", user.cid);
+        return false;
+      }
+
       //check if user exists in the database
       const existingUser = await prisma.user.findUnique({
-        where: { cid: user.cid },
+        where: { cid },
       });
 
       if (!existingUser) {
         // If user does not exist, create a new user
         await prisma.user.create({
           data: {
-            cid: user.cid,
+            cid,
             name: user.name,
             rating: user.rating,
           },
@@ -53,7 +61,7 @@ export const authOptions = {
         // Update falls sich Name oder Rating geändert haben
         if (existingUser.name !== user.name || existingUser.rating !== user.rating) {
           await prisma.user.update({
-            where: { cid: user.cid },
+            where: { cid },
             data: {
               name: user.name,
               rating: user.rating,
@@ -66,8 +74,9 @@ export const authOptions = {
     },
     async jwt({ token, user }: any) {
       if (user) {
-        token.id = user.id
-        token.cid = user.cid
+        const cid = Number(user.cid)
+        token.id = String(cid)
+        token.cid = String(cid)
         token.name = user.name
         token.rating = user.rating
       }

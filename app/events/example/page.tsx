@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table"
+import { useEventSignup } from "@/hooks/useEventSignup"
 import { AnimatePresence } from "framer-motion"
-import { useState } from "react"
+import { useSession } from "next-auth/react"
+import { useState, useEffect, useMemo } from "react"
 
 const eventData = {
   name: "Munich Overload",
@@ -46,13 +48,84 @@ function groupBySuffix(stations: string[]) {
 }
 
 export default function EventPage(){
-    
-    const { name, startTime, endTime, description, bannerUrl, status, airports, rosterUrl, briefingUrl, staffedStations, participants } =
+    const {data: session} = useSession()
+
+    const userCID = session?.user.id;
+    const { name, startTime, endTime, description, bannerUrl, status, airports, rosterUrl, briefingUrl, staffedStations } =
         eventData
 
     const grouped = groupBySuffix(staffedStations)
-    const [selectedEvent, setSelectedEvent] = useState<any | null>(null); 
-    
+    const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+    const [signups, setSignups] = useState<any[]>([]);
+    const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
+    const [signupsError, setSignupsError] = useState<string>("");
+
+    const loadSignups = () => {
+      setSignupsLoading(true);
+      fetch(`/api/events/${eventData.id}/signup`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Fehler beim Laden der Anmeldungen");
+          return res.json();
+        })
+        .then((data) => setSignups(data))
+        .catch((err) => {
+          console.error(err);
+          setSignupsError("Fehler beim Laden der Anmeldungen");
+        })
+        .finally(() => setSignupsLoading(false));
+    };
+
+    useEffect(() => {
+      loadSignups();
+    }, []);
+
+    const areaOrder = ["GND", "DEL", "TWR", "APP", "CTR"]; // GND oben, CTR unten
+
+    const badgeClassFor = (endorsement?: string) => {
+      switch (endorsement) {
+        case "GND":
+          return "bg-green-100 text-green-800";
+        case "DEL":
+          return "bg-blue-100 text-blue-800";
+        case "TWR":
+          return "bg-amber-100 text-amber-800";
+        case "APP":
+          return "bg-purple-100 text-purple-800";
+        case "CTR":
+          return "bg-red-100 text-red-800";
+        default:
+          return "bg-gray-100 text-gray-800";
+      }
+    };
+
+    const groupedSignups = useMemo(() => {
+      const groups: Record<string, any[]> = {};
+      for (const s of signups) {
+        const key = (s.endorsement || "UNSPEC") as string;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(s);
+      }
+      return groups;
+    }, [signups]);
+
+    const orderedAreas = useMemo(() => {
+      const present = Object.keys(groupedSignups);
+      const idx = (v: string) => {
+        const i = areaOrder.indexOf(v);
+        return i === -1 ? 999 : i;
+      };
+      return present.sort((a, b) => idx(a) - idx(b));
+    }, [groupedSignups]);
+
+    const formatAvailability = (availability?: any) => {
+      if(availability?.unavailable.length == 0) return "full"
+      const ranges = availability?.available as { start: string; end: string }[] | undefined;
+      if (!ranges || ranges.length === 0) return "-";
+      return ranges.map((r) => `${r.start}z-${r.end}z`).join(", ");
+    };
+
+    const { loading, isSignedUp, signupData, refetch } = useEventSignup(eventData.id, Number(userCID));
+
     return (
         // <div className="max-w-5xl mx-auto space-y-6 p-4">
         //     {/* Banner */}
@@ -101,12 +174,20 @@ export default function EventPage(){
               </div>
             )}
 
-            {status=="PLANNING" ? (
+            {status==="PLANNING" ? (
               <Button className="w-full" variant={"secondary"}>Not Open</Button>
-            ) : status=="SIGNUP_OPEN" ? (
-              <Button className="w-full mt-2" onClick={() => setSelectedEvent(eventData)}>Jetzt anmelden</Button>
-            ) : status=="ROSTER" ? (
+            ) : status==="SIGNUP_OPEN" ? (
+              loading ? (
+                <Button className="w-full mt-2" disabled>Laden...</Button>
+              ) : (
+                <Button className="w-full mt-2" onClick={() => setSelectedEvent(eventData)}>
+                  {isSignedUp ? "Anmeldung bearbeiten" : "Jetzt anmelden"}
+                </Button>
+              )
+            ) : status==="ROSTER" ? (
               <Button className="w-full">Besetzungsplan</Button>
+            ) : (status === "SIGNUP_CLOSED" || status === "closed") ? (
+              <Button className="w-full" variant={"secondary"} disabled>Anmeldung geschlossen</Button>
             ) : (
               <Button className="w-full">Closed</Button>
             )}
@@ -139,17 +220,41 @@ export default function EventPage(){
               <TableRow>
                 <TableHead>CID</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Station</TableHead>
+                <TableHead>Availability</TableHead>
+                <TableHead>RMK</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-            {participants.map((p) => (
-              <TableRow key={p.cid}>
-                <TableCell>{p.cid}</TableCell>
-                <TableCell>{p.name}</TableCell>
-                <TableCell>{p.position}</TableCell>
+            {signupsLoading ? (
+              <TableRow>
+                <TableCell colSpan={4}>Laden...</TableCell>
               </TableRow>
-            ))}
+            ) : signupsError ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-red-500">{signupsError}</TableCell>
+              </TableRow>
+            ) : signups.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>Keine Anmeldungen</TableCell>
+              </TableRow>
+            ) : (
+              orderedAreas.flatMap((area) => [
+                <TableRow key={`group-${area}`}>
+                  <TableCell colSpan={4} className="bg-muted/50 font-semibold">{area}</TableCell>
+                </TableRow>,
+                ...(groupedSignups[area] || []).map((s: any) => (
+                  <TableRow key={s.id}>
+                    <TableCell>{s.user?.cid ?? s.userCID}</TableCell>
+                    <TableCell className="flex items-center gap-2">
+                      {s.user?.name ?? ""}
+                      <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
+                    </TableCell>
+                    <TableCell>{formatAvailability(s.availability)}</TableCell>
+                    <TableCell>{s.remarks ?? "-"}</TableCell>
+                  </TableRow>
+                )),
+              ])
+            )}
             </TableBody>
           </Table>
         </CardContent>
@@ -168,6 +273,7 @@ export default function EventPage(){
           <SignupForm
             event={selectedEvent}
             onClose={() => setSelectedEvent(null)}
+            onChanged={() => { refetch(); loadSignups(); }}
           />
         )}
       </AnimatePresence>

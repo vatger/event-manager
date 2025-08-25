@@ -238,7 +238,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
     <Card className="w-full">
       <CardHeader className="flex items-start flex-col gap-3">
         <div className="flex-1">
-          <span className="mt-1 text-xs text-muted-foreground">Wähle deine Verfügbarkeit aus</span>
+          <span className="mt-1 text-xs text-muted-foreground">Wähle deine Verfügbarkeit aus (all Times UTC)</span>
         </div>
         
         {showLegend && <Legend />}

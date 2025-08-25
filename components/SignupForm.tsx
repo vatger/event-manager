@@ -24,11 +24,12 @@ import { useSession } from "next-auth/react";
 interface SignupFormProps {
   event: any;
   onClose: () => void;
+  onChanged?: () => void;
 }
 type TimeRange = { start: string; end: string };
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
 
-export default function SignupForm({ event, onClose }: SignupFormProps) {
+export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
   const userCID = session?.user.id;
 
@@ -106,6 +107,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
         return;
       }
 
+      onChanged?.();
       onClose();
     } catch (err) {
       console.error("Anmeldung speichern fehlgeschlagen:", err);
@@ -135,6 +137,7 @@ export default function SignupForm({ event, onClose }: SignupFormProps) {
         return;
       }
 
+      onChanged?.();
       onClose();
     } catch (err) {
       console.error("Anmeldung löschen fehlgeschlagen:", err);

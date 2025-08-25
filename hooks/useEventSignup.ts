@@ -1,15 +1,24 @@
 import { useState, useEffect } from "react";
 
-export function useEventSignup(eventId: number, userId: number) {
+export function useEventSignup(eventId?: number | string, userId?: number | string) {
   const [loading, setLoading] = useState(true);
   const [isSignedUp, setIsSignedUp] = useState(false);
   const [signupData, setSignupData] = useState<any>(null);
 
-  useEffect(() => {
-    if (!eventId || !userId) return;
+  const load = () => {
+    if (!eventId || !userId) {
+      // Kein eingeloggter User oder keine Event-ID: kein Signup vorhanden
+      setIsSignedUp(false);
+      setSignupData(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
-    fetch(`/api/events/${eventId}/signup/${userId}`)
+    const ev = String(eventId);
+    const uid = String(userId);
+
+    fetch(`/api/events/${ev}/signup/${uid}`)
       .then(async (res) => {
         if (res.status === 404) {
           setIsSignedUp(false);
@@ -29,7 +38,11 @@ export function useEventSignup(eventId: number, userId: number) {
         setSignupData(null);
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, [eventId, userId]);
 
-  return { loading, isSignedUp, signupData };
+  return { loading, isSignedUp, signupData, refetch: load };
 }
