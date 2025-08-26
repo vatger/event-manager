@@ -36,6 +36,13 @@ type EventDetails = {
   status?: string;
 };
 
+type DevUser = {
+  id: number;
+  cid: number;
+  name: string;
+  rating: string;
+};
+
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
 // ---- Helpers ----
@@ -219,6 +226,18 @@ export default function DevAddSignupsPage() {
   const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
   const [signupsError, setSignupsError] = useState<string>("");
 
+  // Users management state
+  const [users, setUsers] = useState<DevUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState<boolean>(false);
+  const [usersError, setUsersError] = useState<string>("");
+  const [selectedUserCID, setSelectedUserCID] = useState<string>("");
+
+  // New user form
+  const [newCid, setNewCid] = useState<string>("");
+  const [newName, setNewName] = useState<string>("");
+  const [newRating, setNewRating] = useState<string>("");
+  const [creatingUser, setCreatingUser] = useState<boolean>(false);
+
   // Create form state
   const createRef = useRef<AvailabilitySelectorHandle>(null);
   const [cEndorsement, setCEndorsement] = useState<string>("");
@@ -280,9 +299,64 @@ export default function DevAddSignupsPage() {
     }
   }
 
+  async function loadUsers() {
+    setUsersLoading(true);
+    setUsersError("");
+    try {
+      const res = await fetch(`/api/user`);
+      if (!res.ok) throw new Error("Benutzer konnten nicht geladen werden");
+      const data = await res.json();
+      setUsers(data);
+    } catch (e: any) {
+      setUsersError(e.message || String(e));
+      setUsers([]);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  async function createNewUser() {
+    if (!newCid || !newName || !newRating) {
+      alert("Bitte CID, Name und Rating angeben.");
+      return;
+    }
+    setCreatingUser(true);
+    try {
+      const res = await fetch(`/api/user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cid: parseInt(newCid, 10),
+          name: newName,
+          rating: newRating,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || "Benutzer-Erstellung fehlgeschlagen");
+        return;
+      }
+      await loadUsers();
+      setSelectedUserCID(String(data.cid ?? newCid));
+      setNewCid("");
+      setNewName("");
+      setNewRating("");
+    } finally {
+      setCreatingUser(false);
+    }
+  }
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
   async function createSignup() {
     if (!event) {
       alert("Bitte erst ein Event laden.");
+      return;
+    }
+    if (!selectedUserCID) {
+      alert("Bitte einen Benutzer auswählen.");
       return;
     }
     setCreating(true);
@@ -292,6 +366,7 @@ export default function DevAddSignupsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: event.id,
+          userCID: Number(selectedUserCID),
           availability: {
             available: createRef.current?.getAvailable(),
             unavailable: createRef.current?.getUnavailable(),
@@ -337,12 +412,57 @@ export default function DevAddSignupsPage() {
         </CardContent>
       </Card>
 
+      {/* Benutzerverwaltung */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Benutzer erstellen</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <Label>CID</Label>
+              <Input value={newCid} onChange={(e) => setNewCid(e.target.value)} placeholder="z. B. 1234567" />
+            </div>
+            <div>
+              <Label>Name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Vorname Nachname" />
+            </div>
+            <div>
+              <Label>Rating</Label>
+              <Input value={newRating} onChange={(e) => setNewRating(e.target.value)} placeholder="z. B. S2, C1" />
+            </div>
+            <div className="flex items-end justify-end">
+              <Button onClick={createNewUser} disabled={creatingUser}>{creatingUser ? "Erstelle..." : "Benutzer anlegen"}</Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={loadUsers} disabled={usersLoading}>{usersLoading ? "Lade..." : "Benutzer neu laden"}</Button>
+            {usersError && <span className="text-xs text-red-500">{usersError}</span>}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Create new signup for current session user */}
       <Card>
         <CardHeader>
-          <CardTitle>Neues Signup (aktueller User)</CardTitle>
+          <CardTitle>Neues Signup (ausgewählter Benutzer)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div>
+            <Label>Benutzer auswählen</Label>
+            <Select value={selectedUserCID} onValueChange={setSelectedUserCID}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Bitte Benutzer wählen" /></SelectTrigger>
+              <SelectContent>
+                {users.map((u) => (
+                  <SelectItem key={u.cid} value={String(u.cid)}>
+                    {u.cid} — {u.name} ({u.rating})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {usersLoading && <div className="text-xs text-muted-foreground mt-1">Lade Benutzer...</div>}
+            {usersError && <div className="text-xs text-red-500 mt-1">{usersError}</div>}
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label>Endorsement</Label>

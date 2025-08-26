@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Trash2, Edit, Eye } from "lucide-react";
+import Link from "next/link";
 
 interface Props {
   event: {
@@ -69,9 +70,11 @@ export function EventCard({ event, onEdit, onDelete, onStatusChange }: Props) {
           Controlleranmeldung öffnen
         </Button>
         )}
-        <Button size="sm" variant="outline">
-          <Eye className="w-4 h-4 mr-1" /> View Signups
-        </Button>
+        <Link href={`admin/events/${event.id}/signups`}>
+          <Button size="sm" variant="outline">
+            <Eye className="w-4 h-4 mr-1" /> View Signups
+          </Button>
+        </Link>
         <Button size="sm" variant="destructive" onClick={onDelete}>
           <Trash2 className="w-4 h-4" />
         </Button>
