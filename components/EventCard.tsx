@@ -75,7 +75,7 @@ import Link from "next/link";
             // <Button className={isSignedUp ? "bg-green-600 hover:bg-green-700 w-full" : "w-full hover:bg-gray-700"} onClick={onClick}>
             //   {isSignedUp ? "Edit Sign up" : "Sign up"}
             // </Button>
-            <Link className="w-full" href="/events/example">
+            <Link className="w-full" href={`/events/${event.id}`}>
               <Button className="w-full hover:bg-gray-700">See More</Button>
             </Link>
           ) : (
