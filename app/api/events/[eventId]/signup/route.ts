@@ -28,6 +28,10 @@ export async function POST(req: Request, { params }: { params: { eventId: string
   const eventId = parseInt(params.eventId, 10);
   const body = await req.json();
 
+  const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
+  if(!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
+  if(eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen"}, {status: 500})
+
   try {
     const signup = await prisma.eventSignup.create({
       data: {

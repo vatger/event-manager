@@ -1,11 +1,11 @@
 "use client"
 
 import SignupForm from "@/components/SignupForm"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEventSignup } from "@/hooks/useEventSignup"
 import { AnimatePresence } from "framer-motion"
 import { useSession } from "next-auth/react"
@@ -24,7 +24,7 @@ const eventData = {
   briefingUrl: "https://yourcdn.com/briefing.pdf",
   staffedStations: [
     "EDDM_DEL", "EDDM_C_DEL", "EDDM_1_GND", "EDDM_2_GND", "EDDM_N_GND", "EDDM_S_GND",
-    "EDDM_N_TWR", "EDDM_S_TWR", "EDDM_NH_APP", "EDDM_SH_APP", "EDDM_NL_APP", "EDDM_SL_APP", "EDDM_NL_APP", "EDDM_SD_APP", "EDMM_WLD_CTR", "EDMM_STA_CTR", "EDUU_APL_CTR", "EDUU_CHI_CTR", "EDMM_ALB_CTR"
+    "EDDM_N_TWR", "EDDM_S_TWR", "EDDM_NH_APP", "EDDM_SH_APP", "EDDM_NL_APP", "EDDM_SL_APP", "EDDM_ND_APP", "EDDM_SD_APP", "EDMM_WLD_CTR", "EDMM_STA_CTR", "EDUU_APL_CTR", "EDUU_CHI_CTR", "EDMM_ALB_CTR"
   ],
   participants: [
     { name: "Yannik Schäffler", cid: "1234567", position: "EDDM_NL_APP" },
@@ -154,26 +154,7 @@ export default function EventPage(){
             <p><span className="font-semibold">Zeit:</span> {endTime}</p>
             <p><span className="font-semibold">Airport:</span> {airports}</p>
             <p><span className="font-semibold">Remarks:</span> {description}</p>
-            {status=="SIGNUP_OPEN" || status=="closed" && (
-              <div>
-                <p><span className="font-semibold">Zu besetzende Stationen:</span></p>
-                <Accordion type="single" collapsible className="w-full">
-                  {Object.entries(grouped).map(([area, stations]) => (
-                    <AccordionItem key={area} value={area}>
-                      <AccordionTrigger>{area}</AccordionTrigger>
-                      <AccordionContent>
-                        <ul className="list-disc pl-6 space-y-1">
-                          {stations.map((s) => (
-                            <li key={s}>{s}</li>
-                          ))}
-                        </ul>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            )}
-
+            
             {status==="PLANNING" ? (
               <Button className="w-full" variant={"secondary"}>Not Open</Button>
             ) : status==="SIGNUP_OPEN" ? (
@@ -208,6 +189,41 @@ export default function EventPage(){
         </div>
 
 
+
+      {(status === "SIGNUP_OPEN" || status === "SIGNUP_CLOSED") && (
+        <Card className="relative overflow-hidden">
+          <CardHeader>
+            <CardTitle>Zu besetzende Stationen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue={(Object.keys(grouped)[0] || "GND")} className="w-full">
+              <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
+                {Object.entries(grouped).map(([area, stations]) => (
+                  <TabsTrigger
+                    key={area}
+                    value={area}
+                    className="rounded-md px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
+                  >
+                    {area}
+                    <span className="ml-2 text-xs text-muted-foreground">({(stations as string[]).length})</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {Object.entries(grouped).map(([area, stations]) => (
+                <TabsContent key={area} value={area}>
+                  <div className="flex flex-wrap gap-2">
+                    {(stations as string[]).map((s) => (
+                      <Badge key={s} variant="secondary" className="text-xs px-2.5 py-1 rounded-md">
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Teilnehmer Tabelle */}
       <Card className="relative overflow-hidden">

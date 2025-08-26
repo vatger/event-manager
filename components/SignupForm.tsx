@@ -36,7 +36,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [availability, setAvailability] = useState<Availability>();
   const [endorsement, setEndorsement] = useState("");
   const [desiredPosition, setDesiredPosition] = useState("");
-  const [breaks, setBreaks] = useState("");
+  const [remarks, setRemarks] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -58,7 +58,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setAvailability(signupData.availability ?? {});
     setEndorsement(signupData.endorsement ?? "");
     setDesiredPosition(signupData.preferredStations ?? "");
-    setBreaks(signupData.breakrequests ?? "");
+    setRemarks(signupData.remarks ?? "");
 
     setHydrated(true);
 
@@ -96,7 +96,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           availability: {available: avselectorRef.current?.getAvailable(), unavailable: avselectorRef.current?.getUnavailable()},
           endorsement,
           preferredStations: desiredPosition,
-          breakrequests: breaks,
+          remarks,
         }),
       });
 
@@ -207,11 +207,11 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           </div>
 
           <div>
-            <Label className="pb-2">Break Requests</Label>
+            <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder="Any break requests..."
-              value={breaks}
-              onChange={(e) => setBreaks(e.target.value)}
+              placeholder="Some space..."
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
             />
           </div>
           {error && (

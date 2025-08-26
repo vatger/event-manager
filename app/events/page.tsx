@@ -85,9 +85,9 @@ export default function EventPage() {
                       <div className="flex justify-between items-center">
                         <span className="font-mono">{p}</span>
                         {assigned ? (
-                          <span className="text-green-600 font-semibold">{assigned.name}</span>
+                          <span className="text-gray-400 font-semibold">121.710</span>
                         ) : (
-                          <span className="text-gray-400 italic">frei</span>
+                          <span className="text-gray-400 italic">118.705</span>
                         )}
                       </div>
                     </Card>
