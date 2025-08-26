@@ -37,6 +37,8 @@ const eventData = {
   ],
 }
 
+const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
+
 // Hilfsfunktion: nach den letzten 3 Buchstaben gruppieren
 function groupBySuffix(stations: string[]) {
   return stations.reduce((acc: Record<string, string[]>, station) => {
@@ -55,6 +57,7 @@ export default function EventPage(){
         eventData
 
     const grouped = groupBySuffix(staffedStations)
+    const sortedgrouped = Object.entries(grouped).sort( ([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY) )
     const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
     const [signups, setSignups] = useState<any[]>([]);
     const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
@@ -79,8 +82,7 @@ export default function EventPage(){
       loadSignups();
     }, []);
 
-    const areaOrder = ["GND", "DEL", "TWR", "APP", "CTR"]; // GND oben, CTR unten
-
+    
     const badgeClassFor = (endorsement?: string) => {
       switch (endorsement) {
         case "GND":
@@ -110,10 +112,7 @@ export default function EventPage(){
 
     const orderedAreas = useMemo(() => {
       const present = Object.keys(groupedSignups);
-      const idx = (v: string) => {
-        const i = areaOrder.indexOf(v);
-        return i === -1 ? 999 : i;
-      };
+      const idx = (v: string) => PRIORITY[v] ?? 999;
       return present.sort((a, b) => idx(a) - idx(b));
     }, [groupedSignups]);
 
@@ -196,9 +195,9 @@ export default function EventPage(){
             <CardTitle>Zu besetzende Stationen</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={(Object.keys(grouped)[0] || "GND")} className="w-full">
+            <Tabs defaultValue={(sortedgrouped[0]?.[0] || "DEL")} className="w-full">
               <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
-                {Object.entries(grouped).map(([area, stations]) => (
+                {sortedgrouped.map(([area, stations]) => (
                   <TabsTrigger
                     key={area}
                     value={area}
@@ -209,7 +208,7 @@ export default function EventPage(){
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {Object.entries(grouped).map(([area, stations]) => (
+              {sortedgrouped.map(([area, stations]) => (
                 <TabsContent key={area} value={area}>
                   <div className="flex flex-wrap gap-2">
                     {(stations as string[]).map((s) => (

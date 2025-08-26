@@ -29,6 +29,27 @@ interface SignupFormProps {
 type TimeRange = { start: string; end: string };
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
 
+// Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf 30-Min-Raster
+function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
+  if (!dateIso) return "00:00";
+  const d = new Date(dateIso);
+  let hh = d.getHours();
+  let mm = d.getMinutes();
+  if (round === "down") {
+    mm = mm - (mm % 30);
+  } else if (round === "up") {
+    const extra = mm % 30;
+    if (extra !== 0) {
+      mm = mm + (30 - extra);
+      if (mm >= 60) {
+        mm -= 60;
+        hh = (hh + 1) % 24;
+      }
+    }
+  }
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
   const userCID = session?.user.id;
@@ -171,10 +192,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Availability</Label>
             <AvailabilitySlider
-            eventStart="16:00"
-            eventEnd="21:00"
-            initialUnavailable={availability?.unavailable}
-            innerRef={avselectorRef}
+              eventStart={toHHMMUTC(event.startTime, "down")}
+              eventEnd={toHHMMUTC(event.endTime, "up")}
+              initialUnavailable={availability?.unavailable}
+              innerRef={avselectorRef}
             />
           </div>
           
