@@ -180,6 +180,23 @@ export default function AdminEventSignupsPage() {
 
   const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
 
+  // Dynamic sizing for the availability timeline:
+  // - First column has a fixed width (controller info)
+  // - Each time slot column has a minimum width
+  // - We compute a minWidth for the entire scroll container so that a scrollbar appears
+  //   before cells shrink below that minimum.
+  const NAME_COL_PX = 240;          // width of the "Controller" column
+  const SLOT_MIN_PX = 40;           // minimum width per 30-min slot column (kept consistent with minmax below)
+  const slotCount = useMemo(() => Math.max(slots.length - 1, 0), [slots.length]);
+  const gridTemplateColumns = useMemo(
+    () => `${NAME_COL_PX}px repeat(${slotCount}, minmax(${SLOT_MIN_PX}px, 1fr))`,
+    [slotCount]
+  );
+  const timelineMinWidth = useMemo(
+    () => NAME_COL_PX + slotCount * SLOT_MIN_PX,
+    [slotCount]
+  );
+
   if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
   if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
 
@@ -206,11 +223,7 @@ export default function AdminEventSignupsPage() {
           <CardTitle>Controller Statistik</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
-            <div>
-              <p className="text-sm text-muted-foreground">DEL</p>
-              <p className="text-xl font-semibold">{stats.DEL}</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
             <div>
               <p className="text-sm text-muted-foreground">GND</p>
               <p className="text-xl font-semibold">{stats.GND}</p>
@@ -243,7 +256,7 @@ export default function AdminEventSignupsPage() {
             <div className="text-sm text-muted-foreground">Keine Anmeldungen vorhanden.</div>
           ) : (
             <div className="overflow-x-auto">
-              <div className="min-w-[960px]">
+              <div style={{ minWidth: timelineMinWidth }}>
                 {/* Header Row */}
                 <div className="grid items-center" style={{ gridTemplateColumns: `240px repeat(${Math.max(slots.length - 1, 0)}, minmax(28px, 1fr))` }}>
                   <div className="text-xs text-muted-foreground px-2">Controller</div>
@@ -272,6 +285,7 @@ export default function AdminEventSignupsPage() {
                             </div>
                             <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
                           </div>
+
                           {slots.slice(0, -1).map((st) => {
                             const unavailableSlot = isSlotUnavailable(st, unavailable);
                             const cls = hasAvailability
@@ -301,8 +315,8 @@ export default function AdminEventSignupsPage() {
               <TableRow>
                 <TableHead>CID</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Endorsement</TableHead>
                 <TableHead>Availability</TableHead>
+                <TableHead>Desired Position</TableHead>
                 <TableHead>RMK</TableHead>
               </TableRow>
             </TableHeader>
@@ -331,7 +345,6 @@ export default function AdminEventSignupsPage() {
                         {s.user?.name ?? ""}
                         <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
                       </TableCell>
-                      <TableCell>{s.endorsement || "-"}</TableCell>
                       <TableCell>
                         {s.availability?.unavailable && s.availability.unavailable.length === 0
                           ? "full"
@@ -339,6 +352,7 @@ export default function AdminEventSignupsPage() {
                               .map((r: TimeRange) => `${r.start}z-${r.end}z`)
                               .join(", ") || "-"}
                       </TableCell>
+                      <TableCell>{s.preferredStations || "-"}</TableCell>
                       <TableCell>{s.remarks ?? "-"}</TableCell>
                     </TableRow>
                   )),
