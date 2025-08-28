@@ -13,7 +13,7 @@ export async function GET(
     }
 
     const signups = await prisma.eventSignup.findMany({
-      where: { userId },
+      where: { userCID: userId },
       include: {
         event: true, // liefert Event-Infos mit
       },

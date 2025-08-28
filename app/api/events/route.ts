@@ -27,13 +27,46 @@ const eventSchema = z.object({
 });
 
 // --- GET: Alle Events ---
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const url = new URL(req.url);
+    const userCIDParam = url.searchParams.get("userCID");
+    const parsedCID = userCIDParam ? parseInt(userCIDParam, 10) : NaN;
+    const userCID = Number.isNaN(parsedCID) ? null : parsedCID;
+
     const events = await prisma.event.findMany({
       orderBy: { startTime: "asc" },
+      include: {
+        _count: {
+          select: { signups: true },
+        },
+      },
     });
 
-    return NextResponse.json(events, { status: 200 });
+    let signedSet: Set<number> | null = null;
+    if (userCID !== null) {
+      const eventIds = events.map((e) => e.id);
+      if (eventIds.length > 0) {
+        const signups = await prisma.eventSignup.findMany({
+          where: {
+            userCID,
+            eventId: { in: eventIds },
+          },
+          select: { eventId: true },
+        });
+        signedSet = new Set(signups.map((s) => s.eventId));
+      } else {
+        signedSet = new Set();
+      }
+    }
+
+    const result = events.map(({ _count, ...event }) => ({
+      ...event,
+      registrations: _count?.signups ?? 0,
+      ...(signedSet ? { isSignedUp: signedSet.has(event.id) } : {}),
+    }));
+
+    return NextResponse.json(result, { status: 200 });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

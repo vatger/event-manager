@@ -8,9 +8,8 @@ import {
   } from "@/components/ui/card";
   import { Button } from "@/components/ui/button";
   import { Badge } from "@/components/ui/badge";
-  import { Calendar, MapPin, Users } from "lucide-react";
-import { useEventSignup } from "@/hooks/useEventSignup";
-import Link from "next/link";
+  import { Calendar, MapPin, UserCheck, Users } from "lucide-react";
+  import Link from "next/link";
   
   interface EventCardProps {
     event: {
@@ -25,6 +24,7 @@ import Link from "next/link";
       signupDeadline: string;
       registrations: number;
       status: string;
+      isSignedUp?: boolean;
     };
     onClick: () => void;
   }
@@ -39,8 +39,7 @@ import Link from "next/link";
       timeStyle: "short",
     });
     
-    const { isSignedUp } = useEventSignup(event.id)
-  
+      
     const statusColor =
       event.status === "SIGNUP_OPEN"
         ? "bg-green-100 text-green-800"
@@ -59,30 +58,28 @@ import Link from "next/link";
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-gray-500" />
-            <span>{startDate} – {endDate}</span>
+            <span>{startDate}lcl – {endDate}lcl</span>
           </div>
   
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-500" />
-            <span>{event.registrations} Registrations</span>
+            <span>{event.registrations} {event.registrations == 1 ? "Registration" : "Registrations"}</span>
           </div>
+
+          
   
-          <Badge variant={event.status=="SIGNUP_OPEN" ? "default" : "secondary"} className={statusColor}>{event.status}</Badge>
+          <Badge variant={event.status==="SIGNUP_OPEN" ? "default" : "secondary"} className={statusColor}>{event.status}</Badge>
         </CardContent>
   
         <CardFooter>
-          {event.status === "SIGNUP_OPEN" ? (
-            // <Button className={isSignedUp ? "bg-green-600 hover:bg-green-700 w-full" : "w-full hover:bg-gray-700"} onClick={onClick}>
-            //   {isSignedUp ? "Edit Sign up" : "Sign up"}
-            // </Button>
             <Link className="w-full" href={`/events/${event.id}`}>
-              <Button className="w-full hover:bg-gray-700">See More</Button>
+              <Button className="w-full hover:bg-gray-700">
+                See More
+                {typeof event.isSignedUp === "boolean" && event.isSignedUp && (
+                  <UserCheck />
+                )} 
+              </Button>
             </Link>
-          ) : (
-            <Button className="w-full" variant="outline" disabled>
-              Not Open
-            </Button>
-          )}
         </CardFooter>
       </Card>
     );

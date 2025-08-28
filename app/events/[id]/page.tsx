@@ -4,23 +4,32 @@ import SignupForm from "@/components/SignupForm"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useEventSignup } from "@/hooks/useEventSignup"
 import { AnimatePresence } from "framer-motion"
 import { useSession } from "next-auth/react"
 import { useState, useEffect, useMemo } from "react"
 import { useParams } from "next/navigation"
+import { stationsConfig, StationGroup } from "@/data/station_configs"
+import SignupsTable from "@/components/SignupsTable"
 
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
-// Hilfsfunktion: nach den letzten 3 Buchstaben gruppieren
-function groupBySuffix(stations: string[]) {
-  return stations.reduce((acc: Record<string, string[]>, station) => {
-    const suffix = station.slice(-3) // z. B. "GND", "DEL", "TWR", "APP", "CTR"
-    if (!acc[suffix]) acc[suffix] = []
-    acc[suffix].push(station)
+// Gruppiere Stations nach der Config (Fallback: Suffix)
+const callsignToGroup: Record<string, StationGroup> = Object.fromEntries(
+  stationsConfig.map((s) => [s.callsign, s.group])
+)
+
+const callsignOrder: Record<string, number> = Object.fromEntries(
+  stationsConfig.map((s, idx) => [s.callsign, idx])
+)
+
+function groupByConfig(stations: string[]) {
+  return stations.reduce((acc: Record<string, string[]>, cs) => {
+    const grp = callsignToGroup[cs] ?? cs.slice(-3)
+    if (!acc[grp]) acc[grp] = []
+    acc[grp].push(cs)
     return acc
   }, {})
 }
@@ -93,47 +102,6 @@ export default function EventPage(){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  
-  const badgeClassFor = (endorsement?: string) => {
-    switch (endorsement) {
-      case "DEL":
-        return "bg-green-100 text-green-800";
-      case "GND":
-        return "bg-blue-100 text-blue-800";
-      case "TWR":
-        return "bg-amber-100 text-amber-800";
-      case "APP":
-        return "bg-purple-100 text-purple-800";
-      case "CTR":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const groupedSignups = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    for (const s of signups) {
-      const key = (s.endorsement || "UNSPEC") as string;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(s);
-    }
-    return groups;
-  }, [signups]);
-
-  const orderedAreas = useMemo(() => {
-    const present = Object.keys(groupedSignups);
-    const idx = (v: string) => PRIORITY[v] ?? 999;
-    return present.sort((a, b) => idx(a) - idx(b));
-  }, [groupedSignups]);
-
-  const formatAvailability = (availability?: any) => {
-    if(availability?.unavailable?.length === 0) return "full";
-    const ranges = availability?.available as { start: string; end: string }[] | undefined;
-    if (!ranges || ranges.length === 0) return "-";
-    return ranges.map((r) => `${r.start}z-${r.end}z`).join(", ");
-  };
-
   const eventId = event?.id ?? id;
   const { loading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
@@ -141,8 +109,13 @@ export default function EventPage(){
   if (eventError) return <p className="p-6 text-center text-red-500">{eventError}</p>;
   if (!event) return <p className="p-6 text-center">Event nicht gefunden</p>;
 
-  const grouped = groupBySuffix(event?.staffedStations || []);
-  const sortedgrouped = Object.entries(grouped).sort( ([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY) )
+  const grouped = groupByConfig(event?.staffedStations || []);
+  const sortedgrouped = Object.entries(grouped)
+    .sort( ([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY) )
+    .map(([area, stations]) => [
+      area,
+      stations.sort((a, b) => (callsignOrder[a] ?? Number.POSITIVE_INFINITY) - (callsignOrder[b] ?? Number.POSITIVE_INFINITY))
+    ]);
   const dateLabel = new Date(event.startTime).toLocaleDateString("de-DE");
   const timeLabel = `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}`;
   const airportsLabel = Array.isArray(event.airports) ? event.airports.join(", ") : String(event.airports ?? "-");
@@ -212,7 +185,7 @@ export default function EventPage(){
             <CardTitle>Zu besetzende Stationen</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={(sortedgrouped[0]?.[0] || "DEL")} className="w-full">
+            <Tabs defaultValue={(sortedgrouped[0]?.[0] || "GND")} className="w-full">
               <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
                 {sortedgrouped.map(([area, stations]) => (
                   <TabsTrigger
@@ -247,48 +220,12 @@ export default function EventPage(){
           <CardTitle>Angemeldete Teilnehmer</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>CID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Availability</TableHead>
-                <TableHead>RMK</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-            {signupsLoading ? (
-              <TableRow>
-                <TableCell colSpan={4}>Laden...</TableCell>
-              </TableRow>
-            ) : signupsError ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-red-500">{signupsError}</TableCell>
-              </TableRow>
-            ) : signups.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4}>Keine Anmeldungen</TableCell>
-              </TableRow>
-            ) : (
-              orderedAreas.flatMap((area) => [
-                <TableRow key={`group-${area}`}>
-                  <TableCell colSpan={4} className="bg-muted/50 font-semibold">{area}</TableCell>
-                </TableRow>,
-                ...(groupedSignups[area] || []).map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.user?.cid ?? s.userCID}</TableCell>
-                    <TableCell className="flex items-center gap-2">
-                      {s.user?.name ?? ""}
-                      <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
-                    </TableCell>
-                    <TableCell>{formatAvailability(s.availability)}</TableCell>
-                    <TableCell>{s.remarks ?? "-"}</TableCell>
-                  </TableRow>
-                )),
-              ])
-            )}
-            </TableBody>
-          </Table>
+        <SignupsTable
+        signups={signups as any}
+        loading={signupsLoading}
+        error={signupsError}
+        columns={["cid", "name", "availability", "remarks"]}
+        />
         </CardContent>
 
         {event.status==="PLAN_UPLOADED" && (

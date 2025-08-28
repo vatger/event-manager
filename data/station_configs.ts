@@ -8,15 +8,15 @@ export interface Station {
 
 export const stationsConfig: Station[] = [
   // EDDM Delivery
-  { callsign: "EDDM_DEL", group: "DEL", airport: "EDDM" },
-  { callsign: "EDDM_C_DEL", group: "DEL", airport: "EDDM" },
+  { callsign: "EDDM_DEL", group: "GND", airport: "EDDM" },
+  { callsign: "EDDM_C_DEL", group: "GND", airport: "EDDM" },
 
   // EDDM Ground
   { callsign: "EDDM_1_GND", group: "GND", airport: "EDDM" },
   { callsign: "EDDM_2_GND", group: "GND", airport: "EDDM" },
   { callsign: "EDDM_3_GND", group: "GND", airport: "EDDM" },
-  { callsign: "EDDM_N_GND", group: "GND", airport: "EDDM" },
-  { callsign: "EDDM_S_GND", group: "GND", airport: "EDDM" },
+  { callsign: "EDDM_N_GND", group: "TWR", airport: "EDDM" },
+  { callsign: "EDDM_S_GND", group: "TWR", airport: "EDDM" },
 
   // EDDM Tower
   { callsign: "EDDM_N_TWR", group: "TWR", airport: "EDDM" },

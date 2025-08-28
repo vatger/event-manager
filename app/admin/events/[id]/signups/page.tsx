@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import SignupsTable from "@/components/SignupsTable";
 
 // Types (flexibel gehalten, da Backend-Struktur evtl. variiert)
 type TimeRange = { start: string; end: string };
@@ -40,8 +40,8 @@ function toMinutesHM(hhmm: string): number {
 function formatTimeZ(dateIso?: string | Date) {
   if (!dateIso) return "-";
   const d = new Date(dateIso);
-  const hh = String(d.getUTCHours()).padStart(2, "0");
-  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}z`;
 }
 
@@ -57,7 +57,7 @@ function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): string[] 
   const start = new Date(startIso);
   const end = new Date(endIso);
   // Start runden auf 30-Min-Slot
-  const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
+  const t = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), start.getMinutes()));
   const minutes = t.getUTCMinutes();
   if (minutes % 30 !== 0) {
     const delta = 30 - (minutes % 30);
@@ -310,56 +310,12 @@ export default function AdminEventSignupsPage() {
           <CardTitle>Alle Anmeldungen</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>CID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Availability</TableHead>
-                <TableHead>Desired Position</TableHead>
-                <TableHead>RMK</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {signupsLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5}>Laden...</TableCell>
-                </TableRow>
-              ) : signupsError ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-red-500">{signupsError}</TableCell>
-                </TableRow>
-              ) : signups.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-muted-foreground">Keine Anmeldungen</TableCell>
-                </TableRow>
-              ) : (
-                orderedAreas.flatMap((area) => [
-                  <TableRow key={`group-${area}`}>
-                    <TableCell colSpan={5} className="bg-muted/50 font-semibold">{area}</TableCell>
-                  </TableRow>,
-                  ...(groupedSignups[area] || []).map((s: any) => (
-                    <TableRow key={s.id}>
-                      <TableCell>{s.user?.cid ?? s.userCID}</TableCell>
-                      <TableCell className="flex items-center gap-2">
-                        {s.user?.name ?? ""}
-                        <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {s.availability?.unavailable && s.availability.unavailable.length === 0
-                          ? "full"
-                          : (s.availability?.available || [])
-                              .map((r: TimeRange) => `${r.start}z-${r.end}z`)
-                              .join(", ") || "-"}
-                      </TableCell>
-                      <TableCell>{s.preferredStations || "-"}</TableCell>
-                      <TableCell>{s.remarks ?? "-"}</TableCell>
-                    </TableRow>
-                  )),
-                ])
-              )}
-            </TableBody>
-          </Table>
+          <SignupsTable
+            signups={signups as any}
+            loading={signupsLoading}
+            error={signupsError}
+            columns={["cid", "name", "availability", "preferredStations", "remarks"]}
+          />
         </CardContent>
       </Card>
     </div>
