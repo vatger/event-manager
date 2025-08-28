@@ -21,6 +21,7 @@ interface Props {
 
 export default function AdminEventForm({ open, onOpenChange, event, onSuccess }: Props) {
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -28,7 +29,6 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
     startTime: "",
     endTime: "",
     airport: "",
-    signupDeadline: "",
     staffedStations: [] as string[],
   });
 
@@ -36,8 +36,6 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
       if (event) {
         const start = new Date(event.startTime);
         const end = new Date(event.endTime);
-        console.log("EVENT", event)
-        console.log(end.toISOString())
         setFormData({
           name: event.name,
           description: event.description,
@@ -45,9 +43,6 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
           startTime: start.toISOString().slice(0, 16),
           endTime: end.toISOString().slice(0, 16),
           airport: event.airports.toString(),
-          signupDeadline: event.signupDeadline
-            ? new Date(event.signupDeadline).toISOString().slice(0, 16)
-            : "",
           staffedStations: event.staffedStations as string[],
         });
       } else {
@@ -58,11 +53,17 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
           startTime: "",
           endTime: "",
           airport: "",
-          signupDeadline: "",
           staffedStations: [] as string[],
         });
       }
     }, [event]);
+
+  useEffect(() => {
+    if (open) {
+      setError("");
+      setSaving(false);
+    }
+  }, [open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -83,9 +84,15 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     const payload = {
-      ...formData,
+      name: formData.name,
+      description: formData.description,
+      bannerUrl: formData.bannerUrl,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
       airports: [formData.airport],
+      staffedStations: formData.staffedStations,
     };
 
     const method = event ? "PUT" : "POST";
@@ -97,17 +104,20 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
       body: JSON.stringify(payload),
     });
 
-     const data = await res.json().catch(() => ({}));
+    const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
       setError("")
     } else {
       setError("Fehler beim Erstellen oder Speichern des Events! " + data.error)
       console.log(data)
+      setSaving(false)
       return
     }
     onSuccess();
+    setError("");
     onOpenChange(false);
+    setSaving(false)
   };
 
   const groups: StationGroup[] = ["GND", "TWR", "APP", "CTR"];
@@ -120,102 +130,84 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl max-h-[calc(100vh-4rem)] overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {event ? "Edit Event" : "Create New Event"}
           </DialogTitle>
         </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="Event Name"
-              required
-            />
-            <Textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="Event Beschreibung"
-              required
-            />
-            <Input
-              name="bannerUrl"
-              value={formData.bannerUrl}
-              onChange={handleChange}
-              placeholder="Banner URL"
-              required
-            />
+          <form onSubmit={handleSubmit} className="flex flex-col h-full">
+            {error && (
+                    <Alert variant={"destructive"} className="mb-4 mr-2">
+                      <AlertCircleIcon />
+                      <AlertTitle>Fehler</AlertTitle>
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+              <div className={`space-y-4 overflow-y-auto pr-2 ${error ? "max-h-[calc(100vh-17rem)]" : "max-h-[calc(100vh-14rem)]"}`}>
+                <div className="space-y-1">
+                  <Label htmlFor="name">Event Name</Label>
+                  <Input id="name" name="name" value={formData.name} onChange={handleChange} placeholder="z. B. Munich Overload" required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="description">Beschreibung</Label>
+                  <Textarea id="description" name="description" value={formData.description} onChange={handleChange} placeholder="Kurze Eventbeschreibung" required />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="bannerUrl">Banner URL</Label>
+                  <Input id="bannerUrl" name="bannerUrl" value={formData.bannerUrl} onChange={handleChange} placeholder="https://..." required />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="startTime">Startzeit (zulu)</Label>
+                    <Input id="startTime" type="datetime-local" name="startTime" value={formData.startTime} onChange={handleChange} required />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="endTime">Endzeit (zulu)</Label>
+                    <Input id="endTime" type="datetime-local" name="endTime" value={formData.endTime} onChange={handleChange} required />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="airport">Airport (ICAO)</Label>
+                  <Input id="airport" name="airport" value={formData.airport} onChange={handleChange} placeholder="z. B. EDDM" required />
+                </div>
 
-            <div className="flex gap-4">
-              <Input
-                type="datetime-local"
-                name="startTime"
-                value={formData.startTime}
-                onChange={handleChange}
-                required
-              />
-              <Input
-                type="datetime-local"
-                name="endTime"
-                value={formData.endTime}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            <Input
-              name="airport"
-              value={formData.airport}
-              onChange={handleChange}
-              placeholder="ICAO Airport"
-              required
-            />
-
-            {formData.airport && (
-              <Accordion type="multiple" className="w-full">
-                {filteredStations.map(({ group, stations }) =>
-                  stations.length > 0 ? (
-                    <AccordionItem key={group} value={group}>
-                      <AccordionTrigger>{group}</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2">
-                          {stations.map((station) => (
-                            <div key={station.callsign} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={station.callsign}
-                                checked={formData.staffedStations.includes(station.callsign)}
-                                onCheckedChange={() => toggleStation(station.callsign)}
-                              />
-                              <Label htmlFor={station.callsign}>{station.callsign}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ) : null
+                {formData.airport && (
+                  <div className="space-y-2">
+                    <Label>Stationen</Label>
+                    <Accordion type="multiple" className="w-full">
+                      {filteredStations.map(({ group, stations }) =>
+                        stations.length > 0 ? (
+                          <AccordionItem key={group} value={group}>
+                            <AccordionTrigger>{group}</AccordionTrigger>
+                            <AccordionContent>
+                              <div className="space-y-2">
+                                {stations.map((station) => (
+                                  <div key={station.callsign} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={station.callsign}
+                                      checked={formData.staffedStations.includes(station.callsign)}
+                                      onCheckedChange={() => toggleStation(station.callsign)}
+                                    />
+                                    <Label htmlFor={station.callsign}>{station.callsign}</Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        ) : null
+                      )}
+                    </Accordion>
+                  </div>
                 )}
-              </Accordion>
-            )}
-
-            <Input
-              type="datetime-local"
-              name="signupDeadline"
-              value={formData.signupDeadline}
-              onChange={handleChange}
-            />
-            {error &&
-            <Alert variant={"destructive"}>
-              <AlertCircleIcon />
-              <AlertTitle>Fehler</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-            }
-            <Button onClick={handleSubmit}>{event ? "Save" : "Create"}</Button>
-          </form>
-        </DialogContent>
+              </div>
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <Button type="submit" disabled={saving}>
+                  {event ? (saving ? "Saving..." : "Save") : (saving ? "Creating..." : "Create")}
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
     </Dialog>
   );
 }
