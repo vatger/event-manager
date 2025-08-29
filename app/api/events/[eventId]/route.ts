@@ -128,6 +128,25 @@ export async function PATCH(req: Request, { params }: { params: { eventId: strin
       data: parsed.data,
     });
 
+    // Notifications: Beispiel - wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
+    if (parsed.data.status === "PLAN_UPLOADED") {
+      const signups = await prisma.eventSignup.findMany({ where: { eventId }, select: { userCID: true } });
+      if (signups.length > 0) {
+        await prisma.$transaction(
+          signups.map((s) => prisma.notification.create({
+            data: {
+              userCID: s.userCID,
+              eventId,
+              type: "EVENT_UPDATED",
+              title: `Plan veröffentlicht: ${updatedEvent.name}`,
+              message: `Das Roster/der Plan für ${updatedEvent.name} wurde veröffentlicht.`,
+              data: { status: "PLAN_UPLOADED" },
+            },
+          }))
+        );
+      }
+    }
+
     return NextResponse.json(updatedEvent, { status: 200 }, );
   } catch (error) {
     console.error("Error updating event:", error);

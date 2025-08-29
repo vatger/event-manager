@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import NotificationsWidget from "./NotificationsWidget";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -17,7 +18,9 @@ export default function Header() {
       <div className="text-lg font-bold"><a href="/">Eventmanager</a></div>
 
       {session ? (
-        <DropdownMenu>
+        <div className="flex items-center gap-2">
+          <NotificationsWidget />
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="capitalize">
               {session.user?.name || "User"}
@@ -34,6 +37,7 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       ) : (
         <div>
           {/* Optional: Login Button oder leer lassen */}

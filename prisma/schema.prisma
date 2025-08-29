@@ -9,46 +9,48 @@ generator client {
 
 model User {
   id        Int      @id @default(autoincrement())
-  cid       Int   @unique
+  cid       Int      @unique
   name      String
   rating    String
   role      Role     @default(CONTROLLER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  signups   EventSignup[]
+  signups      EventSignup[]
+  Notification Notification[]
 }
 
 model Event {
-  id              Int        @id @default(autoincrement())
+  id              Int         @id @default(autoincrement())
   name            String
   description     String
   bannerUrl       String
   startTime       DateTime
   endTime         DateTime
-  airports        Json       // Array of ICAO codes
+  airports        Json // Array of ICAO codes
   signupDeadline  DateTime?
-  staffedStations Json?       // Array of Callsigns
+  staffedStations Json? // Array of Callsigns
   status          EventStatus @default(PLANNING)
   createdById     Int?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  signups   EventSignup[]
-  documents EventDocument[]
+  signups      EventSignup[]
+  documents    EventDocument[]
+  Notification Notification[]
 }
 
 model EventSignup {
-  id                Int       @id @default(autoincrement())
+  id                Int      @id @default(autoincrement())
   eventId           Int
-  userCID            Int
+  userCID           Int
   availability      Json
   endorsement       String?
   breakrequests     String?
   preferredStations String?
   remarks           String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userCID], references: [cid])
@@ -57,12 +59,12 @@ model EventSignup {
 }
 
 model EventDocument {
-  id        Int           @id @default(autoincrement())
+  id        Int          @id @default(autoincrement())
   eventId   Int
   name      String
   type      DocumentType
   url       String
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   event Event @relation(fields: [eventId], references: [id])
 }
@@ -84,4 +86,29 @@ enum DocumentType {
   BRIEFING
   CHART
   OTHER
+}
+
+enum NotificationType {
+  INFO
+  SYSTEM
+  EVENT
+  OTHER
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userCID   Int
+  eventId   Int?
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user  User   @relation(fields: [userCID], references: [cid])
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@index([userCID, readAt])
+  @@index([eventId])
 }
