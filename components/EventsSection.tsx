@@ -2,10 +2,25 @@
 
 import { motion } from "framer-motion";
 import EventCard from "./EventCard";
+import { Event } from "@prisma/client";
 
+interface Events {
+      id: string;
+      name: string;
+      description: string;
+      bannerUrl: string;
+      airports: string;
+      startTime: string;
+      endTime: string;
+      staffedStations: string[];
+      signupDeadline: string;
+      registrations: number;
+      status: string;
+      isSignedUp?: boolean;
+}
 interface EventsSectionProps {
-  events: any[];
-  onSelect: (event: any) => void;
+  events: Events[];
+  onSelect: (event: Events) => void;
 }
 
 export default function EventsSection({ events, onSelect }: EventsSectionProps) {

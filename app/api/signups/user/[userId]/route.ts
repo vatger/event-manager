@@ -4,16 +4,17 @@ import prisma from "@/lib/prisma"; // dein Prisma-Client
 // GET: Alle Signups eines Users
 export async function GET(
   req: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
+  const { userId} = await params
   try {
-    const userId = parseInt(params.userId, 10);
-    if (isNaN(userId)) {
+    const userid = parseInt(userId, 10);
+    if (isNaN(userid)) {
       return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
     }
 
     const signups = await prisma.eventSignup.findMany({
-      where: { userCID: userId },
+      where: { userCID: userid },
       include: {
         event: true, // liefert Event-Infos mit
       },

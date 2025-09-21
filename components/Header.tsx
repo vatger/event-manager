@@ -9,13 +9,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
+import Link from "next/link";
 
 export default function Header() {
   const { data: session } = useSession();
 
   return (
     <header className="w-full flex justify-between items-center p-4 border-b border-gray-200 bg-white shadow-sm">
-      <div className="text-lg font-bold"><a href="/">Eventmanager</a></div>
+      <div className="text-lg font-bold"><Link href="/">Eventmanager</Link></div>
 
       {session ? (
         <div className="flex items-center gap-2">
@@ -27,7 +28,7 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem><a href="/admin" className="w-full">Admin</a></DropdownMenuItem>
+            <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 signOut();

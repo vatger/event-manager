@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 
 // GET: einzelnes Signup holen
-export async function GET(req: Request, { params }: { params: { eventId: string, userId: string } }) {
-  const { eventId, userId } = params;
+export async function GET(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  const { eventId, userId } = await params;
 
   try {
     const signup = await prisma.eventSignup.findUnique({
@@ -30,13 +31,13 @@ export async function GET(req: Request, { params }: { params: { eventId: string,
 }
 
 // PUT: Signup aktualisieren
-export async function PUT(req: Request, { params }: { params: { eventId: string, userId: string } }) {
-  const { eventId, userId } = params;
+export async function PUT(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  const { eventId, userId } = await params;
   const body = await req.json();
   const session = await getServerSession(authOptions);
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
-  if(session.role !== "ADMIN" && eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
+  if(session!.user.role !== "ADMIN" && eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
 
   try {
     const updated = await prisma.eventSignup.update({
@@ -63,12 +64,12 @@ export async function PUT(req: Request, { params }: { params: { eventId: string,
 }
 
 // DELETE: Signup löschen
-export async function DELETE(req: Request, { params }: { params: { eventId: string, userId: string } }) {
-  const { eventId, userId } = params;
+export async function DELETE(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  const { eventId, userId } = await params;
   const session = await getServerSession(authOptions);
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
-  if(session.role !== "ADMIN" && eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
+  if(session!.user.role !== "ADMIN" && eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
 
   try {
     await prisma.eventSignup.delete({

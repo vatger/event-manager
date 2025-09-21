@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import z from "zod";
+import { authOptions } from "@/lib/auth";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -23,20 +23,24 @@ const eventSchema = z.object({
       message: "Invalid date format for signupDeadline",
     }),
   staffedStations: z.array(z.string()).optional(),
-  status: z.enum(["PLANNING", "SIGNUP_OPEN", "PLAN_UPLOADED", "COMPLETED"]).optional(),
+  status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });
 
 
-export async function GET(_: Request, { params }: { params: { eventId: string } }) {
+export async function GET(request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  const { eventId } = await params;
   const event = await prisma.event.findUnique({
-    where: { id: Number(params.eventId) },
+    where: { id: Number(eventId) },
     include: { signups: true, documents: true }
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(event);
 }
 
-export async function PUT(req: Request, { params }: { params: { eventId: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = await params;
   const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -52,7 +56,7 @@ export async function PUT(req: Request, { params }: { params: { eventId: string 
     }
     
   const event = await prisma.event.update({
-    where: { id: Number(params.eventId) },
+    where: { id: Number(eventId) },
     data: {
         name: parsed.data.name,
         description: parsed.data.description,
@@ -71,12 +75,13 @@ export async function PUT(req: Request, { params }: { params: { eventId: string 
   return NextResponse.json(event);
 }
 
-export async function DELETE(_: Request, { params }: { params: { eventId: string } }) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = await params;
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
-  await prisma.event.delete({ where: { id: Number(params.eventId) } });
+  await prisma.event.delete({ where: { id: Number(eventId) } });
   return NextResponse.json({ success: true });
 }
 
@@ -94,10 +99,11 @@ const updateEventSchema = z.object({
       message: "Invalid date format for signupDeadline",
     }).optional(),
   staffedStations: z.array(z.string()).optional(),
-  status: z.enum(["PLANNING", "SIGNUP_OPEN", "PLAN_UPLOADED", "COMPLETED"]).optional(),
+  status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { eventId: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = await params;
   const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -114,8 +120,8 @@ export async function PATCH(req: Request, { params }: { params: { eventId: strin
       );
     }
 
-    const eventId = parseInt(params.eventId);
-    if (isNaN(eventId)) {
+    const id = parseInt(eventId);
+    if (isNaN(id)) {
       return NextResponse.json(
         { error: "Invalid event ID" },
         { status: 400 }
@@ -124,23 +130,22 @@ export async function PATCH(req: Request, { params }: { params: { eventId: strin
 
     // Update Event
     const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
+      where: { id },
       data: parsed.data,
     });
 
     // Notifications: Beispiel - wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
-    if (parsed.data.status === "PLAN_UPLOADED") {
-      const signups = await prisma.eventSignup.findMany({ where: { eventId }, select: { userCID: true } });
+    if (parsed.data.status === "ROSTER_PUBLISHED") {
+      const signups = await prisma.eventSignup.findMany({ where: { eventId: id }, select: { userCID: true } });
       if (signups.length > 0) {
         await prisma.$transaction(
           signups.map((s) => prisma.notification.create({
             data: {
               userCID: s.userCID,
-              eventId,
-              type: "EVENT_UPDATED",
+              eventId: id,
+              type: "EVENT",
               title: `Plan veröffentlicht: ${updatedEvent.name}`,
               message: `Das Roster/der Plan für ${updatedEvent.name} wurde veröffentlicht.`,
-              data: { status: "PLAN_UPLOADED" },
             },
           }))
         );

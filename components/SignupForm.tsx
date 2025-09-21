@@ -21,13 +21,29 @@ import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySe
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
+interface Events {
+  id: string;
+  name: string;
+  description: string;
+  bannerUrl: string;
+  airports: string;
+  startTime: string;
+  endTime: string;
+  staffedStations: string[];
+  signupDeadline: string;
+  registrations: number;
+  status: string;
+  isSignedUp?: boolean;
+}
+
 interface SignupFormProps {
-  event: any;
+  event: Events;
   onClose: () => void;
   onChanged?: () => void;
 }
 type TimeRange = { start: string; end: string };
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
+type AirportKey = keyof typeof airportRules;
 
 // Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf 30-Min-Raster
 function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
@@ -65,7 +81,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
   
-  const rules = airportRules[event.airports];
+  const airportKey = event.airports as AirportKey;
+  const rules = airportRules[airportKey];
   const areas = Object.keys(rules.areas);
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)

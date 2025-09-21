@@ -273,9 +273,11 @@ export default function DevAddSignupsPage() {
       }
       const ev = await er.json();
       setEvent(ev);
-    } catch (e: any) {
-      setEventError(e.message || String(e));
-      setEvent(null);
+    } catch (e: unknown) {
+      if(e instanceof Error) {
+        setEventError(e.message || String(e));
+        setEvent(null);
+      }
     } finally {
       setEventLoading(false);
     }
@@ -291,9 +293,11 @@ export default function DevAddSignupsPage() {
       if (!r.ok) throw new Error("Signups konnten nicht geladen werden");
       const data = await r.json();
       setSignups(data);
-    } catch (e: any) {
-      setSignupsError(e.message || String(e));
-      setSignups([]);
+    } catch (e: unknown) {
+      if(e instanceof Error) {
+        setSignupsError(e.message || String(e));
+        setSignups([]);
+      }
     } finally {
       setSignupsLoading(false);
     }
@@ -307,9 +311,13 @@ export default function DevAddSignupsPage() {
       if (!res.ok) throw new Error("Benutzer konnten nicht geladen werden");
       const data = await res.json();
       setUsers(data);
-    } catch (e: any) {
-      setUsersError(e.message || String(e));
-      setUsers([]);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setUsersError(e.message);
+      } else {
+        setUsersError(String(e));
+      }
+      setUsers([]);    
     } finally {
       setUsersLoading(false);
     }

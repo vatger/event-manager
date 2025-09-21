@@ -77,8 +77,10 @@ enum Role {
 enum EventStatus {
   PLANNING
   SIGNUP_OPEN
-  PLAN_UPLOADED
-  COMPLETED
+  SIGNUP_CLOSED
+  ROSTER_PUBLISHED
+  DRAFT
+  CANCELLED
 }
 
 enum DocumentType {

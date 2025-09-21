@@ -30,7 +30,7 @@ interface Event {
   id: number;
   name: string;
   startTime: string;
-  status: 'PLANNING' | 'SIGNUP_OPEN' | 'PLAN_UPLOADED' | 'COMPLETED';
+  status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED";
 }
 
 interface Notification {
@@ -151,10 +151,12 @@ export default function NotificationsWidget() {
 
   const getEventStatusBadge = (status: Event['status']) => {
     const statusConfig = {
-      PLANNED: { label: 'Geplant', variant: 'outline' as const },
+      PLANNING: { label: 'Geplant', variant: 'outline' as const },
       SIGNUP_OPEN: { label: 'Anmeldung', variant: 'default' as const },
-      PLAN_UPLOADED: { label: 'Besetzungsplan', variant: 'secondary' as const },
-      COMPLETED: { label: 'Abgeschlossen', variant: 'secondary' as const }
+      ROSTER_PUBLISHED: { label: 'Besetzungsplan', variant: 'secondary' as const },
+      DRAFT: { label: 'Entwurf', variant: 'secondary' as const },
+      SIGNUP_CLOSED: { label: 'geschlossen', variant: 'secondary' as const },
+      CANCELLED: { label: 'abgesagt', variant: 'secondary' as const },
     };
     
     const config = statusConfig[status];

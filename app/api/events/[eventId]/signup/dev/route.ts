@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET: alle Signups für ein Event
-export async function GET(req: Request, { params }: { params: { eventId: string } }) {
-  const eventId = parseInt(params.eventId, 10);
+export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  const {eventId} = await params
+  const eventid = parseInt(eventId, 10);
 
   try {
     const signups = await prisma.eventSignup.findMany({
-      where: { eventId },
+      where: { eventId: eventid },
       include: { user: true }, // damit du Userdaten mitbekommst
     });
 
@@ -21,11 +22,12 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
 }
 
 // POST: neuen Signup anlegen
-export async function POST(req: Request, { params }: { params: { eventId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const eventId = parseInt(params.eventId, 10);
+  const {eventId} = await params;
+  const eventid = parseInt(eventId, 10);
   const body = await req.json();
 
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
@@ -35,7 +37,7 @@ export async function POST(req: Request, { params }: { params: { eventId: string
   try {
     const signup = await prisma.eventSignup.create({
       data: {
-        eventId,
+        eventId: eventid,
         userCID: body.userCID, // user aus Session
         availability: body.availability ?? [],
         endorsement: body.endorsement ?? null,

@@ -1,86 +1,118 @@
-"use client"
+"use client";
 
-import SignupForm from "@/components/SignupForm"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useEventSignup } from "@/hooks/useEventSignup"
-import { AnimatePresence } from "framer-motion"
-import { useSession } from "next-auth/react"
-import { useState, useEffect, useMemo } from "react"
-import { useParams } from "next/navigation"
-import { stationsConfig, StationGroup } from "@/data/station_configs"
-import SignupsTable from "@/components/SignupsTable"
-
+import { useState, useEffect, useMemo } from "react";
+import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { AnimatePresence } from "framer-motion";
+import SignupForm from "@/components/SignupForm";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useEventSignup } from "@/hooks/useEventSignup";
+import { stationsConfig, StationGroup } from "@/data/station_configs";
+import SignupsTable from "@/components/SignupsTable";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Calendar, Clock, MapPin, Users } from "lucide-react";
+import Image from "next/image";
+import { EventSignup } from "@prisma/client";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
-// Gruppiere Stations nach der Config (Fallback: Suffix)
+interface Event {
+  id: string;
+  name: string;
+  description: string;
+  bannerUrl: string;
+  airports: string;
+  startTime: string;
+  endTime: string;
+  staffedStations: string[];
+  signupDeadline: string;
+  registrations: number;
+  isSignedUp?: boolean;
+  status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED";
+}
+
+ type TimeRange = { start: string; end: string };
+
+ type Signup = {
+  id: string | number;
+  userCID?: string | number;
+  user?: { cid?: string | number; name?: string };
+  endorsement?: string | null;
+  availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
+  preferredStations?: string | null;
+  remarks?: string | null;
+};
+
+
+// Helper functions
 const callsignToGroup: Record<string, StationGroup> = Object.fromEntries(
   stationsConfig.map((s) => [s.callsign, s.group])
-)
+);
 
 const callsignOrder: Record<string, number> = Object.fromEntries(
   stationsConfig.map((s, idx) => [s.callsign, idx])
-)
+);
 
-function groupByConfig(stations: string[]) {
-  return stations.reduce((acc: Record<string, string[]>, cs) => {
-    const grp = callsignToGroup[cs] ?? cs.slice(-3)
-    if (!acc[grp]) acc[grp] = []
-    acc[grp].push(cs)
-    return acc
-  }, {})
-}
-
-function formatTimeZ(dateIso?: string | Date) {
+const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
   const d = new Date(dateIso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}z`;
-}
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}z`;
+};
 
-export default function EventPage(){
+const groupByConfig = (stations: string[]): Record<string, string[]> => {
+  return stations.reduce((acc: Record<string, string[]>, cs) => {
+    const grp = callsignToGroup[cs] ?? cs.slice(-3);
+    if (!acc[grp]) acc[grp] = [];
+    acc[grp].push(cs);
+    return acc;
+  }, {});
+};
+
+export default function EventPage() {
   const { id } = useParams() as { id: string };
   const { data: session } = useSession();
   const userCID = session?.user.id;
 
-  const [event, setEvent] = useState<any | null>(null);
-  const [eventLoading, setEventLoading] = useState<boolean>(true);
-  const [eventError, setEventError] = useState<string>("");
+  const [event, setEvent] = useState<Event | null>(null);
+  const [eventLoading, setEventLoading] = useState(true);
+  const [eventError, setEventError] = useState("");
 
-  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-  const [signups, setSignups] = useState<any[]>([]);
-  const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
-  const [signupsError, setSignupsError] = useState<string>("");
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [signups, setSignups] = useState<Signup[]>([]);
+  const [signupsLoading, setSignupsLoading] = useState(false);
+  const [signupsError, setSignupsError] = useState("");
 
   // Event laden
   useEffect(() => {
     if (!id) return;
+    
     setEventLoading(true);
     setEventError("");
 
     fetch(`/api/events/${id}`)
       .then(async (res) => {
         if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
-          throw new Error(d.error || "Fehler beim Laden des Events");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Fehler beim Laden des Events");
         }
         return res.json();
       })
       .then((data) => setEvent(data))
       .catch((err) => {
-        console.error(err);
+        console.error("Event loading error:", err);
         setEventError(err.message || "Fehler beim Laden des Events");
       })
       .finally(() => setEventLoading(false));
   }, [id]);
 
   // Signups laden
-  const loadSignups = () => {
+  const loadSignups = useMemo(() => () => {
     if (!id) return;
+    
     setSignupsLoading(true);
     setSignupsError("");
 
@@ -91,39 +123,106 @@ export default function EventPage(){
       })
       .then((data) => setSignups(data))
       .catch((err) => {
-        console.error(err);
+        console.error("Signups loading error:", err);
         setSignupsError("Fehler beim Laden der Anmeldungen");
       })
       .finally(() => setSignupsLoading(false));
-  };
+  }, [id]);
 
   useEffect(() => {
     loadSignups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [loadSignups]);
 
   const eventId = event?.id ?? id;
-  const { loading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
+  const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
-  if (eventLoading) return <p className="p-6 text-center">Laden...</p>;
-  if (eventError) return <p className="p-6 text-center text-red-500">{eventError}</p>;
-  if (!event) return <p className="p-6 text-center">Event nicht gefunden</p>;
+  const groupedStations = useMemo(() => {
+    if (!event?.staffedStations) return [];
+    
+    const grouped = groupByConfig(event.staffedStations);
+    return Object.entries(grouped)
+      .sort(([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY))
+      .map(([area, stations]) => [
+        area,
+        stations.sort((a, b) => (callsignOrder[a] ?? Number.POSITIVE_INFINITY) - (callsignOrder[b] ?? Number.POSITIVE_INFINITY))
+      ]);
+  }, [event?.staffedStations]);
 
-  const grouped = groupByConfig(event?.staffedStations || []);
-  const sortedgrouped = Object.entries(grouped)
-    .sort( ([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY) )
-    .map(([area, stations]) => [
-      area,
-      stations.sort((a, b) => (callsignOrder[a] ?? Number.POSITIVE_INFINITY) - (callsignOrder[b] ?? Number.POSITIVE_INFINITY))
-    ]);
-  const dateLabel = new Date(event.startTime).toLocaleDateString("de-DE");
-  const timeLabel = `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}`;
-  const airportsLabel = Array.isArray(event.airports) ? event.airports.join(", ") : String(event.airports ?? "-");
+  const dateLabel = useMemo(() => 
+    event ? new Date(event.startTime).toLocaleDateString("de-DE") : "", 
+    [event?.startTime]
+  );
 
-  const normalizedEventForSignup = {
-    ...event,
-    airports: Array.isArray(event.airports) ? event.airports[0] : event.airports,
+  const timeLabel = useMemo(() => 
+    event ? `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}` : "", 
+    [event?.startTime, event?.endTime]
+  );
+
+  const airportsLabel = useMemo(() => 
+    event ? (Array.isArray(event.airports) ? event.airports.join(", ") : String(event.airports ?? "-")) : "", 
+    [event?.airports]
+  );
+
+  const normalizedEventForSignup = useMemo(() => 
+    event ? {
+      ...event,
+      airports: Array.isArray(event.airports) ? event.airports[0] : event.airports,
+    } : null,
+    [event]
+  );
+
+  const getStatusBadgeVariant = (status: Event["status"]) => {
+    switch (status) {
+      case "SIGNUP_OPEN":
+        return "default";
+      case "PLANNING":
+      case "DRAFT":
+        return "secondary";
+      case "ROSTER_PUBLISHED":
+        return "outline";
+      case "CANCELLED":
+        return "destructive";
+      case "SIGNUP_CLOSED":
+        return "secondary";
+      default:
+        return "secondary";
+    }
   };
+
+  if (eventLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <Skeleton className="h-8 w-3/4" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <Skeleton className="h-6 w-1/2" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+          <Skeleton className="md:col-span-2 h-64 md:h-auto rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (eventError || !event) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-64">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {eventError || "Event nicht gefunden"}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -134,33 +233,63 @@ export default function EventPage(){
           <CardHeader className="relative">
             <CardTitle>Event Informationen</CardTitle>
             <div className="absolute right-4">
-              <Badge variant={event.status==="PLANNING" ? "default" : "secondary"}>{event.status}</Badge>
+              <Badge variant={getStatusBadgeVariant(event.status)}>
+                {event.status.replace("_", " ").toLowerCase()}
+              </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p><span className="font-semibold">Name:</span> {event.name}</p>
-            <p><span className="font-semibold">Datum:</span> {dateLabel}</p>
-            <p><span className="font-semibold">Zeit:</span> {timeLabel}</p>
-            <p><span className="font-semibold">Airport:</span> {airportsLabel}</p>
-            <p><span className="font-semibold">Remarks:</span> {event.description}</p>
-            
-            {event.status==="PLANNING" ? (
-              <Button className="w-full" variant={"secondary"}>Not Open</Button>
-            ) : event.status==="SIGNUP_OPEN" ? (
-              loading ? (
-                <Button className="w-full mt-2" disabled>Laden...</Button>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{dateLabel}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{timeLabel}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{airportsLabel}</span>
+              </div>
+            </div>
+
+            {event.description && (
+              <div className="pt-2 border-t">
+                <p className="text-sm text-muted-foreground">{event.description}</p>
+              </div>
+            )}
+
+            {event.status === "PLANNING" || event.status === "DRAFT" ? (
+              <Button className="w-full" variant="secondary" disabled>
+                Noch nicht geöffnet
+              </Button>
+            ) : event.status === "SIGNUP_OPEN" ? (
+              signupLoading ? (
+                <Button className="w-full" disabled>
+                  Laden...
+                </Button>
               ) : (
-                <Button className="w-full mt-2" onClick={() => setSelectedEvent(normalizedEventForSignup)}>
+                <Button 
+                  className="w-full" 
+                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                >
                   {isSignedUp ? "Anmeldung bearbeiten" : "Jetzt anmelden"}
                 </Button>
               )
-            ) : event.status==="PLAN_UPLOADED" ? (
-              <Button className="w-full">Besetzungsplan</Button>
-            ) : event.status === "COMPLETED" ? (
-              <Button className="w-full" variant={"secondary"} disabled>Event abgeschlossen</Button>
-            ) : (
-              <Button className="w-full">Closed</Button>
-            )}
+            ) : event.status === "ROSTER_PUBLISHED" ? (
+              <Button className="w-full">
+                Besetzungsplan anzeigen
+              </Button>
+            ) : event.status === "CANCELLED" ? (
+              <Button className="w-full" variant="destructive" disabled>
+                Event abgesagt
+              </Button>
+            ) : event.status === "SIGNUP_CLOSED" ? (
+              <Button className="w-full" variant="secondary" disabled>
+                Anmeldung geschlossen
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -177,33 +306,33 @@ export default function EventPage(){
         </div>
         </div>
 
-
-
-      {(event.status === "SIGNUP_OPEN" || event.status === "PLAN_UPLOADED") && (
-        <Card className="relative overflow-hidden">
+      {(event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED" || event.status === "ROSTER_PUBLISHED") && (
+        <Card>
           <CardHeader>
             <CardTitle>Zu besetzende Stationen</CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue={(sortedgrouped[0]?.[0] || "GND")} className="w-full">
+            <Tabs defaultValue={groupedStations[0]?.[0] as string|| "GND"} className="w-full">
               <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
-                {sortedgrouped.map(([area, stations]) => (
+                {groupedStations.map(([area, stations]) => (
                   <TabsTrigger
-                    key={area}
-                    value={area}
+                    key={area as string}
+                    value={area as string}
                     className="rounded-md px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
                   >
-                    {area}
-                    <span className="ml-2 text-xs text-muted-foreground">({(stations as string[]).length})</span>
+                    {area as string}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      ({(stations as string[]).length})
+                    </span>
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {sortedgrouped.map(([area, stations]) => (
-                <TabsContent key={area} value={area}>
+              {groupedStations.map(([area, stations]) => (
+                <TabsContent key={area as string} value={area as string}>
                   <div className="flex flex-wrap gap-2">
-                    {(stations as string[]).map((s) => (
-                      <Badge key={s} variant="secondary" className="text-xs px-2.5 py-1 rounded-md">
-                        {s}
+                    {(stations as string[]).map((station) => (
+                      <Badge key={station} variant="secondary" className="px-2.5 py-1 rounded-md">
+                        {station}
                       </Badge>
                     ))}
                   </div>
@@ -217,24 +346,29 @@ export default function EventPage(){
       {/* Teilnehmer Tabelle */}
       <Card className="relative overflow-hidden">
         <CardHeader>
-          <CardTitle>Angemeldete Teilnehmer</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Angemeldete Teilnehmer
+          </CardTitle>
         </CardHeader>
         <CardContent>
-        <SignupsTable
-        signups={signups as any}
-        loading={signupsLoading}
-        error={signupsError}
-        columns={["cid", "name", "availability", "remarks"]}
-        />
+          <SignupsTable
+            signups={signups}
+            loading={signupsLoading}
+            error={signupsError}
+            columns={["cid", "name", "availability", "remarks"]}
+          />
         </CardContent>
 
-        {event.status==="PLAN_UPLOADED" && (
-          <div className="absolute inset-0 bg-white/10 backdrop-blur-md flex items-center justify-center z-10 flex-col gap-3">
-            <h1>Besetzungsplan ist verfügbar!</h1>
+        {event.status === "ROSTER_PUBLISHED" && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center flex-col gap-4 p-6">
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-2">Besetzungsplan ist verfügbar!</h3>
+              <p className="text-muted-foreground">Der finale Besetzungsplan wurde veröffentlicht.</p>
+            </div>
             <Button size="lg">Zum Besetzungsplan</Button>
           </div>
         )}
-        
       </Card>
 
       <AnimatePresence>
@@ -242,10 +376,13 @@ export default function EventPage(){
           <SignupForm
             event={selectedEvent}
             onClose={() => setSelectedEvent(null)}
-            onChanged={() => { refetch(); loadSignups(); }}
+            onChanged={() => { 
+              refetch(); 
+              loadSignups(); 
+            }}
           />
         )}
       </AnimatePresence>
     </div>
-  )
+  );
 }

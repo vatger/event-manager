@@ -10,7 +10,7 @@ export type SignupRow = {
   id: string | number;
   userCID?: string | number;
   user?: { cid?: string | number; name?: string };
-  endorsement?: string;
+  endorsement?: string | null;
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   preferredStations?: string | null;
   remarks?: string | null;
@@ -34,7 +34,8 @@ type SignupsTableProps = {
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
-function badgeClassFor(endorsement?: string) {
+function badgeClassFor(endorsement?: string | null) {
+  if(!endorsement) return "bg-gray-100 text-gray-800"
   switch (endorsement) {
     case "DEL":
       return "bg-green-100 text-green-800";

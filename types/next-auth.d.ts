@@ -7,6 +7,7 @@ declare module "next-auth" {
     user: {
       id: string; // aus JWT/Provider (hier: VATSIM CID als String)
       cid: string;
+      name: string;
       rating: string;
       role: "ADMIN" | "CONTROLLER";
     } & DefaultSession["user"];
@@ -15,6 +16,7 @@ declare module "next-auth" {
   interface User {
     id: string; // vom Provider
     cid: string;
+    name: string;
     rating: string;
     role?: "ADMIN" | "CONTROLLER";
   }
@@ -25,6 +27,7 @@ declare module "next-auth/jwt" {
     id: string;
     cid: string;
     rating: string;
+    name: string;
     role?: "ADMIN" | "CONTROLLER";
   }
 }

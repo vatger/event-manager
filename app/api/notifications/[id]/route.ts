@@ -1,17 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
-export async function PATCH(_: Request, { params }: { params: { id: string } }) {
+export async function PATCH(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const {id} = await params;
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const cid = parseInt(session.user.cid);
 
   try {
-    const id = parseInt(params.id);
+    const ID = parseInt(id);
     const updated = await prisma.notification.update({
-      where: { id },
+      where: { id: ID },
       data: { readAt: new Date() },
     });
     if (updated.userCID !== cid && session.user.role !== "ADMIN") {

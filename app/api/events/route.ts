@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -23,7 +23,7 @@ const eventSchema = z.object({
       message: "Invalid date format for signupDeadline",
     }),
   staffedStations: z.array(z.string()).optional(),
-  status: z.enum(["PLANNING", "SIGNUP_OPEN", "PLAN_UPLOADED", "COMPLETED"]).optional(),
+  status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });
 
 // --- GET: Alle Events ---

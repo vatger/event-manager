@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 // GET: alle Signups für ein Event
-export async function GET(req: Request, { params }: { params: { eventId: string } }) {
-  const eventId = parseInt(params.eventId, 10);
+export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  const {eventId} = await params
+  const eventid = parseInt( eventId, 10);
 
   try {
     const signups = await prisma.eventSignup.findMany({
-      where: { eventId },
+      where: { eventId: eventid },
       include: { user: true }, // damit du Userdaten mitbekommst
     });
 
@@ -21,21 +22,22 @@ export async function GET(req: Request, { params }: { params: { eventId: string 
 }
 
 // POST: neuen Signup anlegen
-export async function POST(req: Request, { params }: { params: { eventId: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  const {eventId} = await params
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const eventId = parseInt(params.eventId, 10);
+  const eventid = parseInt(eventId, 10);
   const body = await req.json();
 
-  const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
+  const eventdata = await prisma.event.findUnique({where: {id: Number(eventid)}})
   if(!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
   if(eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen"}, {status: 500})
 
   try {
     const signup = await prisma.eventSignup.create({
       data: {
-        eventId,
+        eventId: eventid,
         userCID: parseInt(session.user.id), // user aus Session
         availability: body.availability ?? [],
         endorsement: body.endorsement ?? null,

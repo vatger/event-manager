@@ -19,7 +19,7 @@ export default function AdminNotificationsPage() {
 
   useEffect(() => {
     fetch("/api/events").then((r) => r.json()).then((data) => {
-      setEvents(data.map((e: any) => ({ id: e.id, name: e.name })));
+      setEvents(data.map((e: {id: number, name: string}) => ({ id: e.id, name: e.name })));
     });
   }, []);
 

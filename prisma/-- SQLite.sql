@@ -1,2 +1,4 @@
 -- SQLite
-DELETE FROM Notification
+UPDATE Event
+SET status = 'ROSTER_PUBLISHED'
+WHERE status = 'COMPLETED';
