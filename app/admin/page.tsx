@@ -185,6 +185,7 @@ export default function AdminEventsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Alle Status</SelectItem>
+              <SelectItem value="DRAFT">Entwurf</SelectItem>
               <SelectItem value="PLANNING">Planning</SelectItem>
               <SelectItem value="SIGNUP_OPEN">Signup offen</SelectItem>
               <SelectItem value="ROSTER_PUBLISHED">Plan hochgeladen</SelectItem>
@@ -222,7 +223,7 @@ export default function AdminEventsPage() {
             <p className="text-muted-foreground">Keine Events gefunden</p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}
@@ -234,6 +235,9 @@ export default function AdminEventsPage() {
               />
             ))}
           </div>
+
+
+
         )}
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>

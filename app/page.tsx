@@ -36,8 +36,9 @@ export default function EventsPage() {
 
   
   const [signedUpEvents, upcomingEvents] = useMemo(() => {
-    const signed = events.filter((e: Events) => e.isSignedUp);
-    const upcoming = events.filter((e: Events) => !e.isSignedUp);
+    const visible = events.filter((e: Events) => e.status !== "DRAFT");
+    const signed = visible.filter((e: Events) => e.isSignedUp);
+    const upcoming = visible.filter((e: Events) => !e.isSignedUp);
     return [signed, upcoming];
   }, [events]);
 
@@ -46,7 +47,7 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="container mx-auto py-12 space-y-12">
+    <div className="container mx-auto py-12 space-y-12 p-3">
       {signedUpEvents.length > 0 && (
         <div>
           <h2 className="text-3xl font-semibold mb-6 text-center">Deine Anmeldungen</h2>

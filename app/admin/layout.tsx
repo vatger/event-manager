@@ -9,8 +9,6 @@ import {
   Users,
   Settings,
   LogOut,
-  Menu,
-  ChevronLeft,
 } from "lucide-react";
 
 import {
@@ -25,6 +23,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import NotificationsWidget from "@/components/NotificationsWidget";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { signOut, useSession } from "next-auth/react";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
@@ -70,7 +76,7 @@ const NavItem = ({
 // Sidebar Content Komponente
 function AppSidebar() {
   const pathname = usePathname();
-
+  const { data: session } = useSession();
   return (
     <Sidebar className="border-r bg-background">
       <SidebarHeader className="border-b p-4">
@@ -79,8 +85,8 @@ function AppSidebar() {
             <span className="text-sm font-bold text-primary-foreground">A</span>
           </div>
           <div className="flex flex-col">
-            <span className="font-semibold">Admin Panel</span>
-            <span className="text-xs text-muted-foreground">Administration</span>
+            <span className="font-semibold">Eventmanager</span>
+            <span className="text-xs text-muted-foreground">Adminpanel</span>
           </div>
         </div>
       </SidebarHeader>
@@ -104,12 +110,12 @@ function AppSidebar() {
         <div className="flex items-center gap-3 px-2">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary text-primary-foreground">
-              AD
+              YS
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-1 flex-col min-w-0">
-            <span className="text-sm font-medium truncate">Admin User</span>
-            <span className="text-xs text-muted-foreground truncate">admin@example.com</span>
+            <span className="text-sm font-medium truncate">Yannik Schäffler</span>
+            <span className="text-xs text-muted-foreground truncate">1649341</span>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
             <LogOut className="h-4 w-4" />
@@ -121,6 +127,7 @@ function AppSidebar() {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -132,11 +139,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <h1 className="text-lg font-semibold">
                 {getPageTitle(usePathname())}
               </h1>
-              <div className="flex items-center gap-4">
-                <Badge variant="secondary" className="hidden sm:flex">
-                  Admin Mode
-                </Badge>
-              </div>
+              <div className="flex items-center gap-2">
+              <NotificationsWidget />
+              <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="capitalize">
+                  {session!.user?.name || "User"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    signOut();
+                  }}
+                >
+                  Abmelden
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
             </div>
           </header>
           <main className="flex-1 p-4 lg:p-6">

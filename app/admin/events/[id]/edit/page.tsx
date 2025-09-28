@@ -55,14 +55,8 @@ export default function EditEventPage() {
 
   return (
     <div className="container mx-auto max-w-3xl py-8">
-      <h1 className="text-2xl font-bold mb-6">Event bearbeiten</h1>
       <AdminEventForm
-        open={true} // damit resetForm läuft
-        onOpenChange={() => router.push("/admin")}
         event={event}
-        onSuccess={() => {
-          router.push("/admin");
-        }}
       />
     </div>
   );

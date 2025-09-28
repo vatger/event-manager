@@ -14,7 +14,7 @@ import { stationsConfig, StationGroup } from "@/data/station_configs";
 import SignupsTable from "@/components/SignupsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Calendar, Clock, MapPin, Users } from "lucide-react";
+import { AlertCircle, Calendar, Clock, MapPin, Tags, Users } from "lucide-react";
 import Image from "next/image";
 import { EventSignup } from "@prisma/client";
 
@@ -241,6 +241,10 @@ export default function EventPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
+                <Tags className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">{event.name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="font-medium">{dateLabel}</span>
               </div>
@@ -256,7 +260,7 @@ export default function EventPage() {
 
             {event.description && (
               <div className="pt-2 border-t">
-                <p className="text-sm text-muted-foreground">{event.description}</p>
+                <p className="text-sm text-muted-foreground w-full overflow-auto">{event.description}</p>
               </div>
             )}
 
