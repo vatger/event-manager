@@ -49,8 +49,8 @@ type AirportKey = keyof typeof airportRules;
 function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
   if (!dateIso) return "00:00";
   const d = new Date(dateIso);
-  let hh = d.getHours();
-  let mm = d.getMinutes();
+  let hh = d.getUTCHours();
+  let mm = d.getUTCMinutes();
   if (round === "down") {
     mm = mm - (mm % 30);
   } else if (round === "up") {

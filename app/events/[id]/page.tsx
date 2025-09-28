@@ -60,7 +60,7 @@ const callsignOrder: Record<string, number> = Object.fromEntries(
 const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
   const d = new Date(dateIso);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}z`;
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}z`;
 };
 
 const groupByConfig = (stations: string[]): Record<string, string[]> => {

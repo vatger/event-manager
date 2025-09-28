@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Event {
   id: string;
@@ -65,16 +67,6 @@ export default function AdminEventsPage() {
   useEffect(() => {
     refreshEvents();
   }, []);
-
-  const handleCreate = () => {
-    setEditingEvent(null);
-    setDialogOpen(true);
-  };
-
-  const handleEdit = (event: Event) => {
-    setEditingEvent(event);
-    setDialogOpen(true);
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Event wirklich löschen?")) return;
@@ -163,12 +155,14 @@ export default function AdminEventsPage() {
     registrations: filteredEvents.reduce((acc, e) => acc + (e.registrations || 0), 0),
   };
 
+  const router = useRouter();
+
   return (
     <Protected>
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold">Event Management</h1>
-          <Button onClick={handleCreate}>Neues Event</Button>
+          <Button><Link href="/admin/events/create">Neues Event</Link></Button>
         </div>
 
         {error && (
@@ -232,8 +226,8 @@ export default function AdminEventsPage() {
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}
+                onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
                 event={event}
-                onEdit={() => handleEdit(event)}
                 onDelete={() => handleDelete(event.id)}
                 onOpenSignup={() => openSignup(event)}
                 onCloseSignup={() => closeSignup(event.id)}
@@ -241,13 +235,6 @@ export default function AdminEventsPage() {
             ))}
           </div>
         )}
-
-        <AdminEventForm
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          event={editingEvent}
-          onSuccess={refreshEvents}
-        />
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent>

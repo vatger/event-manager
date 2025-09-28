@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { stationsConfig, StationGroup } from "@/data/station_configs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertCircleIcon, Loader2 } from "lucide-react";
+import EventTimeSelector from "./TimeSelector";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Event {
   id: string;
@@ -66,8 +68,8 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
         name: event.name || "",
         description: event.description || "",
         bannerUrl: event.bannerUrl || "",
-        startTime: start.toISOString().slice(0, 16),
-        endTime: end.toISOString().slice(0, 16),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         airport: event.airports?.toString() || "",
         staffedStations: event.staffedStations || [],
       });
@@ -96,6 +98,13 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+  const handleTimeChange = useCallback((startTime: Date, endTime: Date) => {
+    setFormData(prev => ({
+      ...prev,
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString()
+    }));
+  }, []);
 
   const toggleStation = useCallback((callsign: string) => {
     setFormData((prev) => {
@@ -108,8 +117,19 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
       };
     });
   }, []);
+  
+  const initialStartTime = useMemo(() => 
+    formData.startTime ? new Date(formData.startTime) : undefined, 
+    [formData.startTime]
+  );
+  
+  const initialEndTime = useMemo(() => 
+    formData.endTime ? new Date(formData.endTime) : undefined, 
+    [formData.endTime]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
+    
     e.preventDefault();
     
     if (!formValidation()) return;
@@ -127,7 +147,6 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
         airports: [formData.airport.trim().toUpperCase()],
         staffedStations: formData.staffedStations,
       };
-
       const method = event ? "PUT" : "POST";
       const url = event ? `/api/events/${event.id}` : "/api/events";
 
@@ -182,14 +201,14 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
   })).filter(({ stations }) => stations.length > 0);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[calc(100vh-4rem)] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>
+    <div>
+      <Card className="sm:max-w-2xl max-h-[calc(100vh-4rem)] overflow-hidden">
+        <CardHeader>
+          <CardTitle>
             {event ? "Event bearbeiten" : "Neues Event erstellen"}
-          </DialogTitle>
-        </DialogHeader>
-        
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col h-full">
           {error && (
             <Alert variant="destructive" className="mb-4">
@@ -240,10 +259,16 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
                 disabled={isSaving}
               />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <EventTimeSelector 
+                onTimeChange={handleTimeChange}
+                initialStartTime={initialStartTime}
+                initialEndTime={initialEndTime}
+              />
+            </div>
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label htmlFor="startTime">Startzeit (UTC) *</Label>
+                <Label htmlFor="startTime">Startzeit (lcl) *</Label>
                 <Input
                   id="startTime"
                   type="datetime-local"
@@ -256,7 +281,7 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
               </div>
               
               <div className="space-y-1">
-                <Label htmlFor="endTime">Endzeit (UTC) *</Label>
+                <Label htmlFor="endTime">Endzeit (lcl) *</Label>
                 <Input
                   id="endTime"
                   type="datetime-local"
@@ -267,7 +292,7 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
                   disabled={isSaving}
                 />
               </div>
-            </div>
+            </div> */}
             
             <div className="space-y-1">
               <Label htmlFor="airport">Airport (ICAO) *</Label>
@@ -330,7 +355,8 @@ export default function AdminEventForm({ open, onOpenChange, event, onSuccess }:
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

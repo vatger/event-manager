@@ -41,8 +41,8 @@ function toMinutesHM(hhmm: string): number {
 function formatTimeZ(dateIso?: string | Date) {
   if (!dateIso) return "-";
   const d = new Date(dateIso);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}z`;
 }
 
@@ -56,7 +56,7 @@ function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): string[] 
   if (!startIso || !endIso) return [];
   const start = new Date(startIso);
   const end = new Date(endIso);
-  const t = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate(), start.getHours(), start.getMinutes()));
+  const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
   const minutes = t.getUTCMinutes();
   if (minutes % 30 !== 0) {
     const delta = 30 - (minutes % 30);
