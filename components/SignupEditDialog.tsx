@@ -127,7 +127,7 @@ export default function SignupEditDialog({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[calc(100vh-4rem)] overflow-auto">
         <DialogHeader>
           <DialogTitle>Signup bearbeiten</DialogTitle>
         </DialogHeader>

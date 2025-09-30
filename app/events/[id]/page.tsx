@@ -361,7 +361,7 @@ export default function EventPage() {
             loading={signupsLoading}
             error={signupsError}
             columns={["cid", "name", "availability", "remarks"]}
-            editable={session?.user.role === "ADMIN" || session?.user.role === "MAIN_ADMIN"}
+            editable={false}
             event={event ? { id: event.id, startTime: event.startTime, endTime: event.endTime } : undefined}
             onRefresh={loadSignups}
           />

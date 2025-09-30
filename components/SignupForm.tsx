@@ -188,7 +188,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md rounded-xl max-h-[calc(100vh-4rem)] overflow-scroll">
+      <DialogContent className="sm:max-w-md rounded-xl max-h-[calc(100vh-4rem)] overflow-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
             {isSignedUp ? 
