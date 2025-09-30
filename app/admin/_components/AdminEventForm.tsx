@@ -378,7 +378,7 @@ export default function AdminEventForm({ event }: Props) {
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    Bitte gib zuerst einen Airport im Tab "Grunddaten" ein
+                    Bitte gebe zuerst einen gültigen ICAO-Code im Tab Grunddaten ein.
                   </div>
                 )}
               </CardContent>
