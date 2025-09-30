@@ -250,15 +250,15 @@ export default function AdminEventsPage() {
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="space-y-2">
+                <div className="space-y-2">
                 <Label htmlFor="deadline">Signup-Deadline</Label>
                 <Input
                   id="deadline"
-                  type="datetime-local"
+                  type="date"
                   value={deadlineInput}
                   onChange={(e) => setDeadlineInput(e.target.value)}
                 />
-              </div>
+                </div>
               
               {error && (
                 <Alert variant="destructive">

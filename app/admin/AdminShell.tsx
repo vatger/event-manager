@@ -120,7 +120,7 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
           </Avatar>
           <div className="flex flex-1 flex-col min-w-0">
             <span className="text-sm font-medium truncate">{user?.name}</span>
-            <span className="text-xs text-muted-foreground truncate">{user?.cid}</span>
+            <span className="text-xs text-muted-foreground truncate">{user?.cid} - {user.role=="MAIN_ADMIN" ? "MA" : "A"}</span>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" 
                   onClick={() => {

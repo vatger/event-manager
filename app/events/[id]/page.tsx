@@ -294,6 +294,11 @@ export default function EventPage() {
                 Anmeldung geschlossen
               </Button>
             ) : null}
+            {(event.status=="SIGNUP_OPEN" && event.signupDeadline) && (
+                <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium">Anmeldeschluss: {new Date(event.signupDeadline).toLocaleDateString("de-DE")}</span>
+                </div>
+              )}
           </CardContent>
         </Card>
 

@@ -79,6 +79,7 @@ interface VatsimProfile {
         cid: String(cid),
         name: fullName,
         rating,
+        role: "USER",
       };
     },
   };
@@ -129,16 +130,21 @@ export const authOptions: NextAuthOptions = {
           token.cid = user.cid;
           token.name = user.name!;
           token.rating = user.rating;
+          token.role = user.role || "USER";
         }
         return token;
       },
       async session({ session, token }) {
+        const dbUser = await prisma.user.findUnique({
+          where: { cid: Number(token.cid) },
+        });
+
         session.user = {
           id: token.id,
           cid: token.cid,
           name: token.name,
           rating: token.rating,
-          role: "ADMIN"
+          role: dbUser?.role || token.role || "USER",
         };
         return session;
       },

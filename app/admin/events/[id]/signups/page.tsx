@@ -52,34 +52,52 @@ function airportsLabel(airports?: string[] | string | null) {
   return "-";
 }
 
-function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): string[] {
+function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): { slotStart: string; slotEnd: string }[] {
   if (!startIso || !endIso) return [];
   const start = new Date(startIso);
   const end = new Date(endIso);
   const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
+  
+  // Auf nächste 30-Minuten-Intervall runden
   const minutes = t.getUTCMinutes();
   if (minutes % 30 !== 0) {
     const delta = 30 - (minutes % 30);
     t.setUTCMinutes(minutes + delta);
   }
-  const result: string[] = [];
-  while (t <= end) {
-    const hh = String(t.getUTCHours()).padStart(2, "0");
-    const mm = String(t.getUTCMinutes()).padStart(2, "0");
-    result.push(`${hh}:${mm}`);
+  
+  const result: { slotStart: string; slotEnd: string }[] = [];
+  while (t < end) {
+    const slotStart = new Date(t);
     t.setUTCMinutes(t.getUTCMinutes() + 30);
+    const slotEnd = new Date(t);
+    
+    // Nur Slots hinzufügen, die nicht über das Event-Ende hinausgehen
+    if (slotEnd <= end) {
+      const startHH = String(slotStart.getUTCHours()).padStart(2, "0");
+      const startMM = String(slotStart.getUTCMinutes()).padStart(2, "0");
+      const endHH = String(slotEnd.getUTCHours()).padStart(2, "0");
+      const endMM = String(slotEnd.getUTCMinutes()).padStart(2, "0");
+      
+      result.push({
+        slotStart: `${startHH}:${startMM}`,
+        slotEnd: `${endHH}:${endMM}`
+      });
+    }
   }
   return result;
 }
 
-function isSlotUnavailable(slotHHMM: string, unavailable?: TimeRange[]): boolean {
+function isSlotUnavailable(slotStart: string, slotEnd: string, unavailable?: TimeRange[]): boolean {
   if (!unavailable || unavailable.length === 0) return false;
-  const sm = toMinutesHM(slotHHMM);
+  const slotStartMin = toMinutesHM(slotStart);
+  const slotEndMin = toMinutesHM(slotEnd);
+  
   return unavailable.some((r) => {
-    const s = toMinutesHM(r.start);
-    const e = toMinutesHM(r.end);
-    const slotEnd = sm + 30;
-    return Math.max(sm, s) < Math.min(slotEnd, e);
+    const rangeStart = toMinutesHM(r.start);
+    const rangeEnd = toMinutesHM(r.end);
+    
+    // Überlappung prüfen
+    return Math.max(slotStartMin, rangeStart) < Math.min(slotEndMin, rangeEnd);
   });
 }
 
@@ -100,10 +118,10 @@ function badgeClassFor(endorsement?: string) {
   }
 }
 
-// Availability Timeline Component
+// Updated Availability Timeline Component
 interface AvailabilityTimelineProps {
   signups: Signup[];
-  slots: string[];
+  slots: { slotStart: string; slotEnd: string }[];
   loading: boolean;
   error: string;
 }
@@ -127,8 +145,8 @@ function AvailabilityTimeline({ signups, slots, loading, error }: AvailabilityTi
 
   const timelineMinWidth = useMemo(() => {
     const NAME_COL_PX = 240;
-    const SLOT_MIN_PX = 40;
-    const slotCount = Math.max(slots.length - 1, 0);
+    const SLOT_MIN_PX = 60; // Etwas breiter für die Zeit-Labels
+    const slotCount = Math.max(slots.length, 0);
     return NAME_COL_PX + slotCount * SLOT_MIN_PX;
   }, [slots.length]);
 
@@ -139,12 +157,19 @@ function AvailabilityTimeline({ signups, slots, loading, error }: AvailabilityTi
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth: timelineMinWidth }}>
-        {/* Header Row */}
-        <div className="grid items-center" style={{ gridTemplateColumns: `240px repeat(${Math.max(slots.length - 1, 0)}, minmax(28px, 1fr))` }}>
+        {/* Header Row mit Zeitskala zwischen den Blöcken */}
+        <div className="grid items-center mb-2" style={{ 
+          gridTemplateColumns: `240px repeat(${Math.max(slots.length, 0)}, minmax(60px, 1fr))` 
+        }}>
           <div className="text-xs text-muted-foreground px-2">Controller</div>
-          {slots.slice(0, -1).map((t) => (
-            <div key={t} className="h-8 flex items-center justify-center text-[10px] text-muted-foreground">
-              {t}z
+          {slots.map((slot, index) => (
+            <div 
+              key={`header-${slot.slotStart}-${slot.slotEnd}`} 
+              className="flex flex-col items-center justify-center text-[10px] text-muted-foreground border-l border-gray-300 first:border-l-0"
+            >
+              <div className="font-medium">{slot.slotStart}z</div>
+              <div className="text-[8px] opacity-70 mt-0.5">bis</div>
+              <div className="font-medium">{slot.slotEnd}z</div>
             </div>
           ))}
         </div>
@@ -158,22 +183,40 @@ function AvailabilityTimeline({ signups, slots, loading, error }: AvailabilityTi
               const cid = String(s.user?.cid ?? s.userCID ?? "");
               const unavailable = s.availability?.unavailable || [];
               const hasAvailability = (s.availability && ((s.availability.unavailable && s.availability.unavailable.length > 0) || (s.availability.available && s.availability.available.length > 0)));
+              
               return (
-                <div key={String(s.id)} className="grid items-center" style={{ gridTemplateColumns: `240px repeat(${Math.max(slots.length - 1, 0)}, minmax(28px, 1fr))` }}>
-                  <div className="flex items-center gap-2 px-2 py-1 border-r">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium leading-tight">{name || "Unbekannt"}</span>
+                <div 
+                  key={String(s.id)} 
+                  className="grid items-center mb-1" 
+                  style={{ 
+                    gridTemplateColumns: `240px repeat(${Math.max(slots.length, 0)}, minmax(60px, 1fr))` 
+                  }}
+                >
+                  {/* Controller Info */}
+                  <div className="flex items-center gap-2 px-2 py-1 border-r bg-white/50">
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-medium leading-tight truncate">{name || "Unbekannt"}</span>
                       <span className="text-xs text-muted-foreground leading-tight">CID {cid}</span>
                     </div>
-                    <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
+                    <Badge className={`${badgeClassFor(s.endorsement)} shrink-0`}>
+                      {s.endorsement || "UNSPEC"}
+                    </Badge>
                   </div>
 
-                  {slots.slice(0, -1).map((st) => {
-                    const unavailableSlot = isSlotUnavailable(st, unavailable);
+                  {/* Availability Slots */}
+                  {slots.map((slot, slotIndex) => {
+                    const unavailableSlot = isSlotUnavailable(slot.slotStart, slot.slotEnd, unavailable);
                     const cls = hasAvailability
                       ? (unavailableSlot ? "bg-red-500" : "bg-emerald-400")
                       : "bg-gray-200";
-                    return <div key={`${s.id}__${st}`} className={`h-6 border ${unavailableSlot ? "border-red-600" : "border-white"} ${cls}`} />;
+                    
+                    return (
+                      <div 
+                        key={`${s.id}__${slot.slotStart}-${slot.slotEnd}`}
+                        className={`h-8 border border-white relative group ${cls}`}
+                      >
+                      </div>
+                    );
                   })}
                 </div>
               );
