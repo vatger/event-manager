@@ -123,7 +123,6 @@ const EventTimeSelector = ({
             id="duration"
             type="number"
             min="15"
-            max="480"
             step="15"
             value={duration}
             onChange={(e) => handleDurationChange(Number(e.target.value))}

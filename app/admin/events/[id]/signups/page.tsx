@@ -319,6 +319,9 @@ export default function AdminEventSignupsPage() {
             loading={signupsLoading}
             error={signupsError}
             columns={["cid", "name", "availability", "preferredStations", "remarks"]}
+            editable={true}
+            event={event ? { id: event.id, startTime: event.startTime, endTime: event.endTime } : undefined}
+            onRefresh={loadSignups}
           />
         </CardContent>
       </Card>
