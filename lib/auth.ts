@@ -145,3 +145,18 @@ export const authOptions: NextAuthOptions = {
     },
     secret: process.env.NEXTAUTH_SECRET!,
 };
+
+export async function getUser(userId: string) {
+  return prisma.user.findUnique({
+    where: { cid: Number(userId) },
+    select: { id: true, role: true, name: true, cid: true, rating: true },
+  });
+}
+
+export function isMainAdmin(user: { role: string }) {
+  return user.role === "MAIN_ADMIN";
+}
+
+export function isAdmin(user: { role: string }) {
+  return user.role === "ADMIN" || user.role === "MAIN_ADMIN";
+}

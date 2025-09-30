@@ -1,4 +1,4 @@
 -- SQLite
-UPDATE Event
-SET status = 'ROSTER_PUBLISHED'
-WHERE status = 'COMPLETED';
+UPDATE user
+SET role = 'USER'
+WHERE role = 'CONTROLLER';

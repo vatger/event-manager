@@ -1,8 +1,11 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import SignupEditDialog from "@/components/SignupEditDialog";
+import { Edit, Edit2Icon } from "lucide-react";
 
 export type TimeRange = { start: string; end: string };
 
@@ -14,6 +17,12 @@ export type SignupRow = {
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   preferredStations?: string | null;
   remarks?: string | null;
+};
+
+export type EventRef = {
+  id: string | number;
+  startTime: string;
+  endTime: string;
 };
 
 export type SignupTableColumn =
@@ -30,6 +39,9 @@ type SignupsTableProps = {
   columns: SignupTableColumn[];
   emptyMessage?: string;
   groupBy?: "endorsement" | "none";
+  editable?: boolean;
+  event?: EventRef;
+  onRefresh?: () => void;
 };
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
@@ -68,7 +80,9 @@ const HEAD_LABELS: Record<SignupTableColumn, string> = {
 };
 
 export default function SignupsTable(props: SignupsTableProps) {
-  const { signups, loading, error, columns, emptyMessage = "Keine Anmeldungen", groupBy = "endorsement" } = props;
+  const { signups, loading, error, columns, emptyMessage = "Keine Anmeldungen", groupBy = "endorsement", editable = false, event, onRefresh } = props;
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSignup, setEditSignup] = useState<SignupRow | null>(null);
 
   const grouped = useMemo(() => {
     if (groupBy !== "endorsement") {
@@ -92,40 +106,53 @@ export default function SignupsTable(props: SignupsTableProps) {
 
   const colCount = columns.length;
 
+  const hasActions = editable;
+  const finalColumns = hasActions ? [...columns, "__actions__"] : columns;
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {columns.map((c) => (
-            <TableHead key={c}>{HEAD_LABELS[c]}</TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {finalColumns.map((c) => (
+              <TableHead key={c}>{c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
         {loading ? (
           <TableRow>
-            <TableCell colSpan={colCount}>Laden...</TableCell>
+            <TableCell colSpan={finalColumns.length}>Laden...</TableCell>
           </TableRow>
         ) : error ? (
           <TableRow>
-            <TableCell colSpan={colCount} className="text-red-500">{error}</TableCell>
+            <TableCell colSpan={finalColumns.length} className="text-red-500">{error}</TableCell>
           </TableRow>
         ) : signups.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={colCount} className="text-muted-foreground">{emptyMessage}</TableCell>
+            <TableCell colSpan={finalColumns.length} className="text-muted-foreground">{emptyMessage}</TableCell>
           </TableRow>
         ) : (
           orderedAreas.flatMap((area) => [
             groupBy === "endorsement" ? (
               <TableRow key={`group-${area}`}>
-                <TableCell colSpan={colCount} className="bg-muted/50 font-semibold">
+                <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
                   {area}
                 </TableCell>
               </TableRow>
             ) : null,
             ...(grouped[area] || []).map((s) => (
               <TableRow key={String(s.id)}>
-                {columns.map((col) => {
+                {finalColumns.map((col) => {
+                  if (col === "__actions__") {
+                    return (
+                      <TableCell key={`${s.id}-actions`} className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => { setEditSignup(s); setEditOpen(true); }} disabled={!event}>
+                          <Edit />
+                        </Button>
+                      </TableCell>
+                    );
+                  }
                   switch (col) {
                     case "cid":
                       return (
@@ -160,7 +187,19 @@ export default function SignupsTable(props: SignupsTableProps) {
             )),
           ])
         )}
-      </TableBody>
-    </Table>
+        </TableBody>
+      </Table>
+
+      {editable && event && (
+        <SignupEditDialog
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          signup={editSignup}
+          event={event}
+          onSaved={onRefresh}
+          onDeleted={onRefresh}
+        />
+      )}
+    </>
   );
 }

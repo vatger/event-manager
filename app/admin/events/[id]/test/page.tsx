@@ -1,3 +1,4 @@
+// app/admin/events/create/page.tsx und app/admin/events/[id]/edit/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -6,13 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircleIcon, Loader2, ArrowLeft, DeleteIcon, Trash2Icon } from "lucide-react";
+import { AlertCircleIcon, Loader2, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import EventTimeSelector from "./TimeSelector";
-import StationSelector from "./StationSelector";
+import EventTimeSelector from "@/app/admin/_components/TimeSelector";
+import StationSelector from "@/app/admin/_components/StationSelector";
 
 interface Event {
   id: string;
@@ -36,29 +36,22 @@ interface FormData {
   endTime: string;
   airport: string;
   staffedStations: string[];
-  status: Event["status"];
 }
 
 interface Props {
-  event?: Event | null;
+  params?: {
+    id?: string;
+  };
 }
 
-const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
-  DRAFT: "Entwurf: Das Event ist nur für Admins sichtbar und kann bearbeitet werden.",
-  PLANNING: "Planung: Event sichtbar, Anmeldung noch nicht geöffnet.",
-  SIGNUP_OPEN: "Anmeldung offen: Nutzer können sich für das Event anmelden.",
-  SIGNUP_CLOSED: "Anmeldung geschlossen: Keine neuen Anmeldungen mehr möglich.",
-  ROSTER_PUBLISHED: "Roster veröffentlicht: Der Besetzungsplan wurden veröffentlicht.",
-  CANCELLED: "Abgesagt: Das Event findet nicht statt."
-};
-
-export default function AdminEventForm({ event }: Props) {
+export default function AdminEventPage({ params }: Props) {
   const router = useRouter();
-  const isEdit = Boolean(event);
+  const eventId = params?.id;
+  const isEdit = Boolean(eventId);
   
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(isEdit);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("basic");
   const [formData, setFormData] = useState<FormData>({
     name: "",
     description: "",
@@ -67,42 +60,51 @@ export default function AdminEventForm({ event }: Props) {
     endTime: "",
     airport: "",
     staffedStations: [],
-    status: "PLANNING",
   });
 
-  // Initialisierung basierend auf Event (Edit-Modus) oder leere Werte (Create-Modus)
+  // Lade Event-Daten für Edit-Modus
   useEffect(() => {
-    if (event) {
-      const start = new Date(event.startTime);
-      const end = new Date(event.endTime);
-      setFormData({
-        name: event.name || "",
-        description: event.description || "",
-        bannerUrl: event.bannerUrl || "",
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
-        airport: event.airports?.toString() || "",
-        staffedStations: event.staffedStations || [],
-        status: (event.status as Event["status"]) || "PLANNING",
-      });
-    } else {
-      // Setze Standardwerte für neues Event
-      const now = new Date();
-      const defaultStart = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Morgen
-      const defaultEnd = new Date(defaultStart.getTime() + 2 * 60 * 60 * 1000); // +2 Stunden
-      
-      setFormData({
-        name: "",
-        description: "",
-        bannerUrl: "",
-        startTime: defaultStart.toISOString(),
-        endTime: defaultEnd.toISOString(),
-        airport: "",
-        staffedStations: [],
-        status: "PLANNING",
-      });
-    }
-  }, [event]);
+    if (!isEdit) return;
+
+    const loadEvent = async () => {
+      try {
+        // Hier API-Aufruf für Event-Daten
+        const mockEvent: Event = {
+          id: eventId!,
+          name: "Team Meeting",
+          description: "Wöchentliches Team Meeting",
+          bannerUrl: "https://example.com/banner.jpg",
+          airports: ["EDDM"],
+          startTime: new Date(Date.now() + 86400000).toISOString(), // Morgen
+          endTime: new Date(Date.now() + 90000000).toISOString(), // +1 Stunde
+          staffedStations: ["EDDM_GND", "EDDM_TWR"],
+          signupDeadline: null,
+          registrations: 0,
+          status: "DRAFT"
+        };
+
+        // Simuliere Ladezeit
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        setFormData({
+          name: mockEvent.name,
+          description: mockEvent.description,
+          bannerUrl: mockEvent.bannerUrl,
+          startTime: mockEvent.startTime,
+          endTime: mockEvent.endTime,
+          airport: mockEvent.airports[0] || "",
+          staffedStations: mockEvent.staffedStations,
+        });
+      } catch (err) {
+        setError("Fehler beim Laden des Events");
+        console.error("Error loading event:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEvent();
+  }, [isEdit, eventId]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -120,7 +122,7 @@ export default function AdminEventForm({ event }: Props) {
   const handleStationsChange = useCallback((staffedStations: string[]) => {
     setFormData(prev => ({ ...prev, staffedStations }));
   }, []);
-  
+
   const initialStartTime = useMemo(() => 
     formData.startTime ? new Date(formData.startTime) : undefined, 
     [formData.startTime]
@@ -148,11 +150,10 @@ export default function AdminEventForm({ event }: Props) {
         endTime: formData.endTime,
         airports: [formData.airport.trim().toUpperCase()],
         staffedStations: formData.staffedStations,
-        status: formData.status,
       };
 
       const method = isEdit ? "PUT" : "POST";
-      const url = isEdit ? `/api/events/${event!.id}` : "/api/events";
+      const url = isEdit ? `/api/events/${eventId}` : "/api/events";
 
       const res = await fetch(url, {
         method,
@@ -165,7 +166,7 @@ export default function AdminEventForm({ event }: Props) {
         throw new Error(data.error || `HTTP error! status: ${res.status}`);
       }
 
-      router.push("/admin");
+      router.push("/admin/events");
       router.refresh();
     } catch (err) {
       setError(`Fehler beim ${isEdit ? "Speichern" : "Erstellen"} des Events! ${err instanceof Error ? err.message : "Unbekannter Fehler"}`);
@@ -178,13 +179,11 @@ export default function AdminEventForm({ event }: Props) {
   const formValidation = (): boolean => {
     if (!formData.name.trim()) {
       setError("Event Name ist erforderlich");
-      setActiveTab("basic");
       return false;
     }
     
     if (!formData.airport.trim() || formData.airport.trim().length !== 4) {
       setError("Bitte geben Sie einen gültigen ICAO-Code (4 Zeichen) ein");
-      setActiveTab("basic");
       return false;
     }
 
@@ -193,38 +192,40 @@ export default function AdminEventForm({ event }: Props) {
     
     if (startTime >= endTime) {
       setError("Endzeit muss nach der Startzeit liegen");
-      setActiveTab("time");
       return false;
     }
 
     return true;
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Event wirklich löschen?")) return;
-    try {
-      if(!event) return;
-      const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fehler beim Löschen");
-      router.push("/admin");
-    } catch (err) {
-      setError("Fehler beim Löschen des Events");
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Lade Event...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-6 max-w-4xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => router.push("/admin")}
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isEdit ? "Event bearbeiten" : "Neues Event erstellen"}
           </h1>
           <p className="text-muted-foreground">
-            {isEdit 
-              ? "Aktualisiere die Event-Details" 
-              : "Erstelle ein neues Event der FIR München"
-            }
+            {isEdit ? "Aktualisiere die Event-Details" : "Erstelle ein neues Event für die Community"}
           </p>
         </div>
       </div>
@@ -238,7 +239,7 @@ export default function AdminEventForm({ event }: Props) {
       )}
 
       <form onSubmit={handleSubmit}>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs defaultValue="basic" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="basic">Grunddaten</TabsTrigger>
             <TabsTrigger value="time">Zeit & Datum</TabsTrigger>
@@ -250,6 +251,9 @@ export default function AdminEventForm({ event }: Props) {
             <Card>
               <CardHeader>
                 <CardTitle>Event Information</CardTitle>
+                <CardDescription>
+                  Grundlegende Informationen über dein Event
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -291,10 +295,13 @@ export default function AdminEventForm({ event }: Props) {
                     required
                     disabled={isSaving}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    URL zu einem Banner-Bild für dein Event (empfohlen: 1200x400px)
+                  </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="airport">Event-Airport (ICAO) *</Label>
+                  <Label htmlFor="airport">Haupt-Airport (ICAO) *</Label>
                   <Input
                     id="airport"
                     name="airport"
@@ -307,33 +314,7 @@ export default function AdminEventForm({ event }: Props) {
                     maxLength={4}
                   />
                   <p className="text-xs text-muted-foreground">
-                    
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, status: value as Event["status"] }))
-                    }
-                    disabled={isSaving}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Status wählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="DRAFT">DRAFT – Entwurf</SelectItem>
-                      <SelectItem value="PLANNING">PLANNING – Planung</SelectItem>
-                      <SelectItem value="SIGNUP_OPEN">SIGNUP_OPEN – Anmeldung offen</SelectItem>
-                      <SelectItem value="SIGNUP_CLOSED">SIGNUP_CLOSED – Anmeldung geschlossen</SelectItem>
-                      <SelectItem value="ROSTER_PUBLISHED">ROSTER_PUBLISHED – Roster veröffentlicht</SelectItem>
-                      <SelectItem value="CANCELLED">CANCELLED – Abgesagt</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {STATUS_DESCRIPTIONS[formData.status]}
+                    4-stelliger ICAO-Code des Haupt-Airports
                   </p>
                 </div>
               </CardContent>
@@ -346,7 +327,7 @@ export default function AdminEventForm({ event }: Props) {
               <CardHeader>
                 <CardTitle>Zeitplan</CardTitle>
                 <CardDescription>
-                  Wann findet das Event statt?
+                  Wann soll dein Event starten und enden?
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -363,7 +344,7 @@ export default function AdminEventForm({ event }: Props) {
           <TabsContent value="stations">
             <Card>
               <CardHeader>
-                <CardTitle>Zu besetzende Stationen</CardTitle>
+                <CardTitle>Stationen Konfiguration</CardTitle>
                 <CardDescription>
                   Welche Stationen sollen während des Events besetzt werden?
                 </CardDescription>
@@ -391,20 +372,15 @@ export default function AdminEventForm({ event }: Props) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/admin")}
+            onClick={() => router.push("/admin/events")}
             disabled={isSaving}
           >
             Abbrechen
           </Button>
-          {isEdit && 
-          <Button type="button" variant={"destructive"} onClick={handleDelete}>
-            <Trash2Icon />
-          </Button>}
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" disabled={isSaving} size="lg">
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEdit ? "Event aktualisieren" : "Event erstellen"}
           </Button>
-          
         </div>
       </form>
     </div>

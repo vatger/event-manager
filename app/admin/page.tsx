@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Event {
   id: string;
@@ -65,16 +67,6 @@ export default function AdminEventsPage() {
   useEffect(() => {
     refreshEvents();
   }, []);
-
-  const handleCreate = () => {
-    setEditingEvent(null);
-    setDialogOpen(true);
-  };
-
-  const handleEdit = (event: Event) => {
-    setEditingEvent(event);
-    setDialogOpen(true);
-  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Event wirklich löschen?")) return;
@@ -163,12 +155,14 @@ export default function AdminEventsPage() {
     registrations: filteredEvents.reduce((acc, e) => acc + (e.registrations || 0), 0),
   };
 
+  const router = useRouter();
+
   return (
     <Protected>
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold">Event Management</h1>
-          <Button onClick={handleCreate}>Neues Event</Button>
+          <Button><Link href="/admin/events/create">Neues Event</Link></Button>
         </div>
 
         {error && (
@@ -191,6 +185,7 @@ export default function AdminEventsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Alle Status</SelectItem>
+              <SelectItem value="DRAFT">Entwurf</SelectItem>
               <SelectItem value="PLANNING">Planning</SelectItem>
               <SelectItem value="SIGNUP_OPEN">Signup offen</SelectItem>
               <SelectItem value="ROSTER_PUBLISHED">Plan hochgeladen</SelectItem>
@@ -228,26 +223,22 @@ export default function AdminEventsPage() {
             <p className="text-muted-foreground">Keine Events gefunden</p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
             {filteredEvents.map((event) => (
               <EventCard
                 key={event.id}
+                onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
                 event={event}
-                onEdit={() => handleEdit(event)}
                 onDelete={() => handleDelete(event.id)}
                 onOpenSignup={() => openSignup(event)}
                 onCloseSignup={() => closeSignup(event.id)}
               />
             ))}
           </div>
-        )}
 
-        <AdminEventForm
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          event={editingEvent}
-          onSuccess={refreshEvents}
-        />
+
+
+        )}
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent>

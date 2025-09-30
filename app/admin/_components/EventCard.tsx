@@ -37,7 +37,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
     const start = new Date(event.startTime);
     const end = new Date(event.endTime);
     
-    return `${pad(start.getDate())} ${MONTHS[start.getMonth()]} ${String(start.getFullYear()).slice(2)} | ${pad(start.getHours())}${pad(start.getMinutes())}z - ${pad(end.getHours())}${pad(end.getMinutes())}z`;
+    return `${pad(start.getUTCDate())} ${MONTHS[start.getUTCMonth()]} ${String(start.getUTCFullYear()).slice(2)} | ${pad(start.getUTCHours())}${pad(start.getUTCMinutes())}z - ${pad(end.getUTCHours())}${pad(end.getUTCMinutes())}z`;
   }, [event.startTime, event.endTime]);
 
   const formattedDeadline = useMemo(() => {
