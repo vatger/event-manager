@@ -42,7 +42,7 @@ export async function GET(request: Request,
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   const body = await req.json();
@@ -78,7 +78,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") {
+  if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   await prisma.event.delete({ where: { id: Number(eventId) } });
@@ -105,7 +105,7 @@ const updateEventSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN") {
+    if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   try {

@@ -15,7 +15,7 @@ export async function PATCH(_: NextRequest, { params }: { params: Promise<{ id: 
       where: { id: ID },
       data: { readAt: new Date() },
     });
-    if (updated.userCID !== cid && session.user.role !== "ADMIN") {
+    if (updated.userCID !== cid && session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     return NextResponse.json(updated);

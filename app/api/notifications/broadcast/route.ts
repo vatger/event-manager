@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { eventId, title, message, data, type = "EVENT" } = await req.json();
   if (!eventId || !title || !message) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
