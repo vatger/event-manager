@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSession } from "next-auth/react";
 
 interface User {
   cid: string;
@@ -15,6 +16,7 @@ interface User {
 export default function AdminTeamPage() {
   const [admins, setAdmins] = useState<User[]>([]);
   const [cid, setCid] = useState("");
+  const { data: session } = useSession();
 
   const loadAdmins = async () => {
     const res = await fetch("/api/admin/team");
@@ -76,6 +78,7 @@ export default function AdminTeamPage() {
                   variant="destructive"
                   size="sm"
                   onClick={() => removeAdmin(user.cid)}
+                  disabled={session!.user?.role !== "MAIN_ADMIN"}
                 >
                   Remove
                 </Button>
