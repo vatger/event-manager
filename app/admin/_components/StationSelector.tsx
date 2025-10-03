@@ -1,7 +1,7 @@
 // components/admin/StationSelector.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { stationsConfig, StationGroup } from "@/data/station_configs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,9 +29,22 @@ export default function StationSelector({
   const [customStation, setCustomStation] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Sortierte Stations-Konfiguration für die korrekte Reihenfolge
+  const sortedStationsConfig = useMemo(() => {
+    return [...stationsConfig].sort((a, b) => {
+      // Zuerst nach Gruppe sortieren
+      const groupOrder = GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group);
+      if (groupOrder !== 0) return groupOrder;
+      
+      // Dann nach der ursprünglichen Reihenfolge in der Konfiguration
+      return stationsConfig.indexOf(a) - stationsConfig.indexOf(b);
+    });
+  }, []);
+
+  // Gefilterte Stationen mit korrekter Reihenfolge
   const filteredStations = GROUPS.map((group) => ({
     group,
-    stations: stationsConfig.filter(
+    stations: sortedStationsConfig.filter(
       (s) => 
         s.group === group && 
         (!s.airport || s.airport === airport.toUpperCase()) &&
@@ -39,18 +52,61 @@ export default function StationSelector({
     ),
   })).filter(({ stations }) => stations.length > 0);
 
+  // Ausgewählte Stationen in korrekter Reihenfolge anzeigen
+  const orderedSelectedStations = useMemo(() => {
+    return selectedStations.sort((a, b) => {
+      const stationA = sortedStationsConfig.find(s => s.callsign === a);
+      const stationB = sortedStationsConfig.find(s => s.callsign === b);
+      
+      // Benutzerdefinierte Stationen (nicht in config) ans Ende
+      if (!stationA && !stationB) return a.localeCompare(b);
+      if (!stationA) return 1;
+      if (!stationB) return -1;
+      
+      // Nach konfigurierter Reihenfolge sortieren
+      return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
+    });
+  }, [selectedStations, sortedStationsConfig]);
+
   const toggleStation = (callsign: string) => {
     const isSelected = selectedStations.includes(callsign);
     if (isSelected) {
       onStationsChange(selectedStations.filter(s => s !== callsign));
     } else {
-      onStationsChange([...selectedStations, callsign]);
+      // Neue Station in korrekter Position einfügen
+      const newStations = [...selectedStations, callsign];
+      const sortedNewStations = newStations.sort((a, b) => {
+        const stationA = sortedStationsConfig.find(s => s.callsign === a);
+        const stationB = sortedStationsConfig.find(s => s.callsign === b);
+        
+        if (!stationA && !stationB) return a.localeCompare(b);
+        if (!stationA) return 1;
+        if (!stationB) return -1;
+        
+        return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
+      });
+      onStationsChange(sortedNewStations);
     }
   };
 
   const addCustomStation = () => {
     if (customStation.trim() && !selectedStations.includes(customStation.toUpperCase())) {
-      onStationsChange([...selectedStations, customStation.toUpperCase()]);
+      const newStation = customStation.toUpperCase();
+      const newStations = [...selectedStations, newStation];
+      
+      // Benutzerdefinierte Stationen ans Ende sortieren
+      const sortedNewStations = newStations.sort((a, b) => {
+        const stationA = sortedStationsConfig.find(s => s.callsign === a);
+        const stationB = sortedStationsConfig.find(s => s.callsign === b);
+        
+        if (!stationA && !stationB) return a.localeCompare(b);
+        if (!stationA) return 1;
+        if (!stationB) return -1;
+        
+        return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
+      });
+      
+      onStationsChange(sortedNewStations);
       setCustomStation("");
     }
   };
@@ -66,6 +122,12 @@ export default function StationSelector({
     }
   };
 
+  // Alle verfügbaren Stationen in korrekter Reihenfolge auswählen
+  const selectAllStations = () => {
+    const allStations = filteredStations.flatMap(g => g.stations.map(s => s.callsign));
+    onStationsChange(allStations);
+  };
+
   return (
     <div className="space-y-4">
       {/* Ausgewählte Stationen */}
@@ -73,7 +135,7 @@ export default function StationSelector({
         <div className="space-y-2">
           <Label>Ausgewählte Stationen ({selectedStations.length})</Label>
           <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-12">
-            {selectedStations.map((station) => (
+            {orderedSelectedStations.map((station) => (
               <Badge 
                 key={station} 
                 variant="secondary"
@@ -215,10 +277,7 @@ export default function StationSelector({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                const allStations = filteredStations.flatMap(g => g.stations.map(s => s.callsign));
-                onStationsChange(allStations);
-              }}
+              onClick={selectAllStations}
               disabled={disabled}
             >
               Alle auswählen
