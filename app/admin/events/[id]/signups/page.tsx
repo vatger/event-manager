@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import SignupsTable from "@/components/SignupsTable";
+import SyncToSheetsButton from "@/app/admin/_components/SyncToSheetsButton";
 
 // Types
 type TimeRange = { start: string; end: string };
@@ -368,6 +369,7 @@ export default function AdminEventSignupsPage() {
           />
         </CardContent>
       </Card>
+      <SyncToSheetsButton eventId={parseInt(event.id.toString())} />
     </div>
   );
 }

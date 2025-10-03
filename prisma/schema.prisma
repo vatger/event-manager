@@ -36,7 +36,6 @@ model Event {
   updatedAt       DateTime    @updatedAt
 
   signups      EventSignup[]
-  documents    EventDocument[]
   Notification Notification[]
 }
 
@@ -56,17 +55,6 @@ model EventSignup {
   user  User  @relation(fields: [userCID], references: [cid])
 
   @@unique([eventId, userCID]) // verhindert doppelte Signups
-}
-
-model EventDocument {
-  id        Int          @id @default(autoincrement())
-  eventId   Int
-  name      String
-  type      DocumentType
-  url       String
-  createdAt DateTime     @default(now())
-
-  event Event @relation(fields: [eventId], references: [id])
 }
 
 enum Role {
