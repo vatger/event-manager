@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format, addMinutes, differenceInMinutes } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Calendar } from "@/components/ui/calendar";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface EventTimeSelectorProps {
@@ -21,35 +21,49 @@ const EventTimeSelector = ({
   initialEndTime 
 }: EventTimeSelectorProps) => {
   // State für die Eingabewerte
-  const [date, setDate] = useState<Date>(initialStartTime || new Date());
-  const [time, setTime] = useState<string>(format(initialStartTime || new Date(), 'HH:mm'));
+  const [date, setDate] = useState<Date>(() => initialStartTime || new Date());
+  const [time, setTime] = useState<string>(() => format(initialStartTime || new Date(), 'HH:mm'));
   const [duration, setDuration] = useState<number>(60);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  
+  // Refs für Tracking
+  const isInitialized = useRef(false);
+  const lastStartTime = useRef<string>('');
+  const lastEndTime = useRef<string>('');
 
-  // Initialisierung nur einmal beim Mount oder wenn sich die Prefills ändern
+  // Initialisierung nur einmal
   useEffect(() => {
-    if (initialStartTime && initialEndTime) {
+    if (initialStartTime && initialEndTime && !isInitialized.current) {
       setDate(initialStartTime);
       setTime(format(initialStartTime, 'HH:mm'));
       const calculatedDuration = differenceInMinutes(initialEndTime, initialStartTime);
       setDuration(calculatedDuration);
+      isInitialized.current = true;
     }
   }, [initialStartTime, initialEndTime]);
 
-  // Berechne die aktuellen Zeiten
-  const getCurrentTimes = useCallback(() => {
+  // Berechne aktuelle Zeiten
+  const getCurrentTimes = () => {
     const startTimeDate = new Date(date);
     const [hours, minutes] = time.split(':').map(Number);
     startTimeDate.setHours(hours, minutes, 0, 0);
     const endTimeDate = addMinutes(startTimeDate, duration);
     return { startTime: startTimeDate, endTime: endTimeDate };
-  }, [date, time, duration]);
+  };
 
-  // Benachrichtige Parent nur wenn sich Werte ändern
+  // Benachrichtige Parent nur bei echten Änderungen
   useEffect(() => {
     const { startTime, endTime } = getCurrentTimes();
-    onTimeChange(startTime, endTime);
-  }, [getCurrentTimes, onTimeChange]);
+    const currentStartTime = startTime.toISOString();
+    const currentEndTime = endTime.toISOString();
+
+    // Nur aufrufen wenn sich die Zeiten wirklich geändert haben
+    if (currentStartTime !== lastStartTime.current || currentEndTime !== lastEndTime.current) {
+      lastStartTime.current = currentStartTime;
+      lastEndTime.current = currentEndTime;
+      onTimeChange(startTime, endTime);
+    }
+  }); // Keine Dependencies - wir wollen bei jedem Render prüfen
 
   // Handler für direkte Änderungen
   const handleDateChange = (newDate: Date | undefined) => {
@@ -111,14 +125,13 @@ const EventTimeSelector = ({
               step="30"
               value={time}
               onChange={(e) => handleTimeChange((e.target.value))}
-              />
+            />
           </div>
         </div>
 
         {/* Dauer */}
         <div className="space-y-2">
           <Label htmlFor="duration">Dauer (Minuten)</Label>
-          
           <Input
             id="duration"
             type="number"
