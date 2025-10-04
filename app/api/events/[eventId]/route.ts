@@ -73,6 +73,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         staffedStations: parsed.data.staffedStations || [],
         status: parsed.data.status || "PLANNING",
         createdById: parseInt(session.user.id),
+        rosterlink: body.rosterlink || null,
       },
   });
   return NextResponse.json(event);

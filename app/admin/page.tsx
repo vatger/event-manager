@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { EventCard } from "./_components/EventCard";
 import Protected from "@/components/Protected";
-import AdminEventForm from "./_components/AdminEventForm";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -25,6 +24,7 @@ interface Event {
   endTime: string;
   staffedStations: string[];
   signupDeadline: string | null;
+  rosterlink: string | null;
   registrations: number;
   status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED"  | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
 }
@@ -42,6 +42,8 @@ export default function AdminEventsPage() {
   // Modal state for opening signup
   const [openDialog, setOpenDialog] = useState(false);
   const [openTarget, setOpenTarget] = useState<Event | null>(null);
+  const [openRosterDialog, setOpenRosterDialog] = useState(false);
+  const [rosterInput, setRosterInput] = useState("");
   const [deadlineInput, setDeadlineInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -85,6 +87,39 @@ export default function AdminEventsPage() {
     setDeadlineInput(prefill);
     setOpenDialog(true);
   };
+
+  const publishRoster = (event: Event) => {
+    setError("");
+    setOpenTarget(event);
+    const prefill = event.rosterlink || "";
+    setRosterInput(prefill);
+    setOpenRosterDialog(true);
+  }
+
+  const confirmPublishRoster = async () => {
+    if (!openTarget) return;
+    
+    setBusy(true);
+    setError("");
+    
+    try {
+      const res = await fetch(`/api/events/${openTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "ROSTER_PUBLISHED", rosterlink: rosterInput  }),
+      });
+      
+      if (!res.ok) throw new Error("Fehler beim Veröffentlichen des Rosters");
+      
+      setOpenRosterDialog(false);
+      setOpenTarget(null);
+      refreshEvents();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const confirmOpenSignup = async () => {
     if (!openTarget) return;
@@ -231,6 +266,7 @@ export default function AdminEventsPage() {
                 onDelete={() => handleDelete(event.id)}
                 onOpenSignup={() => openSignup(event)}
                 onCloseSignup={() => closeSignup(event.id)}
+                onpublishRoster={() => publishRoster(event)}
               />
             ))}
           </div>
@@ -273,6 +309,45 @@ export default function AdminEventsPage() {
               </Button>
               <Button onClick={confirmOpenSignup} disabled={busy || !deadlineInput}>
                 {busy ? "Wird geöffnet..." : "Öffnen"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={openRosterDialog} onOpenChange={setOpenRosterDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Besetzungsplan veröffentlichen</DialogTitle>
+              <DialogDescription>
+                Bitte geben Sie den Link zum Besetzungsplan an.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+                <div className="space-y-2">
+                <Label htmlFor="roster">Rosterlink</Label>
+                <Input
+                  id="roster"
+                  type="text"
+                  value={rosterInput}
+                  onChange={(e) => setRosterInput(e.target.value)}
+                />
+                </div>
+              
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenRosterDialog(false)} disabled={busy}>
+                Abbrechen
+              </Button>
+              <Button onClick={confirmPublishRoster} disabled={busy || !rosterInput}>
+                {busy ? "Wird veröffentlicht..." : "Veröffentlichen"}
               </Button>
             </DialogFooter>
           </DialogContent>

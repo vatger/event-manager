@@ -15,8 +15,7 @@ import SignupsTable from "@/components/SignupsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Calendar, Clock, MapPin, Tags, Users } from "lucide-react";
-import Image from "next/image";
-import { EventSignup } from "@prisma/client";
+import Link from "next/link";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -31,6 +30,7 @@ interface Event {
   staffedStations: string[];
   signupDeadline: string;
   registrations: number;
+  rosterlink: string | null;
   isSignedUp?: boolean;
   status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED";
 }
@@ -282,8 +282,10 @@ export default function EventPage() {
                 </Button>
               )
             ) : event.status === "ROSTER_PUBLISHED" ? (
-              <Button className="w-full">
-                Besetzungsplan anzeigen
+              <Button className="w-full" disabled={!event.rosterlink}>
+                <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
+                  {event.rosterlink ? "Besetzungsplan anzeigen" : "Kein Besetzungsplan verfügbar"}
+                </Link>
               </Button>
             ) : event.status === "CANCELLED" ? (
               <Button className="w-full" variant="destructive" disabled>
@@ -378,7 +380,11 @@ export default function EventPage() {
               <h3 className="text-lg font-semibold mb-2">Besetzungsplan ist verfügbar!</h3>
               <p className="text-muted-foreground">Der finale Besetzungsplan wurde veröffentlicht.</p>
             </div>
-            <Button size="lg">Zum Besetzungsplan</Button>
+            <Button size="lg" disabled={!event.rosterlink}>
+            <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
+                  {event.rosterlink ? "Zum Besetzungsplan" : "FEHLER"}
+                </Link>
+            </Button>
           </div>
         )}
       </Card>

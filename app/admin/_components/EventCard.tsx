@@ -27,11 +27,12 @@ interface Props {
   onDelete: () => void;
   onOpenSignup: (event: Event) => void;
   onCloseSignup: (id: string) => void;
+  onpublishRoster: (event: Event) => void;
 }
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup }: Props) {
+export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
   const formatZuluRange = useMemo(() => {
     const pad = (n: number) => n.toString().padStart(2, "0");
     const start = new Date(event.startTime);
@@ -121,12 +122,20 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           >
             Anmeldung schließen
           </Button>
+        ) : event.status === "SIGNUP_CLOSED" ? (
+          <Button 
+            variant="outline" 
+            onClick={() => onpublishRoster(event)}
+            size="sm"
+          >
+            Roster veröffentlichen
+          </Button>
         ) : (
           <Button 
             variant="outline" 
             onClick={() => onOpenSignup(event)}
             size="sm"
-            disabled={event.status === "COMPLETED" || event.status === "CANCELLED"}
+            disabled={event.status !== "PLANNING"}
           >
             Anmeldung öffnen
           </Button>

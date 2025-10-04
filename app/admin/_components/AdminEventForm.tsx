@@ -25,6 +25,7 @@ interface Event {
   staffedStations: string[];
   signupDeadline: string | null;
   registrations: number;
+  rosterlink: string | null;
   status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED" | string;
 }
 
@@ -35,6 +36,7 @@ interface FormData {
   startTime: string;
   endTime: string;
   airport: string;
+  rosterUrl?: string;
   staffedStations: string[];
   status: Event["status"];
 }
@@ -84,6 +86,7 @@ export default function AdminEventForm({ event }: Props) {
         airport: event.airports?.toString() || "",
         staffedStations: event.staffedStations || [],
         status: (event.status as Event["status"]) || "PLANNING",
+        rosterUrl: event.rosterlink || "",
       });
     } else {
       // Setze Standardwerte für neues Event
@@ -100,6 +103,7 @@ export default function AdminEventForm({ event }: Props) {
         airport: "",
         staffedStations: [],
         status: "PLANNING",
+        rosterUrl: "",
       });
     }
   }, [event]);
@@ -149,6 +153,7 @@ export default function AdminEventForm({ event }: Props) {
         airports: [formData.airport.trim().toUpperCase()],
         staffedStations: formData.staffedStations,
         status: formData.status,
+        rosterlink: formData.rosterUrl?.trim() || null,
       };
 
       const method = isEdit ? "PUT" : "POST";
@@ -336,6 +341,22 @@ export default function AdminEventForm({ event }: Props) {
                     {STATUS_DESCRIPTIONS[formData.status]}
                   </p>
                 </div>
+
+                {formData.status === "ROSTER_PUBLISHED" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="rosterUrl">Roster URL</Label>
+                    <Input
+                      id="rosterUrl"
+                      name="rosterUrl"
+                      type="url"
+                      value={formData.rosterUrl}
+                      onChange={handleChange}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      disabled={isSaving}
+                    />
+                  </div>
+                )}
+                
               </CardContent>
             </Card>
           </TabsContent>
