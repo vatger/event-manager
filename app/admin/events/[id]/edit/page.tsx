@@ -22,7 +22,7 @@ export default function EditEventPage() {
   const router = useRouter();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
-  const baseUrl = process.env.NEXTAUTH_SECRET || "http://localhost:3000";
+  const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
   const { id } = useParams() as { id?: string | string[] };
   const eventId = Array.isArray(id) ? id[0] : id;
 

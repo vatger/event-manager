@@ -25,7 +25,7 @@ interface Event {
   staffedStations: string[];
   signupDeadline: string | null;
   registrations: number;
-  rosterlink: string | null;
+  rosterlink?: string | null;
   status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED" | string;
 }
 

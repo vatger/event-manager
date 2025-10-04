@@ -14,12 +14,13 @@ function authenticate(req: NextRequest) {
 }
 
 // GET /api/users/[cid]
-export async function GET(req: NextRequest, { params }: { params: { cid: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ cid: string }> }) {
   if (!authenticate(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cid = parseInt(params.cid);
+  const cid = parseInt((await params).cid);
+  
   if (isNaN(cid)) {
     return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
   }
@@ -44,12 +45,12 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
 }
 
 // DELETE /api/users/[cid]
-export async function DELETE(req: NextRequest, { params }: { params: { cid: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ cid: string }> }) {
   if (!authenticate(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cid = parseInt(params.cid);
+  const cid = parseInt((await params).cid);
   if (isNaN(cid)) {
     return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
   }
