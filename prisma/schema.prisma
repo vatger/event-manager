@@ -12,6 +12,7 @@ model User {
   cid       Int      @unique
   name      String
   rating    String
+  fir       String?
   role      Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -31,7 +32,7 @@ model Event {
   signupDeadline  DateTime?
   staffedStations Json? // Array of Callsigns
   status          EventStatus @default(PLANNING)
-  rosterlink     String?
+  rosterlink      String?
   createdById     Int?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

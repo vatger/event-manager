@@ -29,6 +29,9 @@ export default function Header() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
+            <DropdownMenuItem>
+              FIR: {session.user.fir_code || "N/A"}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 signOut();

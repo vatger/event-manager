@@ -31,7 +31,7 @@ export const stationsConfig: Station[] = [
   { callsign: "EDDM_SD_APP", group: "APP", airport: "EDDM" },
 
   // CTR (FIR-weit)
-  { callsign: "EDMM_ALB_CTR", group: "CTR" },
+  { callsign: "EDMM_ALB_CTR", group: "CTR"},
   { callsign: "EDMM_BBG_CTR", group: "CTR" },
   { callsign: "EDMM_EGG_CTR", group: "CTR" },
   { callsign: "EDMM_FUE_CTR", group: "CTR" },
@@ -47,4 +47,10 @@ export const stationsConfig: Station[] = [
   { callsign: "EDMM_WLD_CTR", group: "CTR" },
   { callsign: "EDMM_ZUG_CTR", group: "CTR" },
   { callsign: "EDMM_SWA_CTR", group: "CTR" },
+
+  //EDDN
+  { callsign: "EDDN_GND", group: "GND", airport: "EDDN" },
+  { callsign: "EDDN_TWR", group: "TWR", airport: "EDDN" },
+  { callsign: "EDDN_FRK_APP", group: "APP", airport: "APP" },
+  { callsign: "EDDN_D_APP", group: "APP", airport: "APP" },
 ];

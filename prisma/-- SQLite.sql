@@ -1,4 +1,4 @@
 -- SQLite
 UPDATE user
-SET role = 'USER'
-WHERE role = 'CONTROLLER';
+SET fir = 'EDWW'
+WHERE cid = '1649341';
