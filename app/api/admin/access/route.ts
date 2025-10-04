@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // GET /api/admin/access?cid=XXXX
 // Returns: { isAdmin: boolean, role: "USER" | "ADMIN" | "MAIN_ADMIN" | null }
 export async function GET(req: Request) {
+  const session = await getServerSession(authOptions);
+  if (
+    !session || 
+    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+  ) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
   try {
     const url = new URL(req.url);
     const cidParam = url.searchParams.get("cid");

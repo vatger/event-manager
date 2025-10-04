@@ -1,6 +1,8 @@
+import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { Event } from "@prisma/client";
 import { google } from "googleapis";
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 
 // Type Definitions basierend auf Ihrem Schema
@@ -218,6 +220,13 @@ function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
 }
 
 export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+    if (
+      !session || 
+      (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");

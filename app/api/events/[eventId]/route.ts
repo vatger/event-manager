@@ -42,8 +42,11 @@ export async function GET(request: Request,
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (
+    !session || 
+    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+  ) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   const body = await req.json();
   const parsed = eventSchema.safeParse(body);
@@ -78,9 +81,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
+  if (
+    !session || 
+    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+  await prisma.eventSignup.deleteMany({ where: { eventId: Number(eventId) } });
   await prisma.event.delete({ where: { id: Number(eventId) } });
   return NextResponse.json({ success: true });
 }
@@ -105,8 +112,11 @@ const updateEventSchema = z.object({
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (
+    !session || 
+    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+  ) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
   try {
     const body = await req.json();

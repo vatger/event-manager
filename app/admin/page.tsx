@@ -34,8 +34,6 @@ type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "ROSTER_PUBLISHED";
 export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
   // Toolbar state
   const [query, setQuery] = useState("");
@@ -73,6 +71,7 @@ export default function AdminEventsPage() {
     try {
       const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Fehler beim Löschen");
+      setError("");
       refreshEvents();
     } catch (err) {
       setError("Fehler beim Löschen des Events");
