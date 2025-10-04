@@ -68,9 +68,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
   return (
     <Card className="relative rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 hover:border-primary/20">
       <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-        <Badge variant={statusConfig.variant} className="capitalize">
-          {statusConfig.label}
-        </Badge>
+        
         <Button 
           size="icon" 
           variant="outline" 
@@ -99,17 +97,20 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="pb-3">
+      <CardContent>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="w-4 h-4" />
             <span>{event.registrations} Anmeldungen</span>
           </div>
           
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex items-center gap-2 text-muted-foreground pb-2">
             <Calendar className="w-4 h-4" />
             <span>Deadline: {formattedDeadline}</span>
           </div>
+          <Badge variant={statusConfig.variant} className="capitalize">
+            {statusConfig.label}
+          </Badge>
         </div>
       </CardContent>
       

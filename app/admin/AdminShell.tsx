@@ -36,7 +36,6 @@ import React from "react";
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
   { href: "/admin/team", label: "Members", icon: Users, badge: null },
-  { href: "/admin/settings", label: "Settings", icon: Settings, badge: null },
 ];
 
 // Navigation Item Komponente
@@ -83,13 +82,13 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
   const pathname = usePathname();
   return (
     <Sidebar className="border-r bg-background">
-      <SidebarHeader className="border-b p-4">
+      <SidebarHeader className="border-b p-3">
         <div className="flex items-center gap-2 px-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">YS</span>
+            <span className="text-sm font-bold text-primary-foreground">M</span>
           </div>
           <div className="flex flex-col">
-            <span className="font-semibold">Eventmanager</span>
+            <span className="font-semibold"><Link href="/">Eventmanager</Link></span>
             <span className="text-xs text-muted-foreground">Adminpanel</span>
           </div>
         </div>
@@ -98,7 +97,7 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
       <SidebarContent>
         <nav className="flex flex-col gap-1 p-2">
           {sidebarItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/admin');
             return (
               <NavItem 
                 key={item.href} 
@@ -184,7 +183,7 @@ export default function AdminShell({ children, user }: { children: React.ReactNo
 // Hilfsfunktion für Seitentitel
 function getPageTitle(pathname: string): string {
   const item = sidebarItems.find(item => 
-    pathname === item.href || pathname.startsWith(item.href + '/')
+    pathname === item.href || pathname.startsWith(item.href + '/admin')
   );
   return item?.label || "Dashboard";
 }

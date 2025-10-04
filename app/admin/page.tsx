@@ -29,7 +29,7 @@ interface Event {
   status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED"  | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
 }
 
-type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "ROSTER_PUBLISHED";
+type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED";
 
 export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
@@ -222,6 +222,7 @@ export default function AdminEventsPage() {
               <SelectItem value="DRAFT">Entwurf</SelectItem>
               <SelectItem value="PLANNING">Planning</SelectItem>
               <SelectItem value="SIGNUP_OPEN">Signup offen</SelectItem>
+              <SelectItem value="SIGNUP_CLOSED">Signup closed</SelectItem>
               <SelectItem value="ROSTER_PUBLISHED">Plan hochgeladen</SelectItem>
             </SelectContent>
           </Select>
@@ -333,6 +334,9 @@ export default function AdminEventsPage() {
                   onChange={(e) => setRosterInput(e.target.value)}
                 />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Zu diesem Event angemeldete Controller werden benachrichtigt.
+                </p>
               
               {error && (
                 <Alert variant="destructive">

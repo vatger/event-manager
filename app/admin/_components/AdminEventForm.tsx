@@ -50,7 +50,7 @@ const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
   PLANNING: "Planung: Event sichtbar, Anmeldung noch nicht geöffnet.",
   SIGNUP_OPEN: "Anmeldung offen: Nutzer können sich für das Event anmelden.",
   SIGNUP_CLOSED: "Anmeldung geschlossen: Keine neuen Anmeldungen mehr möglich.",
-  ROSTER_PUBLISHED: "Roster veröffentlicht: Der Besetzungsplan wurden veröffentlicht.",
+  ROSTER_PUBLISHED: "",
   CANCELLED: "Abgesagt: Das Event findet nicht statt."
 };
 
@@ -354,7 +354,11 @@ export default function AdminEventForm({ event }: Props) {
                       placeholder="https://docs.google.com/spreadsheets/d/..."
                       disabled={isSaving}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Eine Benachrichtigung an die Nutzer wird hier nicht Versendet. Bitte Plan über Button in der Eventkarte veröffentlichen.
+                    </p>
                   </div>
+                  
                 )}
                 
               </CardContent>
