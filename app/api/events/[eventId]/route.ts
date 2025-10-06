@@ -107,6 +107,7 @@ const updateEventSchema = z.object({
       message: "Invalid date format for signupDeadline",
     }).optional(),
   staffedStations: z.array(z.string()).optional(),
+  rosterlink: z.string().url("Rosterlink ist keine gültige URL").nullable().optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });
 

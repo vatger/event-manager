@@ -169,6 +169,7 @@ export default function AdminEventsPage() {
       refreshEvents();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
+      
     } finally {
       setBusy(false);
     }
@@ -329,9 +330,9 @@ export default function AdminEventsPage() {
                 <Label htmlFor="roster">Rosterlink</Label>
                 <Input
                   id="roster"
-                  type="text"
+                  type="url"
                   value={rosterInput}
-                  onChange={(e) => setRosterInput(e.target.value)}
+                  onChange={(e) => {setRosterInput(e.target.value)}}
                 />
                 </div>
                 <p className="text-xs text-muted-foreground">
