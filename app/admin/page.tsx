@@ -26,10 +26,10 @@ interface Event {
   signupDeadline: string | null;
   rosterlink: string | null;
   registrations: number;
-  status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED"  | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
+  status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
 }
 
-type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED";
+type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
 
 export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
@@ -54,8 +54,28 @@ export default function AdminEventsPage() {
     try {
       const res = await fetch("/api/events");
       if (!res.ok) throw new Error("Failed to fetch events");
-      const data = await res.json();
-      setEvents(data);
+      const data: Event[] = await res.json();
+  
+      const now = new Date();
+  
+      // Trenne Events in "upcoming" und "past"
+      const upcoming = data.filter(event => new Date(event.endTime) >= now);
+      const past = data.filter(event => new Date(event.endTime) < now);
+  
+      // Sortiere upcoming aufsteigend nach startTime
+      const sortedUpcoming = upcoming.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      );
+  
+      // Sortiere past absteigend nach startTime (zuletzt vergangene zuerst)
+      const sortedPast = past.sort(
+        (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+      );
+  
+      // Kombiniere beide Listen
+      const sorted = [...sortedUpcoming, ...sortedPast];
+  
+      setEvents(sorted);
     } catch (err) {
       console.error("Failed to fetch events", err);
       setError("Fehler beim Laden der Events");
@@ -225,6 +245,7 @@ export default function AdminEventsPage() {
               <SelectItem value="SIGNUP_OPEN">Signup offen</SelectItem>
               <SelectItem value="SIGNUP_CLOSED">Signup closed</SelectItem>
               <SelectItem value="ROSTER_PUBLISHED">Plan hochgeladen</SelectItem>
+              <SelectItem value="CANCELLED">Abgesagt</SelectItem>
             </SelectContent>
           </Select>
         </div>
