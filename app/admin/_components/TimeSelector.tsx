@@ -84,7 +84,7 @@ const EventTimeSelector = ({
   const { startTime, endTime } = getCurrentTimes();
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-white">
+    <div className="space-y-4 p-4 border rounded-lg">
       {/* Datum Auswahl */}
       <div className="space-y-2">
         <Label htmlFor="date">Datum</Label>

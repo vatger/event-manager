@@ -9,6 +9,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const isAdmin = pathname.startsWith("/admin");
 
   return (
+    <>
     <div className="min-h-screen flex flex-col justify-between">
       <main>
         {!isAdmin && <Header />}
@@ -18,5 +19,6 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         <Footer />
       </footer>
     </div>
+    </>
   );
 }

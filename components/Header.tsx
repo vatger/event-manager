@@ -10,12 +10,13 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
 import Link from "next/link";
+import { ModeToggle } from "./ModeToggle";
 
 export default function Header() {
   const { data: session } = useSession();
 
   return (
-    <header className="w-full flex justify-between items-center p-4 border-b border-gray-200 bg-white shadow-sm">
+    <header className="w-full flex justify-between items-center p-4 border-b">
       <div className="text-lg font-bold"><Link href="/">Eventmanager</Link></div>
 
       {session ? (

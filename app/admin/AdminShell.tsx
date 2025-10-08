@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
 import React from "react";
+import { ModeToggle } from "@/components/ModeToggle";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },

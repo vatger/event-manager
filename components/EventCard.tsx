@@ -77,7 +77,7 @@ import {
         
   
     return (
-      <Card className="hover:shadow-xl transition-all duration-200 border border-gray-200 rounded-2xl">
+      <Card className="hover:shadow-xl transition-all duration-200 border rounded-2xl">
         <CardHeader>
           <img src={event.bannerUrl} className="rounded-sm"/>
           <CardTitle className="text-lg font-semibold">{event.name}</CardTitle>

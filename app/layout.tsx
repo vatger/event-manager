@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import Protected from "@/components/Protected";
 import { Toaster } from "@/components/ui/sonner";
 import ClientLayout from "./ClientLayout";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
