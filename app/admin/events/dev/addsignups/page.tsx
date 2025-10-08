@@ -19,7 +19,7 @@ type TimeRange = { start: string; end: string };
 type Signup = {
   id: string | number;
   userCID?: string | number;
-  user?: { cid?: string | number; name?: string };
+  user?: { cid?: string | number; name?: string; rating?: string };
   endorsement?: "GND" | "TWR" | "APP" | "CTR" | string;
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   preferredStations?: string | null;
@@ -77,6 +77,22 @@ function badgeClassFor(endorsement?: string) {
     case "APP":
       return "bg-purple-100 text-purple-800";
     case "CTR":
+      return "bg-red-100 text-red-800";
+    case "S1":
+      return "bg-blue-100 text-blue-800";
+    case "S2":
+      return "bg-amber-100 text-amber-800";
+    case "S3":
+      return "bg-purple-100 text-purple-800";
+    case "C1":
+      return "bg-red-100 text-red-800";
+    case "C2":
+      return "bg-red-100 text-red-800";
+    case "C3":
+      return "bg-red-100 text-red-800";
+    case "I1":
+      return "bg-red-100 text-red-800";
+    case "I2":
       return "bg-red-100 text-red-800";
     default:
       return "bg-gray-100 text-gray-800";
@@ -252,7 +268,7 @@ export default function DevAddSignupsPage() {
   const ordered = useMemo(() => {
     const groups: Record<string, Signup[]> = {};
     for (const s of signups) {
-      const k = (s.endorsement || "UNSPEC") as string;
+      const k = (s.endorsement || s.user?.rating || "UNSPEC") as string;
       if (!groups[k]) groups[k] = [];
       groups[k].push(s);
     }
@@ -543,7 +559,7 @@ export default function DevAddSignupsPage() {
                     <TableRow key={String(s.id)}>
                       <TableCell>{s.user?.cid ?? s.userCID}</TableCell>
                       <TableCell>{s.user?.name ?? ""}</TableCell>
-                      <TableCell><Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge></TableCell>
+                      <TableCell><Badge className={badgeClassFor(s.endorsement || s.user?.rating)}>{s.endorsement || s.user?.rating || "UNSPEC"}</Badge></TableCell>
                       <TableCell>{s.preferredStations || "-"}</TableCell>
                       <TableCell>{s.remarks || "-"}</TableCell>
                       <TableCell className="text-right">

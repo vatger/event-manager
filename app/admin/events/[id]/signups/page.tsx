@@ -14,7 +14,7 @@ type TimeRange = { start: string; end: string };
 type Signup = {
   id: string | number;
   userCID?: string | number;
-  user?: { cid?: string | number; name?: string };
+  user?: { cid?: string | number; name?: string; rating?: string };
   endorsement?: "DEL" | "GND" | "TWR" | "APP" | "CTR" | string;
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   remarks?: string | null;
@@ -114,6 +114,22 @@ function badgeClassFor(endorsement?: string) {
       return "bg-purple-100 text-purple-800";
     case "CTR":
       return "bg-red-100 text-red-800";
+    case "S1":
+      return "bg-blue-100 text-blue-800";
+    case "S2":
+      return "bg-amber-100 text-amber-800";
+    case "S3":
+      return "bg-purple-100 text-purple-800";
+    case "C1":
+      return "bg-red-100 text-red-800";
+    case "C2":
+      return "bg-red-100 text-red-800";
+    case "C3":
+      return "bg-red-100 text-red-800";
+    case "I1":
+      return "bg-red-100 text-red-800";
+    case "I2":
+      return "bg-red-100 text-red-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
@@ -131,7 +147,7 @@ function AvailabilityTimeline({ signups, slots, loading, error }: AvailabilityTi
   const groupedSignups = useMemo(() => {
     const groups: Record<string, Signup[]> = {};
     for (const s of signups) {
-      const key = (s.endorsement || "UNSPEC") as string;
+      const key = (s.endorsement || s.user?.rating || "UNSPEC") as string;
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }
@@ -199,8 +215,8 @@ function AvailabilityTimeline({ signups, slots, loading, error }: AvailabilityTi
                       <span className="text-sm font-medium leading-tight truncate">{name || "Unbekannt"}</span>
                       <span className="text-xs text-muted-foreground leading-tight">CID {cid}</span>
                     </div>
-                    <Badge className={`${badgeClassFor(s.endorsement)} shrink-0`}>
-                      {s.endorsement || "UNSPEC"}
+                    <Badge className={`${badgeClassFor(s.endorsement || s.user?.rating)} shrink-0`}>
+                      {s.endorsement || s.user?.rating || "UNSPEC"}
                     </Badge>
                   </div>
 
@@ -282,7 +298,7 @@ export default function AdminEventSignupsPage() {
   const stats = useMemo(() => {
     const out: Record<string, number> = { DEL: 0, GND: 0, TWR: 0, APP: 0, CTR: 0 };
     for (const s of signups) {
-      const k = (s.endorsement || "UNSPEC") as string;
+      const k = (s.endorsement || s.user?.rating || "UNSPEC") as string;
       if (out[k as keyof typeof out] !== undefined) out[k as keyof typeof out]! += 1;
     }
     return out;

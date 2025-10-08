@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { Checkbox } from "./ui/checkbox";
 
 interface Events {
   id: string;
@@ -66,8 +67,29 @@ function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
+function getEndorsementFromRating(rating: string): string {
+  switch (rating) {
+    case "S1":
+      return "GND";
+    case "S2":
+      return "TWR";
+    case "S3":
+      return "APP";
+    case "C1":
+    case "C2":
+    case "C3":
+    case "I1":
+    case "I2":
+      return "CTR";
+    default:
+      return "";
+  }
+}
+
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
+  if(!session) return (<div><p>Fehler! Du bist nicht angemeldet!</p></div>);
+  const rating = session?.user.rating;
   const userCID = session?.user.id;
 
   const [availability, setAvailability] = useState<Availability>();
@@ -90,6 +112,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
 
   const [hydrated, setHydrated] = useState(false);
+
   useEffect(() => {
     if (!signupData || hydrated) return;
 
@@ -116,8 +139,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setSaving(true)
     setError("")
     
-    console.log("Available", avselectorRef.current?.getAvailable())
-    console.log("Eventid", event.id)
+    let e = endorsement;
+    if(endorsement == "") {
+      e = getEndorsementFromRating(rating)
+    }
 
     const method = isSignedUp ? "PUT" : "POST";
     const url =
@@ -132,7 +157,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
         body: JSON.stringify({
           eventId: event.id,
           availability: {available: avselectorRef.current?.getAvailable(), unavailable: avselectorRef.current?.getUnavailable()},
-          endorsement,
+          endorsement: e,
           preferredStations: desiredPosition,
           remarks,
         }),
@@ -215,7 +240,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               innerRef={avselectorRef}
             />
           </div>
-          
+
+          {/* Tier 1 airports */}
             {rules.tier === 1 && (
               <div>
               <Label className="pb-2">Endorsement</Label>
@@ -233,6 +259,60 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                 </SelectGroup>
                 </SelectContent>
               </Select>
+                {endorsement == "CTR" && (
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Bitte beachte, dass angenommen wird, dass du GND | ... | CTR besetzen kannt. Sollte dies anders sein, benutze das RMK-Feld.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Unrestricted airports */}
+            {rules.tier != 1 && (
+              <div>
+              {rating == "S1" ? (
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                  id="TWR?"
+                  className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
+                  checked={endorsement === "TWR"}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setEndorsement("TWR");
+                    } else { setEndorsement("") }
+                  }}
+                    />
+                  <Label htmlFor="TWR?">you have an active TWR solo?</Label>
+                </div>
+              ) : rating == "S2" ? (
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                  id="APP?"
+                  className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
+                  checked={endorsement === "APP"}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setEndorsement("APP");
+                    } else { setEndorsement("") }
+                  }}
+                    />
+                  <Label htmlFor="APP?">you have an active APP solo?</Label>
+                </div>
+              ) : ["S3", "C1", "C2", "C3", "I1", "I2"].includes(rating) ? (
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="CTR?"
+                      className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
+                      checked={endorsement === "CTR"}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setEndorsement("CTR");
+                        } else { setEndorsement("") }
+                      }}
+                        />
+                    <Label htmlFor="CTR?">you are allowed to staff CTR?</Label>
+                  </div>
+                ): null}
               </div>
             )}
           <div>
@@ -247,7 +327,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder="Some space..."
+              placeholder={endorsement == "CTR" ? "CTR (EBG West only) ..." : "Some space..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
             />

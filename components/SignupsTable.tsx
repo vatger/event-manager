@@ -12,7 +12,7 @@ export type TimeRange = { start: string; end: string };
 export type SignupRow = {
   id: string | number;
   userCID?: string | number;
-  user?: { cid?: string | number; name?: string };
+  user?: { cid?: string | number; name?: string; rating?: string };
   endorsement?: string | null;
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   preferredStations?: string | null;
@@ -59,6 +59,22 @@ function badgeClassFor(endorsement?: string | null) {
       return "bg-purple-100 text-purple-800";
     case "CTR":
       return "bg-red-100 text-red-800";
+    case "S1":
+      return "bg-blue-100 text-blue-800";
+    case "S2":
+      return "bg-amber-100 text-amber-800";
+    case "S3":
+      return "bg-purple-100 text-purple-800";
+    case "C1":
+      return "bg-red-100 text-red-800";
+    case "C2":
+      return "bg-red-100 text-red-800";
+    case "C3":
+      return "bg-red-100 text-red-800";
+    case "I1":
+      return "bg-red-100 text-red-800";
+    case "I2":
+      return "bg-red-100 text-red-800";
     default:
       return "bg-gray-100 text-gray-800";
   }
@@ -90,7 +106,7 @@ export default function SignupsTable(props: SignupsTableProps) {
     }
     const out: Record<string, SignupRow[]> = {};
     for (const s of signups) {
-      const key = (s.endorsement || "UNSPEC") as string;
+      const key = (s.endorsement || s.user?.rating || "UNSPEC") as string;
       if (!out[key]) out[key] = [];
       out[key].push(s);
     }
@@ -163,7 +179,7 @@ export default function SignupsTable(props: SignupsTableProps) {
                       return (
                         <TableCell key={`${s.id}-name`} className="flex items-center gap-2">
                           {name}
-                          <Badge className={badgeClassFor(s.endorsement)}>{s.endorsement || "UNSPEC"}</Badge>
+                          <Badge className={badgeClassFor(s.endorsement || s.user?.rating)}>{s.endorsement || s.user?.rating || "UNSPEC"}</Badge>
                         </TableCell>
                       );
                     }

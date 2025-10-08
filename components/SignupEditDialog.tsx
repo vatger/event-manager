@@ -147,16 +147,8 @@ export default function SignupEditDialog({
             </div>
             <div>
               <Label>Endorsement</Label>
-              <Select value={endorsement} onValueChange={setEndorsement}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Bitte wählen" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DEL">DEL</SelectItem>
-                  <SelectItem value="GND">GND</SelectItem>
-                  <SelectItem value="TWR">TWR</SelectItem>
-                  <SelectItem value="APP">APP</SelectItem>
-                  <SelectItem value="CTR">CTR</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={endorsement} onChange={(e) => setEndorsement(e.target.value)} placeholder="APP" />
+              <span className="text-xs text-muted-foreground">Bei unrestricted Airports Events leer lassen</span>
             </div>
             <div>
               <Label>Desired Position</Label>

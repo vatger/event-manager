@@ -301,6 +301,11 @@ export default function EventPage() {
                     <span className="font-medium">Anmeldeschluss: {new Date(event.signupDeadline).toLocaleDateString("de-DE")}</span>
                 </div>
               )}
+            {(event.status=="SIGNUP_CLOSED" && isSignedUp) && (
+              <div className="flex items-center gap-2 text-sm">
+                  <span className="text-sm text-muted-foreground w-full overflow-auto">Für Änderungen an deiner Anmeldung, wende dich bitte an das Eventteam</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 
