@@ -4,7 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
 
 interface VatsimProfile {
-    data?: {
+  id: Number,
+  firstname: string,
+  lastname: string,
+  fullname: string,
+  email: string,
+  rating_atc: Number,
+  rating_atc_short: string,
+  fir_code: string,  
+  data?: {
       cid: string | number;
       personal?: {
         name_full?: string;
@@ -30,35 +38,20 @@ interface VatsimProfile {
     };
   }
   
-  interface VatsimUser extends User {
-    cid: string;
-    rating: string;
-  }
-  
-  interface SessionUser {
-    id: string;
-    cid: string;
-    name: string;
-    rating: string;
-    role: string;
-  }
-  
-  const vatsimHost = process.env.VATSIM_USE_SANDBOX === 'true'
-    ? 'https://auth-dev.vatsim.net'
-    : 'https://auth.vatsim.net';
+  const vatsimHost = "https://vatsim-germany.org"
   
   const VatsimProvider: OAuthConfig<VatsimProfile> = {
     id: 'vatsim',
-    name: 'VATSIM',
+    name: 'VATGER',
     type: 'oauth',
     authorization: {
       url: `${vatsimHost}/oauth/authorize`,
-      params: { scope: 'full_name vatsim_details' },
+      params: { scope: 'name email rating assignment legacy' },
     },
     token: `${vatsimHost}/oauth/token`,
-    userinfo: `${vatsimHost}/api/user`,
-    clientId: process.env.VATSIM_CLIENT_ID!,
-    clientSecret: process.env.VATSIM_CLIENT_SECRET!,
+    userinfo: `${vatsimHost}/oauth/userinfo`,
+    clientId: process.env.VATGER_CLIENT_ID!,
+    clientSecret: process.env.VATGER_CLIENT_SECRET!,
     profile(profile: VatsimProfile) {
       const data = profile?.data || profile;
       const cid = Number(data.cid);
@@ -80,6 +73,7 @@ interface VatsimProfile {
         name: fullName,
         rating,
         role: "USER",
+        fir_code: profile.fir_code || null,
       };
     },
   };
@@ -99,21 +93,22 @@ export const authOptions: NextAuthOptions = {
           const existingUser = await prisma.user.findUnique({
             where: { cid },
           });
-  
           if (!existingUser) {
             await prisma.user.create({
               data: {
                 cid,
                 name: user.name!,
                 rating: user.rating,
+                fir: user.fir_code || null,
               },
             });
-          } else if (existingUser.name !== user.name || existingUser.rating !== user.rating) {
+          } else if (existingUser.name !== user.name || existingUser.rating !== user.rating || existingUser.fir !== user.fir_code) {
             await prisma.user.update({
               where: { cid },
               data: {
                 name: user.name!,
                 rating: user.rating,
+                fir: user.fir_code || null,
               },
             });
           }
@@ -131,6 +126,7 @@ export const authOptions: NextAuthOptions = {
           token.name = user.name!;
           token.rating = user.rating;
           token.role = user.role || "USER";
+          token.fir_code = user.fir_code || null;
         }
         return token;
       },
@@ -145,11 +141,13 @@ export const authOptions: NextAuthOptions = {
           name: token.name,
           rating: token.rating,
           role: dbUser?.role || token.role || "USER",
+          fir_code: token.fir_code || null,
         };
         return session;
       },
     },
     secret: process.env.NEXTAUTH_SECRET!,
+    
 };
 
 export async function getUser(userId: string) {
