@@ -46,7 +46,7 @@ interface VatsimProfile {
     type: 'oauth',
     authorization: {
       url: `${vatsimHost}/oauth/authorize`,
-      params: { scope: 'name email rating assignment legacy' },
+      params: { scope: 'name rating legacy' },
     },
     token: `${vatsimHost}/oauth/token`,
     userinfo: `${vatsimHost}/oauth/userinfo`,
@@ -73,7 +73,6 @@ interface VatsimProfile {
         name: fullName,
         rating,
         role: "USER",
-        fir_code: profile.fir_code || null,
       };
     },
   };
@@ -99,16 +98,14 @@ export const authOptions: NextAuthOptions = {
                 cid,
                 name: user.name!,
                 rating: user.rating,
-                fir: user.fir_code || null,
               },
             });
-          } else if (existingUser.name !== user.name || existingUser.rating !== user.rating || existingUser.fir !== user.fir_code) {
+          } else if (existingUser.name !== user.name || existingUser.rating !== user.rating) {
             await prisma.user.update({
               where: { cid },
               data: {
                 name: user.name!,
                 rating: user.rating,
-                fir: user.fir_code || null,
               },
             });
           }
@@ -126,7 +123,6 @@ export const authOptions: NextAuthOptions = {
           token.name = user.name!;
           token.rating = user.rating;
           token.role = user.role || "USER";
-          token.fir_code = user.fir_code || null;
         }
         return token;
       },
@@ -141,7 +137,6 @@ export const authOptions: NextAuthOptions = {
           name: token.name,
           rating: token.rating,
           role: dbUser?.role || token.role || "USER",
-          fir_code: token.fir_code || null,
         };
         return session;
       },
