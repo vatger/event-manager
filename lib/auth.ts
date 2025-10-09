@@ -8,10 +8,8 @@ interface VatsimProfile {
   firstname: string,
   lastname: string,
   fullname: string,
-  email: string,
   rating_atc: Number,
   rating_atc_short: string,
-  fir_code: string,  
   data?: {
       cid: string | number;
       personal?: {
