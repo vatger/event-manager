@@ -8,7 +8,7 @@ import { authOptions } from "@/lib/auth";
 const eventSchema = z.object({
   name: z.string().min(3).max(100),
   description: z.string().min(10).max(2000),
-  bannerUrl: z.string().url(),
+  bannerUrl: z.string().optional(),
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for startTime",
   }),
@@ -63,7 +63,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
     data: {
         name: parsed.data.name,
         description: parsed.data.description,
-        bannerUrl: parsed.data.bannerUrl,
+        bannerUrl: parsed.data.bannerUrl || null,
         startTime: new Date(parsed.data.startTime),
         endTime: new Date(parsed.data.endTime),
         airports: parsed.data.airports,
@@ -96,7 +96,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
 const updateEventSchema = z.object({
   name: z.string().min(3).optional(),
   description: z.string().optional(),
-  bannerUrl: z.string().url().optional(),
+  bannerUrl: z.string().optional(),
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
   airports: z.array(z.string().length(4, "ICAO must be 4 letters")).optional(),

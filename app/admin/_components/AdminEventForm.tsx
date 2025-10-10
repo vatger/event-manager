@@ -285,7 +285,7 @@ export default function AdminEventForm({ event }: Props) {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="bannerUrl">Banner URL *</Label>
+                  <Label htmlFor="bannerUrl">Banner URL</Label>
                   <Input
                     id="bannerUrl"
                     name="bannerUrl"
@@ -293,7 +293,6 @@ export default function AdminEventForm({ event }: Props) {
                     value={formData.bannerUrl}
                     onChange={handleChange}
                     placeholder="https://example.com/banner.jpg"
-                    required
                     disabled={isSaving}
                   />
                 </div>

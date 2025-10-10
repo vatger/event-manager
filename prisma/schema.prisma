@@ -24,7 +24,7 @@ model Event {
   id              Int         @id @default(autoincrement())
   name            String
   description     String
-  bannerUrl       String
+  bannerUrl       String?
   startTime       DateTime
   endTime         DateTime
   airports        Json // Array of ICAO codes

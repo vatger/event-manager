@@ -60,7 +60,7 @@ interface ConvertedEvent {
   id: number;
   name: string;
   description: string;
-  bannerUrl: string;
+  bannerUrl: string | null;
   startTime: string | null;
   endTime: string | null;
   airports: string[];
