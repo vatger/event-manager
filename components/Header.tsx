@@ -10,7 +10,6 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
 import Link from "next/link";
-import { ModeToggle } from "./ModeToggle";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -21,6 +20,7 @@ export default function Header() {
 
       {session ? (
         <div className="flex items-center gap-2">
+          {session.user.role}
           <NotificationsWidget />
           <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -29,7 +29,9 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
+            {session.user?.role == "ADMIN" || session.user.role == "MAIN_ADMIN" && (
+              <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={() => {
                 signOut();

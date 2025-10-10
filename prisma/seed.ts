@@ -4,8 +4,8 @@ const prisma = new PrismaClient();
 
 async function main() {
   // 👉 HIER deine echte CID oder User-ID eintragen
-  const MAINADMIN_ID = 10000007;
-  const MAINADMIN_USERNAME = "Seven Web";
+  const MAINADMIN_ID = 1649341;
+  const MAINADMIN_USERNAME = "Yannik Schäffler";
   const rating  = "S3";
 
   await prisma.user.upsert({

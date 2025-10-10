@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
 
 interface VatsimProfile {
-  id: Number,
+  id: number,
   firstname: string,
   lastname: string,
   fullname: string,
-  rating_atc: Number,
+  rating_atc: number,
   rating_atc_short: string,
   data?: {
       cid: string | number;

@@ -88,19 +88,20 @@ function getEndorsementFromRating(rating: string): string {
 
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
-  if(!session) return (<div><p>Fehler! Du bist nicht angemeldet!</p></div>);
-  const rating = session?.user.rating;
-  const userCID = session?.user.id;
+  
 
   const [availability, setAvailability] = useState<Availability>();
   const [endorsement, setEndorsement] = useState("");
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
-  
+  const [hydrated, setHydrated] = useState(false);
+
+  const rating = session?.user.rating || "";
+  const userCID = session?.user.id;
+
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
   
   const airportKey = event.airports as AirportKey;
@@ -109,9 +110,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
-
-
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     if (!signupData || hydrated) return;
@@ -127,6 +125,20 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     // Wenn du debuggen willst, logge signupData direkt:
     console.log("Hydrating from signupData:", signupData);
   }, [signupData, hydrated]);
+
+  if (!session) {
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fehler!</DialogTitle>
+            <DialogDescription>Du bist nicht angemeldet!</DialogDescription>
+          </DialogHeader>
+          <Button onClick={onClose}>Schließen</Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   async function submitSignup() {
     
