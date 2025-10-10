@@ -8,8 +8,10 @@ import {
   } from "@/components/ui/card";
   import { Button } from "@/components/ui/button";
   import { Badge } from "@/components/ui/badge";
-  import { Calendar, MapPin, UserCheck, Users } from "lucide-react";
+  import { Calendar, Clock, MapPin, Timer, UserCheck, Users } from "lucide-react";
   import Link from "next/link";
+import { useState } from "react";
+import EventBanner from "./Eventbanner";
   
   interface EventCardProps {
     event: {
@@ -74,12 +76,17 @@ import {
       label: event.status,
     };
 
-        
+  
+    
   
     return (
       <Card className="hover:shadow-xl transition-all duration-200 border rounded-2xl">
         <CardHeader>
-          <img src={event.bannerUrl} className="rounded-sm"/>
+        <EventBanner 
+            bannerUrl={event.bannerUrl} 
+            eventName={event.name}
+            className="rounded-sm w-full object-cover"
+          />
           <CardTitle className="text-lg font-semibold">{event.name}</CardTitle>
           <CardDescription className="flex items-center gap-2 text-sm">
             <MapPin className="w-4 h-4" /> {event.airports}
