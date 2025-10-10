@@ -11,7 +11,7 @@ import React, { useState } from 'react'
         
         if (imgError || !bannerUrl) {
             return (
-            <div className={`bg-gradient-to-br from-blue-500 to-95% to-blue-200 rounded-sm flex items-center justify-center ${className}`}>
+            <div className={`bg-gradient-to-br from-blue-900 to-95% to-blue-200 rounded-sm flex items-center justify-center ${className}`}>
                 <div className="text-center text-white p-4">
                 <Clock className="w-8 h-8 mx-auto mb-2" />
                 <p className="font-semibold">{eventName}</p>

@@ -84,15 +84,17 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
   return (
     <Sidebar className="border-r bg-background">
       <SidebarHeader className="border-b p-3">
+      <Link href="/">
         <div className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">M</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
+            <img src="logo.png" alt="Logo" className="p-1 m-2"/>
           </div>
           <div className="flex flex-col">
-            <span className="font-semibold"><Link href="/">Eventmanager</Link></span>
+            <span className="font-bold">Eventmanager</span>
             <span className="text-xs text-muted-foreground">Adminpanel</span>
           </div>
         </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>

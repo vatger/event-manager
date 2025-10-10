@@ -16,7 +16,17 @@ export default function Header() {
 
   return (
     <header className="w-full flex justify-between items-center p-4 border-b">
-      <div className="text-lg font-bold"><Link href="/">Eventmanager</Link></div>
+      <Link href="/">
+      <div className="flex items-center gap-2 px-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
+            <img src="logo.png" alt="Logo" className="p-1 m-2"/>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold">Eventmanager</span>
+            <span className="text-xs text-muted-foreground">VATSIM Germany</span>
+          </div>
+        </div>
+        </Link>
 
       {session ? (
         <div className="flex items-center gap-2">
