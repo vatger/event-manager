@@ -20,7 +20,6 @@ export default function Header() {
 
       {session ? (
         <div className="flex items-center gap-2">
-          {session.user.role}
           <NotificationsWidget />
           <DropdownMenu>
           <DropdownMenuTrigger asChild>
