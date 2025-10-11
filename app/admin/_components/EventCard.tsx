@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Trash2, Edit, Eye, Users, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
+import { useSession } from "next-auth/react";
 
 interface Event {
   id: string;
@@ -33,6 +34,8 @@ interface Props {
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
 export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
+  const {data: session} = useSession()
+  
   const formatZuluRange = useMemo(() => {
     const pad = (n: number) => n.toString().padStart(2, "0");
     const start = new Date(event.startTime);
@@ -154,7 +157,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           size="sm" 
           variant="destructive" 
           onClick={onDelete}
-          disabled={event.status === "COMPLETED"}
+          disabled={session?.user.role !== "MAIN_ADMIN"}
           aria-label="Event löschen"
         >
           <Trash2 className="w-4 h-4" />

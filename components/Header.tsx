@@ -38,7 +38,7 @@ export default function Header() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            {session.user?.role == "ADMIN" || session.user.role == "MAIN_ADMIN" && (
+            {(session.user.role == "ADMIN" || session.user.role == "MAIN_ADMIN") && (
               <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
             )}
             <DropdownMenuItem

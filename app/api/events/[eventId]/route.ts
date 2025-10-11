@@ -84,7 +84,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
   const session = await getServerSession(authOptions);
   if (
     !session || 
-    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
+    (session.user.role !== "MAIN_ADMIN")
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
