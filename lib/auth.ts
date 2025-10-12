@@ -43,11 +43,11 @@ interface VatsimProfile {
     name: 'VATGER',
     type: 'oauth',
     authorization: {
-      url: `${vatsimHost}/oauth/authorize`,
+      url: process.env.VATGER_CONNECT_URL,
       params: { scope: 'name rating legacy' },
     },
-    token: `${vatsimHost}/oauth/token`,
-    userinfo: `${vatsimHost}/oauth/userinfo`,
+    token: process.env.VATGER_TOKEN_URL!,
+    userinfo: process.env.VATGER_USER_INFO!,
     clientId: process.env.VATGER_CLIENT_ID!,
     clientSecret: process.env.VATGER_CLIENT_SECRET!,
     profile(profile: VatsimProfile) {
