@@ -30,7 +30,3 @@ jobs:
         run: |
           docker build --pull -t ${{ env.REGISTRY }}/vatger/eventmanager:latest .
           docker push ${{ env.REGISTRY }}/vatger/eventmanager:latest
-
-      - name: Redeploy Container (Portainer)
-        run: |
-          curl -X POST "${{ secrets.PORTAINER_REDEPLOY_URI}}"
