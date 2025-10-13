@@ -76,6 +76,14 @@ import EventBanner from "./Eventbanner";
       label: event.status,
     };
 
+
+    const start = new Date(event.startTime);
+    const end = new Date(event.endTime);
+
+    const startDateFormatted = start.toLocaleDateString("de-DE", { dateStyle: "medium" });
+    const startTimeFormatted = start.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const endTimeFormatted = end.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+
   
     
   
@@ -97,9 +105,9 @@ import EventBanner from "./Eventbanner";
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-gray-500" />
             <span>
-              {startDate.split(", ")[0]} {startDate.split(", ")[1].split(":")[0]}:{startDate.split(", ")[1].split(":")[1]}-
-              {endDate.split(", ")[1].split(":")[0]}:{endDate.split(", ")[1].split(":")[1]}lcl
+              {startDateFormatted} {startTimeFormatted}-{endTimeFormatted} lcl
             </span>
+
           </div>
   
           <div className="flex items-center gap-2">
