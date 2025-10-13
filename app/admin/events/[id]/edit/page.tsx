@@ -34,11 +34,11 @@ export default function EditEventPage() {
           setEvent(response.data);
         } else {
           console.log("ERROR: BaseUrl ", baseUrl)
-          router.push("/404");
+          //router.push("/404");
         }
       } catch (error) {
         console.error("Error fetching event:", error);
-        router.push("/404");
+        //router.push("/404");
       } finally {
         setLoading(false);
       }
