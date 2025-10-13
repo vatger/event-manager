@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import EventCard from "./EventCard";
-import { Event } from "@prisma/client";
 
 interface Events {
       id: string;

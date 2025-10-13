@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
 import Link from "next/link";
+import { Menu } from "lucide-react";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -28,33 +29,66 @@ export default function Header() {
         </div>
         </Link>
 
-      {session ? (
-        <div className="flex items-center gap-2">
+      {session && (
+        <div>
+          {/* Desktop Version */}
+          <div className="hidden md:flex items-center gap-2">
           <NotificationsWidget />
           <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="capitalize">
-              {session.user?.name || "User"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-40">
-            {(session.user.role == "ADMIN" || session.user.role == "MAIN_ADMIN") && (
-              <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              onClick={() => {
-                signOut();
-              }}
-            >
-              Abmelden
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="capitalize">
+                {session.user?.name || "User N/A"} {'(' + session.user?.rating + ')'}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              {(session.user.role == "ADMIN" || session.user.role == "MAIN_ADMIN") && (
+                <DropdownMenuItem>
+                  <Link href="/admin" className="w-full">Admin</Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => {
+                  signOut();
+                }}
+              >
+                Abmelden
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      ) : (
-        <div>
-          {/* Optional: Login Button oder leer lassen */}
+
+        {/* Mobile Version */}
+        <div className="flex md:hidden items-center gap-2">
+          <NotificationsWidget />
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-2 py-1.5 text-sm font-semibold border-b">
+                {session.user?.name || "User N/A"} - {session.user?.rating}
+              </div>
+              
+              {(session.user.role == "ADMIN" || session.user.role == "MAIN_ADMIN") && (
+                <DropdownMenuItem>
+                  <Link href="/admin" className="w-full">Admin</Link>
+                </DropdownMenuItem>
+              )}
+              
+              <DropdownMenuItem
+                onClick={() => {
+                  signOut();
+                }}
+              >
+                Abmelden
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+      </div>
       )}
     </header>
   );
