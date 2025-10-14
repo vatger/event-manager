@@ -271,14 +271,13 @@ export default function AdminEventForm({ event }: Props) {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Beschreibung *</Label>
+                  <Label htmlFor="description">Beschreibung</Label>
                   <Textarea
                     id="description"
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
                     placeholder="Beschreibe dein Event für die Teilnehmer..."
-                    required
                     disabled={isSaving}
                     rows={4}
                   />

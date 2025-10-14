@@ -47,4 +47,31 @@ export const stationsConfig: Station[] = [
   { callsign: "EDMM_WLD_CTR", group: "CTR" },
   { callsign: "EDMM_ZUG_CTR", group: "CTR" },
   { callsign: "EDMM_SWA_CTR", group: "CTR" },
+
+  // EDDP 
+  { callsign: "EDDP_DEL", group: "GND", airport: "EDDP" },
+  { callsign: "EDDP_GND", group: "GND", airport: "EDDP" },
+  { callsign: "EDDP_N_TWR", group: "TWR", airport: "EDDP" },
+  { callsign: "EDDP_S_TWR", group: "TWR", airport: "EDDP" },
+  { callsign: "EDDP_TRN_APP", group: "APP", airport: "EDDP" },
+  { callsign: "EDDP_TRS_APP", group: "APP", airport: "EDDP" },
+  { callsign: "EDDP_ND_APP", group: "APP", airport: "EDDP" },
+  { callsign: "EDDP_SD_APP", group: "APP", airport: "EDDP" },
+
+  // EDDN
+  { callsign: "EDDN_GND", group: "GND", airport: "EDDN" },
+  { callsign: "EDDN_TWR", group: "TWR", airport: "EDDN" },
+  { callsign: "EDDN_FRK_APP", group: "APP", airport: "EDDN" },
+  { callsign: "EDDN_D_APP", group: "APP", airport: "EDDN" },
+
+  //EDDC
+  { callsign: "EDDC_GND", group: "GND", airport: "EDDC" },
+  { callsign: "EDDC_A_GND", group: "GND", airport: "EDDC" },
+  { callsign: "EDDC_TWR", group: "TWR", airport: "EDDC" },
+  { callsign: "EDDC_SAS_APP", group: "APP", airport: "EDDC" },
+
+  //EDJA
+  { callsign: "EDJA_GND", group: "GND", airport: "EDJA" },
+  { callsign: "EDJA_TWR", group: "TWR", airport: "EDJA" },
+  { callsign: "EDJA_ILR_APP", group: "APP", airport: "EDJA" },
 ];

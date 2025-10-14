@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
   name: z.string().min(3).max(100),
-  description: z.string().min(10).max(2000),
+  description: z.string().max(2000).optional(),
   bannerUrl: z.string().optional(),
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for startTime",
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     const event = await prisma.event.create({
       data: {
         name: parsed.data.name,
-        description: parsed.data.description,
+        description: parsed.data.description || "",
         bannerUrl: parsed.data.bannerUrl || null,
         startTime: new Date(parsed.data.startTime),
         endTime: new Date(parsed.data.endTime),

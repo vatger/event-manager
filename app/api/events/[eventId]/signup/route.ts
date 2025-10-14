@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
 export async function POST(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const {eventId} = await params
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session || session.user.rating == "OBS") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const eventid = parseInt(eventId, 10);
   const body = await req.json();

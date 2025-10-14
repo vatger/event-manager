@@ -99,7 +99,7 @@ export default function EventsPage() {
           Willkommen{session?.user?.name && `, ${session.user.name.split(' ')[0]}`}
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Melde dich hier als Controller für Events der FIR München an.
+          Melde dich hier für Events der FIR München an.
         </p>
         
         {/* Quick Stats mit Countdown */}

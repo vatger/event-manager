@@ -112,7 +112,7 @@ import EventBanner from "./Eventbanner";
   
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-gray-500" />
-            <span>{event.registrations} {event.registrations == 1 ? "Registration" : "Registrations"}</span>
+            <span>{event.registrations} {event.registrations == 1 ? "Anmeldung" : "Anmeldungen"}</span>
           </div>
 
           

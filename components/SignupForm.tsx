@@ -106,7 +106,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   
   const airportKey = event.airports as AirportKey;
   const rules = airportRules[airportKey];
-  const areas = Object.keys(rules.areas);
+  const areas = rules.areas;
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
