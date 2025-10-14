@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fa } from "zod/v4/locales";
 
 const AUTH_TOKEN = process.env.ADMIN_API_TOKEN;
 
@@ -52,12 +51,12 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ c
 
   const cid = parseInt((await params).cid);
   if (isNaN(cid)) {
-    return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid CID" }, { status: 200 });
   }
 
   const existingUser = await prisma.user.findUnique({ where: { cid } });
   if (!existingUser) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ error: "User not found" }, { status: 200 });
   }
 
   // Zuerst abhängige Einträge löschen (wegen Foreign Keys)
