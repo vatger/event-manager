@@ -12,6 +12,7 @@ import AvailabilityEditor, { AvailabilitySelectorHandle } from "@/components/Ava
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { useSession } from "next-auth/react";
+import { Event } from "@/types";
 
 // ---- Types ----
 type TimeRange = { start: string; end: string };
@@ -24,16 +25,6 @@ type Signup = {
   availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
   preferredStations?: string | null;
   remarks?: string | null;
-};
-
-type EventDetails = {
-  id: string | number;
-  name: string;
-  startTime: string;
-  endTime: string;
-  airports?: string[] | string | null;
-  description?: string | null;
-  status?: string;
 };
 
 type DevUser = {
@@ -110,7 +101,7 @@ function EditSignupModal({
 }: {
   open: boolean;
   onClose: () => void;
-  event: EventDetails;
+  event: Event;
   signup: Signup | null;
   onSaved: () => void;
   onDeleted: () => void;
@@ -234,7 +225,7 @@ export default function DevAddSignupsPage() {
   const { data: session } = useSession();
 
   const [eventId, setEventId] = useState<string>("");
-  const [event, setEvent] = useState<EventDetails | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [eventError, setEventError] = useState<string>("");
   const [eventLoading, setEventLoading] = useState<boolean>(false);
 

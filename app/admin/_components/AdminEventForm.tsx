@@ -13,21 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
-
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string[];
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string | null;
-  registrations: number;
-  rosterlink?: string | null;
-  status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED" | string;
-}
+import { Event } from "@/types";
 
 interface FormData {
   name: string;

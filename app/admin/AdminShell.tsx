@@ -5,9 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Calendar,
   Users,
-  Settings,
   LogOut,
 } from "lucide-react";
 

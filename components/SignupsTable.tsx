@@ -5,19 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import SignupEditDialog from "@/components/SignupEditDialog";
-import { Edit, Edit2Icon } from "lucide-react";
+import { Edit } from "lucide-react";
+import { Signup, TimeRange } from "@/types";
 
-export type TimeRange = { start: string; end: string };
-
-export type SignupRow = {
-  id: string | number;
-  userCID?: string | number;
-  user?: { cid?: string | number; name?: string; rating?: string };
-  endorsement?: string | null;
-  availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
-  preferredStations?: string | null;
-  remarks?: string | null;
-};
+export type SignupRow = Signup;
 
 export type EventRef = {
   id: string | number;

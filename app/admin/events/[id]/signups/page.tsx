@@ -7,29 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import SignupsTable from "@/components/SignupsTable";
 import SyncToSheetsButton from "@/app/admin/_components/SyncToSheetsButton";
-
-// Types
-type TimeRange = { start: string; end: string };
-
-type Signup = {
-  id: string | number;
-  userCID?: string | number;
-  user?: { cid?: string | number; name?: string; rating?: string };
-  endorsement?: "DEL" | "GND" | "TWR" | "APP" | "CTR" | string;
-  availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
-  remarks?: string | null;
-};
-
-type EventDetails = {
-  id: string | number;
-  name: string;
-  startTime: string;
-  endTime: string;
-  airports?: string[] | string | null;
-  description?: string | null;
-  status?: string;
-  staffedStations?: string[];
-};
+import { Event, Signup, TimeRange } from "@/types";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -250,7 +228,7 @@ export default function AdminEventSignupsPage() {
   const params = useParams();
   const eventId = params.id as string;
 
-  const [event, setEvent] = useState<EventDetails | null>(null);
+  const [event, setEvent] = useState<Event | null>(null);
   const [eventLoading, setEventLoading] = useState<boolean>(true);
   const [eventError, setEventError] = useState<string>("");
 

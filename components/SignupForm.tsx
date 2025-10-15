@@ -21,28 +21,14 @@ import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySe
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Checkbox } from "./ui/checkbox";
-
-interface Events {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string;
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string;
-  registrations: number;
-  status: string;
-  isSignedUp?: boolean;
-}
+import { Event, TimeRange } from "@/types";
 
 interface SignupFormProps {
-  event: Events;
+  event: Event;
   onClose: () => void;
   onChanged?: () => void;
 }
-type TimeRange = { start: string; end: string };
+
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
 type AirportKey = keyof typeof airportRules;
 

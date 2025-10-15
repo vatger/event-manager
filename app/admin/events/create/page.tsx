@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 import AdminEventForm from "../../_components/AdminEventForm";
 
 export default function CreateEventPage() {

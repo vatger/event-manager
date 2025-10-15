@@ -7,20 +7,8 @@ import { Trash2, Edit, Eye, Users, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
+import { Event } from "@/types";
 
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string[];
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string | null;
-  registrations: number;
-  status: string;
-}
 
 interface Props {
   event: Event;
@@ -94,7 +82,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
             <>
               <span className="mx-1">•</span>
               <MapPin className="w-4 h-4" />
-              <span>{(event.airports || []).join(", ")}</span>
+              <span>{(event.airports || [])}</span>
             </>
           )}
         </CardDescription>

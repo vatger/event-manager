@@ -3,22 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import AvailabilityEditor, { AvailabilitySelectorHandle } from "@/components/AvailabilitySelector";
+import { Signup, TimeRange } from "@/types";
 
-export type TimeRange = { start: string; end: string };
-export type SignupRow = {
-  id: string | number;
-  userCID?: string | number;
-  user?: { cid?: string | number; name?: string };
-  endorsement?: string | null;
-  availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
-  preferredStations?: string | null;
-  remarks?: string | null;
-};
+export type SignupRow = Signup;
 
 export type EventRef = {
   id: string | number;

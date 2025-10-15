@@ -12,22 +12,10 @@ import {
   import Link from "next/link";
 import { useState } from "react";
 import EventBanner from "./Eventbanner";
+import { Event } from "@/types";
   
   interface EventCardProps {
-    event: {
-      id: string;
-      name: string;
-      description: string;
-      bannerUrl: string;
-      airports: string;
-      startTime: string;
-      endTime: string;
-      staffedStations: string[];
-      signupDeadline: string;
-      registrations: number;
-      status: string;
-      isSignedUp?: boolean;
-    };
+    event: Event
     onClick: () => void;
   }
   

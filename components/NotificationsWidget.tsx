@@ -25,13 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-
-interface Event {
-  id: number;
-  name: string;
-  startTime: string;
-  status: "DRAFT" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "CANCELLED";
-}
+import { Event } from "@/types";
 
 interface Notification {
   id: number;

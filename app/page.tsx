@@ -3,26 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import EventsSection from "@/components/EventsSection";
 import { useSession } from "next-auth/react";
+import { Event } from "@/types";
 
-interface Events {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string;
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string;
-  registrations: number;
-  status: string;
-  isSignedUp?: boolean;
-}
 
 export default function EventsPage() {
   const { data: session } = useSession();
-  const [selectedEvent, setSelectedEvent] = useState<Events | null>(null);
-  const [events, setEvents] = useState<Events[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
   
   useEffect(() => {
     async function loadEvents() {
@@ -36,19 +23,19 @@ export default function EventsPage() {
 
   const [signedUpEvents, upcomingEvents, pastEvents] = useMemo(() => {
     const now = new Date().toISOString();
-    const visible = events.filter((e: Events) => e.status !== "DRAFT");
+    const visible = events.filter((e: Event) => e.status !== "DRAFT");
     
     const signed = visible
-      .filter((e: Events) => e.isSignedUp && e.endTime >= now);
-    const upcoming = visible.filter((e: Events) => !e.isSignedUp && e.endTime > now);
+      .filter((e: Event) => e.isSignedUp && e.endTime >= now);
+    const upcoming = visible.filter((e: Event) => !e.isSignedUp && e.endTime > now);
     const past = visible
-      .filter((e: Events) => e.endTime <= now)
+      .filter((e: Event) => e.endTime <= now)
       .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
     
     return [signed, upcoming, past];
   }, [events]);
 
-  const handleSelect = (event: Events) => {
+  const handleSelect = (event: Event) => {
     if (event.status === "SIGNUP_OPEN") setSelectedEvent(event);
   };
 

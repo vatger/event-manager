@@ -13,21 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string[];
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string | null;
-  rosterlink: string | null;
-  registrations: number;
-  status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
-}
+import { Event } from "@/types";
 
 type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
 
@@ -197,7 +183,7 @@ export default function AdminEventsPage() {
 
   // Filter & Suche anwenden
   const filteredEvents = events.filter((event) => {
-    const matchesQuery = `${event.name} ${event.airports.join(" ")}`
+    const matchesQuery = `${event.name} ${event.airports}`
       .toLowerCase()
       .includes(query.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || event.status === statusFilter;

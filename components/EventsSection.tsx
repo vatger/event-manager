@@ -2,24 +2,11 @@
 
 import { motion } from "framer-motion";
 import EventCard from "./EventCard";
+import { Event } from "@/types";
 
-interface Events {
-      id: string;
-      name: string;
-      description: string;
-      bannerUrl: string;
-      airports: string;
-      startTime: string;
-      endTime: string;
-      staffedStations: string[];
-      signupDeadline: string;
-      registrations: number;
-      status: string;
-      isSignedUp?: boolean;
-}
 interface EventsSectionProps {
-  events: Events[];
-  onSelect: (event: Events) => void;
+  events: Event[];
+  onSelect: (event: Event) => void;
 }
 
 export default function EventsSection({ events, onSelect }: EventsSectionProps) {

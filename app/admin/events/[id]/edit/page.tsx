@@ -3,20 +3,7 @@ import AdminEventForm from "@/app/admin/_components/AdminEventForm";
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import axios from "axios";
-
-interface Event {
-  id: string;
-  name: string;
-  description: string;
-  bannerUrl: string;
-  airports: string[];
-  startTime: string;
-  endTime: string;
-  staffedStations: string[];
-  signupDeadline: string | null;
-  registrations: number;
-  status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED"  | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED" | string;
-}
+import { Event } from "@/types";
 
 export default function EditEventPage() {
   const router = useRouter();
