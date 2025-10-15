@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
 import { Event } from "@/types";
+import { Calendar } from "@/components/ui/calendar";
 
 interface FormData {
   name: string;
@@ -25,6 +26,7 @@ interface FormData {
   rosterUrl?: string;
   staffedStations: string[];
   status: Event["status"];
+  deadline?: string;
 }
 
 interface Props {
@@ -73,6 +75,7 @@ export default function AdminEventForm({ event }: Props) {
         staffedStations: event.staffedStations || [],
         status: (event.status as Event["status"]) || "PLANNING",
         rosterUrl: event.rosterlink || "",
+        deadline: event.signupDeadline ? new Date(event.signupDeadline).toISOString() : "",
       });
     } else {
       // Setze Standardwerte für neues Event
@@ -140,6 +143,7 @@ export default function AdminEventForm({ event }: Props) {
         staffedStations: formData.staffedStations,
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
+        signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null
       };
 
       const method = isEdit ? "PUT" : "POST";
@@ -341,6 +345,19 @@ export default function AdminEventForm({ event }: Props) {
                     <p className="text-xs text-muted-foreground">
                       Eine Benachrichtigung an die Nutzer wird hier nicht Versendet. Bitte Plan über Button in der Eventkarte veröffentlichen.
                     </p>
+                  </div>
+                  
+                )}
+                {formData.status === "SIGNUP_OPEN" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="rosterUrl">Deadline</Label>
+                    <Input
+                      id="deadline"
+                      name="deadline"
+                      type="date"
+                      value={formData.deadline ? formData.deadline.split("T")[0] : ""}
+                      onChange={handleChange}
+                    />
                   </div>
                   
                 )}

@@ -38,9 +38,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
     return deadline.toLocaleString('de-DE', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   }, [event.signupDeadline]);
 

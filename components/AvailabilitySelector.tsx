@@ -290,7 +290,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
                 const tr = idxRangeToTimeRange(r, slots)
                 return (
                   <li key={idx} className="flex items-center justify-between bg-red-100 px-2 py-1 rounded mb-2">
-                    {tr.start} – {tr.end}
+                    {tr.start}z – {tr.end}z
                   <button
                   onClick={() => {
                     setRanges((prev) =>
