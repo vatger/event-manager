@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
 import { Event } from "@/types";
-import { Calendar } from "@/components/ui/calendar";
 
 interface FormData {
   name: string;
@@ -157,6 +156,7 @@ export default function AdminEventForm({ event }: Props) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        console.log("Error: ", data)
         throw new Error(data.error || `HTTP error! status: ${res.status}`);
       }
 

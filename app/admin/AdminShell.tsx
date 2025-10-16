@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   Users,
   LogOut,
+  MessageCircle,
+  MessageSquareMore,
 } from "lucide-react";
 
 import {
@@ -30,10 +32,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
 import React from "react";
-import { ModeToggle } from "@/components/ModeToggle";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
+  { href: "/admin/notifications", label: "Notifications", icon: MessageSquareMore, badge: null },
   { href: "/admin/team", label: "Members", icon: Users, badge: null },
 ];
 

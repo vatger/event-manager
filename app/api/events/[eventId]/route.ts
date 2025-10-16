@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import z from "zod";
+import { z } from "zod";
 import { authOptions } from "@/lib/auth";
+import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -18,10 +19,9 @@ const eventSchema = z.object({
   airports: z.array(z.string().length(4, "ICAO must be 4 letters")),
   signupDeadline: z
     .string()
-    .optional()
     .refine((val) => !val || !isNaN(Date.parse(val)), {
       message: "Invalid date format for signupDeadline",
-    }),
+    }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });
@@ -52,6 +52,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
   const parsed = eventSchema.safeParse(body);
 
   if (!parsed.success) {
+    console.log("error: Validation failed", "details:" + parsed.error.flatten().fieldErrors)
       return NextResponse.json(
         { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
@@ -102,10 +103,9 @@ const updateEventSchema = z.object({
   airports: z.array(z.string().length(4, "ICAO must be 4 letters")).optional(),
   signupDeadline: z
     .string()
-    .optional()
     .refine((val) => !val || !isNaN(Date.parse(val)), {
       message: "Invalid date format for signupDeadline",
-    }).optional(),
+    }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   rosterlink: z.string().url("Rosterlink ist keine gültige URL").nullable().optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
@@ -148,25 +148,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
 
     // Notifications: Beispiel - wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
     if (parsed.data.status === "ROSTER_PUBLISHED") {
-      const signups = await prisma.eventSignup.findMany({ where: { eventId: id }, select: { userCID: true } });
-      if (signups.length > 0) {
-        await prisma.$transaction(
-          signups.map((s) => prisma.notification.create({
-            data: {
-              userCID: s.userCID,
-              eventId: id,
-              type: "EVENT",
-              title: `Plan veröffentlicht: ${updatedEvent.name}`,
-              message: `Das Roster/der Plan für ${updatedEvent.name} wurde veröffentlicht.`,
-            },
-          }))
-        );
-      }
+      const count = await notifyRosterPublished(Number(eventId));
+      console.log(`✅ ${count} Benutzer benachrichtigt`);
     }
 
     return NextResponse.json(updatedEvent, { status: 200 }, );
-  } catch (error) {
-    console.error("Error updating event:", error);
+  } catch (err) {
+    if(err instanceof z.ZodError){
+      console.error("Error updating event:", err);
+    }
+    
     return NextResponse.json(
       { error: "Failed to update event" },
       { status: 500 }

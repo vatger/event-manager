@@ -18,10 +18,9 @@ const eventSchema = z.object({
   airports: z.array(z.string().length(4, "ICAO must be 4 letters")),
   signupDeadline: z
     .string()
-    .optional()
     .refine((val) => !val || !isNaN(Date.parse(val)), {
       message: "Invalid date format for signupDeadline",
-    }),
+    }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
 });

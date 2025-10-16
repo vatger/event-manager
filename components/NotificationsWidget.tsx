@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Event } from "@/types";
+import Link from "next/link";
 
 interface Notification {
   id: number;
@@ -264,18 +265,20 @@ export default function NotificationsWidget() {
                     </div>
                     
                     {notification.event && (
-                      <div className="bg-muted p-2 rounded-md text-xs space-y-1">
-                        <div className="flex items-center gap-1 font-medium">
-                          <Calendar className="w-3 h-3" />
-                          {notification.event.name}
+                      <Link href={window.location.origin + "/events/" + notification.eventId} onClick={() => markRead(notification.id)}>
+                        <div className="bg-muted p-2 rounded-md text-xs space-y-1">
+                          <div className="flex items-center gap-1 font-medium">
+                            <Calendar className="w-3 h-3" />
+                            {notification.event.name}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {new Date(notification.event.startTime).toLocaleDateString('de-DE')}
+                            </span>
+                            {getEventStatusBadge(notification.event.status)}
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span>
-                            {new Date(notification.event.startTime).toLocaleDateString('de-DE')}
-                          </span>
-                          {getEventStatusBadge(notification.event.status)}
-                        </div>
-                      </div>
+                      </Link>
                     )}
                     
                     <div className="text-xs text-muted-foreground">
