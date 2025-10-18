@@ -15,16 +15,14 @@ import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { AlertCircle, Trash2Icon } from "lucide-react";
-import { airportRules } from "@/data/airportRules";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import { Checkbox } from "./ui/checkbox";
 import { Event, TimeRange } from "@/types";
 import { useUserEndorsements } from "@/hooks/useUserEndorsements";
 import { getEndorsementsForAirport, mapEndorsementsToStationGroups } from "@/utils/endorsementUtils";
 import { Alert, AlertDescription } from "./ui/alert";
+import { isAirportTier1 } from "@/utils/configUtils";
 
 const ENDORSEMENT_PRIORITY: Record<string, number> = {
   'GND': 1,
@@ -40,7 +38,6 @@ interface SignupFormProps {
 }
 
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
-type AirportKey = keyof typeof airportRules;
 
 // Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf 30-Min-Raster
 function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
@@ -88,7 +85,6 @@ function getEndorsementFromRating(rating: string): string {
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
   
-
   const [availability, setAvailability] = useState<Availability>();
   const [endorsement, setEndorsement] = useState("");
   const [desiredPosition, setDesiredPosition] = useState("");
@@ -104,9 +100,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
   const { data: userEndorsements, loading: endorsementsLoading, error: endorsementsError } = useUserEndorsements(userCID);
   
-  const airportKey = event.airports as AirportKey;
-  const rules = airportRules ? airportRules[airportKey] : null;
-  const areas = rules ? rules.areas : null;
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
@@ -291,7 +284,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             />
           </div>
           {/* Tier 1 airports */}
-          {rules && rules.tier === 1 ? (
+          {isAirportTier1(event.airports) ? (
               <div>
                 {/* <Label className="pb-2">Endorsement for {event.airports}</Label> */}
                 
@@ -484,8 +477,5 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       </DialogContent>
     </Dialog>
   );
-}
-function updateAirportData(airport: any, arg1: string, arg2: string) {
-  throw new Error("Function not implemented.");
 }
 
