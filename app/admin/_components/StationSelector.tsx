@@ -1,7 +1,7 @@
 // components/admin/StationSelector.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { stationsConfig, StationGroup } from "@/data/station_configs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Plus, Search } from "lucide-react";
+import { Station } from "@/lib/stations/types";
+import { fetchAllStations, fetchStationsByAirport } from "@/lib/stations/fetchStations";
 
 interface StationSelectorProps {
   airport: string;
@@ -26,105 +28,107 @@ export default function StationSelector({
   onStationsChange, 
   disabled = false 
 }: StationSelectorProps) {
+  const [stations, setStations] = useState<Station[]>([]);
   const [customStation, setCustomStation] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [allStations, setAllStations] = useState<Station[]>([]);
+  
+  // 📡 Stationen dynamisch laden (vom Datahub)
+  useEffect(() => {
+    const loadStations = async () => {
+      try {
+        const all = await fetchAllStations();
+        const data = airport
+          ? await fetchStationsByAirport(airport)
+          : all;
+        setStations(data);
+        setAllStations(all)
+      } catch (err) {
+        console.error("Fehler beim Laden der Stationen:", err);
+      }
+    };
+    loadStations();
+  }, [airport]);
 
-  // Sortierte Stations-Konfiguration für die korrekte Reihenfolge
-  const sortedStationsConfig = useMemo(() => {
-    return [...stationsConfig].sort((a, b) => {
-      // Zuerst nach Gruppe sortieren
+  // ✨ Sortierte Stationen nach Gruppe
+  const sortedStations = useMemo(() => {
+    return [...stations].sort((a, b) => {
       const groupOrder = GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group);
       if (groupOrder !== 0) return groupOrder;
-      
-      // Dann nach der ursprünglichen Reihenfolge in der Konfiguration
-      return stationsConfig.indexOf(a) - stationsConfig.indexOf(b);
+      return a.callsign.localeCompare(b.callsign);
     });
-  }, []);
+  }, [stations]);
 
-  // Gefilterte Stationen mit korrekter Reihenfolge
+  // 🔍 Gefilterte Stationen (für Tabs)
   const filteredStations = GROUPS.map((group) => ({
     group,
-    stations: sortedStationsConfig.filter(
-      (s) => 
-        s.group === group && 
+    stations: sortedStations.filter(
+      (s) =>
+        s.group === group &&
         (!s.airport || s.airport === airport.toUpperCase()) &&
         s.callsign.toLowerCase().includes(searchTerm.toLowerCase())
     ),
   })).filter(({ stations }) => stations.length > 0);
 
-  // Ausgewählte Stationen in korrekter Reihenfolge anzeigen
+  // 📜 Vorschläge für benutzerdefinierte Eingabe
+  useEffect(() => {
+    if (!customStation) {
+      setSuggestions([]);
+      return;
+    }
+    const query = customStation.toLowerCase();
+    const matches = allStations
+      .filter((s) => s.callsign.toLowerCase().includes(query))
+      .slice(0, 8)
+      .map((s) => s.callsign);
+    setSuggestions(matches);
+  }, [customStation, allStations]);
+
+  // 🔄 Sortierte Anzeige der ausgewählten Stationen
   const orderedSelectedStations = useMemo(() => {
     return selectedStations.sort((a, b) => {
-      const stationA = sortedStationsConfig.find(s => s.callsign === a);
-      const stationB = sortedStationsConfig.find(s => s.callsign === b);
-      
-      // Benutzerdefinierte Stationen (nicht in config) ans Ende
+      const stationA = sortedStations.find((s) => s.callsign === a);
+      const stationB = sortedStations.find((s) => s.callsign === b);
+
       if (!stationA && !stationB) return a.localeCompare(b);
       if (!stationA) return 1;
       if (!stationB) return -1;
-      
-      // Nach konfigurierter Reihenfolge sortieren
-      return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
+      return sortedStations.indexOf(stationA) - sortedStations.indexOf(stationB);
     });
-  }, [selectedStations, sortedStationsConfig]);
+  }, [selectedStations, sortedStations]);
 
   const toggleStation = (callsign: string) => {
     const isSelected = selectedStations.includes(callsign);
     if (isSelected) {
-      onStationsChange(selectedStations.filter(s => s !== callsign));
+      onStationsChange(selectedStations.filter((s) => s !== callsign));
     } else {
-      // Neue Station in korrekter Position einfügen
-      const newStations = [...selectedStations, callsign];
-      const sortedNewStations = newStations.sort((a, b) => {
-        const stationA = sortedStationsConfig.find(s => s.callsign === a);
-        const stationB = sortedStationsConfig.find(s => s.callsign === b);
-        
-        if (!stationA && !stationB) return a.localeCompare(b);
-        if (!stationA) return 1;
-        if (!stationB) return -1;
-        
-        return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
-      });
-      onStationsChange(sortedNewStations);
+      onStationsChange([...selectedStations, callsign]);
     }
   };
 
-  const addCustomStation = () => {
-    if (customStation.trim() && !selectedStations.includes(customStation.toUpperCase())) {
-      const newStation = customStation.toUpperCase();
-      const newStations = [...selectedStations, newStation];
-      
-      // Benutzerdefinierte Stationen ans Ende sortieren
-      const sortedNewStations = newStations.sort((a, b) => {
-        const stationA = sortedStationsConfig.find(s => s.callsign === a);
-        const stationB = sortedStationsConfig.find(s => s.callsign === b);
-        
-        if (!stationA && !stationB) return a.localeCompare(b);
-        if (!stationA) return 1;
-        if (!stationB) return -1;
-        
-        return sortedStationsConfig.indexOf(stationA) - sortedStationsConfig.indexOf(stationB);
-      });
-      
-      onStationsChange(sortedNewStations);
-      setCustomStation("");
+  const addCustomStation = (value?: string) => {
+    const newStation = (value || customStation).trim().toUpperCase();
+    if (newStation && !selectedStations.includes(newStation)) {
+      onStationsChange([...selectedStations, newStation]);
     }
+    setCustomStation("");
+    setSuggestions([]);
   };
 
   const removeStation = (station: string) => {
-    onStationsChange(selectedStations.filter(s => s !== station));
+    onStationsChange(selectedStations.filter((s) => s !== station));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       e.preventDefault();
       addCustomStation();
     }
   };
 
-  // Alle verfügbaren Stationen in korrekter Reihenfolge auswählen
   const selectAllStations = () => {
-    const allStations = filteredStations.flatMap(g => g.stations.map(s => s.callsign));
+    const allStations = filteredStations.flatMap((g) => g.stations.map((s) => s.callsign));
     onStationsChange(allStations);
   };
 
@@ -136,8 +140,8 @@ export default function StationSelector({
           <Label>Ausgewählte Stationen ({selectedStations.length})</Label>
           <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-12">
             {orderedSelectedStations.map((station) => (
-              <Badge 
-                key={station} 
+              <Badge
+                key={station}
                 variant="secondary"
                 className="px-3 py-1 text-sm flex items-center gap-1"
               >
@@ -156,12 +160,12 @@ export default function StationSelector({
         </div>
       )}
 
-      {/* Benutzerdefinierte Station hinzufügen */}
+      {/* Benutzerdefinierte Station mit Vorschlägen */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Benutzerdefinierte Station</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 relative">
           <div className="flex gap-2">
             <Input
               placeholder="Station Callsign (z.B. EDDF_TWR)"
@@ -174,19 +178,36 @@ export default function StationSelector({
             <Button
               type="button"
               size="sm"
-              onClick={addCustomStation}
+              onClick={() => addCustomStation()}
               disabled={!customStation.trim() || disabled}
             >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Dropdown Vorschläge */}
+          {suggestions.length > 0 && (
+            <div className="absolute z-10 bg-background border rounded-md shadow-md mt-1 w-full max-h-48 overflow-y-auto">
+              {suggestions.map((s) => (
+                <div
+                  key={s}
+                  onClick={() => addCustomStation(s)}
+                  className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer text-sm"
+                >
+                  {s}
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Vordefinierte Stationen */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Vordefinierte Stationen für {airport.toUpperCase()}</CardTitle>
+          <CardTitle className="text-sm">
+            Vordefinierte Stationen für {airport.toUpperCase()}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {/* Suchfeld */}
@@ -201,14 +222,16 @@ export default function StationSelector({
             />
           </div>
 
-          {/* Stations-Gruppen */}
+          {/* Stationsgruppen */}
           <Tabs defaultValue={GROUPS[0]} className="w-full">
             <TabsList className="grid grid-cols-4 mb-4">
               {GROUPS.map((group) => (
-                <TabsTrigger 
-                  key={group} 
+                <TabsTrigger
+                  key={group}
                   value={group}
-                  disabled={filteredStations.find(g => g.group === group)?.stations.length === 0}
+                  disabled={
+                    filteredStations.find((g) => g.group === group)?.stations.length === 0
+                  }
                 >
                   {group}
                 </TabsTrigger>
@@ -216,8 +239,9 @@ export default function StationSelector({
             </TabsList>
 
             {GROUPS.map((group) => {
-              const groupStations = filteredStations.find(g => g.group === group)?.stations || [];
-              
+              const groupStations =
+                filteredStations.find((g) => g.group === group)?.stations || [];
+
               return (
                 <TabsContent key={group} value={group} className="space-y-2">
                   {groupStations.length > 0 ? (
@@ -231,15 +255,27 @@ export default function StationSelector({
                           className={`
                             flex items-center justify-between p-3 border rounded-lg text-left
                             transition-all hover:bg-accent hover:text-accent-foreground
-                            ${selectedStations.includes(station.callsign) 
-                              ? 'border-green-500 border-2' 
-                              : 'bg-background'
+                            ${
+                              selectedStations.includes(station.callsign)
+                                ? "border-green-500 border-2"
+                                : "bg-background"
                             }
-                            ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                            ${
+                              disabled
+                                ? "opacity-50 cursor-not-allowed"
+                                : "cursor-pointer"
+                            }
                           `}
                         >
                           <span className="font-medium">{station.callsign}</span>
-                          <Badge variant="outline" className={`ml-2 ${selectedStations.includes(station.callsign) ? 'bg-green-500 text-white border-green-500' : ''}`}>
+                          <Badge
+                            variant="outline"
+                            className={`ml-2 ${
+                              selectedStations.includes(station.callsign)
+                                ? "bg-green-500 text-white border-green-500"
+                                : ""
+                            }`}
+                          >
                             {station.group}
                           </Badge>
                         </button>
@@ -247,7 +283,7 @@ export default function StationSelector({
                     </div>
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'Keine Stationen gefunden' : 'Keine Stationen verfügbar'}
+                      {searchTerm ? "Keine Stationen gefunden" : "Keine Stationen verfügbar"}
                     </div>
                   )}
                 </TabsContent>
