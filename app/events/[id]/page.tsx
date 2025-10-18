@@ -18,6 +18,7 @@ import { AlertCircle, Calendar, Clock, MapPin, Tags, Users } from "lucide-react"
 import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
+import StaffedStations from "@/components/StaffedStations";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -295,42 +296,8 @@ export default function EventPage() {
           </div>
         </div>
         </div>
-
       {(event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED" || event.status === "ROSTER_PUBLISHED") && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Zu besetzende Stationen</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue={groupedStations[0]?.[0] as string|| "GND"} className="w-full">
-              <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
-                {groupedStations.map(([area, stations]) => (
-                  <TabsTrigger
-                    key={area as string}
-                    value={area as string}
-                    className="rounded-md px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
-                  >
-                    {area as string}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      ({(stations as string[]).length})
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {groupedStations.map(([area, stations]) => (
-                <TabsContent key={area as string} value={area as string}>
-                  <div className="flex flex-wrap gap-2">
-                    {(stations as string[]).map((station) => (
-                      <Badge key={station} variant="secondary" className="px-2.5 py-1 rounded-md">
-                        {station}
-                      </Badge>
-                    ))}
-                  </div>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
+        <StaffedStations callsigns={event.staffedStations} />
       )}
 
       {/* Teilnehmer Tabelle */}

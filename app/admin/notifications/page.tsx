@@ -184,7 +184,7 @@ export default function AdminNotificationCenter() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Notification Center</h1>
+            <h1 className="text-3xl font-bold">Notifications</h1>
             <p className="text-muted-foreground">
               Sende Benachrichtigungen an Event-Teilnehmer
             </p>

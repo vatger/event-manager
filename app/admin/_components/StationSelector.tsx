@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { stationsConfig, StationGroup } from "@/data/station_configs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Plus, Search } from "lucide-react";
-import { Station } from "@/lib/stations/types";
+import { Station, StationGroup } from "@/lib/stations/types";
 import { fetchAllStations, fetchStationsByAirport } from "@/lib/stations/fetchStations";
 
 interface StationSelectorProps {
@@ -34,7 +33,7 @@ export default function StationSelector({
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [allStations, setAllStations] = useState<Station[]>([]);
   
-  // 📡 Stationen dynamisch laden (vom Datahub)
+  // Stationen dynamisch laden (vom Datahub)
   useEffect(() => {
     const loadStations = async () => {
       try {
@@ -51,7 +50,7 @@ export default function StationSelector({
     loadStations();
   }, [airport]);
 
-  // ✨ Sortierte Stationen nach Gruppe
+  // Sortierte Stationen nach Gruppe
   const sortedStations = useMemo(() => {
     return [...stations].sort((a, b) => {
       const groupOrder = GROUPS.indexOf(a.group) - GROUPS.indexOf(b.group);
@@ -60,7 +59,7 @@ export default function StationSelector({
     });
   }, [stations]);
 
-  // 🔍 Gefilterte Stationen (für Tabs)
+  // Gefilterte Stationen (für Tabs)
   const filteredStations = GROUPS.map((group) => ({
     group,
     stations: sortedStations.filter(
@@ -71,7 +70,7 @@ export default function StationSelector({
     ),
   })).filter(({ stations }) => stations.length > 0);
 
-  // 📜 Vorschläge für benutzerdefinierte Eingabe
+  // Vorschläge für benutzerdefinierte Eingabe
   useEffect(() => {
     if (!customStation) {
       setSuggestions([]);
@@ -85,7 +84,7 @@ export default function StationSelector({
     setSuggestions(matches);
   }, [customStation, allStations]);
 
-  // 🔄 Sortierte Anzeige der ausgewählten Stationen
+  // Sortierte Anzeige der ausgewählten Stationen
   const orderedSelectedStations = useMemo(() => {
     return selectedStations.sort((a, b) => {
       const stationA = sortedStations.find((s) => s.callsign === a);

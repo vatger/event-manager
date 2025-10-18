@@ -11,10 +11,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { acceleratedValues, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { DeleteIcon, Trash2Icon, TrashIcon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 import { airportRules } from "@/data/airportRules";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
@@ -91,8 +91,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
   
   const airportKey = event.airports as AirportKey;
-  const rules = airportRules[airportKey];
-  const areas = rules.areas;
+  const rules = airportRules ? airportRules[airportKey] : null;
+  const areas = rules ? rules.areas : null;
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
@@ -240,7 +240,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           </div>
 
           {/* Tier 1 airports */}
-            {rules.tier === 1 && (
+            {rules && rules.tier === 1 ? (
               <div>
               <Label className="pb-2">Endorsement</Label>
               <Select value={endorsement} onValueChange={(v) => setEndorsement(v)}>
@@ -249,7 +249,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                {areas.map((area) => (
+                {areas!.map((area) => (
                   <SelectItem key={area} value={area}>
                     {area}
                   </SelectItem>
@@ -263,10 +263,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                   </p>
                 )}
               </div>
-            )}
-
-            {/* Unrestricted airports */}
-            {rules.tier != 1 && (
+            ) : (
+              // Unrestricted Airports
               <div>
               {rating == "S1" ? (
                 <div className="flex items-center gap-3">
