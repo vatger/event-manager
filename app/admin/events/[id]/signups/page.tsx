@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import SignupsTable from "@/components/SignupsTable";
 import SyncToSheetsButton from "@/app/admin/_components/SyncToSheetsButton";
 import { Event, Signup, TimeRange } from "@/types";
-import { UserNotificationSender } from "@/app/admin/_components/NotifyUser";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -365,8 +364,6 @@ export default function AdminEventSignupsPage() {
         </CardContent>
       </Card>
       <SyncToSheetsButton eventId={parseInt(event.id.toString())} />
-
-      <UserNotificationSender eventId={event.id.toString()} eventName={event.name} signups={signups as Signup[]} />
     </div>
   );
 }
