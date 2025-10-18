@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Trash2Icon } from "lucide-react";
+import { AlertCircle, Trash2Icon } from "lucide-react";
 import { airportRules } from "@/data/airportRules";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
@@ -22,6 +22,16 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Checkbox } from "./ui/checkbox";
 import { Event, TimeRange } from "@/types";
+import { useUserEndorsements } from "@/hooks/useUserEndorsements";
+import { getEndorsementsForAirport, mapEndorsementsToStationGroups } from "@/utils/endorsementUtils";
+import { Alert, AlertDescription } from "./ui/alert";
+
+const ENDORSEMENT_PRIORITY: Record<string, number> = {
+  'GND': 1,
+  'TWR': 2, 
+  'APP': 3,
+  'CTR': 4
+};
 
 interface SignupFormProps {
   event: Event;
@@ -66,6 +76,9 @@ function getEndorsementFromRating(rating: string): string {
     case "C3":
     case "I1":
     case "I2":
+    case "I3":
+    case "SUP":
+    case "ADM":
       return "CTR";
     default:
       return "";
@@ -89,6 +102,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const userCID = session?.user.id;
 
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
+  const { data: userEndorsements, loading: endorsementsLoading, error: endorsementsError } = useUserEndorsements(userCID);
   
   const airportKey = event.airports as AirportKey;
   const rules = airportRules ? airportRules[airportKey] : null;
@@ -109,8 +123,31 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
     // Achtung: State-Logging direkt nach setXxx zeigt noch alte Werte.
     // Wenn du debuggen willst, logge signupData direkt:
-    console.log("Hydrating from signupData:", signupData);
+    
   }, [signupData, hydrated]);
+  console.log("Hydrating from signupData:", signupData);
+  
+  useEffect(() => {
+    if (!userEndorsements?.endorsements || hydrated || !Array.isArray(userEndorsements.endorsements)) return;
+    
+    // Da event.airports ein String ist, direkt verwenden
+    const airport = event.airports;
+    const highestEndorsement = getHighestEndorsementForAirport(
+      userEndorsements.endorsements, 
+      airport
+    );
+    
+    if (highestEndorsement && !endorsement) {
+      setEndorsement(highestEndorsement);
+    }
+  }, [userEndorsements, event.airports, hydrated, endorsement]);
+  
+  // Temporär für Debugging in der SignupForm-Komponente
+  useEffect(() => {
+    console.log("User Endorsements:", userEndorsements);
+    console.log("Endorsements Array:", userEndorsements?.endorsements);
+    console.log("Is Array:", Array.isArray(userEndorsements?.endorsements));
+  }, [userEndorsements]);
 
   if (!session) {
     return (
@@ -208,6 +245,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     }
   }
   
+  function getHighestEndorsementForAirport(endorsements: string[] | null | undefined, airport: string): string {
+    if (!endorsements || !Array.isArray(endorsements)) return "";
+    
+    const airportEndorsements = getEndorsementsForAirport(endorsements, airport);
+    const groups = mapEndorsementsToStationGroups(airportEndorsements);
+    
+    if (groups.length === 0) return "";
+    
+    // Finde das Endorsement mit der höchsten Priorität
+    return groups.reduce((highest, current) => {
+      const highestPriority = ENDORSEMENT_PRIORITY[highest] || 0;
+      const currentPriority = ENDORSEMENT_PRIORITY[current] || 0;
+      return currentPriority > highestPriority ? current : highest;
+    });
+  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -238,12 +290,44 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               innerRef={avselectorRef}
             />
           </div>
-
           {/* Tier 1 airports */}
-            {rules && rules.tier === 1 ? (
+          {rules && rules.tier === 1 ? (
               <div>
-              <Label className="pb-2">Endorsement</Label>
-              <Select value={endorsement} onValueChange={(v) => setEndorsement(v)}>
+                {/* <Label className="pb-2">Endorsement for {event.airports}</Label> */}
+                
+                {/* Loading State */}
+                {endorsementsLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    Loading endorsements...
+                  </div>
+                )}
+                
+                {/* Automatisches Endorsement anzeigen */}
+                {userEndorsements?.endorsements && (
+                  <div className="mb-3 p-2 bg-muted/50 rounded-md">
+                    <p className="text-sm font-medium">Automatic Endorsement:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {endorsement || "No qualified endorsement found"}
+                    </p>
+                    {endorsement && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Based on your training endorsements for {event.airports}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {endorsementsError && (
+                  <Alert variant="destructive" className="mb-3">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Could not load endorsements for {event.airports}: {endorsementsError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+              {/* <Select value={endorsement} onValueChange={(v) => setEndorsement(v)}>
                 <SelectTrigger className="w-full">
                 <SelectValue placeholder="Bitte Wählen" />
                 </SelectTrigger>
@@ -261,12 +345,47 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                   <p className="text-sm text-muted-foreground mb-1">
                     Bitte beachte, dass angenommen wird, dass du GND | ... | CTR besetzen kannt. Sollte dies anders sein, benutze das RMK-Feld.
                   </p>
-                )}
+                )} */}
               </div>
             ) : (
               // Unrestricted Airports
               <div>
-              {rating == "S1" ? (
+                {/* Loading State */}
+                {endorsementsLoading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                    Loading endorsements...
+                  </div>
+                )}
+                
+                {/* Automatisches Endorsement anzeigen */}
+                {userEndorsements?.endorsements && (
+                  <div className="mb-3 p-2 bg-muted/50 rounded-md">
+                    <p className="text-sm font-medium">Automatic Solo:</p>
+                    <p className="text-sm text-muted-foreground">
+                      {endorsement || rating }
+                    </p>
+                    {endorsement ? (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Based on your training solos for {event.airports}
+                      </p>
+                    ): (
+                      <p className="text-xs text-green-600 mt-1">
+                      ✓ You can controll up to {getEndorsementFromRating(rating)}, based on your Rating
+                    </p>
+                    )}
+                  </div>
+                )}
+                
+                {endorsementsError && (
+                  <Alert variant="destructive" className="mb-3">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Could not load endorsements for {event.airports}: {endorsementsError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              {/* {rating == "S1" ? (
                 <div className="flex items-center gap-3">
                   <Checkbox
                   id="TWR?"
@@ -308,7 +427,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                         />
                     <Label htmlFor="CTR?">you are allowed to staff CTR?</Label>
                   </div>
-                ): null}
+                ) : null} */}
               </div>
             )}
           <div>
@@ -366,3 +485,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     </Dialog>
   );
 }
+function updateAirportData(airport: any, arg1: string, arg2: string) {
+  throw new Error("Function not implemented.");
+}
+

@@ -20,5 +20,9 @@ export const airportRules = {
       tier: 0,
       areas: ["GND", "TWR", "APP", "CTR"]
     },
+    EDDB: {
+      tier: 1, 
+      areas: ["GND", "TWR", "APP", "CTR"]
+    }
   };
   
