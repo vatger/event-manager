@@ -1,4 +1,4 @@
-export type StationGroup = "DEL" | "GND" | "TWR" | "APP" | "CTR";
+export type StationGroup = "DEL" | "GND" | "TWR" | "APP" | "CTR" | "Sonstiges";
 
 export interface Station {
   callsign: string;
