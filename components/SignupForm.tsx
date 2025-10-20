@@ -12,24 +12,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { AlertCircle, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
-import { useUserEndorsements } from "@/hooks/useUserEndorsements";
-import { getEndorsementsForAirport, mapEndorsementsToStationGroups } from "@/utils/endorsementUtils";
-import { Alert, AlertDescription } from "./ui/alert";
 import { isAirportTier1 } from "@/utils/configUtils";
+import SignupGroupAssignment from "@/lib/endorsements/SignupGroupAssignment";
+import { ControllerGroup } from "@/lib/endorsements/types";
 
-const ENDORSEMENT_PRIORITY: Record<string, number> = {
-  'GND': 1,
-  'TWR': 2, 
-  'APP': 3,
-  'CTR': 4
-};
 
 interface SignupFormProps {
   event: Event;
@@ -86,61 +79,56 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const {data: session} = useSession()
   
   const [availability, setAvailability] = useState<Availability>();
-  const [endorsement, setEndorsement] = useState("");
+  const [endorsement, setEndorsement] = useState<String | null>("");
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [autoRemarks, setAutoRemarks] = useState<string[]>([]);
+  const [isGroupAssignmentLoading, setIsGroupAssignmentLoading] = useState(true);
 
   const rating = session?.user.rating || "";
   const userCID = session?.user.id;
 
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
-  const { data: userEndorsements, loading: endorsementsLoading, error: endorsementsError } = useUserEndorsements(userCID);
-  
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
-
+  const hasAutoSetRemarks = useRef(false);
 
   useEffect(() => {
     if (!signupData || hydrated) return;
 
+    console.log("Hydrating from signupData:", signupData);
+    
     setAvailability(signupData.availability ?? {});
     setEndorsement(signupData.endorsement ?? "");
     setDesiredPosition(signupData.preferredStations ?? "");
     setRemarks(signupData.remarks ?? "");
-
     setHydrated(true);
-
-    // Achtung: State-Logging direkt nach setXxx zeigt noch alte Werte.
-    // Wenn du debuggen willst, logge signupData direkt:
     
   }, [signupData, hydrated]);
-  console.log("Hydrating from signupData:", signupData);
-  
-  useEffect(() => {
-    if (!userEndorsements?.endorsements || hydrated || !Array.isArray(userEndorsements.endorsements)) return;
+
+  const handleGroupDetermined = useCallback((groupData: ControllerGroup) => {
+    console.log("Automatische Gruppenzuweisung:", groupData);
     
-    // Da event.airports ein String ist, direkt verwenden
-    const airport = event.airports;
-    const highestEndorsement = getHighestEndorsementForAirport(
-      userEndorsements.endorsements, 
-      airport
-    );
-    
-    if (highestEndorsement && !endorsement) {
-      setEndorsement(highestEndorsement);
+    // Nur setzen wenn NICHT hydriert (also neue Anmeldung, nicht Bearbeitung)
+    if (!hydrated && !hasAutoSetRemarks.current) {
+      setEndorsement(groupData.group);
+      
+      // Setze Remarks nur wenn noch keine vorhanden sind
+      setRemarks(prev => {
+        if (!prev || prev.trim() === "") {
+          hasAutoSetRemarks.current = true;
+          return groupData.remarks.join("; ");
+        }
+        return prev;
+      });
     }
-  }, [userEndorsements, event.airports, hydrated, endorsement]);
-  
-  // Temporär für Debugging in der SignupForm-Komponente
-  useEffect(() => {
-    console.log("User Endorsements:", userEndorsements);
-    console.log("Endorsements Array:", userEndorsements?.endorsements);
-    console.log("Is Array:", Array.isArray(userEndorsements?.endorsements));
-  }, [userEndorsements]);
+    
+    setIsGroupAssignmentLoading(false);
+  }, [hydrated]);
 
   if (!session) {
     return (
@@ -237,22 +225,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       setDeleting(false);
     }
   }
-  
-  function getHighestEndorsementForAirport(endorsements: string[] | null | undefined, airport: string): string {
-    if (!endorsements || !Array.isArray(endorsements)) return "";
-    
-    const airportEndorsements = getEndorsementsForAirport(endorsements, airport);
-    const groups = mapEndorsementsToStationGroups(airportEndorsements);
-    
-    if (groups.length === 0) return "";
-    
-    // Finde das Endorsement mit der höchsten Priorität
-    return groups.reduce((highest, current) => {
-      const highestPriority = ENDORSEMENT_PRIORITY[highest] || 0;
-      const currentPriority = ENDORSEMENT_PRIORITY[current] || 0;
-      return currentPriority > highestPriority ? current : highest;
-    });
-  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -283,146 +255,24 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               innerRef={avselectorRef}
             />
           </div>
-          {/* Tier 1 airports */}
-          {isAirportTier1(event.airports) ? (
-              <div>
-                {/* <Label className="pb-2">Endorsement for {event.airports}</Label> */}
-                
-                {/* Loading State */}
-                {endorsementsLoading && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                    Loading endorsements...
-                  </div>
-                )}
-                
-                {/* Automatisches Endorsement anzeigen */}
-                {userEndorsements?.endorsements && (
-                  <div className="mb-3 p-2 bg-muted/50 rounded-md">
-                    <p className="text-sm font-medium">Automatic Endorsement:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {endorsement || "No qualified endorsement found"}
-                    </p>
-                    {endorsement && (
-                      <p className="text-xs text-green-600 mt-1">
-                        ✓ Based on your training endorsements for {event.airports}
-                      </p>
-                    )}
-                  </div>
-                )}
-                
-                {endorsementsError && (
-                  <Alert variant="destructive" className="mb-3">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Could not load endorsements for {event.airports}: {endorsementsError}
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-              {/* <Select value={endorsement} onValueChange={(v) => setEndorsement(v)}>
-                <SelectTrigger className="w-full">
-                <SelectValue placeholder="Bitte Wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                {areas!.map((area) => (
-                  <SelectItem key={area} value={area}>
-                    {area}
-                  </SelectItem>
-                ))}
-                </SelectGroup>
-                </SelectContent>
-              </Select>
-                {endorsement == "CTR" && (
-                  <p className="text-sm text-muted-foreground mb-1">
-                    Bitte beachte, dass angenommen wird, dass du GND | ... | CTR besetzen kannt. Sollte dies anders sein, benutze das RMK-Feld.
-                  </p>
-                )} */}
-              </div>
-            ) : (
-              // Unrestricted Airports
-              <div>
-                {/* Loading State */}
-                {endorsementsLoading && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                    Loading endorsements...
-                  </div>
-                )}
-                
-                {/* Automatisches Endorsement anzeigen */}
-                {userEndorsements?.endorsements && (
-                  <div className="mb-3 p-2 bg-muted/50 rounded-md">
-                    <p className="text-sm font-medium">Automatic Solo:</p>
-                    <p className="text-sm text-muted-foreground">
-                      {endorsement || rating }
-                    </p>
-                    {endorsement ? (
-                      <p className="text-xs text-green-600 mt-1">
-                        ✓ Based on your training solos for {event.airports}
-                      </p>
-                    ): (
-                      <p className="text-xs text-green-600 mt-1">
-                      ✓ You can controll up to {getEndorsementFromRating(rating)}, based on your Rating
-                    </p>
-                    )}
-                  </div>
-                )}
-                
-                {endorsementsError && (
-                  <Alert variant="destructive" className="mb-3">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Could not load endorsements for {event.airports}: {endorsementsError}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              {/* {rating == "S1" ? (
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                  id="TWR?"
-                  className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
-                  checked={endorsement === "TWR"}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setEndorsement("TWR");
-                    } else { setEndorsement("") }
-                  }}
-                    />
-                  <Label htmlFor="TWR?">you have an active TWR solo?</Label>
-                </div>
-              ) : rating == "S2" ? (
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                  id="APP?"
-                  className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
-                  checked={endorsement === "APP"}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setEndorsement("APP");
-                    } else { setEndorsement("") }
-                  }}
-                    />
-                  <Label htmlFor="APP?">you have an active APP solo?</Label>
-                </div>
-              ) : ["S3", "C1", "C2", "C3", "I1", "I2"].includes(rating) ? (
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      id="CTR?"
-                      className="data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:text-white dark:data-[state=checked]:border-blue-700 dark:data-[state=checked]:bg-blue-700"
-                      checked={endorsement === "CTR"}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setEndorsement("CTR");
-                        } else { setEndorsement("") }
-                      }}
-                        />
-                    <Label htmlFor="CTR?">you are allowed to staff CTR?</Label>
-                  </div>
-                ) : null} */}
-              </div>
-            )}
+          
+          {/* Automatische Gruppenzuweisung */}
+          {!loading && userCID && (
+          <div>
+            <SignupGroupAssignment
+              cid={Number(userCID)}
+              event={{
+                id: event.id,
+                fir: "EDMM",
+                airport: event.airports,
+                isTier1: isAirportTier1(event.airports)
+              }}
+              rating={4}
+              onGroupDetermined={handleGroupDetermined}
+            />
+          </div>
+          )}
+
           <div>
             <Label className="pb-2">Desired Position</Label>
             <Input
@@ -435,11 +285,13 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder={endorsement == "CTR" ? "CTR (EBG West only) ..." : "Some space..."}
+              placeholder={endorsement === "CTR" ? "CTR (EBG West only) ..." : "Some space..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
+              className="min-h-[80px]"
             />
           </div>
+          
           {error && (
             <p className="text-red-500 text-sm" role="alert">
               {error}
@@ -447,18 +299,18 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-          
             <Button variant="outline" onClick={onClose} disabled={saving || deleting}>
               Cancel
             </Button>
             <Button onClick={submitSignup} disabled={saving || deleting} aria-busy={saving}>
-            {saving
-                  ? isSignedUp
-                    ? "Saving..."
-                    : "Signing up..."
-                  : isSignedUp
-                  ? "Save changes"
-                  : "Sign up"}</Button>
+              {saving
+                ? isSignedUp
+                  ? "Saving..."
+                  : "Signing up..."
+                : isSignedUp
+                ? "Save changes"
+                : "Sign up"}
+            </Button>
             {isSignedUp ? (
               <Button
                 variant="destructive"
@@ -478,4 +330,3 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     </Dialog>
   );
 }
-
