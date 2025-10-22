@@ -66,6 +66,9 @@ function getEndorsementFromRating(rating: string): string {
     case "C3":
     case "I1":
     case "I2":
+    case "I3":
+    case "SUP":
+    case "ADM":
       return "CTR";
     default:
       return "";
