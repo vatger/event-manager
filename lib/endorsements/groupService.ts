@@ -55,7 +55,7 @@ export class GroupService {
     rating: number
   ): ControllerGroup {
     const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements);
-    if(!highestEndorsement) return {remarks: [`Du kannst in ${event.airport} nicht lotsen`], endorsements: [], group: null}
+    if(!highestEndorsement) return {remarks: [], endorsements: [], group: null}
     let group = highestEndorsement 
       && EndorsementService.extractGroupFromEndorsement(highestEndorsement);
 
@@ -67,7 +67,7 @@ export class GroupService {
       rating
     );
 
-    if(rating >= 4){
+    if(rating >= 5){
         const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
         if (onlyFams.length < 3) {
             remarks.push(`CTR: ${onlyFams.join(', ')} only`);
@@ -93,6 +93,8 @@ export class GroupService {
     event: EventData
   ): ControllerGroup {
     let group = this.getGroupFromRating(rating);
+    if(!group) return {group, remarks: [], endorsements: [] }
+
     const remarks: string[] = [];
 
     // Check for endorsement overrides
@@ -104,28 +106,30 @@ export class GroupService {
 
       if (endorsementRank > currentRank) {
         group = endorsementGroup;
-        remarks.push(`Solo endorsement: ${highestEndorsement}`);
+        //RMKs wenn CTR solos
+        if(highestEndorsement.includes("_CTR")) 
+          remarks.push(`Solo: ${highestEndorsement}`);
       }
     }
 
     // CTR mit Familiarization-Check
     if (group === 'CTR') {
-      const missingGroups = this.getMissingFamiliarizations(familiarizations, event.fir);
-      if (missingGroups.length > 0) {
-        remarks.push(`CTR limited to: ${missingGroups.join(', ')}`);
-      }
+      const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
+        if (onlyFams.length < 3) {
+            remarks.push(`CTR: ${onlyFams.join(', ')} only`);
+        }
     }
 
     return { group, remarks, endorsements };
   }
 
-  private static getGroupFromRating(rating: number): 'GND' | 'TWR' | 'APP' | 'CTR' {
+  private static getGroupFromRating(rating: number): 'GND' | 'TWR' | 'APP' | 'CTR' | null{
     switch (rating) {
-      case 1: return 'GND';
-      case 2: return 'TWR';
-      case 3: return 'APP';
-      case 4: case 5: case 6: case 7: case 8: return 'CTR';
-      default: return 'GND';
+      case 2: return 'GND';
+      case 3: return 'TWR';
+      case 4: return 'APP';
+      case 5: case 6: case 7: case 8: case 9: case 10: case 11: case 12: return 'CTR';
+      default: return null;
     }
   }
 
@@ -140,17 +144,15 @@ export class GroupService {
 
     // CTR Familiarization Remarks
     if (group === 'CTR') {
-      const missingGroups = this.getMissingFamiliarizations(familiarizations, event.fir);
-      if (missingGroups.length > 0) {
-        remarks.push(`Restricted sectors: ${missingGroups.join(', ')}`);
-      }
-    }
-
-    // Solo Endorsement Remarks für Auszubildende
-    if (rating <= 3 && endorsements.length > 0) {
-      const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements);
-      if (highestEndorsement) {
-        remarks.push(`Solo: ${highestEndorsement}`);
+      const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements)
+      if(highestEndorsement?.includes("_CTR")){
+        // CTR solo
+        remarks.push(`solo: ${highestEndorsement}`)
+      } else {
+        const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
+        if (onlyFams.length < 3) {
+            remarks.push(`CTR: ${onlyFams.join(', ')} only`);
+        }
       }
     }
 

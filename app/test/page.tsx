@@ -1,5 +1,5 @@
 "use client"
-import SignupGroupAssignment from '@/lib/endorsements/SignupGroupAssignment';
+import SignupGroupAssignment from '@/components/SignupGroupAssignment';
 import { ControllerGroup } from '@/lib/endorsements/types';
 import { isAirportTier1 } from '@/utils/configUtils';
 import { useMemo, useState } from 'react';

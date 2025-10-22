@@ -1,5 +1,3 @@
-import { EndorsementData, FamiliarizationData } from './types';
-
 export class EndorsementService {
   static readonly GROUP_ORDER = ['GND', 'TWR', 'APP', 'CTR'] as const;
 

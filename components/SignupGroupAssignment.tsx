@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GroupService } from './groupService';
-import { EventData, ControllerGroup } from './types';
+import { GroupService } from '../lib/endorsements/groupService';
+import { EventData, ControllerGroup } from '../lib/endorsements/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { getBadgeClassForEndorsement } from '@/utils/EndorsementBadge';
+import { Skeleton } from './ui/skeleton';
 
 interface Props {
   cid: number;
@@ -64,14 +65,13 @@ export default function SignupGroupAssignment({
 
     determineGroup();
   }, [cid, event.id, rating, onGroupDeterminedStable]); // Nur event.id statt gesamtes event object
-
-  if (loading) return <div>Bestimme Gruppe...</div>;
+    
   if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <Alert>
         <AlertDescription>
-            {groupData && groupData.endorsements.length > 0  ? (
+            {groupData && (groupData.endorsements.length > 0  || !event.isTier1) && groupData.group ? (
                 <div>
                     <Badge className={getBadgeClassForEndorsement(groupData.group)}>{groupData.group}</Badge>
                     {groupData.remarks.length == 0 ? (
@@ -91,9 +91,16 @@ export default function SignupGroupAssignment({
                 </div>
             ) : (
                 <p className='text-red-600'>
-                    Could not load endorsements for {event.airport}
+                    ✗ You are not allowed to control {event.airport}
                 </p>
             )}
+
+            {loading &&
+              <div>
+                <Skeleton className='h-[20px] w-[60px] rounded-full' />
+                <Skeleton className='h-[20px] w-[120px] rounded-full mt-2' />
+              </div>
+            }
         </AlertDescription>
     </Alert>
   );

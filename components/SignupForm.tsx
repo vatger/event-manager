@@ -20,8 +20,9 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
 import { isAirportTier1 } from "@/utils/configUtils";
-import SignupGroupAssignment from "@/lib/endorsements/SignupGroupAssignment";
+import SignupGroupAssignment from "@/components/SignupGroupAssignment";
 import { ControllerGroup } from "@/lib/endorsements/types";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 
 interface SignupFormProps {
@@ -123,6 +124,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           hasAutoSetRemarks.current = true;
           return groupData.remarks.join("; ");
         }
+        if(!prev.includes(groupData.remarks.join("; "))) {
+          return groupData.remarks.join("; ") + "; " + prev
+        }
         return prev;
       });
     }
@@ -155,9 +159,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setSaving(true)
     setError("")
     
-    let e = endorsement;
-    if(endorsement == "") {
-      e = getEndorsementFromRating(rating)
+    if(!endorsement) {
+      setError("Fehler beim ermitteln der Besetzungsgruppe")
+      setSaving(false)
+      return
     }
 
     const method = isSignedUp ? "PUT" : "POST";
@@ -173,7 +178,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
         body: JSON.stringify({
           eventId: event.id,
           availability: {available: avselectorRef.current?.getAvailable(), unavailable: avselectorRef.current?.getUnavailable()},
-          endorsement: e,
+          endorsement,
           preferredStations: desiredPosition,
           remarks,
         }),
@@ -267,7 +272,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                 airport: event.airports,
                 isTier1: isAirportTier1(event.airports)
               }}
-              rating={4}
+              rating={getRatingValue(session.user.rating)}
               onGroupDetermined={handleGroupDetermined}
             />
           </div>
@@ -302,7 +307,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             <Button variant="outline" onClick={onClose} disabled={saving || deleting}>
               Cancel
             </Button>
-            <Button onClick={submitSignup} disabled={saving || deleting} aria-busy={saving}>
+            <Button onClick={submitSignup} disabled={saving || deleting || !endorsement} aria-busy={saving}>
               {saving
                 ? isSignedUp
                   ? "Saving..."

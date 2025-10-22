@@ -1,16 +1,29 @@
-export function getRatingValue (ratingString: string): number {
-    switch (ratingString) {
-      case "S1": return 1;
-      case "S2": return 2;
-      case "S3": return 3;
-      case "C1": return 4;
-      case "C2": return 5;
-      case "C3": return 6;
-      case "I1": return 7;
-      case "I2": return 8;
-      case "I3": return 9;
-      case "SUP": return 10;
-      case "ADM": return 11;
-      default: return 0;
-    }
-  };
+const ratingToValueMap: Record<string, number> = {
+  INA: -1,
+  SUS: 0,
+  OBS: 1,
+  S1: 2,
+  S2: 3,
+  S3: 4,
+  C1: 5,
+  C2: 6,
+  C3: 7,
+  I1: 8,
+  I2: 9,
+  I3: 10,
+  SUP: 11,
+  ADM: 12
+};
+
+const valueToRatingMap = Object.entries(ratingToValueMap).reduce((acc, [key, value]) => {
+  acc[value] = key;
+  return acc;
+}, {} as Record<number, string>);
+
+export function getRatingValue(ratingString: string): number {
+  return ratingToValueMap[ratingString] ?? 0;
+}
+
+export function getRatingFromValue(ratingValue: number): string {
+  return valueToRatingMap[ratingValue] ?? "SUS";
+}
