@@ -1,6 +1,6 @@
 import { Signup } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEndorsements } from "./useEndorsements";
+import { useEndorsements } from "../../../../../../hooks/useEndorsements";
 
 interface StatsCardProps {
   signups: Signup[];

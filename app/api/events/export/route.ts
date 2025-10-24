@@ -4,6 +4,8 @@ import { Event } from "@prisma/client";
 import { google } from "googleapis";
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { GroupService } from "@/lib/endorsements/groupService";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 // Type Definitions basierend auf Ihrem Schema
 interface TimeSlot {
@@ -32,7 +34,6 @@ interface EventSignup {
   eventId: number;
   userCID: number;
   availability: unknown;
-  endorsement: string | null;
   breakrequests: string | null;
   preferredStations: string | null;
   remarks: string | null;
@@ -47,7 +48,6 @@ interface ConvertedSignup {
   eventId: number;
   userCID: number;
   availability: Availability;
-  endorsement: string | null;
   breakrequests: string | null;
   preferredStations: string | null;
   remarks: string | null;
@@ -152,7 +152,6 @@ function convertSignup(signupData: EventSignup): ConvertedSignup {
   return {
     ...signupData,
     availability: parseAvailability(signupData.availability),
-    endorsement: signupData.endorsement || null,
     preferredStations: signupData.preferredStations || null,
     remarks: signupData.remarks || null,
   };
@@ -204,7 +203,7 @@ function formatDateGerman(date: Date): string {
 }
 
 function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
-  const [slotStart] = timeslot.split('\n');
+  const [slotStart] = timeslot.split('availability: parseAvailability(signupData.availability),\\n    n');
   const slotTimeFormatted = `${slotStart.substring(0, 2)}:${slotStart.substring(2, 4)}`;
   const slotTime = new Date(`2025-09-29T${slotTimeFormatted}:00.000Z`);
   
@@ -265,7 +264,7 @@ export async function POST(req: Request) {
     const event = convertEvent(rawEvent);
     const timeslots = generateTimeslots(event.startTime!, event.endTime!, 30);
     const currentDate = formatDateGerman(new Date());
-    const userDetailColumns = ["Preferred Stations", "Remarks"];
+    const userDetailColumns = ["Preferred Stations", "Remarks", "Restrictions"];
 
     // Stations aus den Event-Daten verwenden
     const stations = event.staffedStations;
@@ -296,14 +295,29 @@ export async function POST(req: Request) {
 
     stationRows.push([]); // Leerzeile nach Stationsbereich
 
-    // Controller nach Endorsement gruppieren
+    // Compute live group + restrictions via GroupService
+    const airport = Array.isArray(event.airports) ? (event.airports[0] || "") : "";
+    const computed = await Promise.all(event.signups.map(async (s) => {
+      try {
+        const res = await GroupService.getControllerGroup({
+          user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
+          event: { airport, fir: "EDMM"}
+        });
+        return { cid: s.userCID, group: res.group || "UNKNOWN", restrictions: res.restrictions };
+      } catch {
+        return { cid: s.userCID, group: "UNKNOWN", restrictions: [] as string[] };
+      }
+    }));
+    const byCid = Object.fromEntries(computed.map(r => [r.cid, r]));
+
+    // Controller nach ermittelter Group gruppieren
     const signupsByEndorsement: Record<string, ConvertedSignup[]> = {};
     for (const s of event.signups) {
-      const endorsement = s.endorsement || "UNKNOWN";
-      if (!signupsByEndorsement[endorsement]) {
-        signupsByEndorsement[endorsement] = [];
+      const grp = byCid[s.userCID]?.group || "UNKNOWN";
+      if (!signupsByEndorsement[grp]) {
+        signupsByEndorsement[grp] = [];
       }
-      signupsByEndorsement[endorsement].push(s);
+      signupsByEndorsement[grp].push(s);
     }
 
     // Controller-Blöcke für jedes Endorsement in der gewünschten Reihenfolge
@@ -322,13 +336,16 @@ export async function POST(req: Request) {
         // Nutzer-Zeilen
         for (const user of users) {
           const userName = user.user.name;
-          const userDetails = getUserDetails(user);
+          const [pref, rmk] = getUserDetails(user);
+          const restr = (byCid[user.userCID]?.restrictions || []).join("; ");
           const userRow = [
             userName,
             ...timeslots.map((timeslot) => (isUserAvailable(user, timeslot) ? "" : "")),
-            ...userDetails
+            pref,
+            rmk,
+            restr
           ];
-          
+
           controllerBlocks.push(userRow);
         }
         
@@ -748,3 +765,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+

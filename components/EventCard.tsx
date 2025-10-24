@@ -20,14 +20,6 @@ import { Event } from "@/types";
   }
   
   export default function EventCard({ event, onClick }: EventCardProps) {
-    const startDate = new Date(event.startTime).toLocaleString("en-de", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-    const endDate = new Date(event.endTime).toLocaleString("en-de", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
     
       
     const statusConfig: Record<"SIGNUP_OPEN" | "SIGNUP_CLOSED" | "PLANNING" | "ROSTER_PUBLISHED" | "CANCELLED", { variant: "default" | "secondary" | "outline" | "destructive" | null; className: string; label: string }> = {
@@ -68,9 +60,9 @@ import { Event } from "@/types";
     const start = new Date(event.startTime);
     const end = new Date(event.endTime);
 
-    const startDateFormatted = start.toLocaleDateString("de-DE", { dateStyle: "medium" });
-    const startTimeFormatted = start.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    const endTimeFormatted = end.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    const startDateFormatted = start.toLocaleDateString("de-GB", { timeZone: "UTC", dateStyle: "medium" });
+    const startTimeFormatted = start.toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+    const endTimeFormatted = end.toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
 
   
     
@@ -93,7 +85,7 @@ import { Event } from "@/types";
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-gray-500" />
             <span>
-              {startDateFormatted} {startTimeFormatted}-{endTimeFormatted} lcl
+              {startDateFormatted} {startTimeFormatted}z -{endTimeFormatted}z
             </span>
 
           </div>

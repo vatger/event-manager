@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Signup, TimeRange } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useEndorsements } from "./useEndorsements";
+import { useEndorsements } from "../../../../../../hooks/useEndorsements";
 
 interface AvailabilityTimelineProps {
   signups: Signup[];
@@ -21,6 +21,7 @@ export default function AvailabilityTimeline({ signups, slots, loading, error, e
     for (const s of signups) {
       const cid = String(s.user?.cid ?? s.userCID ?? "");
       const key = (endorsementData[cid]?.group || "UNSPEC") as string;
+      console.log("endo", endorsementData)
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }

@@ -49,7 +49,6 @@ export class GroupService {
     const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements)
     const highestSolo = EndorsementService.getHighestEndorsement(solos)
     
-    console.log(soloExpiryByPosition)
     if (!highestEndorsement && !highestSolo) {
       return { group: null, restrictions: [], data: { endorsement: endorsements, solos, fams: famsForFir } }
     }
@@ -69,7 +68,6 @@ export class GroupService {
     // Wenn Solo gewählt wurde: Restriction mit Expiry
     if (soloWins) {
       const solo = soloExpiryByPosition?.find((s) => s.position === highestSolo);
-      console.log("Expiry", solo?.expiry, "POS", chosenPos)
       const dateStr = solo?.expiry.toLocaleDateString() || null
       
       const sektor = this.getSector(highestSolo!)

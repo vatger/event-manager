@@ -74,14 +74,14 @@ export default function AdminEventSignupsPage() {
         loading={signupsLoading} 
       />
       
-      <StatsCard signups={signups} event={event} />
+      <StatsCard signups={signups} event={{ airports: event.airports, fir: "EDMM" }} />
       
       <AvailabilityTimeline 
         signups={signups} 
         slots={slots} 
         loading={signupsLoading} 
         error={signupsError}
-        event={event}
+        event={{ airports: event.airports, fir: "EDMM" }}
       />
       
       <SignupsTableCard

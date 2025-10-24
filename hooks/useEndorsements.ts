@@ -42,6 +42,7 @@ export function useEndorsements(signups: Signup[], event?: { airports?: string |
         });
         const results = await Promise.all(requests);
         const map: EndorsementData = {};
+        console.log("MAP", results)
         for (const r of results) if (r) map[r.cid] = r.endorsement;
         setData(map);
       } finally {
