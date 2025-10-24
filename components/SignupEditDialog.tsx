@@ -54,7 +54,6 @@ export default function SignupEditDialog({
   onDeleted?: () => void;
 }) {
   const avRef = useRef<AvailabilitySelectorHandle>(null);
-  const [endorsement, setEndorsement] = useState<string>("");
   const [preferredStations, setPreferredStations] = useState<string>("");
   const [remarks, setRemarks] = useState<string>("");
   const [saving, setSaving] = useState(false);
@@ -63,7 +62,6 @@ export default function SignupEditDialog({
 
   useEffect(() => {
     if (!signup) return;
-    setEndorsement(signup.endorsement || "");
     setPreferredStations(signup.preferredStations || "");
     setRemarks(signup.remarks || "");
   }, [signup]);
@@ -80,7 +78,6 @@ export default function SignupEditDialog({
             available: avRef.current?.getAvailable(),
             unavailable: avRef.current?.getUnavailable(),
           },
-          endorsement,
           preferredStations,
           remarks,
         }),
@@ -135,11 +132,6 @@ export default function SignupEditDialog({
                 initialUnavailable={signup.availability?.unavailable}
                 innerRef={avRef}
               />
-            </div>
-            <div>
-              <Label>Endorsement</Label>
-              <Input value={endorsement} onChange={(e) => setEndorsement(e.target.value)} placeholder="APP" />
-              <span className="text-xs text-muted-foreground">Bei unrestricted Airports Events leer lassen</span>
             </div>
             <div>
               <Label>Desired Position</Label>
