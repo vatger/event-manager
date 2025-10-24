@@ -56,16 +56,13 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const {data: session} = useSession()
   
   const [availability, setAvailability] = useState<Availability>();
-  const [endorsement, setEndorsement] = useState<String | null>("");
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
-  const [autoRemarks, setAutoRemarks] = useState<string[]>([]);
-  const [isGroupAssignmentLoading, setIsGroupAssignmentLoading] = useState(true);
-
+  
   const rating = session?.user.rating || "";
   const userCID = session?.user.id;
 
@@ -80,7 +77,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     console.log("Hydrating from signupData:", signupData);
     
     setAvailability(signupData.availability ?? {});
-    setEndorsement(signupData.endorsement ?? "");
     setDesiredPosition(signupData.preferredStations ?? "");
     setRemarks(signupData.remarks ?? "");
     setHydrated(true);
@@ -240,7 +236,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder={endorsement === "CTR" ? "CTR (EBG West only) ..." : "Some space..."}
+              placeholder={"Some space..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="min-h-[80px]"
