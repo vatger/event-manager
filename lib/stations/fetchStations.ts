@@ -3,6 +3,15 @@ import { stationOverrides } from "./stationOverrides";
 
 let cachedStations: Station[] | null = null;
 
+interface DataHubStation {
+  logon: string,
+  frequency: string,
+  abbreviation: string,
+  description: string,
+  gcap_status: string,
+  s1_twr: boolean,
+  s1_theory: boolean
+}
 // Gruppe anhand des Callsigns bestimmen
 function inferGroupFromLogon(logon: string): StationGroup | undefined {
   if (logon.endsWith("_DEL")) return "DEL";
@@ -23,7 +32,7 @@ export async function fetchAllStations(): Promise<Station[]> {
   const data = await res.json();
 
   const stations: Station[] = data
-    .map((entry: any) => {
+    .map((entry: DataHubStation) => {
       const callsign: string = entry.logon;
       const airport = /^[A-Z]{4}/.test(callsign) ? callsign.substring(0, 4) : undefined;
       let group = inferGroupFromLogon(callsign);

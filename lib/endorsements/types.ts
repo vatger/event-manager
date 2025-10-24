@@ -1,8 +1,36 @@
-export interface EndorsementData {
-    cid: number;
-    endorsements: string[];
-  }
-  
+export type EndoTrainingResponse = {
+  success: boolean;
+  data: Endorsement[];
+};
+
+type Endorsement = {
+  id: number;
+  user_cid: number;
+  instructor_cid: number;
+  position: string;
+  facility: number;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+};
+
+export type SoloTrainingResponse = {
+  success: boolean;
+  data: Solo[];
+};
+
+type Solo = {
+  id: number;
+  user_cid: number;
+  instructor_cid: number;
+  position: string;
+  expiry: string; // ISO timestamp
+  max_days: number;
+  facility: number;
+  created_at: string; // ISO timestamp
+  updated_at: string; // ISO timestamp
+  position_days: number;
+};
+
   export interface FamiliarizationData {
     cid: number;
     familiarizations: {

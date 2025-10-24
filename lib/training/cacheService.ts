@@ -1,5 +1,6 @@
 import axios from 'axios'
 import prisma from '@/lib/prisma'
+import { EndoTrainingResponse, SoloTrainingResponse } from '../endorsements/types'
 
 type SoloApiItem = {
   id: number
@@ -52,8 +53,8 @@ export async function refreshTrainingCache() {
 
   const now = new Date()
 
-  const solosData = (solosResp.data as any).data as SoloApiItem[]
-  const endoData = (endoResp.data as any).data as EndorsementApiItem[]
+  const solosData = (solosResp.data as SoloTrainingResponse).data as SoloApiItem[]
+  const endoData = (endoResp.data as EndoTrainingResponse).data as EndorsementApiItem[]
   const famsData = famsResp.data as FamiliarizationApiItem[]
 
   const soloRows = solosData.map(s => ({
