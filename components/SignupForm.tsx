@@ -12,16 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { Trash2Icon } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
-import { isAirportTier1 } from "@/utils/configUtils";
-import SignupGroupAssignment from "@/components/SignupGroupAssignment";
-import { ControllerGroup } from "@/lib/endorsements/types";
 import { getRatingValue } from "@/utils/ratingToValue";
 import AutomaticEndorsement from "./AutomaticEndorsement";
 
@@ -53,28 +50,6 @@ function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
     }
   }
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-}
-
-function getEndorsementFromRating(rating: string): string {
-  switch (rating) {
-    case "S1":
-      return "GND";
-    case "S2":
-      return "TWR";
-    case "S3":
-      return "APP";
-    case "C1":
-    case "C2":
-    case "C3":
-    case "I1":
-    case "I2":
-    case "I3":
-    case "SUP":
-    case "ADM":
-      return "CTR";
-    default:
-      return "";
-  }
 }
 
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
