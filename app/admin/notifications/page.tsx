@@ -316,11 +316,6 @@ export default function AdminNotificationCenter() {
                                 </div>
                                 <div className="text-xs text-muted-foreground">
                                   CID: {signup.userCID!.toString()}
-                                  {signup.endorsement && (
-                                    <Badge variant="outline" className="ml-2">
-                                      {signup.endorsement}
-                                    </Badge>
-                                  )}
                                 </div>
                               </div>
                             </div>
