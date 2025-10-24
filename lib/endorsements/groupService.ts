@@ -1,126 +1,150 @@
+import { isAirportTier1 } from '@/utils/configUtils';
 import { EndorsementService } from './endorsementService';
-import { mockEndorsementsAPI, mockFamiliarizationsAPI } from './mockapi';
-import { ControllerGroup, EventData } from './types';
+import { getCachedUserEndorsements, getCachedUserFamiliarizations, getCachedUserSolos } from '@/lib/training/cacheService';
+import { ControllerGroup, EndorsementQueryParams, EndorsementResponse } from './types';
 
 export class GroupService {
-  static async determineControllerGroup(
-    cid: number,
-    event: EventData,
-    rating: number
-  ): Promise<ControllerGroup> {
-    const [endorsements, familiarizations] = await Promise.all([
-      this.getUserEndorsements(cid),
-      this.getUserFamiliarizations(cid)
-    ]);
 
+  static async getControllerGroup(params: EndorsementQueryParams): Promise<EndorsementResponse> {
+    const { user, event} = params;
+    //Hole Daten aus der Datenbank
+    const endorsements = await getCachedUserEndorsements(user.userCID)
+    const solos = await getCachedUserSolos(user.userCID)
+    const familiarizations = await getCachedUserFamiliarizations(user.userCID)
+    const fir = event.fir;
+    
+    //Filtere Relevante Endorsements
     const relevantEndorsements = EndorsementService.getEndorsementsForAirport(
       endorsements,
       event.airport,
       event.fir
     );
+    const relevantSolos = EndorsementService.getEndorsementsForAirport(
+      solos.map(s => s.position),
+      event.airport,
+      event.fir
+    );
+      
+    const isTier1 = isAirportTier1(event.airport)
+    const famsMap = (familiarizations as { familiarizations: Record<string, string[]> }).familiarizations ?? {};
+    const famsForFir: string[] = fir ? (famsMap[fir] ?? []) : [];
+    
+    const {group, restrictions, data} = isTier1 ? 
+      this.calculateGroupTier1(user, relevantEndorsements, relevantSolos, famsForFir, solos)
+      : this.calculateGroupNonTier1(user, relevantEndorsements, relevantSolos, famsForFir, solos)
 
-    // Bei Tier 1 Airports: Endorsements haben Priorität
-    if (event.isTier1) {
-      return this.calculateGroupFromEndorsements(
-        relevantEndorsements,
-        familiarizations,
-        event,
-        rating
-      );
+    return {group, restrictions, endorsements, familiarizations: famsForFir, data}
+  }
+
+  private static calculateGroupTier1(
+    user: { 
+      userCID: number,
+      rating: number
+    },
+    endorsements: string[],
+    solos: string[],
+    famsForFir?: string[],
+    soloExpiryByPosition?: {position: string, expiry: Date}[]
+  ): ControllerGroup{
+    const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements)
+    const highestSolo = EndorsementService.getHighestEndorsement(solos)
+    
+    console.log(soloExpiryByPosition)
+    if (!highestEndorsement && !highestSolo) {
+      return { group: null, restrictions: [], data: { endorsement: endorsements, solos, fams: famsForFir } }
+    }
+    
+    const rankOf = (pos?: string) => {
+      if (!pos) return -1
+      const grp = EndorsementService.extractGroupFromEndorsement(pos)
+      return EndorsementService.GROUP_ORDER.indexOf(grp)
     }
 
-    // Bei Nicht-Tier 1: Rating-basierte Einteilung mit Endorsement-Override
-    return this.calculateGroupFromRating(
-      rating,
-      relevantEndorsements,
-      familiarizations,
-      event
-    );
-  }
+    const soloWins = rankOf(highestSolo!) > rankOf(highestEndorsement!)
+    const chosenPos = soloWins ? highestSolo! : highestEndorsement!
+    let group = EndorsementService.extractGroupFromEndorsement(chosenPos)
 
-  private static async getUserEndorsements(cid: number): Promise<string[]> {
-    // Hier Ihre Mock- oder echte API-Implementierung
-    return mockEndorsementsAPI(cid);
-  }
+    const restrictions: string[] = []
 
-  private static async getUserFamiliarizations(cid: number): Promise<any> {
-    // Hier Ihre Mock- oder echte API-Implementierung
-    return mockFamiliarizationsAPI(cid);
-  }
+    // Wenn Solo gewählt wurde: Restriction mit Expiry
+    if (soloWins) {
+      const solo = soloExpiryByPosition?.find((s) => s.position === highestSolo);
+      console.log("Expiry", solo?.expiry, "POS", chosenPos)
+      const dateStr = solo?.expiry.toLocaleDateString() || null
+      
+      const sektor = this.getSector(highestSolo!)
+      if(sektor){
+        //CTR solo
+        restrictions.push(`solo: ` + sektor +  (dateStr ? ` bis ${dateStr}` : ""))
+      } else {
+        restrictions.push(`solo: bis ${dateStr}`)
+      }
+    }
 
-  private static calculateGroupFromEndorsements(
-    endorsements: string[],
-    familiarizations: any,
-    event: EventData,
-    rating: number
-  ): ControllerGroup {
-    const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements);
-    if(!highestEndorsement) return {remarks: [], endorsements: [], group: null}
-    let group = highestEndorsement 
-      && EndorsementService.extractGroupFromEndorsement(highestEndorsement);
-
-    const remarks = this.generateRemarks(
-      group,
-      endorsements,
-      familiarizations,
-      event,
-      rating
-    );
-
-    if(rating >= 5){
-        const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
-        if (onlyFams.length < 3) {
-            remarks.push(`CTR: ${onlyFams.join(', ')} only`);
+    // Rating >= 5 und weniger als 3 FAMs in FIR => FAM-only Hinweis
+    if (user.rating >= 5) {
+      const fams = famsForFir ?? []
+      if (fams.length < 3 && fams.length != 0) {
+        group = "CTR"
+        const label = fams.join(', ')
+        restrictions.push(`${label} only`)
+        if(!endorsements.includes("_APP")){
+          restrictions.push("no APP")
         }
-        if(group !== "APP" && group !== "CTR") remarks.push("no APP")
-        //CTR, wenn mindestens 1 Familiarization (onyl Fams 3 -> keine Fam)
-        if(onlyFams.length >= 2){
-            group = "CTR"
-        }
+      }
     }
 
     return {
       group: group || null,
-      remarks,
-      endorsements
-    };
+      restrictions,
+      data: { endorsement: endorsements, solos, fams: famsForFir }
+    }
   }
 
-  private static calculateGroupFromRating(
-    rating: number,
+  private static calculateGroupNonTier1 (
+    user: { 
+      userCID: number,
+      rating: number
+    },
     endorsements: string[],
-    familiarizations: any,
-    event: EventData
+    solos: string[],
+    famsForFir?: string[],
+    soloExpiryByPosition?: {position: string, expiry: Date}[]
   ): ControllerGroup {
-    let group = this.getGroupFromRating(rating);
-    if(!group) return {group, remarks: [], endorsements: [] }
+    let group = this.getGroupFromRating(user.rating);
+    if(!group) return { group: null, restrictions: [], data: { endorsement: endorsements, solos, fams: famsForFir } }
+    const highestSolo = EndorsementService.getHighestEndorsement(solos)
+    const restrictions: string[] = []
+    if(highestSolo){
+      const soloGroup = EndorsementService.extractGroupFromEndorsement(highestSolo)
+      const soloRank = EndorsementService.GROUP_ORDER.indexOf(soloGroup)
+      const currentRank = EndorsementService.GROUP_ORDER.indexOf(group)
 
-    const remarks: string[] = [];
-
-    // Check for endorsement overrides
-    const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements);
-    if (highestEndorsement) {
-      const endorsementGroup = EndorsementService.extractGroupFromEndorsement(highestEndorsement);
-      const endorsementRank = EndorsementService.GROUP_ORDER.indexOf(endorsementGroup);
-      const currentRank = EndorsementService.GROUP_ORDER.indexOf(group);
-
-      if (endorsementRank > currentRank) {
-        group = endorsementGroup;
-        //RMKs wenn CTR solos
-        if(highestEndorsement.includes("_CTR")) 
-          remarks.push(`Solo: ${highestEndorsement}`);
+      if(soloRank > currentRank) {
+        //Wenn solo über Ranking
+        group = soloGroup
+        const solo = soloExpiryByPosition?.find((s) => s.position === highestSolo);
+        const dateStr = solo ? solo.expiry.toLocaleDateString() : null
+        const sektor = this.getSector(highestSolo)
+        restrictions.push("solo" + (sektor ? (": " + sektor) : "") + " " + (dateStr && ` bis ${dateStr}`))
       }
     }
-
-    // CTR mit Familiarization-Check
-    if (group === 'CTR') {
-      const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
-        if (onlyFams.length < 3) {
-            remarks.push(`CTR: ${onlyFams.join(', ')} only`);
-        }
+    // Rating >= 5 (mind C1) und weniger als 3 FAMs in FIR => FAM-only Hinweis
+    if (user.rating >= 5) {
+      const fams = famsForFir ?? []
+      if (fams.length < 3 && fams.length != 0) {
+        group = "CTR"
+        const label = fams.join(', ')
+        restrictions.push(`${label} only`)
+      } else {
+        group = "APP"
+      }
     }
-
-    return { group, remarks, endorsements };
+    return {
+      group: group || null,
+      restrictions,
+      data: { endorsement: endorsements, solos, fams: famsForFir }
+    }
   }
 
   private static getGroupFromRating(rating: number): 'GND' | 'TWR' | 'APP' | 'CTR' | null{
@@ -133,53 +157,9 @@ export class GroupService {
     }
   }
 
-  private static generateRemarks(
-    group: string,
-    endorsements: string[],
-    familiarizations: any,
-    event: EventData,
-    rating: number
-  ): string[] {
-    const remarks: string[] = [];
-
-    // CTR Familiarization Remarks
-    if (group === 'CTR') {
-      const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements)
-      if(highestEndorsement?.includes("_CTR")){
-        // CTR solo
-        remarks.push(`solo: ${highestEndorsement}`)
-      } else {
-        const onlyFams = this.getonlyFamiliarizations(familiarizations, event.fir);
-        if (onlyFams.length < 3) {
-            remarks.push(`CTR: ${onlyFams.join(', ')} only`);
-        }
-      }
-    }
-
-    return remarks;
+  public static getSector(solo: string): string | null {
+    const parts = solo.split("_");
+    return parts.length === 3 ? parts[1] : null;
   }
-
-  private static getMissingFamiliarizations(familiarizations: any, fir: string): string[] {
-    const config = this.getFIRConfig(fir);
-    if (!config) return [];
-
-    const userGroups = familiarizations.familiarizations?.[fir] || [];
-    return config.airspaceGroups.filter(group => !userGroups.includes(group));
-  }
-  private static getonlyFamiliarizations(familiarizations: any, fir: string): string[] {
-    const config = this.getFIRConfig(fir);
-    if (!config) return [];
-
-    const userGroups = familiarizations.familiarizations?.[fir] || [];
-    return config.airspaceGroups.filter(group => userGroups.includes(group));
-  }
-
-  private static getFIRConfig(fir: string) {
-    // Ihre FIR-Konfiguration hier
-    const firConfigs = {
-      'EDMM': { airspaceGroups: ['STA', 'HOF', 'ALB'] },
-      'EDGG': { airspaceGroups: ['EDGG_N', 'EDGG_S', 'EDGG_E'] }
-    };
-    return firConfigs[fir as keyof typeof firConfigs];
-  }
+  
 }

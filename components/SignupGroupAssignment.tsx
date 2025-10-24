@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GroupService } from '../lib/endorsements/groupService';
-import { EventData, ControllerGroup } from '../lib/endorsements/types';
+import { EventData, EndorsementResponse } from '../lib/endorsements/types';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { getBadgeClassForEndorsement } from '@/utils/EndorsementBadge';
@@ -12,7 +11,7 @@ interface Props {
   cid: number;
   event: EventData;
   rating: number;
-  onGroupDetermined: (group: ControllerGroup) => void;
+  onGroupDetermined: (group: EndorsementResponse) => void;
 }
 
 export default function SignupGroupAssignment({ 
@@ -21,7 +20,7 @@ export default function SignupGroupAssignment({
   rating, 
   onGroupDetermined 
 }: Props) {
-  const [groupData, setGroupData] = useState<ControllerGroup | null>(null);
+  const [groupData, setGroupData] = useState<EndorsementResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -31,7 +30,7 @@ export default function SignupGroupAssignment({
   const cidRef = useRef(cid);
 
   // Stabilisiere die onGroupDetermined Funktion
-  const onGroupDeterminedStable = useCallback((group: ControllerGroup) => {
+  const onGroupDeterminedStable = useCallback((group: EndorsementResponse) => {
     onGroupDetermined(group);
   }, [onGroupDetermined]);
 
@@ -45,7 +44,16 @@ export default function SignupGroupAssignment({
       try {
         setLoading(true);
         setError(null);
-        const result = await GroupService.determineControllerGroup(cid, event, rating);
+        const res = await fetch('/api/endorsements/group', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user: { userCID: cid, rating }, event: { airport: event.airport, fir: event.fir } })
+        })
+        if(!res.ok){
+          const j = await res.json().catch(() => ({}))
+          throw new Error(j.error || 'Request failed')
+        }
+        const result = (await res.json()) as EndorsementResponse;
         
         setGroupData(result);
         onGroupDeterminedStable(result);
@@ -64,34 +72,31 @@ export default function SignupGroupAssignment({
     };
 
     determineGroup();
-  }, [cid, event.id, rating, onGroupDeterminedStable]); // Nur event.id statt gesamtes event object
+  }, [cid, event.id, rating, onGroupDeterminedStable, event.airport, event.fir]);
     
   if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <Alert>
         <AlertDescription>
-            {groupData && (groupData.endorsements.length > 0  || !event.isTier1) && groupData.group ? (
+            {groupData && groupData.group ? (
                 <div>
                     <Badge className={getBadgeClassForEndorsement(groupData.group)}>{groupData.group}</Badge>
-                    {groupData.remarks.length == 0 ? (
+                    {groupData.restrictions.length == 0 ? (
                         <p className="text-xs text-green-600 mt-2">
-                            ✓ You can controll up to {groupData.group}, based on your Training Data
+                            You can control up to {groupData.group}, based on your training data
                         </p>
                     ) : (
                         <div className='mt-2'>
-                            {groupData.remarks.map((rmk, index) => (
-                                <p key={index} className="text-xs">
-                                • {rmk}
-                              </p>
+                            {groupData.restrictions.map((rmk, index) => (
+                                <p key={index} className="text-xs">• {rmk}</p>
                             ))}
                         </div>
                     )}
-                    
                 </div>
             ) : (
                 <p className='text-red-600'>
-                    ✗ You are not allowed to control {event.airport}
+                    You are not allowed to control {event.airport}
                 </p>
             )}
 
@@ -105,3 +110,4 @@ export default function SignupGroupAssignment({
     </Alert>
   );
 }
+

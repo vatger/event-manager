@@ -40,7 +40,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
         eventId: eventid,
         userCID: parseInt(session.user.id), // user aus Session
         availability: body.availability ?? [],
-        endorsement: body.endorsement ?? null,
         breakrequests: body.breakrequests ?? null,
         preferredStations: body.preferredStations ?? null,
         remarks: body.remarks ?? null,

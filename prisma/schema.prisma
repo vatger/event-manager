@@ -45,7 +45,6 @@ model EventSignup {
   eventId           Int
   userCID           Int
   availability      Json
-  endorsement       String?
   breakrequests     String?
   preferredStations String?
   remarks           String?
@@ -103,4 +102,50 @@ model Notification {
 
   @@index([userCID, readAt])
   @@index([eventId])
+}
+
+// Training system caches
+model TrainingEndorsementCache {
+  id         Int      @id @default(autoincrement())
+  userCID    Int
+  position   String
+  createdAt  DateTime
+  updatedAt  DateTime
+  fetchedAt  DateTime  @default(now())
+
+  @@index([userCID])
+  @@index([fetchedAt])
+  @@unique([userCID, position])
+}
+
+model TrainingSoloCache {
+  id         Int      @id @default(autoincrement())
+  userCID    Int
+  position   String
+  expiry     DateTime
+  createdAt  DateTime
+  updatedAt  DateTime
+  fetchedAt  DateTime  @default(now())
+
+  @@index([userCID])
+  @@index([expiry])
+  @@unique([userCID, position])
+}
+
+model TrainingFamiliarizationCache {
+  id         Int      @id @default(autoincrement())
+  userCID    Int
+  sectorName String
+  sectorFir  String
+  fetchedAt  DateTime  @default(now())
+
+  @@index([userCID])
+  @@index([sectorFir])
+  @@unique([userCID, sectorFir, sectorName])
+}
+
+model TrainingCacheMetadata {
+  id          Int      @id @default(autoincrement())
+  lastUpdated DateTime
+  forceUpdate Boolean  @default(false)
 }

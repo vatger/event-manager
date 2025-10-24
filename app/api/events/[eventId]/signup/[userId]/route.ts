@@ -49,7 +49,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       },
       data: {
         availability: body.availability,
-        endorsement: body.endorsement,
         breakrequests: body.breakrequests,
         preferredStations: body.preferredStations,
         remarks: body.remarks,

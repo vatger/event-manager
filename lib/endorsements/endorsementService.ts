@@ -2,7 +2,7 @@ export class EndorsementService {
   static readonly GROUP_ORDER = ['GND', 'TWR', 'APP', 'CTR'] as const;
 
   static getEndorsementsForAirport(
-    endorsements: string[], 
+    endorsements: string[],
     airport: string, 
     fir?: string
   ): string[] {

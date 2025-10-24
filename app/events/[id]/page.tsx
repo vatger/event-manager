@@ -8,7 +8,6 @@ import SignupForm from "@/components/SignupForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { stationsConfig, StationGroup } from "@/data/station_configs";
 import SignupsTable from "@/components/SignupsTable";
@@ -19,8 +18,6 @@ import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
-import { Label } from "@/components/ui/label";
-import { getEndorsementsForAirport, parseEndorsement } from "@/utils/endorsementUtils";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -315,9 +312,9 @@ export default function EventPage() {
             signups={signups}
             loading={signupsLoading}
             error={signupsError}
-            columns={["cid", "name", "availability", "preferredStations", "remarks"]}
+            columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
             editable={false}
-            event={event ? { id: event.id, startTime: event.startTime, endTime: event.endTime } : undefined}
+            event={event ? { id: event.id, startTime: event.startTime, endTime: event.endTime, airport: Array.isArray(event.airports) ? event.airports[0] : event.airports, fir: "EDMM" } : undefined}
             onRefresh={loadSignups}
           />
         </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import SignupEditDialog from "@/components/SignupEditDialog";
 import { Edit } from "lucide-react";
 import { Signup, TimeRange } from "@/types";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { EndorsementResponse } from "@/lib/endorsements/types";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 export type SignupRow = Signup;
 
@@ -15,11 +17,14 @@ export type EventRef = {
   id: string | number;
   startTime: string;
   endTime: string;
+  airport?: string; // for dynamic group lookup
+  fir?: string;     // optional FIR for CTR mapping
 };
 
 export type SignupTableColumn =
   | "cid"
   | "name"
+  | "group"
   | "availability"
   | "preferredStations"
   | "remarks";
@@ -48,6 +53,7 @@ function formatAvailability(av?: { available?: TimeRange[]; unavailable?: TimeRa
 const HEAD_LABELS: Record<SignupTableColumn, string> = {
   cid: "CID",
   name: "Name",
+  group: "Group",
   availability: "Availability",
   preferredStations: "Desired Position",
   remarks: "RMK",
@@ -57,6 +63,44 @@ export default function SignupsTable(props: SignupsTableProps) {
   const { signups, loading, error, columns, emptyMessage = "Keine Anmeldungen", groupBy = "endorsement", editable = false, event, onRefresh } = props;
   const [editOpen, setEditOpen] = useState(false);
   const [editSignup, setEditSignup] = useState<SignupRow | null>(null);
+  const [groupResults, setGroupResults] = useState<Record<string | number, EndorsementResponse>>({});
+
+  // Fetch dynamic group + restrictions per signup
+  useEffect(() => {
+    const fetchAll = async () => {
+      if (!event?.airport) return;
+      const entries = await Promise.all(
+        signups.map(async (s) => {
+          const cidVal = Number(s.user?.cid ?? s.userCID);
+          const ratingStr = s.user?.rating ?? "";
+          if (!cidVal || !ratingStr) return [s.id, null] as const;
+          try {
+            const res = await fetch('/api/endorsements/group', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user: { userCID: cidVal, rating: getRatingValue(ratingStr) },
+                event: { airport: event.airport, fir: event.fir }
+              })
+            });
+            if (!res.ok) return [s.id, null] as const;
+            const data = (await res.json()) as EndorsementResponse;
+            
+            return [s.id, data] as const;
+          } catch {
+            return [s.id, null] as const;
+            
+          }
+        })
+      );
+      const map: Record<string | number, EndorsementResponse> = {};
+      for (const [id, val] of entries) {
+        if (val) map[id] = val;
+      }
+      setGroupResults(map);
+    };
+    fetchAll();
+  }, [JSON.stringify(signups.map(s => [s.id, s.user?.cid, s.userCID, s.user?.rating])), event?.airport, event?.fir]);
 
   const grouped = useMemo(() => {
     if (groupBy !== "endorsement") {
@@ -64,12 +108,13 @@ export default function SignupsTable(props: SignupsTableProps) {
     }
     const out: Record<string, SignupRow[]> = {};
     for (const s of signups) {
-      const key = (s.endorsement || s.user?.rating || "UNSPEC") as string;
+      const computed = groupResults[s.id]?.group;
+      const key = (computed || s.user?.rating || "UNSPEC") as string;
       if (!out[key]) out[key] = [];
       out[key].push(s);
     }
     return out;
-  }, [signups, groupBy]);
+  }, [signups, groupBy, groupResults]);
 
   const orderedAreas = useMemo(() => {
     const keys = Object.keys(grouped);
@@ -134,10 +179,44 @@ export default function SignupsTable(props: SignupsTableProps) {
                       );
                     case "name": {
                       const name = s.user?.name ?? "";
+                      const showInlineGroup = !finalColumns.includes("group");
+                      const computed = groupResults[s.id];
+                      const badgeLabel = computed?.group || s.user?.rating || "UNSPEC";
                       return (
                         <TableCell key={`${s.id}-name`} className="flex items-center gap-2">
-                          {name}
-                          <Badge className={getBadgeClassForEndorsement(s.endorsement || s.user?.rating)}>{s.endorsement || s.user?.rating || "UNSPEC"}</Badge>
+                          <div className="flex flex-col">
+                            <span>{name}</span>
+                            {showInlineGroup && (
+                              <div className="flex flex-col">
+                                <Badge className={getBadgeClassForEndorsement(badgeLabel)}>{badgeLabel}</Badge>
+                                {computed && computed.restrictions.length > 0 && (
+                                  <div className="mt-1">
+                                    {computed.restrictions.map((r, idx) => (
+                                      <div key={idx} className="text-xs text-muted-foreground">• {r}</div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                      );
+                    }
+                    case "group": {
+                      const computed = groupResults[s.id];
+                      const badgeLabel = computed?.group || s.user?.rating || "UNSPEC";
+                      return (
+                        <TableCell key={`${s.id}-group`}>
+                          <div className="flex flex-col">
+                            <Badge className={getBadgeClassForEndorsement(badgeLabel)}>{badgeLabel}</Badge>
+                            {computed && computed.restrictions.length > 0 && (
+                              <div className="mt-1">
+                                {computed.restrictions.map((r, idx) => (
+                                  <div key={idx} className="text-xs text-muted-foreground">• {r}</div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                       );
                     }
