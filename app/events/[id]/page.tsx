@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { stationsConfig, StationGroup } from "@/data/station_configs";
 import SignupsTable from "@/components/SignupsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,32 +18,12 @@ import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
 
-const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
-
-
-// Helper functions
-const callsignToGroup: Record<string, StationGroup> = Object.fromEntries(
-  stationsConfig.map((s) => [s.callsign, s.group])
-);
-
-const callsignOrder: Record<string, number> = Object.fromEntries(
-  stationsConfig.map((s, idx) => [s.callsign, idx])
-);
-
 const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
   const d = new Date(dateIso);
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}z`;
 };
 
-const groupByConfig = (stations: string[]): Record<string, string[]> => {
-  return stations.reduce((acc: Record<string, string[]>, cs) => {
-    const grp = callsignToGroup[cs] ?? cs.slice(-3);
-    if (!acc[grp]) acc[grp] = [];
-    acc[grp].push(cs);
-    return acc;
-  }, {});
-};
 
 export default function EventPage() {
   const { id } = useParams() as { id: string };
@@ -110,17 +89,7 @@ export default function EventPage() {
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
-  const groupedStations = useMemo(() => {
-    if (!event?.staffedStations) return [];
-    
-    const grouped = groupByConfig(event.staffedStations);
-    return Object.entries(grouped)
-      .sort(([a], [b]) => (PRIORITY[a] ?? Number.POSITIVE_INFINITY) - (PRIORITY[b] ?? Number.POSITIVE_INFINITY))
-      .map(([area, stations]) => [
-        area,
-        stations.sort((a, b) => (callsignOrder[a] ?? Number.POSITIVE_INFINITY) - (callsignOrder[b] ?? Number.POSITIVE_INFINITY))
-      ]);
-  }, [event?.staffedStations]);
+  
 
   const dateLabel = useMemo(() => 
     event ? new Date(event.startTime).toLocaleDateString("de-DE") : "", 
