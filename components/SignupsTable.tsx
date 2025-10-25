@@ -64,11 +64,19 @@ export default function SignupsTable(props: SignupsTableProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [editSignup, setEditSignup] = useState<SignupRow | null>(null);
   const [groupResults, setGroupResults] = useState<Record<string | number, EndorsementResponse>>({});
+  const [endorsementsLoading, setEndorsementsLoading] = useState(false);
 
   // Fetch dynamic group + restrictions per signup
   useEffect(() => {
+    let cancelled = false;
     const fetchAll = async () => {
-      if (!event?.airport) return;
+      // Only fetch dynamic endorsements when grouping by them and event airport is known
+      if (groupBy !== "endorsement" || !event?.airport || signups.length === 0) {
+        setGroupResults({});
+        setEndorsementsLoading(false);
+        return;
+      }
+      setEndorsementsLoading(true);
       const entries = await Promise.all(
         signups.map(async (s) => {
           const cidVal = Number(s.user?.cid ?? s.userCID);
@@ -85,22 +93,25 @@ export default function SignupsTable(props: SignupsTableProps) {
             });
             if (!res.ok) return [s.id, null] as const;
             const data = (await res.json()) as EndorsementResponse;
-            
             return [s.id, data] as const;
           } catch {
             return [s.id, null] as const;
-            
           }
         })
       );
+      if (cancelled) return;
       const map: Record<string | number, EndorsementResponse> = {};
       for (const [id, val] of entries) {
         if (val) map[id] = val;
       }
       setGroupResults(map);
+      setEndorsementsLoading(false);
     };
     fetchAll();
-  }, [JSON.stringify(signups.map(s => [s.id, s.user?.cid, s.userCID, s.user?.rating])), event?.airport, event?.fir]);
+    return () => {
+      cancelled = true;
+    };
+  }, [JSON.stringify(signups.map(s => [s.id, s.user?.cid, s.userCID, s.user?.rating])), event?.airport, event?.fir, groupBy, signups.length]);
 
   const grouped = useMemo(() => {
     if (groupBy !== "endorsement") {
@@ -128,6 +139,8 @@ export default function SignupsTable(props: SignupsTableProps) {
   const hasActions = editable;
   const finalColumns = hasActions ? [...columns, "__actions__"] : columns;
 
+  const isTableLoading = !!loading || (groupBy === "endorsement" && !!event?.airport && endorsementsLoading);
+
   return (
     <>
       <Table>
@@ -139,9 +152,9 @@ export default function SignupsTable(props: SignupsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-        {loading ? (
+        {isTableLoading ? (
           <TableRow>
-            <TableCell colSpan={finalColumns.length}>Laden...</TableCell>
+            <TableCell colSpan={finalColumns.length}>Loading...</TableCell>
           </TableRow>
         ) : error ? (
           <TableRow>

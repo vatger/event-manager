@@ -128,7 +128,15 @@ export default function EventPage() {
   );
 
   const timeLabel = useMemo(() => 
-    event ? `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}` : "", 
+    event ? `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}` : "",
+      
+    [event?.startTime, event?.endTime]
+  );
+  const timeLabellcl = useMemo(() => 
+    event ? `${new Date(event.startTime).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}lcl
+    - 
+    ${new Date(event.endTime).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}lcl` : "",
+      
     [event?.startTime, event?.endTime]
   );
 
@@ -224,7 +232,10 @@ export default function EventPage() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{timeLabel}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium">{timeLabel}</span>
+                  <span className="font-medium">({timeLabellcl})</span>
+                </div>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
