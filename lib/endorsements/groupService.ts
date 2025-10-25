@@ -82,6 +82,7 @@ export class GroupService {
     // Rating >= 5 und weniger als 3 FAMs in FIR => FAM-only Hinweis
     if (user.rating >= 5) {
       const fams = famsForFir ?? []
+      console.log("Fams", fams.length)
       if (fams.length < 3 && fams.length != 0) {
         group = "CTR"
         const label = fams.join(', ')
@@ -89,6 +90,8 @@ export class GroupService {
         if(!endorsements.includes("_APP")){
           restrictions.push("no APP")
         }
+      } else if (fams.length == 3){
+        group = "CTR"
       }
     }
 
@@ -134,6 +137,8 @@ export class GroupService {
         group = "CTR"
         const label = fams.join(', ')
         restrictions.push(`${label} only`)
+      } else if(fams.length == 3) {
+        group = "CTR"
       } else {
         group = "APP"
       }
