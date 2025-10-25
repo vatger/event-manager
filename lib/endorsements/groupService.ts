@@ -87,8 +87,8 @@ export class GroupService {
         group = "CTR"
         const label = fams.join(', ')
         restrictions.push(`${label} only`)
-        if(!endorsements.includes("_APP")){
-          restrictions.push("no APP")
+        if (!endorsements.some(e => e.includes("_APP"))) {
+          restrictions.push("no APP");
         }
       } else if (fams.length == 3){
         group = "CTR"
