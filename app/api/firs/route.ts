@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 
-export async function GET(): Promise<Response> {
+export async function GET() {
   const user = await getSessionUser();
   if (!user || user.role !== "MAIN_ADMIN")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -18,7 +18,7 @@ export async function GET(): Promise<Response> {
   return NextResponse.json(firs);
 }
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request) {
   const user = await getSessionUser();
   if (!user || user.role !== "MAIN_ADMIN")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

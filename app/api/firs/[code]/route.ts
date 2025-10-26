@@ -5,11 +5,12 @@ import { getSessionUser } from "@/lib/getSessionUser";
 
 export async function GET(
   _: Request,
-  { params }: { params: { code: string } }
-): Promise<Response> {
+  { params }: { params: Promise<{ code: string }> }
+) {
   const user = await getSessionUser();
+  const { code } = await params;
   const fir = await prisma.fIR.findUnique({
-    where: { code: params.code },
+    where: { code },
     include: { groups: true },
   });
   if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
@@ -24,8 +25,8 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { code: string } }
-): Promise<Response> {
+  { params }: { params: Promise<{ code: string }> }
+) {
   const user = await getSessionUser();
   if (!user || user.role !== "MAIN_ADMIN")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -33,8 +34,9 @@ export async function PATCH(
   const data = await req.json();
   const { name } = data;
 
+  const { code } = await params;
   const fir = await prisma.fIR.update({
-    where: { code: params.code },
+    where: { code },
     data: { name },
   });
   return NextResponse.json(fir);
@@ -42,12 +44,13 @@ export async function PATCH(
 
 export async function DELETE(
   _: Request,
-  { params }: { params: { code: string } }
-): Promise<Response> {
+  { params }: { params: Promise<{ code: string }> }
+) {
   const user = await getSessionUser();
   if (!user || user.role !== "MAIN_ADMIN")
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  await prisma.fIR.delete({ where: { code: params.code } });
+  const { code } = await params;
+  await prisma.fIR.delete({ where: { code } });
   return NextResponse.json({ success: true });
 }

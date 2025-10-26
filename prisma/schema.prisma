@@ -168,7 +168,7 @@ model UserGroup {
   user  User  @relation(fields: [userCID], references: [cid])
   group Group @relation(fields: [groupId], references: [id])
 
-  @@unique([id, groupId])
+  @@unique([userCID, groupId])
 }
 
 // Training system caches

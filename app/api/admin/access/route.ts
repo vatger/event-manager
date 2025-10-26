@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     const user = await prisma.user.findUnique({ where: { cid } });
 
     const role = user?.role ?? null;
-    const isAdmin = role === "ADMIN" || role === "MAIN_ADMIN";
+    const isAdmin = role === "MAIN_ADMIN";
 
     return NextResponse.json({ isAdmin, role });
   } catch (error) {

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import AdminShell from "./AdminShell";
+import { userHasPermission } from "@/lib/permissions";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -11,21 +12,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/auth/signin");
   }
 
-  // Server-seitige Admin-Prüfung ohne Client-Flash
-  const cid = Number(session.user.cid);
-  const dbUser = await prisma.user.findUnique({ where: { cid }, select: { role: true, name: true, cid: true } });
+  const me = await prisma.user.findUnique({ where: { cid: Number(session.user.cid) } });
+  if (!me) redirect("/");
 
-  const role = dbUser?.role ?? "USER";
-  if (role !== "ADMIN" && role !== "MAIN_ADMIN") {
-    redirect("/");
-  }
+  const allowed =
+    me.role === "MAIN_ADMIN" ||
+    (await userHasPermission(me.cid, "admin.access"));
 
+  if (!allowed) redirect("/");
   return (
     <AdminShell
       user={{
         name: session.user.name,
         cid: String(session.user.cid),
-        role,
       }}
     >
       {children}
