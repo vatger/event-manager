@@ -39,6 +39,13 @@ enum NotificationType {
   EVENT
   OTHER
 }
+enum GroupKind {
+  GLOBAL_VATGER_LEITUNG   
+  FIR_LEITUNG             
+  FIR_TEAM                
+  CUSTOM                  
+}
+
 
 model User {
   id        Int      @id @default(autoincrement())
@@ -136,6 +143,7 @@ model Group {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
+  kind        GroupKind  @default(CUSTOM)
   firId       Int? // null = global Gruppe
   fir         FIR?     @relation(fields: [firId], references: [id])
   createdAt   DateTime @default(now())

@@ -1,45 +1,137 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { userHasPermission } from "@/lib/permissions";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { z } from "zod";
+import {
+  getEffectiveLevel,
+  canEditGroupPermissions,
+} from "@/lib/acl/policies";
+import { PermissionScope } from "@prisma/client";
 
+// Eingabe-Schema: Liste von Operationen
+const patchSchema = z.object({
+  operations: z.array(
+    z.object({
+      action: z.enum(["ADD", "REMOVE"]),
+      key: z.string().min(2),
+      scope: z.nativeEnum(PermissionScope),
+    })
+  ),
+});
+
+// ───────────────────────────── PATCH ─────────────────────────────
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ code: string; groupId: string }> }
 ) {
   const user = await getSessionUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { code, groupId } = await params;
   const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
 
-  const hasAccess =
-    user?.role === "MAIN_ADMIN" || (await userHasPermission(Number(user!.cid), "fir.manage", fir.id));
-  if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const data = await req.json();
-  const { name, description } = data;
-
-  const group = await prisma.group.update({
+  const group = await prisma.group.findUnique({
     where: { id: Number(groupId) },
-    data: { name, description },
+    select: { id: true, kind: true, firId: true },
   });
+  if (!group)
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
-  return NextResponse.json(group);
+  const body = await req.json();
+  const parsed = patchSchema.safeParse(body);
+  if (!parsed.success)
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
+
+  // Jede Operation prüfen
+  for (const op of parsed.data.operations) {
+    const permission = await prisma.permission.findUnique({
+      where: { key: op.key },
+    });
+    if (!permission)
+      return NextResponse.json(
+        { error: `Permission not found: ${op.key}` },
+        { status: 400 }
+      );
+
+    const allowed = canEditGroupPermissions(
+      level,
+      group.kind,
+      actorFirId ?? null,
+      group.firId ?? null,
+      op.scope,
+      permission.key
+    );
+
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          error: `Forbidden to ${op.action} ${permission.key} (${op.scope}) on this group`,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Wenn erlaubt → ausführen
+    if (op.action === "ADD") {
+      await prisma.groupPermission.upsert({
+        where: {
+          groupId_permissionId_scope: {
+            groupId: group.id,
+            permissionId: permission.id,
+            scope: op.scope,
+          },
+        },
+        update: {},
+        create: {
+          groupId: group.id,
+          permissionId: permission.id,
+          scope: op.scope,
+        },
+      });
+    } else {
+      await prisma.groupPermission.deleteMany({
+        where: {
+          groupId: group.id,
+          permissionId: permission.id,
+          scope: op.scope,
+        },
+      });
+    }
+  }
+
+  return NextResponse.json({ success: true });
 }
 
+// ───────────────────────────── DELETE ─────────────────────────────
 export async function DELETE(
   _: Request,
   { params }: { params: Promise<{ code: string; groupId: string }> }
 ) {
   const user = await getSessionUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { code, groupId } = await params;
   const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
 
-  const hasAccess =
-    user?.role === "MAIN_ADMIN" || (await userHasPermission(Number(user!.cid), "fir.manage", fir.id));
-  if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const group = await prisma.group.findUnique({
+    where: { id: Number(groupId) },
+    select: { id: true, kind: true, firId: true },
+  });
+  if (!group)
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
-  await prisma.group.delete({ where: { id: Number(groupId) } });
+  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
+
+  // Nur MainAdmins und VATGER-Leitung dürfen Gruppen löschen
+  if (level !== "MAIN_ADMIN" && level !== "VATGER_LEITUNG")
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  await prisma.group.delete({ where: { id: group.id } });
   return NextResponse.json({ success: true });
 }
