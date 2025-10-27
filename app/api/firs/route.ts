@@ -123,3 +123,87 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ success: true, fir }, { status: 201 });
 }
+
+/**
+ * GET /api/firs
+ * Gibt alle FIRs inkl. Gruppen, Mitglieder & Berechtigungen zurück.
+ * Zugriff nur für MAINADMIN, VATGER_LEITUNG oder FIR_LEITUNG (eigene FIR).
+ */
+export async function GET() {
+  const user = await getSessionUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
+
+  // Berechtigungen prüfen
+  if (level === "USER" || level === "EVENTLER") {
+    return NextResponse.json({ error: "Forbidden" , level: level}, { status: 403 });
+  }
+
+  // MainAdmin / VATGER-Leitung → alle FIRs
+  // FIR-Leitung → nur eigene FIR
+  const firs = await prisma.fIR.findMany({
+    where:
+      level === "MAIN_ADMIN" || level === "VATGER_LEITUNG"
+        ? {}
+        : { id: actorFirId ?? -1 },
+    include: {
+      groups: {
+        include: {
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  cid: true,
+                  name: true,
+                  rating: true,
+                  role: true,
+                },
+              },
+            },
+          },
+          permissions: {
+            include: {
+              permission: {
+                select: {
+                  key: true,
+                  description: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { code: "asc" },
+  });
+
+  // Daten etwas aufbereiten (flacher, lesbarer fürs Frontend)
+  const response = firs.map((fir) => ({
+    id: fir.id,
+    code: fir.code,
+    name: fir.name,
+    groups: fir.groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      kind: g.kind,
+      description: g.description,
+      members: g.members.map((m) => ({
+        id: m.user.id,
+        cid: m.user.cid,
+        name: m.user.name,
+        rating: m.user.rating,
+        role: m.user.role,
+      })),
+      permissions: g.permissions.map((p) => ({
+        key: p.permission.key,
+        description: p.permission.description,
+        scope: p.scope,
+      })),
+    })),
+  }));
+
+  return NextResponse.json(response);
+}

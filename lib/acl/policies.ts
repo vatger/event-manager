@@ -1,12 +1,12 @@
 import prisma from "@/lib/prisma"
 import { GroupKind, PermissionScope, Role } from "@prisma/client"
-import { RESTRICTED_GROUP_KINDS, RESTRICTED_PERMISSION_KEYS, ALLOWED_SCOPES } from "./constants"
+import { RESTRICTED_PERMISSION_KEYS } from "./constants"
 
 export type EffectiveLevel = "MAIN_ADMIN" | "VATGER_LEITUNG" | "FIR_LEITUNG" | "EVENTLER" | "USER"
 
 export async function getEffectiveLevel(userId: number) {
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { cid: userId },
     select: {
       role: true,
       firId: true,

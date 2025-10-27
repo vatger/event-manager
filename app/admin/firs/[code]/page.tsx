@@ -1,196 +1,331 @@
-// app/admin/firs/[code]/page.tsx
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
-import { Loader2, Plus } from "lucide-react";
+import * as React from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FIR, Group } from "@prisma/client";
-import { CreateGroupDialog, EditGroupDialog, DeleteGroupDialog } from "../_components/GroupDialogs";
-import GroupsPanel from "../_components/GroupsPanel";
-import MembersPanel from "../_components/MembersPanel";
-import PermissionsPanel from "../_components/PermissionPanel";
-import { Member, PermissionRow } from "../_components/types";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-export default function FIRWorkspacePage(props: { params: Promise<{ code: string }> }) {
-  const { code } = use(props.params);
+type Permission = { key: string; description?: string | null; scope: "OWN_FIR" | "ALL" };
+type Member = { id: number; cid: string; name: string; rating: string; role: "USER" | "MAINADMIN" };
+type Group = {
+  id: number;
+  name: string;
+  kind: "FIR_LEITUNG" | "FIR_TEAM" | "GLOBAL_VATGER_LEITUNG" | "CUSTOM";
+  description?: string | null;
+  members: Member[];
+  permissions: Permission[];
+};
+type FIR = { id: number; code: string; name: string; groups: Group[] };
 
-  // FIR & Gruppen
-  const [fir, setFIR] = useState<FIR | null>(null);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+function ScopeBadge({ scope }: { scope: Permission["scope"] }) {
+  return (
+    <Badge variant={scope === "ALL" ? "destructive" : "outline"}>
+      {scope === "ALL" ? "ALL" : "OWN_FIR"}
+    </Badge>
+  );
+}
 
-  // Mitglieder
-  const [members, setMembers] = useState<Member[]>([]);
-  const [loadingMembers, setLoadingMembers] = useState(false);
+export default function FIRDetailPage() {
+  const params = useParams<{ code: string }>();
+  const code = params?.code?.toUpperCase?.() ?? "";
+  const router = useRouter();
 
-  // Permissions
-  const [perms, setPerms] = useState<PermissionRow[]>([]);
-  const [loadingPerms, setLoadingPerms] = useState(false);
-
-  // UI-Dialoge
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<Group | null>(null);
-  const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null);
-
+  const [allFirs, setAllFirs] = useState<FIR[] | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // -------- Data loaders
-  async function loadFIR() {
-    const [firRes, groupRes] = await Promise.all([
-      fetch(`/api/firs/${code}`, { cache: "no-store" }),
-      fetch(`/api/firs/${code}/groups`, { cache: "no-store" }),
-    ]);
-    if (!firRes.ok) throw new Error("FIR nicht gefunden");
-    if (!groupRes.ok) throw new Error("Gruppen konnten nicht geladen werden");
-    const firData: FIR = await firRes.json();
-    setFIR(firData);
-    const grpData = await groupRes.json();
-    const mapped: Group[] = grpData.map((g: any) => ({
-      id: g.id,
-      name: g.name,
-      description: g.description,
-      firId: g.firId,
-      createdAt: new Date(g.createdAt),
-      updatedAt: new Date(g.updatedAt),
-    }));
-    setGroups(mapped);
-    setGroups(mapped);
-    if (!selectedGroupId && mapped.length) setSelectedGroupId(mapped[0].id);
-  }
-
-  async function loadMembers(groupId: number) {
-    setLoadingMembers(true);
+  const load = async () => {
+    setLoading(true);
     try {
-      const res = await fetch(`/api/firs/${code}/groups/${groupId}/members`, { cache: "no-store" });
-      if (!res.ok) throw new Error();
-      setMembers(await res.json());
-    } catch {
-      toast.error("Mitglieder konnten nicht geladen werden");
+      const res = await fetch("/api/firs", { cache: "no-store" });
+      if (!res.ok) throw new Error(await res.text());
+      const json: FIR[] = await res.json();
+      setAllFirs(json);
+    } catch (e) {
+      console.error(e);
+      setAllFirs([]);
     } finally {
-      setLoadingMembers(false);
+      setLoading(false);
     }
-  }
-
-  async function loadPermissions(groupId: number) {
-    setLoadingPerms(true);
-    try {
-      const res = await fetch(`/api/firs/${code}/groups/${groupId}/permissions`, { cache: "no-store" });
-      if (!res.ok) throw new Error();
-      setPerms(await res.json());
-    } catch {
-      toast.error("Rechte konnten nicht geladen werden");
-    } finally {
-      setLoadingPerms(false);
-    }
-  }
-
-  useEffect(() => {
-    (async () => {
-      try { setLoading(true); await loadFIR(); }
-      catch (e) { toast.error(e instanceof Error ? e.message : "Fehler beim Laden"); }
-      finally { setLoading(false); }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code]);
-
-  useEffect(() => {
-    if (selectedGroupId) {
-      loadMembers(selectedGroupId);
-      loadPermissions(selectedGroupId);
-    } else {
-      setMembers([]);
-      setPerms([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGroupId]);
-
-  // -------- Actions (werden an Panels/Dialogs übergeben)
-  const refetchGroupsAndSelect = async (selectId?: number) => {
-    await loadFIR();
-    if (selectId) setSelectedGroupId(selectId);
   };
 
-  const openEditGroup = (g: Group) => { setEditingGroup(g); setEditOpen(true); };
-  const confirmDeleteGroup = (groupId: number) => { setDeletingGroupId(groupId); setDeleteOpen(true); };
+  useEffect(() => { load(); }, []);
 
-  if (loading) {
-    return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  const fir = useMemo(() => {
+    return (allFirs ?? []).find(f => f.code.toUpperCase() === code);
+  }, [allFirs, code]);
+
+  if (loading && !fir) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Laden…
+      </div>
+    );
   }
-  if (!fir) return <div className="container mx-auto py-8">FIR nicht gefunden.</div>;
+
+  if (!fir) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="text-sm text-muted-foreground">FIR nicht gefunden.</div>
+        <Button variant="outline" onClick={() => router.push("/admin/firs")}>Zurück</Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-6 space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold">
-          {fir.name} <span className="text-muted-foreground">({fir.code})</span>
+    <div className="p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {fir.code} <span className="text-muted-foreground font-normal">— {fir.name}</span>
         </h1>
-        <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> Gruppe</Button>
+        <div className="ml-auto">
+          <Button variant="outline" onClick={load}>
+            <Loader2 className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+        </div>
       </div>
 
-      <div className="hidden lg:grid grid-cols-12 gap-4">
-        <GroupsPanel
-          groups={groups}
-          selectedId={selectedGroupId}
-          onSelect={setSelectedGroupId}
-          onCreateClick={() => setCreateOpen(true)}
-          onEditClick={openEditGroup}
-          onDeleteClick={confirmDeleteGroup}
-        />
+      <Tabs defaultValue="groups" className="w-full">
+        <TabsList>
+          <TabsTrigger value="groups">Gruppen</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+        </TabsList>
 
-        <MembersPanel
-          firCode={code}
-          selectedGroupId={selectedGroupId}
-          members={members}
-          loading={loadingMembers}
-          onReload={() => selectedGroupId && loadMembers(selectedGroupId)}
-        />
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Zusammenfassung</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              <div>Gruppen: <strong>{fir.groups.length}</strong></div>
+              <div>
+                Mitglieder (gesamt):{" "}
+                <strong>{fir.groups.reduce((acc, g) => acc + (g.members?.length ?? 0), 0)}</strong>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        <PermissionsPanel
-          firCode={code}
-          selectedGroupId={selectedGroupId}
-          perms={perms}
-          setPerms={setPerms}
-          loading={loadingPerms}
-          onReload={() => selectedGroupId && loadPermissions(selectedGroupId)}
-        />
-      </div>
-
-      {/* Mobile/Tablet? => Optional: Tabs wie vorher. (aus Platzgründen hier weggelassen) */}
-
-      {/* Dialoge */}
-      <CreateGroupDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        firCode={code}
-        onCreated={async (newGroupId) => {
-          setCreateOpen(false);
-          await refetchGroupsAndSelect(newGroupId);
-        }}
-      />
-      <EditGroupDialog
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        firCode={code}
-        group={editingGroup}
-        onUpdated={async () => {
-          setEditOpen(false);
-          await refetchGroupsAndSelect(editingGroup?.id ?? undefined);
-        }}
-      />
-      <DeleteGroupDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        firCode={code}
-        groupId={deletingGroupId}
-        onDeleted={async () => {
-          setDeleteOpen(false);
-          setDeletingGroupId(null);
-          await refetchGroupsAndSelect();
-        }}
-      />
+        <TabsContent value="groups" className="space-y-4 pt-4">
+          <Accordion type="multiple" className="w-full">
+            {fir.groups.map((group) => (
+              <AccordionItem key={group.id} value={`group-${group.id}`}>
+                <AccordionTrigger className="text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{group.name}</span>
+                    {group.kind !== "CUSTOM" && (
+                      <Badge variant="secondary">{group.kind.replaceAll("_", " ")}</Badge>
+                    )}
+                    <Badge variant="outline">{group.members.length} Members</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <GroupPanel code={fir.code} group={group} reload={load} />
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+}
+
+function GroupPanel({ code, group, reload }: { code: string; group: Group; reload: () => void }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Mitglieder</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <AddMemberForm code={code} groupId={group.id} onSuccess={reload} />
+          <Separator />
+          <div className="space-y-2">
+            {group.members.length === 0 && (
+              <div className="text-sm text-muted-foreground">Keine Mitglieder.</div>
+            )}
+            {group.members.map((m) => (
+              <div key={m.id} className="flex items-center justify-between rounded-md border p-2">
+                <div className="text-sm">
+                  <div className="font-medium">{m.name} <span className="text-muted-foreground">({m.cid})</span></div>
+                  <div className="text-muted-foreground text-xs">Rating: {m.rating}</div>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/firs/${code}/group/${group.id}/members?cid=${m.cid}`, { method: "DELETE" });
+                      if (!res.ok) throw new Error(await res.text());
+                      reload();
+                      toast.success("Mitglied entfernt");
+                    } catch (e) {
+                      console.error(e);
+                      toast.error("Entfernen fehlgeschlagen");
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Rechte (Permissions)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <AddPermissionForm code={code} groupId={group.id} onSuccess={reload} />
+          <Separator />
+          <div className="space-y-2">
+            {group.permissions.length === 0 && (
+              <div className="text-sm text-muted-foreground">Keine Berechtigungen gesetzt.</div>
+            )}
+            {group.permissions.map((p, idx) => (
+              <div key={`${p.key}-${idx}`} className="flex items-center justify-between rounded-md border p-2">
+                <div className="text-sm">
+                  <div className="font-medium flex items-center gap-2">
+                    {p.key} <ScopeBadge scope={p.scope} />
+                  </div>
+                  {p.description && (
+                    <div className="text-xs text-muted-foreground">{p.description}</div>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/firs/${code}/group/${group.id}/permissions`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          operations: [{ action: "REMOVE", key: p.key, scope: p.scope }],
+                        }),
+                      });
+                      if (!res.ok) throw new Error(await res.text());
+                      reload();
+                      toast.success("Permission entfernt");
+                    } catch (e) {
+                      console.error(e);
+                      toast.error("Entfernen fehlgeschlagen");
+                    }
+                  }}
+                >
+                  Entfernen
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AddMemberForm({ code, groupId, onSuccess }: { code: string; groupId: number; onSuccess: () => void }) {
+  const [cid, setCid] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="flex gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!cid.trim()) return;
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/firs/${code}/group/${groupId}/members`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cid: Number(cid) }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          setCid("");
+          onSuccess();
+          toast.success("Mitglied hinzugefügt");
+        } catch (e) {
+          console.error(e);
+          toast.error("Hinzufügen fehlgeschlagen");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <div className="grid gap-1">
+        <Label className="text-xs">CID</Label>
+        <Input
+          inputMode="numeric"
+          placeholder="z. B. 1234567"
+          value={cid}
+          onChange={(e) => setCid(e.target.value)}
+          className="w-40"
+        />
+      </div>
+      <Button type="submit" disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+        Hinzufügen
+      </Button>
+    </form>
+  );
+}
+
+function AddPermissionForm({ code, groupId, onSuccess }: { code: string; groupId: number; onSuccess: () => void }) {
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <form
+      className="flex gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!key.trim()) return;
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/firs/${code}/group/${groupId}/permissions`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              operations: [{ action: "ADD", key: key.trim(), scope: "OWN_FIR" }],
+            }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          setKey("");
+          onSuccess();
+          toast.success("Permission hinzugefügt");
+        } catch (e) {
+          console.error(e);
+          toast.error("Hinzufügen fehlgeschlagen");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <div className="grid gap-1">
+        <Label className="text-xs">Permission-Key</Label>
+        <Input
+          placeholder="z. B. event.edit"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          className="w-56"
+        />
+      </div>
+      <Button type="submit" disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+        Hinzufügen
+      </Button>
+    </form>
   );
 }
