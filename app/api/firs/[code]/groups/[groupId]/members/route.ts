@@ -7,6 +7,7 @@ import {
   canManageGroupMembership,
 } from "@/lib/acl/policies";
 import { GroupKind } from "@prisma/client";
+import { invalidateUserCache } from "@/app/api/user/me/route";
 
 // ✅ Eingabe-Validierung
 const addSchema = z.object({ cid: z.number() });
@@ -86,22 +87,23 @@ export async function POST(
   // falls FIR-gebunden → User der FIR zuordnen
   if (group.firId && targetUser.firId !== group.firId) {
     await prisma.user.update({
-      where: { id: targetUser.id },
+      where: { cid: targetUser.cid },
       data: { firId: group.firId },
     });
   }
 
   const existing = await prisma.userGroup.findFirst({
-    where: { userCID: targetUser.id, groupId: Number(groupId) },
+    where: { userCID: targetUser.cid, groupId: Number(groupId) },
   });
   if (existing)
     return NextResponse.json({ error: "Already member" }, { status: 409 });
 
   const newMember = await prisma.userGroup.create({
-    data: { userCID: targetUser.id, groupId: Number(groupId) },
+    data: { userCID: targetUser.cid, groupId: Number(groupId) },
     include: { user: true },
   });
 
+  await invalidateUserCache(targetUser.cid)
   return NextResponse.json(newMember, { status: 201 });
 }
 
@@ -141,8 +143,9 @@ export async function DELETE(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   await prisma.userGroup.deleteMany({
-    where: { userCID: target.id, groupId: Number(groupId) },
+    where: { userCID: target.cid, groupId: Number(groupId) },
   });
-
+  
+  await invalidateUserCache(target.cid)
   return NextResponse.json({ success: true });
 }

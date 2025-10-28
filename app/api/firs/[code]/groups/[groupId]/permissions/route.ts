@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { userHasPermission } from "@/lib/permissions";
+import { clearCache } from "@/lib/cache";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string; groupId: string }> }) {
   const {code, groupId } = await params;
@@ -63,6 +64,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ code: 
       data: { groupId: gId, permissionId: Number(up.permissionId), scope: up.scope },
     });
   }
-
+  clearCache()
   return NextResponse.json({ success: true });
 }

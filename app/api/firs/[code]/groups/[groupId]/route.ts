@@ -7,6 +7,7 @@ import {
   canEditGroupPermissions,
 } from "@/lib/acl/policies";
 import { PermissionScope } from "@prisma/client";
+import { clearCache } from "@/lib/cache";
 
 // Eingabe-Schema: Liste von Operationen
 const patchSchema = z.object({
@@ -102,7 +103,7 @@ export async function PATCH(
       });
     }
   }
-
+  clearCache()
   return NextResponse.json({ success: true });
 }
 
@@ -133,5 +134,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   await prisma.group.delete({ where: { id: group.id } });
+  
+  clearCache()
   return NextResponse.json({ success: true });
 }
