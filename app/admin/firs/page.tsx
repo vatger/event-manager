@@ -1,182 +1,193 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Loader2, RefreshCw } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { firApi } from '@/lib/api/fir';
+import { FIR, CurrentUser } from '@/types/fir';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Users, Settings, Trash2, Home } from 'lucide-react';
+import Link from 'next/link';
+import { CreateFIRDialog } from './_components/create-fir-dialog';
+import { DeleteFIRDialog } from './_components/delete-fir-dialog';
+import { FIRNavbar } from './_components/FIRnavbar';
 
-// ---------- API Response Types ----------
-type PermissionScope = "OWN_FIR" | "ALL";
+export default function FIRsPage() {
+  const [firs, setFirs] = useState<FIR[]>([]);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const router = useRouter();
 
-type ApiPermission = {
-  key: string;
-  description?: string | null;
-  scope: PermissionScope;
-};
+  useEffect(() => {
+    loadData();
+  }, []);
 
-type ApiMember = {
-  id: number;
-  cid: string;
-  name: string;
-  rating: string;
-  role: "USER" | "MAINADMIN";
-};
-
-type GroupKind = "FIR_LEITUNG" | "FIR_TEAM" | "GLOBAL_VATGER_LEITUNG" | "CUSTOM";
-
-type ApiGroup = {
-  id: number;
-  name: string;
-  kind: GroupKind;
-  description?: string | null;
-  members: ApiMember[];
-  permissions: ApiPermission[];
-};
-
-type ApiFIR = {
-  id: number;
-  code: string;
-  name: string;
-  groups: ApiGroup[];
-};
-
-// ---------- Page Component ----------
-export default function FIRListPage() {
-  const [data, setData] = useState<ApiFIR[] | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [q, setQ] = useState<string>("");
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = async () => {
     try {
-      const res = await fetch("/api/firs", { cache: "no-store" });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text || `HTTP ${res.status}`);
-      }
-      const json: ApiFIR[] = await res.json();
-      setData(json);
-    } catch (e) {
-      console.error(e);
-      setError("Konnte FIRs nicht laden.");
-      setData([]);
+      const [userData, firsData] = await Promise.all([
+        firApi.getCurrentUser(),
+        firApi.getFIRs()
+      ]);
+      setCurrentUser(userData);
+      setFirs(firsData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    // initial load
-    void load();
-  }, []);
+  const canManageFIRs = currentUser?.effectiveLevel.level === 'MAIN_ADMIN' || 
+                       currentUser?.effectiveLevel.level === 'VATGER_LEITUNG';
+  console.log("level", canManageFIRs, currentUser)
 
-  const filtered = useMemo<ApiFIR[]>(() => {
-    if (!data) return [];
-    const term = q.trim().toLowerCase();
-    if (!term) return data;
-    return data.filter(
-      (f) =>
-        f.code.toLowerCase().includes(term) ||
-        f.name.toLowerCase().includes(term)
-    );
-  }, [data, q]);
-
-  const totalMembersOf = (fir: ApiFIR) =>
-    (fir.groups ?? []).reduce((acc, g) => acc + (g.members?.length ?? 0), 0);
-
-  if (loading && !data) {
+  if (loading) {
     return (
-      <div className="p-6 flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Laden…
+      <div className="container mx-auto py-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">FIRs</h1>
-        <div className="ml-auto flex gap-2">
-          <Input
-            placeholder="FIR suchen (Code oder Name)…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-64"
-          />
-          <Button variant="outline" onClick={load}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Aktualisieren
-          </Button>
+    <div className="container mx-auto py-6 space-y-6">
+      <FIRNavbar />
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">FIR Management</h1>
+          <p className="text-muted-foreground">
+            Verwalten Sie FIRs, Gruppen und Berechtigungen
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Link href="/">
+            <Button variant="outline">
+              <Home className="w-4 h-4 mr-2" />
+              Hauptseite
+            </Button>
+          </Link>
+          {canManageFIRs && (
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Neue FIR erstellen
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="text-sm text-red-600">{error}</div>
-      )}
-
-      {/* Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((fir) => {
-          const groups = fir.groups ?? [];
-          const leitung = groups.find((g) => g.kind === "FIR_LEITUNG");
-          const team = groups.find((g) => g.kind === "FIR_TEAM");
-          const members = totalMembersOf(fir);
-
-          return (
-            <Card key={fir.id} className="flex flex-col">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    {fir.code}
-                    <span className="text-muted-foreground font-normal">
-                      {" "}
-                      — {fir.name}
-                    </span>
-                  </CardTitle>
-                  <Badge variant="secondary">{members} Members</Badge>
+      {firs.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Users className="w-12 h-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Keine FIRs gefunden</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Es wurden noch keine FIRs in System konfiguriert.
+              {canManageFIRs && ' Erstellen Sie die erste FIR um zu beginnen.'}
+            </p>
+            {canManageFIRs && (
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Erste FIR erstellen
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-6">
+          {firs.map((fir) => (
+            <Card key={fir.id} className="overflow-hidden">
+              <CardHeader className="bg-muted/50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      {fir.code}
+                      <Badge variant="secondary">{fir.name}</Badge>
+                    </CardTitle>
+                    <CardDescription>
+                      {fir.groups.length} Gruppen •{' '}
+                      {fir.groups.reduce((acc, group) => acc + group.members.length, 0)} Mitglieder
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/admin/firs/${fir.code}`)}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Verwalten
+                    </Button>
+                    {canManageFIRs && (
+                      <DeleteFIRDialog fir={fir} onDelete={loadData} />
+                    )}
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent className="flex-1 space-y-3">
-                <div className="text-sm text-muted-foreground">
-                  <div>
-                    Leitung:{" "}
-                    <strong>{leitung?.members?.length ?? 0}</strong>
-                  </div>
-                  <div>
-                    Event Team:{" "}
-                    <strong>{team?.members?.length ?? 0}</strong>
-                  </div>
-                  <div>
-                    Gruppen: <strong>{groups.length}</strong>
-                  </div>
-                </div>
-                <div className="pt-2">
-                  <Button asChild className="w-full">
-                    <Link href={`/admin/firs/${encodeURIComponent(fir.code)}`}>
-                      Details & Team verwalten
-                    </Link>
-                  </Button>
-                </div>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Gruppe</TableHead>
+                      <TableHead>Typ</TableHead>
+                      <TableHead>Mitglieder</TableHead>
+                      <TableHead>Berechtigungen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fir.groups.map((group) => (
+                      <TableRow key={group.id}>
+                        <TableCell className="font-medium">{group.name}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            group.kind === 'FIR_LEITUNG' ? 'default' : 'secondary'
+                          }>
+                            {group.kind}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4" />
+                            {group.members.length}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {group.permissions.slice(0, 3).map((permission) => (
+                              <Badge key={permission.key} variant="outline" className="text-xs">
+                                {permission.key}
+                              </Badge>
+                            ))}
+                            {group.permissions.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{group.permissions.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {/* Empty state */}
-      {!filtered.length && !error && (
-        <div className="text-sm text-muted-foreground">
-          Keine FIRs gefunden.
+          ))}
         </div>
+      )}
+
+      {showCreateDialog && (
+        <CreateFIRDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
+          onSuccess={() => {
+            setShowCreateDialog(false);
+            loadData();
+          }}
+        />
       )}
     </div>
   );

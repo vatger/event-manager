@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { clearCache } from "@/lib/cache";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -52,6 +53,9 @@ export default function Header() {
                 }}
               >
                 Abmelden
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => clearCache()}>
+                Clear Chach
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

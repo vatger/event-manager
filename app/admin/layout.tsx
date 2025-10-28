@@ -1,25 +1,19 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
-import AdminShell from "./AdminShell";
 import { userHasPermission } from "@/lib/permissions";
+import AdminShell from "./AdminShell";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
-  if (!session?.user) {
-    redirect("/auth/signin");
-  }
+  if (!session?.user?.id) redirect("/auth/signin");
 
-  const me = await prisma.user.findUnique({ where: { cid: Number(session.user.cid) } });
-  if (!me) redirect("/");
+  const cid = Number(session.user.id);
 
-  const allowed =
-    me.role === "MAIN_ADMIN" ||
-    (await userHasPermission(me.cid, "admin.access"));
+  const hasAccess = await userHasPermission(cid, "admin.access");
+  if (!hasAccess) redirect("/");
 
-  if (!allowed) redirect("/");
   return (
     <AdminShell
       user={{

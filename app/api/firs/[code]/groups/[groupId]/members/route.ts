@@ -6,7 +6,6 @@ import {
   getEffectiveLevel,
   canManageGroupMembership,
 } from "@/lib/acl/policies";
-import { GroupKind } from "@prisma/client";
 import { invalidateUserCache } from "@/app/api/user/me/route";
 
 // ✅ Eingabe-Validierung
