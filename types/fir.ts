@@ -24,39 +24,39 @@ export interface User {
   export interface Group {
     id: number;
     name: string;
-    kind: 'FIR_LEITUNG' | 'FIR_TEAM';
-    description: string;
-    members: GroupMember[];
-    permissions: Permission[];
+    kind: "FIR_TEAM" | "FIR_LEITUNG" | "GLOBAL_VATGER_LEITUNG" | "CUSTOM";
+    description?: string;
+    members?: GroupMember[];
+    permissions?: Permission[];
+    fir?: FIR | null;
   }
   
   export interface FIR {
     id: number;
     code: string;
     name: string;
-    groups: Group[];
+    groups?: Group[];
   }
   
   export interface CurrentUser {
-    id: number;
-    cid: string;
+    cid: number;
     name: string;
     rating: string;
-    role: string;
-    firMemberships: Array<{
-      fir: {
-        id: number;
-        code: string;
-        name: string;
-      } | null;
-      group: {
-        id: number;
-        name: string;
-        kind: string;
-      };
-    }>;
+    role: "USER" | "MAIN_ADMIN";
+    fir: FIR | null;
+    groups: Group[];
+  
+    /** Alle global gültigen Permissions */
     effectivePermissions: string[];
-    effectiveLevel: {level: 'MAIN_ADMIN' | 'VATGER_LEITUNG' | 'FIR_LEITUNG' | 'FIR_TEAM' | 'USER', firId?: number};
+  
+    /** FIR-spezifische Berechtigungen: FIR-Code -> Permission[] */
+    firScopedPermissions: Record<string, string[]>;
+  
+    /** Globales Level des Nutzers */
+    effectiveLevel: "USER" | "FIR_EVENTLEITER" | "VATGER_LEITUNG" | "MAIN_ADMIN";
+  
+    /** FIR-spezifische Rollen: FIR-Code -> "FIR_EVENTLEITER" | "FIR_TEAM" */
+    firLevels: Record<string, "FIR_EVENTLEITER" | "FIR_TEAM">;
   }
   
   export interface CreateFIRData {

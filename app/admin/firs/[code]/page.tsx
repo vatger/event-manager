@@ -44,10 +44,10 @@ export default function FIRDetailPage() {
     }
   };
 
-  const canManageFIR = currentUser?.effectiveLevel.level === 'MAIN_ADMIN' || 
-                      currentUser?.effectiveLevel.level === 'VATGER_LEITUNG' ||
-                      (currentUser?.effectiveLevel.level === 'FIR_LEITUNG' && 
-                       currentUser.firMemberships.some(m => m.fir?.code === firCode));
+  const canManageFIR = currentUser?.effectiveLevel === 'MAIN_ADMIN' || 
+                      currentUser?.effectiveLevel === 'VATGER_LEITUNG' ||
+                      (currentUser?.effectiveLevel === 'FIR_EVENTLEITER' && 
+                       currentUser.fir?.code === firCode);
 
   if (loading) {
     return (
@@ -107,7 +107,7 @@ export default function FIRDetailPage() {
         </TabsList>
 
         <TabsContent value="groups" className="space-y-6">
-          {fir.groups.map((group) => (
+          {fir.groups?.map((group) => (
             <Card key={group.id}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -121,7 +121,7 @@ export default function FIRDetailPage() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
-                    {group.members.length} Mitglieder
+                    {group.members?.length} Mitglieder
                   </div>
                 </CardTitle>
                 <CardDescription>{group.description}</CardDescription>
@@ -131,7 +131,7 @@ export default function FIRDetailPage() {
                   group={group}
                   firCode={fir.code}
                   canManage={canManageFIR}
-                  VATGERStaff={currentUser?.effectiveLevel.level == "VATGER_LEITUNG" || currentUser?.effectiveLevel.level == "MAIN_ADMIN"}
+                  VATGERStaff={currentUser?.effectiveLevel == "VATGER_LEITUNG" || currentUser?.effectiveLevel == "MAIN_ADMIN"}
                   onUpdate={loadData}
                 />
                 
@@ -141,7 +141,7 @@ export default function FIRDetailPage() {
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-6">
-          {fir.groups.map((group) => (
+          {fir.groups?.map((group) => (
             <Card key={group.id}>
               <CardHeader>
                 <CardTitle>{group.name}</CardTitle>
@@ -156,7 +156,7 @@ export default function FIRDetailPage() {
                   canManage = {canManageFIR
                                 && (
                                     group.kind !== "FIR_LEITUNG" ||
-                                    (currentUser.effectiveLevel.level === "MAIN_ADMIN" || currentUser.effectiveLevel.level === "VATGER_LEITUNG")
+                                    (currentUser.effectiveLevel === "MAIN_ADMIN" || currentUser.effectiveLevel === "VATGER_LEITUNG")
                                   )}
                   onUpdate={loadData}
                 />

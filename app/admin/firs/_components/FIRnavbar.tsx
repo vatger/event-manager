@@ -71,7 +71,7 @@ export function FIRNavbar() {
                   <Button variant="ghost" className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     <span>{currentUser.name}</span>
-                    <Badge variant="secondary">{currentUser.effectiveLevel.level}</Badge>
+                    <Badge variant="secondary">{currentUser.effectiveLevel}</Badge>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
