@@ -2,37 +2,34 @@
 
 import useSWR from "swr";
 import axios from "axios";
+import { CurrentUser } from "@/types/fir";
 
-export interface UserResponse {
-  cid: number;
-  name: string;
-  rating: string;
-  role: string;
-  fir: { id: number; code: string; name: string } | null;
-  groups: {
-    id: number;
-    name: string;
-    kind: string;
-    fir: { id: number; code: string; name: string } | null;
-  }[];
-  effectivePermissions: string[];
-  effectiveLevel: string;
-}
+const fetcher = async (url: string): Promise<CurrentUser> => {
+  const res = await axios.get<CurrentUser>(url);
+  return res.data;
+};
 
 export function useUser() {
-  const { data, error, isLoading, mutate } = useSWR<UserResponse>(
-    "/api/user/me",
-    async (url) => {
-      const res = await axios.get(url);
-      return res.data;
-    },
-    { refreshInterval: 5 * 60 * 1000 } // alle 5 Minuten aktualisieren
+  const { data, error, mutate, isLoading } = useSWR<CurrentUser>(
+    "/api/users/me",
+    fetcher
   );
 
   return {
     user: data,
     loading: isLoading,
     error,
-    refreshUser: mutate,
+    mutate,
+
+    // 🔹 Permission-Checks konsistent mit deinem Modell:
+    can: (perm: string) => data?.effectivePermissions.includes(perm) ?? false,
+
+    canInFIR: (firCode: string, perm: string) =>
+      data?.firScopedPermissions[firCode]?.includes(perm) ?? false,
+
+    isFIRLead: (firCode: string) =>
+      data?.firLevels[firCode] === "FIR_EVENTLEITER",
+
+    isVATGERLead: () => data?.effectiveLevel === "VATGER_LEITUNG",
   };
 }

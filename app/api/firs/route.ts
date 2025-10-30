@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { getEffectiveLevel } from "@/lib/acl/policies";
 import { GroupKind, PermissionScope } from "@prisma/client";
+import { getUserWithPermissions, userHasPermission } from "@/lib/acl/permissions";
+import { CurrentUser } from "@/types/fir";
 
 const firSchema = z.object({
   code: z.string().length(4, "FIR Code must be 4 letters"),
@@ -95,10 +96,10 @@ async function createStandardGroups(firId: number, firCode: string) {
 export async function POST(req: Request) {
   const me = await getSessionUser();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { level } = await getEffectiveLevel(Number(me.cid));
+  const user = await getUserWithPermissions(Number(me.cid))
+  
   // Nur MainAdmin oder VATGER-Leitung dürfen FIRs anlegen
-  if (level !== "MAIN_ADMIN" && level !== "VATGER_LEITUNG") {
+  if (!userHasPermission(Number(user?.cid), "fir.manage")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -130,24 +131,39 @@ export async function POST(req: Request) {
  * Zugriff nur für MAINADMIN, VATGER_LEITUNG oder FIR_LEITUNG (eigene FIR).
  */
 export async function GET() {
-  const user = await getSessionUser();
-  if (!user)
+  const sessionUser = await getSessionUser();
+  if (!sessionUser)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
+  const user = (await getUserWithPermissions(
+    Number(sessionUser.cid)
+  )) as CurrentUser | null;
+  if (!user)
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Berechtigungen prüfen
-  if (level === "USER" || level === "EVENTLER") {
-    return NextResponse.json({ error: "Forbidden" , level: level}, { status: 403 });
+  const isGlobal =
+    user.effectiveLevel === "MAIN_ADMIN" ||
+    user.effectiveLevel === "VATGER_LEITUNG";
+  console.log("user", user, "global", isGlobal)
+  const canManageOwnFIR =
+    !!user.fir?.code &&
+    user.firScopedPermissions[user.fir.code]?.includes("fir.manage");
+  
+  if (!isGlobal && !canManageOwnFIR) {
+    return NextResponse.json(
+      { error: "Forbidden", level: user.effectiveLevel },
+      { status: 403 }
+    );
   }
-
+  
   // MainAdmin / VATGER-Leitung → alle FIRs
   // FIR-Leitung → nur eigene FIR
+  const firFilter = isGlobal
+    ? {}
+    : { id: user.fir?.id ?? -1 }; // eigene FIR oder nichts
+  
   const firs = await prisma.fIR.findMany({
-    where:
-      level === "MAIN_ADMIN" || level === "VATGER_LEITUNG"
-        ? {}
-        : { id: actorFirId ?? -1 },
+    where: firFilter,
     include: {
       groups: {
         include: {
@@ -204,6 +220,5 @@ export async function GET() {
       })),
     })),
   }));
-
   return NextResponse.json(response);
 }

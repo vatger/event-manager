@@ -40,8 +40,8 @@ export default function FIRsPage() {
     }
   };
 
-  const canManageFIRs = currentUser?.effectiveLevel.level === 'MAIN_ADMIN' || 
-                       currentUser?.effectiveLevel.level === 'VATGER_LEITUNG';
+  const canManageFIRs = currentUser?.effectiveLevel === 'MAIN_ADMIN' || 
+                       currentUser?.effectiveLevel === 'VATGER_LEITUNG';
   console.log("level", canManageFIRs, currentUser)
 
   if (loading) {
@@ -109,8 +109,8 @@ export default function FIRsPage() {
                       <Badge variant="secondary">{fir.name}</Badge>
                     </CardTitle>
                     <CardDescription>
-                      {fir.groups.length} Gruppen •{' '}
-                      {fir.groups.reduce((acc, group) => acc + group.members.length, 0)} Mitglieder
+                      {fir.groups?.length} Gruppen •{' '}
+                      {fir.groups?.reduce((acc, group) => acc + (group.members ? group.members?.length : 0), 0)} Mitglieder
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
@@ -139,7 +139,7 @@ export default function FIRsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {fir.groups.map((group) => (
+                    {fir.groups?.map((group) => (
                       <TableRow key={group.id}>
                         <TableCell className="font-medium">{group.name}</TableCell>
                         <TableCell>
@@ -152,19 +152,19 @@ export default function FIRsPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Users className="w-4 h-4" />
-                            {group.members.length}
+                            {group.members?.length}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {group.permissions.slice(0, 3).map((permission) => (
+                            {group.permissions?.slice(0, 3).map((permission) => (
                               <Badge key={permission.key} variant="outline" className="text-xs">
                                 {permission.key}
                               </Badge>
                             ))}
-                            {group.permissions.length > 3 && (
+                            {group.permissions!.length > 3 && (
                               <Badge variant="outline" className="text-xs">
-                                +{group.permissions.length - 3}
+                                +{group.permissions!.length - 3}
                               </Badge>
                             )}
                           </div>

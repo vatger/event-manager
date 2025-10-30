@@ -1,77 +1,121 @@
-import prisma from "@/lib/prisma"
-import { GroupKind, PermissionScope, Role } from "@prisma/client"
-import { RESTRICTED_PERMISSION_KEYS } from "./constants"
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-export type EffectiveLevel = "MAIN_ADMIN" | "VATGER_LEITUNG" | "FIR_LEITUNG" | "EVENTLER" | "USER"
+export type UserWithAll = Prisma.UserGetPayload<{
+  include: {
+    fir: true;
+    groups: {
+      include: {
+        group: {
+          include: {
+            fir: true;
+            permissions: { include: { permission: true } };
+          };
+        };
+      };
+    };
+  };
+}>;
 
-export async function getEffectiveLevel(userId: number) {
-  const user = await prisma.user.findUnique({
-    where: { cid: userId },
-    select: {
-      role: true,
-      firId: true,
-      groups: {
-        select: {
-          group: { select: { kind: true, firId: true } }
-        }
+export interface EffectiveData {
+  effectivePermissions: string[];
+  firScopedPermissions: Record<string, string[]>;
+  effectiveLevel: "USER" | "FIR_EVENTLEITER" | "VATGER_LEITUNG" | "MAIN_ADMIN";
+  firLevels: Record<string, "FIR_EVENTLEITER" | "FIR_TEAM">;
+}
+
+/** zentrale Berechnung aller Rechte / Rollen eines Users */
+export function computeEffectiveData(user: UserWithAll): EffectiveData {
+  const effectivePermissions = new Set<string>();
+  const firScopedPermissions: Record<string, string[]> = {};
+  const firLevels: Record<string, "FIR_EVENTLEITER" | "FIR_TEAM"> = {};
+
+  let effectiveLevel: EffectiveData["effectiveLevel"] = "USER";
+
+  // MAIN_ADMIN → alles
+  if (user.role === "MAIN_ADMIN") {
+    effectiveLevel = "MAIN_ADMIN";
+    [
+      "admin.access",
+      "fir.manage",
+      "event.create",
+      "event.edit",
+      "event.delete",
+    ].forEach((p) => effectivePermissions.add(p));
+  }
+
+  // Gruppen durchlaufen
+  for (const ug of user.groups) {
+    const group = ug.group;
+    if (!group) continue;
+
+    // Rollen nach GroupKind
+    if (group.fir?.code) {
+      if (group.kind === "FIR_LEITUNG")
+        firLevels[group.fir.code] = "FIR_EVENTLEITER";
+      else if (
+        group.kind === "FIR_TEAM" &&
+        firLevels[group.fir.code] !== "FIR_EVENTLEITER"
+      )
+        firLevels[group.fir.code] = "FIR_TEAM";
+    }
+
+    // Permissions aus GroupPermissions
+    for (const gp of group.permissions) {
+      const key = gp.permission.key;
+      if (gp.scope === "ALL" || !group.fir) {
+        effectivePermissions.add(key);
+      } else if (gp.scope === "OWN_FIR" && group.fir?.code) {
+        const firCode = group.fir.code;
+        (firScopedPermissions[firCode] ??= []).push(key);
       }
     }
-  })
-  if (!user) return { level: "USER" as EffectiveLevel, firId: null }
-
-  if (user.role === Role.MAIN_ADMIN) return { level: "MAIN_ADMIN" as EffectiveLevel, firId: null }
-
-  const isVatgerLead = user.groups.some(g => g.group.kind === GroupKind.GLOBAL_VATGER_LEITUNG)
-  if (isVatgerLead) return { level: "VATGER_LEITUNG" as EffectiveLevel, firId: null }
-
-  const firLeadGroup = user.groups.find(g => g.group.kind === GroupKind.FIR_LEITUNG && g.group.firId === user.firId)
-  if (firLeadGroup) return { level: "FIR_LEITUNG" as EffectiveLevel, firId: user.firId ?? null }
-
-  const isEventler = user.groups.some(g => g.group.kind === GroupKind.FIR_TEAM && g.group.firId === user.firId)
-  if (isEventler) return { level: "EVENTLER" as EffectiveLevel, firId: user.firId ?? null }
-
-  return { level: "USER" as EffectiveLevel, firId: user.firId ?? null }
-}
-
-// --- Policy Guards ---
-
-export function canAssignAllScope(level: EffectiveLevel) {
-  return level === "MAIN_ADMIN" || level === "VATGER_LEITUNG"
-}
-
-export function canManageGroupMembership(level: EffectiveLevel, targetGroupKind: GroupKind, actorFirId: number | null, targetGroupFirId: number | null) {
-  if (level === "MAIN_ADMIN" || level === "VATGER_LEITUNG") return true
-
-  if (level === "FIR_LEITUNG") {
-    // nur innerhalb eigener FIR und niemals an FIR_LEITUNG schrauben
-    const sameFir = actorFirId && actorFirId === (targetGroupFirId ?? null)
-    if (!sameFir) return false
-    if (targetGroupKind === GroupKind.FIR_LEITUNG || targetGroupKind === GroupKind.GLOBAL_VATGER_LEITUNG) return false
-    // d.h. FIR-Leitung darf nur FIR_TEAM verwalten
-    return targetGroupKind === GroupKind.FIR_TEAM
   }
 
-  return false
+  // globale Level bestimmen
+  if (user.role === "MAIN_ADMIN") {
+    effectiveLevel = "MAIN_ADMIN";
+  } else if (
+    Object.values(firLevels).includes("FIR_EVENTLEITER") &&
+    effectiveLevel !== "MAIN_ADMIN"
+  ) {
+    effectiveLevel = "FIR_EVENTLEITER";
+  }
+
+  // Gruppen mit GLOBAL_VATGER_LEITUNG prüfen
+  const vatgerLead = user.groups.some(
+    (ug) => ug.group.kind === "GLOBAL_VATGER_LEITUNG"
+  );
+  if (vatgerLead) effectiveLevel = "VATGER_LEITUNG";
+
+  return {
+    effectivePermissions: Array.from(effectivePermissions),
+    firScopedPermissions,
+    effectiveLevel,
+    firLevels,
+  };
 }
 
-export function canEditGroupPermissions(level: EffectiveLevel, targetGroupKind: GroupKind, actorFirId: number | null, targetGroupFirId: number | null, scope: PermissionScope, permissionKey: string) {
-  if (level === "MAIN_ADMIN" || level === "VATGER_LEITUNG") {
-    // Globale dürfen alles, inkl. ALL-Scopes
-    return true
-  }
+/** Helper zum Laden und Berechnen */
+export async function getUserWithEffectiveData(cid: number) {
+  const user = await prisma.user.findUnique({
+    where: { cid },
+    include: {
+      fir: true,
+      groups: {
+        include: {
+          group: {
+            include: {
+              fir: true,
+              permissions: { include: { permission: true } },
+            },
+          },
+        },
+      },
+    },
+  });
 
-  if (level === "FIR_LEITUNG") {
-    const sameFir = actorFirId && actorFirId === (targetGroupFirId ?? null)
-    if (!sameFir) return false
-    // FIR-Leitung darf nur OWN_FIR vergeben
-    if (scope === PermissionScope.ALL) return false
-    // Und niemals mächtige Schlüssel an FIR_LEITUNG verteilen
-    if (targetGroupKind === GroupKind.FIR_LEITUNG) {
-      if (permissionKey === RESTRICTED_PERMISSION_KEYS.GROUP_MANAGE) return false
-    }
-    // Für FIR_TEAM ok (auch group.manage mit OWN_FIR, wenn gewünscht)
-    return true
-  }
-
-  return false
+  if (!user) return null;
+  const data = computeEffectiveData(user);
+  return { ...user, ...data };
 }

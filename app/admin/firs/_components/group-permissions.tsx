@@ -4,9 +4,8 @@ import { useState, useEffect } from 'react';
 import { Group, Permission } from '@/types/fir';
 import { firApi } from '@/lib/api/fir';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Save, Key, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
