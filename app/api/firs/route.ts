@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { GroupKind, PermissionScope } from "@prisma/client";
-import { getUserWithPermissions, userHasPermission } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasPermission } from "@/lib/acl/permissions";
 import { CurrentUser } from "@/types/fir";
 
 const firSchema = z.object({
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
   const user = await getUserWithPermissions(Number(me.cid))
   
   // Nur MainAdmin oder VATGER-Leitung dürfen FIRs anlegen
-  if (!userHasPermission(Number(user?.cid), "fir.manage")) {
+  if (!isVatgerEventleitung(Number(me.cid))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

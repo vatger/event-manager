@@ -2,11 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import {
-  getEffectiveLevel,
-  canManageGroupMembership,
-} from "@/lib/acl/policies";
-import { invalidateUserCache } from "@/app/api/user/me/route";
+import { canManageFir } from "@/lib/acl/permissions";
 
 // ✅ Eingabe-Validierung
 const addSchema = z.object({ cid: z.number() });
@@ -29,13 +25,7 @@ export async function GET(
   });
   if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
-  const allowed = canManageGroupMembership(
-    level,
-    group.kind,
-    actorFirId ?? null,
-    group.firId ?? null
-  );
+  const allowed = await canManageFir(Number(user.cid), fir.code)
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const members = await prisma.userGroup.findMany({
@@ -63,13 +53,7 @@ export async function POST(
   });
   if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
-  const allowed = canManageGroupMembership(
-    level,
-    group.kind,
-    actorFirId ?? null,
-    group.firId ?? null
-  );
+  const allowed = await canManageFir(Number(user.cid), fir.code)
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
@@ -102,7 +86,8 @@ export async function POST(
     include: { user: true },
   });
 
-  await invalidateUserCache(targetUser.cid)
+  //Cache invalidieren
+
   return NextResponse.json(newMember, { status: 201 });
 }
 
@@ -128,13 +113,8 @@ export async function DELETE(
   const cid = Number(searchParams.get("cid"));
   if (!cid) return NextResponse.json({ error: "CID required" }, { status: 400 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
-  const allowed = canManageGroupMembership(
-    level,
-    group.kind,
-    actorFirId ?? null,
-    group.firId ?? null
-  );
+  const allowed = await canManageFir(Number(user.cid), fir.code)
+
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const target = await prisma.user.findUnique({ where: { cid: cid } });
@@ -145,6 +125,7 @@ export async function DELETE(
     where: { userCID: target.cid, groupId: Number(groupId) },
   });
   
-  await invalidateUserCache(target.cid)
+  //Cache invalidieren
+  
   return NextResponse.json({ success: true });
 }

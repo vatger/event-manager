@@ -10,26 +10,51 @@ const fetcher = async (url: string): Promise<CurrentUser> => {
 };
 
 export function useUser() {
-  const { data, error, mutate, isLoading } = useSWR<CurrentUser>(
-    "/api/users/me",
+  const { data, error, isLoading, mutate } = useSWR<CurrentUser>(
+    "/api/user/me",
     fetcher
   );
 
+  // ---------- PERMISSION HELPERS ----------
+  const can = (perm: string): boolean =>
+    (data?.effectivePermissions.includes(perm) ?? false) ||
+    data?.effectiveLevel == "MAIN_ADMIN"
+
+  const canInFIR = (firCode: string, perm: string): boolean => {
+    if(data?.effectiveLevel == "MAIN_ADMIN") return true; 
+    return data?.firScopedPermissions[firCode]?.includes(perm) ?? false;
+  }
+
+  const canInOwnFIR = (perm: string): boolean => {
+    if(data?.effectiveLevel == "MAIN_ADMIN") return true
+    const code = data?.fir?.code;
+    if (!code) return false;
+    return data?.firScopedPermissions[code]?.includes(perm) ?? false;
+  };
+
+  const isFIRLead = (firCode?: string): boolean => {
+    const code = firCode ?? data?.fir?.code;
+    if (!code) return false;
+    return data?.firLevels[code] === "FIR_EVENTLEITER";
+  };
+
+  const isVATGERLead = (): boolean =>
+    data?.effectiveLevel === "VATGER_LEITUNG" || data?.effectiveLevel === "MAIN_ADMIN";
+
+  const isMainAdmin = (): boolean => data?.role === "MAIN_ADMIN";
+
+  // ---------- RETURN ----------
   return {
     user: data,
     loading: isLoading,
     error,
     mutate,
 
-    // 🔹 Permission-Checks konsistent mit deinem Modell:
-    can: (perm: string) => data?.effectivePermissions.includes(perm) ?? false,
-
-    canInFIR: (firCode: string, perm: string) =>
-      data?.firScopedPermissions[firCode]?.includes(perm) ?? false,
-
-    isFIRLead: (firCode: string) =>
-      data?.firLevels[firCode] === "FIR_EVENTLEITER",
-
-    isVATGERLead: () => data?.effectiveLevel === "VATGER_LEITUNG",
+    can,
+    canInFIR,
+    canInOwnFIR,
+    isFIRLead,
+    isVATGERLead,
+    isMainAdmin,
   };
 }

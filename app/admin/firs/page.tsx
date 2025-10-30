@@ -3,46 +3,37 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { firApi } from '@/lib/api/fir';
-import { FIR, CurrentUser } from '@/types/fir';
+import { FIR } from '@/types/fir';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Users, Settings, Trash2, Home } from 'lucide-react';
+import { Plus, Users, Settings, Home } from 'lucide-react';
 import Link from 'next/link';
 import { CreateFIRDialog } from './_components/create-fir-dialog';
 import { DeleteFIRDialog } from './_components/delete-fir-dialog';
 import { FIRNavbar } from './_components/FIRnavbar';
+import { useUser } from '@/hooks/useUser';
 
 export default function FIRsPage() {
   const [firs, setFirs] = useState<FIR[]>([]);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const router = useRouter();
-
+  const { isVATGERLead } = useUser();
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
     try {
-      const [userData, firsData] = await Promise.all([
-        firApi.getCurrentUser(),
-        firApi.getFIRs()
-      ]);
-      setCurrentUser(userData);
-      setFirs(firsData);
+      setFirs(await firApi.getFIRs());
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const canManageFIRs = currentUser?.effectiveLevel === 'MAIN_ADMIN' || 
-                       currentUser?.effectiveLevel === 'VATGER_LEITUNG';
-  console.log("level", canManageFIRs, currentUser)
 
   if (loading) {
     return (
@@ -56,7 +47,6 @@ export default function FIRsPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <FIRNavbar />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">FIR Management</h1>
@@ -71,7 +61,7 @@ export default function FIRsPage() {
               Hauptseite
             </Button>
           </Link>
-          {canManageFIRs && (
+          {isVATGERLead() && (
             <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Neue FIR erstellen
@@ -87,9 +77,9 @@ export default function FIRsPage() {
             <h3 className="text-lg font-semibold mb-2">Keine FIRs gefunden</h3>
             <p className="text-muted-foreground text-center mb-4">
               Es wurden noch keine FIRs in System konfiguriert.
-              {canManageFIRs && ' Erstellen Sie die erste FIR um zu beginnen.'}
+              {isVATGERLead() && ' Erstellen Sie die erste FIR um zu beginnen.'}
             </p>
-            {canManageFIRs && (
+            {isVATGERLead() && (
               <Button onClick={() => setShowCreateDialog(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Erste FIR erstellen
@@ -101,7 +91,7 @@ export default function FIRsPage() {
         <div className="grid gap-6">
           {firs.map((fir) => (
             <Card key={fir.id} className="overflow-hidden">
-              <CardHeader className="bg-muted/50">
+              <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle className="flex items-center gap-2">
@@ -113,7 +103,7 @@ export default function FIRsPage() {
                       {fir.groups?.reduce((acc, group) => acc + (group.members ? group.members?.length : 0), 0)} Mitglieder
                     </CardDescription>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -122,13 +112,13 @@ export default function FIRsPage() {
                       <Settings className="w-4 h-4 mr-2" />
                       Verwalten
                     </Button>
-                    {canManageFIRs && (
+                    {isVATGERLead() && (
                       <DeleteFIRDialog fir={fir} onDelete={loadData} />
                     )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>

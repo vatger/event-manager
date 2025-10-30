@@ -3,38 +3,33 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { firApi } from '@/lib/api/fir';
-import { FIR, CurrentUser, Group } from '@/types/fir';
+import { FIR } from '@/types/fir';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Users, Key, ArrowLeft, Home } from 'lucide-react';
+import { Users, Key, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { FIRNavbar } from '../_components/FIRnavbar';
 import { GroupMembers } from '../_components/group-members';
 import { GroupPermissions } from '../_components/group-permissions';
+import { useUser } from '@/hooks/useUser';
 
 export default function FIRDetailPage() {
   const params = useParams();
   const firCode = params.code as string;
-  
   const [fir, setFir] = useState<FIR | null>(null);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('groups');
 
+  const { isVATGERLead, isFIRLead } = useUser();
   useEffect(() => {
     loadData();
   }, [firCode]);
 
   const loadData = async () => {
     try {
-      const [userData, firsData] = await Promise.all([
-        firApi.getCurrentUser(),
-        firApi.getFIRs()
-      ]);
-      
-      setCurrentUser(userData);
+      const firsData = await firApi.getFIRs();
       const currentFIR = firsData.find(f => f.code === firCode);
       setFir(currentFIR || null);
     } catch (error) {
@@ -44,11 +39,8 @@ export default function FIRDetailPage() {
     }
   };
 
-  const canManageFIR = currentUser?.effectiveLevel === 'MAIN_ADMIN' || 
-                      currentUser?.effectiveLevel === 'VATGER_LEITUNG' ||
-                      (currentUser?.effectiveLevel === 'FIR_EVENTLEITER' && 
-                       currentUser.fir?.code === firCode);
-
+  const canManageFIR = isVATGERLead() || isFIRLead()
+  
   if (loading) {
     return (
       <div className="container mx-auto py-6">
@@ -78,7 +70,6 @@ export default function FIRDetailPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <FIRNavbar />
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <Link href="/admin/firs">
@@ -131,7 +122,7 @@ export default function FIRDetailPage() {
                   group={group}
                   firCode={fir.code}
                   canManage={canManageFIR}
-                  VATGERStaff={currentUser?.effectiveLevel == "VATGER_LEITUNG" || currentUser?.effectiveLevel == "MAIN_ADMIN"}
+                  VATGERStaff={isVATGERLead()}
                   onUpdate={loadData}
                 />
                 
@@ -156,10 +147,11 @@ export default function FIRDetailPage() {
                   canManage = {canManageFIR
                                 && (
                                     group.kind !== "FIR_LEITUNG" ||
-                                    (currentUser.effectiveLevel === "MAIN_ADMIN" || currentUser.effectiveLevel === "VATGER_LEITUNG")
+                                    isVATGERLead()
                                   )}
                   onUpdate={loadData}
                 />
+                
               </CardContent>
             </Card>
           ))}

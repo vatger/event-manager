@@ -32,11 +32,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
 import React from "react";
+import { FIRNavbar } from "./firs/_components/FIRnavbar";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
   { href: "/admin/notifications", label: "Notifications", icon: MessageSquareMore, badge: null },
-  { href: "/admin/team", label: "Members", icon: Users, badge: null },
+  { href: "/admin/firs", label: "Members", icon: Users, badge: null },
 ];
 
 // Navigation Item Komponente
@@ -86,7 +87,7 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
       <Link href="/">
         <div className="flex items-center gap-2 px-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
-            <img src="logo.png" alt="Logo" className="p-1 m-2"/>
+            <img src="/logo.png" alt="Logo" className="p-1 m-2"/>
           </div>
           <div className="flex flex-col">
             <span className="font-bold">Eventmanager</span>
@@ -137,40 +138,44 @@ function AppSidebar({ user }: { user: AdminShellUser }) {
 
 export default function AdminShell({ children, user }: { children: React.ReactNode; user: AdminShellUser }) {
   const pathname = usePathname();
-
+  const newHeader = pathname.includes("/firs")
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
         <AppSidebar user={user} />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
-            <SidebarTrigger className="-ml-1" />
-            <div className="flex flex-1 items-center justify-between">
-              <h1 className="text-lg font-semibold">
-                {getPageTitle(pathname)}
-              </h1>
-              <div className="flex items-center gap-2">
-                <NotificationsWidget />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="capitalize">
-                      {user?.name || "User"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        signOut();
-                      }}
-                    >
-                      Abmelden
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          {!newHeader ? (
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
+              <SidebarTrigger className="-ml-1" />
+              <div className="flex flex-1 items-center justify-between">
+                <h1 className="text-lg font-semibold">
+                  {getPageTitle(pathname)}
+                </h1>
+                <div className="flex items-center gap-2">
+                  <NotificationsWidget />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="capitalize">
+                        {user?.name || "User"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          signOut();
+                        }}
+                      >
+                        Abmelden
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
+          ) : (
+            <FIRNavbar />
+          )}
           <main className="flex-1 p-4 lg:p-6">
             <div className="mx-auto max-w-7xl">
               {children}

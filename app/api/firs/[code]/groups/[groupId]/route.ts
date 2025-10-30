@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import {
-  getEffectiveLevel,
-  canEditGroupPermissions,
-} from "@/lib/acl/policies";
 import { PermissionScope } from "@prisma/client";
 import { clearCache } from "@/lib/cache";
+import { canManageFir, getUserWithPermissions, isVatgerEventleitung } from "@/lib/acl/permissions";
+import { CurrentUser } from "@/types/fir";
 
 // Eingabe-Schema: Liste von Operationen
 const patchSchema = z.object({
@@ -45,9 +43,10 @@ export async function PATCH(
   if (!parsed.success)
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
-
-  // Jede Operation prüfen
+  const me = await getUserWithPermissions(Number(user.cid)) as CurrentUser | null
+  if(!me) return NextResponse.json({ error: "User not found" }, { status: 404 })
+  
+    // Jede Operation prüfen
   for (const op of parsed.data.operations) {
     const permission = await prisma.permission.findUnique({
       where: { key: op.key },
@@ -58,14 +57,7 @@ export async function PATCH(
         { status: 400 }
       );
 
-    const allowed = canEditGroupPermissions(
-      level,
-      group.kind,
-      actorFirId ?? null,
-      group.firId ?? null,
-      op.scope,
-      permission.key
-    );
+    const allowed = await canManageFir(Number(user.cid), fir.code)
 
     if (!allowed) {
       return NextResponse.json(
@@ -127,10 +119,8 @@ export async function DELETE(
   if (!group)
     return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
-  const { level, firId: actorFirId } = await getEffectiveLevel(Number(user.cid));
-
   // Nur MainAdmins und VATGER-Leitung dürfen Gruppen löschen
-  if (level !== "MAIN_ADMIN" && level !== "VATGER_LEITUNG")
+  if (await canManageFir(Number(user.cid), fir.code))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   await prisma.group.delete({ where: { id: group.id } });

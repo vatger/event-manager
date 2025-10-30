@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { userHasPermission } from "@/lib/permissions";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { canManageFir, isVatgerEventleitung } from "@/lib/acl/permissions";
 
 export async function GET(
   _: Request,
@@ -15,8 +15,7 @@ export async function GET(
   });
   if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
 
-  const hasAccess =
-    user?.role === "MAIN_ADMIN" || (await userHasPermission(Number(user!.cid), "fir.manage", fir.id));
+  const hasAccess = await canManageFir(Number(user!.cid), fir.code);
   if (!hasAccess)
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -28,7 +27,7 @@ export async function PATCH(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const user = await getSessionUser();
-  if (!user || user.role !== "MAIN_ADMIN")
+  if (!user || await isVatgerEventleitung(Number(user.cid)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const data = await req.json();
@@ -47,7 +46,7 @@ export async function DELETE(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const user = await getSessionUser();
-  if (!user || user.role !== "MAIN_ADMIN")
+  if (!user || await isVatgerEventleitung(Number(user.cid)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { code } = await params;

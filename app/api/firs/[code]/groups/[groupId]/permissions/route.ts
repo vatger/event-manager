@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { userHasPermission } from "@/lib/permissions";
 import { clearCache } from "@/lib/cache";
+import { canManageFir, isVatgerEventleitung } from "@/lib/acl/permissions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string; groupId: string }> }) {
   const {code, groupId } = await params;
@@ -14,9 +14,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ code: s
   const fir = await prisma.fIR.findUnique({ where: { code: code } });
   if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
 
-  const hasAccess =
-    session.user.role === "MAIN_ADMIN" ||
-    (await userHasPermission(Number(session.user.cid), "fir.manage", fir.id));
+  const hasAccess = await canManageFir(Number(session.user.cid), fir.code)
   if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const allPerms = await prisma.permission.findMany({
@@ -53,10 +51,8 @@ export async function PATCH(
       return NextResponse.json({ error: "FIR not found" }, { status: 404 });
     }
 
-    const isMainAdmin = session.user.role === "MAIN_ADMIN";
-    const hasAccess =
-      isMainAdmin ||
-      (await userHasPermission(Number(session.user.cid), "fir.manage", fir.id));
+    const isVatgerLeitung = await isVatgerEventleitung(Number(session.user.cid))
+    const hasAccess = await canManageFir(Number(session.user.cid), fir.code)
     
     if (!hasAccess) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -92,7 +88,7 @@ export async function PATCH(
       }
 
       // Scope Validierung für nicht-MainAdmins
-      if (update.scope === "ALL" && !isMainAdmin) {
+      if (update.scope === "ALL" && !isVatgerLeitung) {
         return NextResponse.json(
           { error: "Insufficient permissions for ALL scope" }, 
           { status: 403 }
