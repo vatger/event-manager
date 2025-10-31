@@ -118,8 +118,8 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
   })
   
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  if (!await userHasFirPermission(Number(session.user.cid), firbyevent.firCode, "event.edit") && !await isVatgerEventleitung(Number(session.user.cid))) {
-    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)", firbyevent}, { status: 401 });
+  if (!await userHasFirPermission(Number(session.user.cid), firbyevent.firCode, "event.delete") && !await isVatgerEventleitung(Number(session.user.cid))) {
+    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to delete events (in this FIR)", firbyevent}, { status: 401 });
   }
 
   await prisma.eventSignup.deleteMany({ where: { eventId: Number(eventId) } });
