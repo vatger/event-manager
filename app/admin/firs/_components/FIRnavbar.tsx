@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { User, Settings, LogOut, Home, Users } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 
 export function FIRNavbar() {
   const pathname = usePathname();
@@ -84,15 +85,14 @@ export function FIRNavbar() {
                       <span className="text-xs text-muted-foreground">
                         Rating: {currentUser.rating}
                       </span>
+                      <span className="text-xs text-muted-foreground">
+                        FIR: {currentUser.fir?.code}
+                      </span>
+                      
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Einstellungen
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => signOut()}>
                     <LogOut className="w-4 h-4 mr-2" />
                     Abmelden
                   </DropdownMenuItem>

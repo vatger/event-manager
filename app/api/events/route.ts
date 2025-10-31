@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getUserWithPermissions } from "@/lib/acl/permissions";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -23,6 +24,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
+  firId: z.number().optional(),
 });
 
 // --- GET: Alle Events ---
@@ -76,13 +78,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (
-      !session || 
-      (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
-    ) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
+    if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
     const body = await req.json();
     const parsed = eventSchema.safeParse(body);
     if (!parsed.success) {
@@ -90,6 +87,13 @@ export async function POST(req: Request) {
         { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
+    }
+    const user = await getUserWithPermissions(Number(session.user.cid))
+    const fir = parsed.data.firId || user?.fir?.id
+    if(!fir) return NextResponse.json({ error: "Unauthorized", message: "Invalid FIR" }, { status: 401 });
+    
+    if (!user?.firScopedPermissions[fir].includes("event.create")) {
+      return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)" }, { status: 401 });
     }
 
     const event = await prisma.event.create({
@@ -106,6 +110,7 @@ export async function POST(req: Request) {
         staffedStations: parsed.data.staffedStations || [],
         status: parsed.data.status || "PLANNING",
         createdById: parseInt(session.user.id),
+        firId: fir,
       },
     });
 

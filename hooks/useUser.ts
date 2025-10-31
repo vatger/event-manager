@@ -43,6 +43,10 @@ export function useUser() {
 
   const isMainAdmin = (): boolean => data?.role === "MAIN_ADMIN";
 
+  const hasAdminAcess = (): boolean => 
+    (data?.effectivePermissions.includes("admin.access") ?? false) ||
+    data?.effectiveLevel == "MAIN_ADMIN";
+
   // ---------- RETURN ----------
   return {
     user: data,
@@ -56,5 +60,6 @@ export function useUser() {
     isFIRLead,
     isVATGERLead,
     isMainAdmin,
+    hasAdminAcess,
   };
 }

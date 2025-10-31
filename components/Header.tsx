@@ -11,10 +11,11 @@ import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./NotificationsWidget";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { clearCache } from "@/lib/cache";
+import { useUser } from "@/hooks/useUser";
 
 export default function Header() {
   const { data: session } = useSession();
+  const { hasAdminAcess } = useUser()
 
   return (
     <header className="w-full flex justify-between items-center p-4 border-b">
@@ -42,7 +43,7 @@ export default function Header() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
-              {(session.user.role == "ADMIN" || session.user.role == "MAIN_ADMIN") && (
+              {hasAdminAcess() && (
                 <DropdownMenuItem>
                   <Link href="/admin" className="w-full">Admin</Link>
                 </DropdownMenuItem>
@@ -53,9 +54,6 @@ export default function Header() {
                 }}
               >
                 Abmelden
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => clearCache()}>
-                Clear Chach
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
