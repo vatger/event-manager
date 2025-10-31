@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 
 // Type Definitions basierend auf Ihrem Schema
 interface TimeSlot {
@@ -220,10 +221,7 @@ function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-    if (
-      !session || 
-      (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
-    ) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   try {
@@ -260,6 +258,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
+    //Permission abfrage
+    if(!await userHasFirPermission(Number(session.user.cid), rawEvent.firCode!, "event.export") && !await isVatgerEventleitung(Number(session.user.cid))){
+      return NextResponse.json({ error: "Unauthorized", message: "User has no permission to export this event (event.export needed)"}, { status: 401 })
+    }
     // Event konvertieren
     const event = convertEvent(rawEvent);
     const timeslots = generateTimeslots(event.startTime!, event.endTime!, 30);

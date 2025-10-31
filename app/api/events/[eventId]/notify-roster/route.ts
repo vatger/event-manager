@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 
 const VATGER_API_TOKEN = process.env.VATGER_API_TOKEN!;
 
@@ -10,12 +11,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   const { eventId } = await params;
   // 🔒 Prüfen ob eingeloggt
   if (!session?.user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // 🔒 Prüfen ob Admin oder Main Admin
-  if (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+  if (!await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "roster.publish")) {
+    return NextResponse.json({ error: "Insufficient permissions", message: "You need roster.publish in your FIR to send this notification" }, { status: 403 });
   }
 
   const id = parseInt(eventId);

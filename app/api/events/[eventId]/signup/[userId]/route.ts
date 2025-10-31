@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
+import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 
 
 
@@ -37,7 +38,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
   const session = await getServerSession(authOptions);
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
-  if(!session || (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN" && eventdata.status !== "SIGNUP_OPEN")) return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
+  if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if(!await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage") && eventdata.status !== "SIGNUP_OPEN")
+    return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
 
   try {
     const updated = await prisma.eventSignup.update({
@@ -68,8 +71,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
   const session = await getServerSession(authOptions);
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
-  if(!session || (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN" && eventdata.status !== "SIGNUP_OPEN")) return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
-
+  if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if(!await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage") && eventdata.status !== "SIGNUP_OPEN")
+    return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
+ 
   try {
     await prisma.eventSignup.delete({
       where: {

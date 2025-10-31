@@ -94,3 +94,19 @@ export async function isVatgerEventleitung(cid: number) {
     (ug) => ug.group.kind === "GLOBAL_VATGER_LEITUNG"
   );
 }
+
+/**
+ * Hilfsfunktion ob zu prüfen ob ein Nutzer die Brechtigungen an einem
+ * Event hat (userHasFirPermission shortcut)
+ * @example userhasPermissiononEvent(1649341, 1, "roster.publish")
+ */
+export async function userhasPermissiononEvent(cid: number, eventId: number, permission: string){
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { firCode: true }
+  })
+
+  if(await isVatgerEventleitung(cid)) return true
+  if(!event?.firCode) return false
+  return await userHasFirPermission(cid, event?.firCode, permission)
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { userhasPermissiononEvent } from '@/lib/acl/permissions';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const session = await getServerSession(authOptions);
@@ -10,8 +11,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN") {
-    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+  if (!await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "user.notif")) {
+    return NextResponse.json({ error: "Insufficient permissions", message: "You need user.notif in your FIR to notify users" }, { status: 403 });
   }
 
   const id = parseInt(eventId);

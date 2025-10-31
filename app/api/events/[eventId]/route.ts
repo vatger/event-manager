@@ -197,6 +197,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       );
     }
     
+    if(parsed.data.status === "ROSTER_PUBLISHED"){
+      if(!await userHasFirPermission(user.cid, fir, "roster.publish")) {
+        return NextResponse.json({ error: "Insufficient permissions", message: "You need roster.publish in your FIR for this action"}, { status: 403})
+      }
+    }
+
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: parsed.data
