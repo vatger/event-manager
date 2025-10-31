@@ -90,8 +90,8 @@ model Event {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  firId Int?
-  fir   FIR? @relation(fields: [firId], references: [id])
+  firCode String?
+  fir   FIR? @relation(fields: [firCode], references: [code])
 
   signups      EventSignup[]
   Notification Notification[]
