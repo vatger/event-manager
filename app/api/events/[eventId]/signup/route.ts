@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
+import { isVatgerEventleitung } from "@/lib/acl/permissions";
 
 // GET: alle Signups für ein Event
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
@@ -26,6 +27,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
   const {eventId} = await params
   const session = await getServerSession(authOptions);
   if (!session || session.user.rating == "OBS") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if(!await isVatgerEventleitung(Number(session.user.cid)))
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const eventid = parseInt(eventId, 10);
   const body = await req.json();
