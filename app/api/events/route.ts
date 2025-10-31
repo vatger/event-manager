@@ -24,7 +24,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  firId: z.number().optional(),
+  fir: z.string().optional(),
 });
 
 // --- GET: Alle Events ---
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       );
     }
     const user = await getUserWithPermissions(Number(session.user.cid))
-    const fir = parsed.data.firId || user?.fir?.id
+    const fir = parsed.data.fir || user?.fir?.code
     if(!fir) return NextResponse.json({ error: "Unauthorized", message: "Invalid FIR" }, { status: 401 });
     
     if (!user?.firScopedPermissions[fir].includes("event.create")) {
@@ -110,7 +110,7 @@ export async function POST(req: Request) {
         staffedStations: parsed.data.staffedStations || [],
         status: parsed.data.status || "PLANNING",
         createdById: parseInt(session.user.id),
-        firId: fir,
+        firCode: fir,
       },
     });
 

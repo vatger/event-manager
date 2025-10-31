@@ -12,4 +12,5 @@ export interface Event {
     status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
     isSignedUp?: boolean;
     rosterlink?: string;
+    firCode: string;
 }

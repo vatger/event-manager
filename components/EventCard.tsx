@@ -77,7 +77,7 @@ import { Event } from "@/types";
           />
           <CardTitle className="text-lg font-semibold">{event.name}</CardTitle>
           <CardDescription className="flex items-center gap-2 text-sm">
-            <MapPin className="w-4 h-4" /> {event.airports}
+            <MapPin className="w-4 h-4" /> {event.airports} ({event.firCode})
           </CardDescription>
         </CardHeader>
   
@@ -107,8 +107,6 @@ import { Event } from "@/types";
                   {status.label}
                 </Badge>
           )}
-          
-          
         </CardContent>
   
         <CardFooter>

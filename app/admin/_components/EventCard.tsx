@@ -97,6 +97,9 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
             <Calendar className="w-4 h-4" />
             <span>Deadline: {formattedDeadline}</span>
           </div>
+          <Badge variant={"default"} className="capitalize mr-2">
+            {event.firCode}
+          </Badge>
           <Badge variant={statusConfig.variant} className="capitalize">
             {statusConfig.label}
           </Badge>
