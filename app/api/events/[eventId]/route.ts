@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
-import { getUserWithPermissions } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -25,7 +25,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  fir: z.string()
+  firCode: z.string().optional()
 });
 
 
@@ -44,23 +44,41 @@ export async function GET(request: Request,
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-  if (
-    !session || 
-    (session.user.role !== "ADMIN" && session.user.role !== "MAIN_ADMIN")
-  ) {
-          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  
   const body = await req.json();
   const parsed = eventSchema.safeParse(body);
 
   if (!parsed.success) {
     console.log("error: Validation failed", "details:" + parsed.error.flatten().fieldErrors)
-      return NextResponse.json(
-        { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
-        { status: 400 }
-      );
+    return NextResponse.json(
+      { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  const firbyevent = await prisma.event.findUnique({
+    where: {
+      id: Number(eventId)
+    },
+    select: {
+      firCode: true
     }
-    
+  })
+  if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  
+  if(parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(Number(session.user.cid))) {
+    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and  VATGER can move the event to another FIR"}, { status: 401 });
+  }
+  const fir = parsed.data.firCode || firbyevent.firCode
+  if(!fir) return NextResponse.json({ error: "Invalid FIR" }, { status: 401 });
+  
+  if (!await userHasFirPermission(Number(session.user.cid), fir, "event.edit") && !await isVatgerEventleitung(Number(session.user.cid))) {
+    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
+  }
+
   const event = await prisma.event.update({
     where: { id: Number(eventId) },
     data: {
@@ -77,6 +95,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         status: parsed.data.status || "PLANNING",
         createdById: parseInt(session.user.id),
         rosterlink: body.rosterlink || null,
+        firCode: fir,
       },
   });
   return NextResponse.json(event);
@@ -85,24 +104,59 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
-  if (
-    !session || 
-    (session.user.role !== "MAIN_ADMIN")
-  ) {
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
+
+  const firbyevent = await prisma.event.findUnique({
+    where: {
+      id: Number(eventId)
+    },
+    select: {
+      firCode: true
+    }
+  })
+  
+  if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  if (!await userHasFirPermission(Number(session.user.cid), firbyevent.firCode, "event.edit") && !await isVatgerEventleitung(Number(session.user.cid))) {
+    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)", firbyevent}, { status: 401 });
+  }
+
   await prisma.eventSignup.deleteMany({ where: { eventId: Number(eventId) } });
   await prisma.event.delete({ where: { id: Number(eventId) } });
   return NextResponse.json({ success: true });
 }
 
+const updateEventSchema = z.object({
+  name: z.string().min(3).optional(),
+  description: z.string().optional(),
+  bannerUrl: z.string().optional(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
+  airports: z.array(z.string().length(4, "ICAO must be 4 letters")).optional(),
+  signupDeadline: z
+    .string()
+    .refine((val) => !val || !isNaN(Date.parse(val)), {
+      message: "Invalid date format for signupDeadline",
+    }).optional().nullable(),
+  staffedStations: z.array(z.string()).optional(),
+  rosterlink: z.string().url("Rosterlink ist keine gültige URL").nullable().optional(),
+  status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
+  firCode: z.string().optional()
+});
+
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    
+  // const session = {
+  //   user: {
+  //     cid: 1649341,
+  //   }
+  // }
+  
   const body = await req.json();
-  const parsed = eventSchema.safeParse(body);
+  const parsed = updateEventSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
@@ -110,11 +164,28 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     );
   }
   const user = await getUserWithPermissions(Number(session.user.cid))
-  const fir = parsed.data.fir
-  if(!fir) return NextResponse.json({ error: "Unauthorized", message: "Invalid FIR" }, { status: 401 });
+  if(!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
-  if (!user?.firScopedPermissions[fir].includes("event.edit")) {
-    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)" }, { status: 401 });
+  const firbyevent = await prisma.event.findUnique({
+    where: {
+      id: Number(eventId)
+    },
+    select: {
+      firCode: true
+    }
+  })
+  if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+
+  if(parsed.data.firCode != firbyevent.firCode && user.effectiveLevel != "MAIN_ADMIN" && user.effectiveLevel != "VATGER_LEITUNG") {
+    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and  VATGER can move the event to another FIR"}, { status: 401 });
+  }
+  
+  const fir = parsed.data.firCode || firbyevent.firCode
+  if(!fir) return NextResponse.json({ error: "Invalid FIR" }, { status: 401 });
+  
+  if (!await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
+    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
   }
 
   try {
@@ -125,17 +196,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
         { status: 400 }
       );
     }
-    const data = {
-      ...(() => {
-        const { fir, ...rest } = parsed.data;
-        return rest;
-      })(),
-      firCode: fir,
-    };
     
     const updatedEvent = await prisma.event.update({
       where: { id },
-      data
+      data: parsed.data
     });
 
     // Notifications: Beispiel - wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
