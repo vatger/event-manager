@@ -1,6 +1,6 @@
 "use client";
 
-import AdminEventForm from "../../_components/AdminEventForm";
+import AdminEventForm from "../_components/AdminEventForm";
 
 export default function CreateEventPage() {
 

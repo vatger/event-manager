@@ -1,7 +1,7 @@
 import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import SyncToSheetsButton from "@/app/admin/_components/SyncToSheetsButton";
+import SyncToSheetsButton from "@/app/admin/events/[id]/_components/SyncToSheetsButton";
 
 interface EventHeaderProps {
   event: Event;

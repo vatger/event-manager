@@ -9,6 +9,7 @@ import {
   LogOut,
   MessageCircle,
   MessageSquareMore,
+  Calendar1,
 } from "lucide-react";
 
 import {
@@ -36,7 +37,7 @@ import { FIRNavbar } from "./firs/_components/FIRnavbar";
 
 const sidebarItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
-  { href: "/admin/notifications", label: "Notifications", icon: MessageSquareMore, badge: null },
+  { href: "/admin/events", label: "Events", icon: Calendar1, badge: null },
   { href: "/admin/firs", label: "Members", icon: Users, badge: null },
 ];
 

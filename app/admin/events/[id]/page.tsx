@@ -7,7 +7,7 @@ import EventHeader from "./_components/EventHeader";
 import StatsCard from "./_components/StatsCard";
 import AvailabilityTimeline from "./_components/AvailabilityTimeline";
 import SignupsTableCard from "./_components/SignupTableCard";
-import SyncToSheetsButton from "@/app/admin/_components/SyncToSheetsButton";
+import SyncToSheetsButton from "@/app/admin/events/[id]/_components/SyncToSheetsButton";
 
 export default function AdminEventSignupsPage() {
   const params = useParams();

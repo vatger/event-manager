@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Signup, TimeRange } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useEndorsements } from "../../../../../../hooks/useEndorsements";
+import { useEndorsements } from "@/hooks/useEndorsements";
 
 interface AvailabilityTimelineProps {
   signups: Signup[];

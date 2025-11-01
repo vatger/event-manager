@@ -1,5 +1,5 @@
 "use client";
-import AdminEventForm from "@/app/admin/_components/AdminEventForm";
+import AdminEventForm from "@/app/admin/events/_components/AdminEventForm";
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import axios from "axios";
