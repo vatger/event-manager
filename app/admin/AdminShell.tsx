@@ -1,179 +1,40 @@
+// components/AdminShell.tsx
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Users,
-  LogOut,
-  MessageCircle,
-  MessageSquareMore,
-  Calendar1,
-} from "lucide-react";
-
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import NotificationsWidget from "@/components/NotificationsWidget";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { signOut } from "next-auth/react";
-import React from "react";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { FIRNavbar } from "./firs/_components/FIRnavbar";
-
-const sidebarItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, badge: null },
-  { href: "/admin/events", label: "Events", icon: Calendar1, badge: null },
-  { href: "/admin/firs", label: "Members", icon: Users, badge: null },
-];
-
-// Navigation Item Komponente
-const NavItem = ({ 
-  item, 
-  isActive 
-}: { 
-  item: typeof sidebarItems[0]; 
-  isActive: boolean; 
-}) => {
-  const Icon = item.icon;
-  
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent group",
-        isActive 
-          ? "bg-accent text-accent-foreground font-medium" 
-          : "text-muted-foreground"
-      )}
-    >
-      <Icon className="h-4 w-4 flex-shrink-0" />
-      <span className="flex-1 truncate">{item.label}</span>
-      {item.badge && (
-        <Badge 
-          variant="secondary" 
-          className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full p-0 text-xs"
-        >
-          {item.badge}
-        </Badge>
-      )}
-    </Link>
-  );
-};
+import { AdminSidebar } from "./_components/sidebar/AdminSidebar";
+import { AdminHeader } from "./_components/AdminHeader";
+import { navigationConfig } from "./_components/sidebar/sidebar-nav";
 
 export type AdminShellUser = {
   name: string;
   cid: string;
+  permissions?: string[];
 };
 
-function AppSidebar({ user }: { user: AdminShellUser }) {
-  const pathname = usePathname();
-  return (
-    <Sidebar className="border-r bg-background">
-      <SidebarHeader className="border-b p-3">
-      <Link href="/">
-        <div className="flex items-center gap-2 px-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
-            <img src="/logo.png" alt="Logo" className="p-1 m-2"/>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold">Eventmanager</span>
-            <span className="text-xs text-muted-foreground">Adminpanel</span>
-          </div>
-        </div>
-        </Link>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <nav className="flex flex-col gap-1 p-2">
-          {sidebarItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/admin');
-            return (
-              <NavItem 
-                key={item.href} 
-                item={item} 
-                isActive={isActive} 
-              />
-            );
-          })}
-        </nav>
-      </SidebarContent>
-
-      <SidebarFooter className="border-t p-4">
-        <div className="flex items-center gap-3 px-2">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {user?.name ? user.name.charAt(0) : "Y"}
-              {user?.name && user.name.split(" ").length > 1 ? user.name.split(" ")[1].charAt(0) : ""}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex flex-1 flex-col min-w-0">
-            <span className="text-sm font-medium truncate">{user?.name}</span>
-            <span className="text-xs text-muted-foreground truncate">{user?.cid}</span>
-          </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0" 
-                  onClick={() => {
-                    signOut();
-                  }}>
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      </SidebarFooter>
-    </Sidebar>
-  );
+interface AdminShellProps {
+  children: React.ReactNode;
+  user: AdminShellUser;
 }
 
-export default function AdminShell({ children, user }: { children: React.ReactNode; user: AdminShellUser }) {
+export default function AdminShell({ children, user }: AdminShellProps) {
   const pathname = usePathname();
-  const newHeader = pathname.includes("/firs")
+  
+  const isFIRPage = pathname.includes("/firs");
+  const pageTitle = getPageTitle(pathname);
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar user={user} />
+        <AdminSidebar user={user} />
         <SidebarInset>
-          {!newHeader ? (
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
-              <SidebarTrigger className="-ml-1" />
-              <div className="flex flex-1 items-center justify-between">
-                <h1 className="text-lg font-semibold">
-                  {getPageTitle(pathname)}
-                </h1>
-                <div className="flex items-center gap-2">
-                  <NotificationsWidget />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="capitalize">
-                        {user?.name || "User"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-40">
-                      <DropdownMenuItem><Link href="/admin" className="w-full">Admin</Link></DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          signOut();
-                        }}
-                      >
-                        Abmelden
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            </header>
+          {!isFIRPage ? (
+            <AdminHeader 
+              title={pageTitle} 
+              user={user}
+            />
           ) : (
             <FIRNavbar />
           )}
@@ -190,8 +51,12 @@ export default function AdminShell({ children, user }: { children: React.ReactNo
 
 // Hilfsfunktion für Seitentitel
 function getPageTitle(pathname: string): string {
-  const item = sidebarItems.find(item => 
-    pathname === item.href || pathname.startsWith(item.href + '/admin')
-  );
-  return item?.label || "Dashboard";
+  for (const group of navigationConfig) {
+    for (const item of group.items) {
+      if (pathname === item.href || pathname.startsWith(item.href + '/admin')) {
+        return item.label;
+      }
+    }
+  }
+  return "Dashboard";
 }

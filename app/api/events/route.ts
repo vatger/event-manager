@@ -29,6 +29,14 @@ const eventSchema = z.object({
 
 // --- GET: Alle Events ---
 export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const firCode = searchParams.get("fir");
+
+  let where = {};
+  if (firCode && firCode !== "ALL") {
+    where = { firCode };
+  }
+
   try {
     const url = new URL(req.url);
     const userCIDParam = url.searchParams.get("userCID");
@@ -37,6 +45,7 @@ export async function GET(req: Request) {
 
     const events = await prisma.event.findMany({
       orderBy: { startTime: "asc" },
+      where,
       include: {
         _count: {
           select: { signups: true },

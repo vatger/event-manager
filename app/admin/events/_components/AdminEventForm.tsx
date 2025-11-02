@@ -160,7 +160,7 @@ export default function AdminEventForm({ event }: Props) {
         throw new Error(data.error || `HTTP error! status: ${res.status}`);
       }
 
-      router.push("/admin");
+      router.push("/admin/events");
       router.refresh();
     } catch (err) {
       setError(`Fehler beim ${isEdit ? "Speichern" : "Erstellen"} des Events! ${err instanceof Error ? err.message : "Unbekannter Fehler"}`);
@@ -201,7 +201,7 @@ export default function AdminEventForm({ event }: Props) {
       if(!event) return;
       const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Fehler beim Löschen");
-      router.push("/admin");
+      router.push("/admin/events");
     } catch (err) {
       setError("Fehler beim Löschen des Events");
     }
@@ -417,7 +417,7 @@ export default function AdminEventForm({ event }: Props) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push("/admin")}
+            onClick={() => router.push("/admin/events")}
             disabled={isSaving}
           >
             Abbrechen

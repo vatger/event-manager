@@ -117,6 +117,7 @@ async function main() {
       name: "Yannik Schäffler",
       rating: "C1",
       role: Role.MAIN_ADMIN,
+      firId: fir.id,
     },
   });
 
