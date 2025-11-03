@@ -221,7 +221,7 @@ export default function AdminEventForm({ event, fir }: Props) {
   return (
     <div className="container mx-auto py-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
             {isEdit ? "Event bearbeiten" : "Neues Event erstellen"}
@@ -232,26 +232,28 @@ export default function AdminEventForm({ event, fir }: Props) {
               : `Erstelle ein neues Event ${isVATGERLead() ? "in " + formData.fir : "der " + fir?.name}`
             }
           </p>
-          {/* FIR Switcher */}
-          {isVATGERLead() && (
-            <Select
-              defaultValue={fir?.code || event?.firCode}
-              onValueChange={(value) => {
-                setFormData((prev) => ({ ...prev, fir: value }));
-              }}
-            >
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="FIR auswählen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EDMM">EDMM</SelectItem>
-                <SelectItem value="EDGG">EDGG</SelectItem>
-                <SelectItem value="EDWW">EDWW</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
         </div>
+
+        {/* FIR Switcher */}
+        {isVATGERLead() && (
+          <Select
+            defaultValue={fir?.code || event?.firCode}
+            onValueChange={(value) => {
+              setFormData((prev) => ({ ...prev, fir: value }));
+            }}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue placeholder="FIR auswählen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="EDMM">EDMM</SelectItem>
+              <SelectItem value="EDGG">EDGG</SelectItem>
+              <SelectItem value="EDWW">EDWW</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
+
 
       {error && (
         <Alert variant="destructive" className="mb-6">
