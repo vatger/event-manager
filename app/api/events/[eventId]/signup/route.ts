@@ -28,15 +28,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
   const session = await getServerSession(authOptions);
   if (!session || session.user.rating == "OBS") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if(!await isVatgerEventleitung(Number(session.user.cid)))
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-
   const eventid = parseInt(eventId, 10);
   const body = await req.json();
 
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventid)}})
   if(!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
-  if(eventdata.status !== "SIGNUP_OPEN") return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen"}, {status: 500})
+  if(eventdata.status !== "SIGNUP_OPEN" && !await isVatgerEventleitung(Number(session.user.cid))) return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen"}, {status: 500})
 
   try {
     const signup = await prisma.eventSignup.create({
@@ -52,7 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
 
     return NextResponse.json(signup);
   } catch (err) {
-    console.error(err);
+    console.error("Error", err);
     return NextResponse.json({ error: "Fehler beim Erstellen des Signups" }, { status: 500 });
   }
 }
