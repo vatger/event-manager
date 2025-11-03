@@ -36,11 +36,7 @@ export function computeEffectiveData(user: UserWithAll): EffectiveData {
   if (user.role === "MAIN_ADMIN") {
     effectiveLevel = "MAIN_ADMIN";
     [
-      "admin.access",
-      "fir.manage",
-      "event.create",
-      "event.edit",
-      "event.delete",
+      "*",
     ].forEach((p) => effectivePermissions.add(p));
   }
 

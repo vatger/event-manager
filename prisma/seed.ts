@@ -4,11 +4,14 @@ const prisma = new PrismaClient();
 
 async function ensureBasePermissions() {
   const permissions = [
+    { key: "admin.access", description: "Zugriff auf Admin-Bereich" },
     { key: "event.create", description: "Events erstellen" },
     { key: "event.edit", description: "Events bearbeiten" },
     { key: "event.delete", description: "Events löschen" },
-    { key: "group.manage", description: "Gruppen verwalten" },
     { key: "roster.publish", description: "Roster veröffentlichen" },
+    { key: "fir.manage", description: "FIRs verwalten" },
+    { key: "signups.manage", description: "Anmeldungen verwalten" },
+    { key: "user.notif", description: "Benutzer benachrichtigen" },
   ];
 
   for (const p of permissions) {
@@ -21,29 +24,14 @@ async function ensureBasePermissions() {
 }
 
 async function createStandardGroups(firId: number, firCode: string) {
-  // 🔹 Stelle sicher, dass alle Permissions da sind
   await ensureBasePermissions();
-
   const allPerms = await prisma.permission.findMany();
   const byKey = Object.fromEntries(allPerms.map((p) => [p.key, p.id]));
-
-  // ✅ Sicherheitscheck
-  const missing = [
-    "event.create",
-    "event.edit",
-    "event.delete",
-    "group.manage",
-    "roster.publish",
-  ].filter((key) => !byKey[key]);
-
-  if (missing.length > 0) {
-    console.warn("⚠️ Fehlende Permissions:", missing);
-  }
 
   // FIR-Leitung
   const firLeitung = await prisma.group.create({
     data: {
-      name: `FIR ${firCode} Leitung`,
+      name: `${firCode} Eventleitung`,
       description: `Eventleitung der FIR ${firCode}`,
       kind: GroupKind.FIR_LEITUNG,
       firId,
@@ -51,12 +39,15 @@ async function createStandardGroups(firId: number, firCode: string) {
   });
 
   const leitungPerms = [
+    "admin.access",
     "event.create",
     "event.edit",
     "event.delete",
-    "group.manage",
     "roster.publish",
-  ].filter((k) => byKey[k]); // nur vorhandene nehmen
+    "fir.manage",
+    "signups.manage",
+    "user.notif",
+  ];
 
   await prisma.groupPermission.createMany({
     data: leitungPerms.map((key) => ({
@@ -66,24 +57,32 @@ async function createStandardGroups(firId: number, firCode: string) {
     })),
   });
 
-  // FIR-Event-Team
+  // admin.access zusätzlich global (ALL)
+  await prisma.groupPermission.create({
+    data: {
+      groupId: firLeitung.id,
+      permissionId: byKey["admin.access"],
+      scope: PermissionScope.ALL,
+    },
+  });
+
+  // FIR-Team
   const firTeam = await prisma.group.create({
     data: {
-      name: `FIR ${firCode} Event Team`,
+      name: `${firCode} Eventteam`,
       description: `Eventteam der FIR ${firCode}`,
       kind: GroupKind.FIR_TEAM,
       firId,
     },
   });
 
-  const teamPerms = ["event.edit" ].filter((k) => byKey[k]);
-
-  await prisma.groupPermission.createMany({
-    data: teamPerms.map((key) => ({
+  // Keine Berechtigungen – außer admin.access mit ALL
+  await prisma.groupPermission.create({
+    data: {
       groupId: firTeam.id,
-      permissionId: byKey[key],
-      scope: PermissionScope.OWN_FIR,
-    })),
+      permissionId: byKey["admin.access"],
+      scope: PermissionScope.ALL,
+    },
   });
 
   return { firLeitung, firTeam };
@@ -92,7 +91,7 @@ async function createStandardGroups(firId: number, firCode: string) {
 async function main() {
   console.log("🌱 Seeding initial data...");
 
-  // Bereinigen
+  // Datenbank bereinigen
   await prisma.eventSignup.deleteMany();
   await prisma.event.deleteMany();
   await prisma.userGroup.deleteMany();
@@ -102,39 +101,50 @@ async function main() {
   await prisma.fIR.deleteMany();
   await prisma.user.deleteMany();
 
-  // Permissions + FIR erstellen
+  // Permissions
   await ensureBasePermissions();
 
-  const fir = await prisma.fIR.create({
-    data: { code: "EDMM", name: "FIR München" },
-  });
-  const { firLeitung, firTeam } = await createStandardGroups(fir.id, fir.code);
+  // FIRs erstellen
+  const firs = [
+    { code: "EDMM", name: "FIR München" },
+    { code: "EDWW", name: "FIR Bremen" },
+    { code: "EDGG", name: "FIR Langen" },
+  ];
 
-  // Benutzer
+  for (const firData of firs) {
+    const fir = await prisma.fIR.create({ data: firData });
+    await createStandardGroups(fir.id, fir.code);
+  }
+
+  // Beispiel-Main-Admin (für EDMM)
+  const firEDMM = await prisma.fIR.findUnique({ where: { code: "EDMM" } });
   const mainAdmin = await prisma.user.create({
     data: {
       cid: 1649341,
       name: "Yannik Schäffler",
       rating: "C1",
       role: Role.MAIN_ADMIN,
-      firId: fir.id,
+      firId: firEDMM?.id,
     },
   });
 
-  // Gruppenzuweisung
-  await prisma.userGroup.create({
-    data: { userCID: Number(mainAdmin.cid), groupId: firLeitung.id },
+  // Zuweisung zu EDMM-Leitung & Team
+  const edmmGroups = await prisma.group.findMany({
+    where: { firId: firEDMM?.id },
   });
-  await prisma.userGroup.create({
-    data: { userCID: Number(mainAdmin.cid), groupId: firTeam.id },
-  });
+
+  for (const g of edmmGroups) {
+    await prisma.userGroup.create({
+      data: { userCID: Number(mainAdmin.cid), groupId: g.id },
+    });
+  }
 
   console.log("✅ Seeding completed!");
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("❌ Fehler beim Seeding:", e);
     process.exit(1);
   })
   .finally(async () => {

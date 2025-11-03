@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserWithPermissions } from "@/lib/acl/permissions";
+import { getUserWithPermissions, userHasFirPermission } from "@/lib/acl/permissions";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -24,7 +24,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  fir: z.string().optional(),
+  firCode: z.string().optional(),
 });
 
 // --- GET: Alle Events ---
@@ -98,10 +98,10 @@ export async function POST(req: Request) {
       );
     }
     const user = await getUserWithPermissions(Number(session.user.cid))
-    const fir = parsed.data.fir || user?.fir?.code
+    const fir = parsed.data.firCode || user?.fir?.code
     if(!fir) return NextResponse.json({ error: "Unauthorized", message: "Invalid FIR" }, { status: 401 });
     
-    if (!user?.firScopedPermissions[fir].includes("event.create")) {
+    if (await userHasFirPermission(Number(session.user.cid), fir, "event.create") === false) {
       return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)" }, { status: 401 });
     }
 

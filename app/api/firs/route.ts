@@ -38,6 +38,7 @@ async function createStandardGroups(firId: number, firCode: string) {
     "event.edit",
     "event.delete",
     "group.manage",
+    "admin.access",
     "roster.publish",
   ] as const;
 
@@ -61,6 +62,7 @@ async function createStandardGroups(firId: number, firCode: string) {
     "event.edit",
     "event.delete",
     "group.manage",
+    "admin.access",
     "roster.publish",
   ];
   await prisma.groupPermission.createMany({

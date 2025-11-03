@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
 import { Event } from "@/types";
+import { useUser } from "@/hooks/useUser";
 
 interface FormData {
   name: string;
@@ -26,10 +27,15 @@ interface FormData {
   staffedStations: string[];
   status: Event["status"];
   deadline?: string;
+  fir: string;
 }
 
 interface Props {
   event?: Event | null;
+  fir?: { 
+    code: string
+    name: string
+  } | null;
 }
 
 const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
@@ -41,10 +47,9 @@ const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
   CANCELLED: "Abgesagt: Das Event findet nicht statt."
 };
 
-export default function AdminEventForm({ event }: Props) {
+export default function AdminEventForm({ event, fir }: Props) {
   const router = useRouter();
   const isEdit = Boolean(event);
-  
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
@@ -57,7 +62,10 @@ export default function AdminEventForm({ event }: Props) {
     airport: "",
     staffedStations: [],
     status: "PLANNING",
+    fir: "",
   });
+
+  const { isVATGERLead } = useUser();
 
   // Initialisierung basierend auf Event (Edit-Modus) oder leere Werte (Create-Modus)
   useEffect(() => {
@@ -75,6 +83,7 @@ export default function AdminEventForm({ event }: Props) {
         status: (event.status as Event["status"]) || "PLANNING",
         rosterUrl: event.rosterlink || "",
         deadline: event.signupDeadline ? new Date(event.signupDeadline).toISOString() : "",
+        fir: isVATGERLead() ? event.firCode : "",
       });
     } else {
       // Setze Standardwerte für neues Event
@@ -92,6 +101,7 @@ export default function AdminEventForm({ event }: Props) {
         staffedStations: [],
         status: "PLANNING",
         rosterUrl: "",
+        fir: isVATGERLead() ? (fir?.code || "EDMM") : "",
       });
     }
   }, [event]);
@@ -142,7 +152,8 @@ export default function AdminEventForm({ event }: Props) {
         staffedStations: formData.staffedStations,
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
-        signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null
+        signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+        firCode: isVATGERLead() ? formData.fir : null,
       };
 
       const method = isEdit ? "PUT" : "POST";
@@ -218,9 +229,27 @@ export default function AdminEventForm({ event }: Props) {
           <p className="text-muted-foreground">
             {isEdit 
               ? "Aktualisiere die Event-Details" 
-              : "Erstelle ein neues Event der FIR München"
+              : `Erstelle ein neues Event ${isVATGERLead() ? "in " + formData.fir : "der " + fir?.name}`
             }
           </p>
+          {/* FIR Switcher */}
+          {isVATGERLead() && (
+            <Select
+              defaultValue={fir?.code || event?.firCode}
+              onValueChange={(value) => {
+                setFormData((prev) => ({ ...prev, fir: value }));
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="FIR auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EDMM">EDMM</SelectItem>
+                <SelectItem value="EDGG">EDGG</SelectItem>
+                <SelectItem value="EDWW">EDWW</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </div>
 
