@@ -1,131 +1,212 @@
+// app/admin/events/[id]/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, Users, Clock, MapPin, AlertCircle, Bell, UserCheck } from "lucide-react";
 import { Event, Signup } from "@/types";
-import EventHeader from "./_components/EventHeader";
-import StatsCard from "./_components/StatsCard";
-import AvailabilityTimeline from "./_components/AvailabilityTimeline";
-import SignupsTableCard from "./_components/SignupTableCard";
-import SyncToSheetsButton from "@/app/admin/events/[id]/_components/SyncToSheetsButton";
+import { useParams } from "next/navigation";
 
-export default function AdminEventSignupsPage() {
+interface EventStats {
+  totalSignups: number;
+  byEndorsement: Record<string, number>;
+  availabilityRate: number;
+}
+
+export default function EventOverviewPage() {
   const params = useParams();
   const eventId = params.id as string;
 
   const [event, setEvent] = useState<Event | null>(null);
-  const [eventLoading, setEventLoading] = useState<boolean>(true);
-  const [eventError, setEventError] = useState<string>("");
-
   const [signups, setSignups] = useState<Signup[]>([]);
-  const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
-  const [signupsError, setSignupsError] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<EventStats>({
+    totalSignups: 0,
+    byEndorsement: {},
+    availabilityRate: 0
+  });
 
-  // Event laden
   useEffect(() => {
-    if (!eventId) return;
-    setEventLoading(true);
-    setEventError("");
-
-    fetch(`/api/events/${eventId}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
-          throw new Error(d.error || "Fehler beim Laden des Events");
-        }
-        return res.json();
-      })
-      .then((data) => setEvent(data))
-      .catch((err) => setEventError(err.message || "Fehler beim Laden des Events"))
-      .finally(() => setEventLoading(false));
+    loadEventData();
   }, [eventId]);
 
-  // Signups laden
-  const loadSignups = () => {
-    if (!eventId) return;
-    setSignupsLoading(true);
-    setSignupsError("");
+  const loadEventData = async () => {
+    setLoading(true);
+    try {
+      const [eventRes, signupsRes] = await Promise.all([
+        fetch(`/api/events/${eventId}`),
+        fetch(`/api/events/${eventId}/signup`)
+      ]);
 
-    fetch(`/api/events/${eventId}/signup`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Fehler beim Laden der Anmeldungen");
-        return res.json();
-      })
-      .then((data) => setSignups(data))
-      .catch((err) => setSignupsError("Fehler beim Laden der Anmeldungen"))
-      .finally(() => setSignupsLoading(false));
+      if (!eventRes.ok || !signupsRes.ok) throw new Error("Fehler beim Laden");
+
+      const eventData = await eventRes.json();
+      const signupsData = await signupsRes.json();
+
+      setEvent(eventData);
+      setSignups(signupsData);
+      calculateStats(signupsData);
+    } catch (error) {
+      console.error("Fehler:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => {
-    loadSignups();
-  }, [eventId]);
+  const calculateStats = (signupsData: Signup[]) => {
+    const byEndorsement: Record<string, number> = {};
+    let totalAvailability = 0;
 
-  // Slots für Timeline generieren
-  const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
+    signupsData.forEach(signup => {
+      // Endorsement Stats
+      const endorsement = "SOON";
+      byEndorsement[endorsement] = (byEndorsement[endorsement] || 0) + 1;
 
-  if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
-  if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
+      // Availability Rate (vereinfacht)
+      if (signup.availability && signup.availability.available) {
+        totalAvailability++;
+      }
+    });
+
+    setStats({
+      totalSignups: signupsData.length,
+      byEndorsement,
+      availabilityRate: signupsData.length > 0 ? (totalAvailability / signupsData.length) * 100 : 0
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Lade Event-Daten...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center text-destructive">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+          <p>Event konnte nicht geladen werden</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <EventHeader 
-        event={event} 
-        onRefresh={loadSignups} 
-        loading={signupsLoading} 
-      />
-      
-      <StatsCard signups={signups} event={{ airports: event.airports, fir: "EDMM" }} />
-      
-      <AvailabilityTimeline 
-        signups={signups} 
-        slots={slots} 
-        loading={signupsLoading} 
-        error={signupsError}
-        event={{ airports: event.airports, fir: "EDMM" }}
-      />
-      
-      <SignupsTableCard
-        signups={signups}
-        event={event}
-        loading={signupsLoading}
-        error={signupsError}
-        onRefresh={loadSignups}
-      />
-      <SyncToSheetsButton eventId={parseInt(event.id.toString())} />
+    <div className="space-y-6">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Anmeldungen</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSignups}</div>
+            <p className="text-xs text-muted-foreground">
+              Controller angemeldet
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Verfügbarkeit</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Math.round(stats.availabilityRate)}%</div>
+            <p className="text-xs text-muted-foreground">
+              Mit Verfügbarkeit
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Positionen</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {Object.keys(stats.byEndorsement).length}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Verschiedene Endorsements
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Status</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              <Badge variant={event.status === "SIGNUP_OPEN" ? "default" : "secondary"}>
+                {event.status}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Event Status
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Endorsement Breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Positionen Übersicht</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {Object.entries(stats.byEndorsement).map(([endorsement, count]) => (
+              <div key={endorsement} className="text-center p-4 border rounded-lg">
+                <div className="text-2xl font-bold text-primary">{count}</div>
+                <div className="text-sm text-muted-foreground capitalize">{endorsement.toLowerCase()}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Schnellaktionen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <a href={`/admin/events/${eventId}/signups`}>
+                <Users className="h-4 w-4 mr-2" />
+                Anmeldungen anzeigen
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={`/admin/events/${eventId}/notify`}>
+                <Bell className="h-4 w-4 mr-2" />
+                Benachrichtigung senden
+              </a>
+            </Button>
+            <Button asChild variant="outline">
+              <a href={`/admin/events/${eventId}/candidates`}>
+                <UserCheck className="h-4 w-4 mr-2" />
+                Potenzielle Lotsen finden
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
-
-// Helper function (kann später in separate utils Datei ausgelagert werden)
-function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): { slotStart: string; slotEnd: string }[] {
-  if (!startIso || !endIso) return [];
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
-  
-  const minutes = t.getUTCMinutes();
-  if (minutes % 30 !== 0) {
-    const delta = 30 - (minutes % 30);
-    t.setUTCMinutes(minutes + delta);
-  }
-  
-  const result: { slotStart: string; slotEnd: string }[] = [];
-  while (t < end) {
-    const slotStart = new Date(t);
-    t.setUTCMinutes(t.getUTCMinutes() + 30);
-    const slotEnd = new Date(t);
-    
-    if (slotEnd <= end) {
-      const startHH = String(slotStart.getUTCHours()).padStart(2, "0");
-      const startMM = String(slotStart.getUTCMinutes()).padStart(2, "0");
-      const endHH = String(slotEnd.getUTCHours()).padStart(2, "0");
-      const endMM = String(slotEnd.getUTCMinutes()).padStart(2, "0");
-      
-      result.push({
-        slotStart: `${startHH}:${startMM}`,
-        slotEnd: `${endHH}:${endMM}`
-      });
-    }
-  }
-  return result;
 }

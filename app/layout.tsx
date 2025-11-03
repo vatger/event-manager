@@ -17,25 +17,18 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EDMM Eventmanager",
-  description: "by yschaffler",
+  title: "VATGER Eventmanager",
+  description: "by Yannik S.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        
+    <html lang="de">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background`}>
         <SessionProviderWrapper>
           <Protected>
-          <ClientLayout>{children}</ClientLayout>
-        </Protected>
+            <ClientLayout>{children}</ClientLayout>
+          </Protected>
         </SessionProviderWrapper>
         <Toaster />
       </body>

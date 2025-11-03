@@ -219,8 +219,8 @@ export default function AdminEventForm({ event, fir }: Props) {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-4xl">
-      {/* Header */}
+    <div className="container mx-auto py-6 max-w-4xl px-4">
+        {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
