@@ -36,8 +36,6 @@ interface VatsimProfile {
     };
   }
   
-  const vatsimHost = "https://vatsim-germany.org"
-  
   const VatsimProvider: OAuthConfig<VatsimProfile> = {
     id: 'vatsim',
     name: 'VATGER',
@@ -74,10 +72,46 @@ interface VatsimProfile {
       };
     },
   };
+
+  const VatsimSandboxProvider: OAuthConfig<VatsimProfile> = {
+    id: 'vatsim-sandbox',
+    name: 'VATSIM Sandbox',
+    type: 'oauth',
+    authorization: {
+      url: process.env.VATSIM_SANDBOX_CONNECT_URL!,
+      params: { scope: 'full_name vatsim_details' },
+    },
+    token: process.env.VATSIM_SANDBOX_TOKEN_URL!,
+    userinfo: process.env.VATSIM_SANDBOX_USER_INFO!,
+    clientId: process.env.VATSIM_SANDBOX_CLIENT_ID!,
+    clientSecret: process.env.VATSIM_SANDBOX_CLIENT_SECRET!,
+    profile(profile: VatsimProfile) {
+      const data = profile?.data || profile;
+      const cid = Number(data.cid);
+  
+      const fullName =
+        data.personal?.name_full ||
+        `${data.personal?.name_first ?? "Unknown"} ${data.personal?.name_last ?? ""}`.trim();
+  
+      const rating = data.vatsim?.rating?.short || "UNKNOWN";
+  
+      return {
+        id: String(cid),
+        cid: String(cid),
+        name: fullName,
+        rating,
+        role: "USER",
+      };
+    },
+  };
+  
   
 // Deine gesamte authOptions Konfiguration hier...
 export const authOptions: NextAuthOptions = {
-    providers: [VatsimProvider],
+    providers: [process.env.DEV_MODE === "true"
+      ? VatsimSandboxProvider
+      : VatsimProvider,
+  ],
     callbacks: {
       async signIn({ user }) {
         const cid = Number(user.cid);
