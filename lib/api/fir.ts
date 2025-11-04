@@ -1,6 +1,4 @@
 import { FIR, CreateFIRData, Group, CurrentUser, Permission} from '@/types/fir';
-import prisma from '../prisma';
-import { toast } from 'sonner';
 
 class FIRAPI {
   private async fetchWithAuth(url: string, options?: RequestInit) {

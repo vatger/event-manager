@@ -11,7 +11,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const cid = Number(session.user.id);
   const hasAccess = await userhasAdminAcess(cid);
-  console.log("access", hasAccess);
   if (!hasAccess) redirect("/");
 
   return (

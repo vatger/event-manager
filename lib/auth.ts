@@ -36,7 +36,7 @@ interface VatsimProfile {
     };
   }
   
-  const VatsimProvider: OAuthConfig<VatsimProfile> = {
+  const VatgerProvider: OAuthConfig<VatsimProfile> = {
     id: 'vatsim',
     name: 'VATGER',
     type: 'oauth',
@@ -108,10 +108,12 @@ interface VatsimProfile {
   
 // Deine gesamte authOptions Konfiguration hier...
 export const authOptions: NextAuthOptions = {
-    providers: [process.env.DEV_MODE === "true"
-      ? VatsimSandboxProvider
-      : VatsimProvider,
-  ],
+    providers: [
+      ...(process.env.DEV_MODE === "true" 
+        ? [VatsimSandboxProvider, VatgerProvider] 
+        : [VatgerProvider]
+      ),
+    ],
     callbacks: {
       async signIn({ user }) {
         const cid = Number(user.cid);
