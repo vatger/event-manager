@@ -1,22 +1,29 @@
 import { FIR, CreateFIRData, Group, CurrentUser, Permission} from '@/types/fir';
 import prisma from '../prisma';
+import { toast } from 'sonner';
 
 class FIRAPI {
-  private async fetchWithAuth(url: string, options: RequestInit = {}) {
-    const response = await fetch(url, {
+  private async fetchWithAuth(url: string, options?: RequestInit) {
+    const res = await fetch(url, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
+        "Content-Type": "application/json",
+        ...(options?.headers || {}),
       },
-      credentials: 'include',
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!res.ok) {
+      let message = "Unbekannter Fehler";
+      try {
+        const data = await res.json();
+        message = data.error || data.message || message;
+      } catch {
+        // ignore
+      }
+      throw new Error(message);
     }
 
-    return response.json();
+    return res.json();
   }
 
   // FIR Management
