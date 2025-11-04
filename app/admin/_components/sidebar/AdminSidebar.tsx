@@ -65,7 +65,7 @@ const NavItem = ({
 // Navigation Group Komponente
 const NavGroup = ({ group }: { group: NavGroup }) => {
   const pathname = usePathname();
-  const { user, can, isMainAdmin } = useUser();
+  const { user, can, isMainAdmin, canInOwnFIR } = useUser();
   const [isOpen, setIsOpen] = useState(true);
 
   const hasPermission = (requiredPermissions?: string[]): boolean => {
@@ -74,7 +74,7 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
     // MAIN_ADMIN hat immer alle Berechtigungen
     if (isMainAdmin()) return true;
     
-    return requiredPermissions.some(permission => can(permission));
+    return requiredPermissions.some(permission => can(permission) || canInOwnFIR(permission));
   };
 
   // Permission check für diese Gruppe

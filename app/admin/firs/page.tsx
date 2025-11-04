@@ -10,17 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Plus, Users, Settings, Home } from 'lucide-react';
 import Link from 'next/link';
-import { CreateFIRDialog } from './_components/create-fir-dialog';
-import { DeleteFIRDialog } from './_components/delete-fir-dialog';
-import { FIRNavbar } from './_components/FIRnavbar';
-import { useUser } from '@/hooks/useUser';
 
 export default function FIRsPage() {
   const [firs, setFirs] = useState<FIR[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const router = useRouter();
-  const { isVATGERLead } = useUser();
   useEffect(() => {
     loadData();
   }, []);
@@ -61,12 +55,6 @@ export default function FIRsPage() {
               Hauptseite
             </Button>
           </Link>
-          {isVATGERLead() && (
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Neue FIR erstellen
-            </Button>
-          )}
         </div>
       </div>
 
@@ -75,16 +63,6 @@ export default function FIRsPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="w-12 h-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">Keine FIRs gefunden</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Es wurden noch keine FIRs in System konfiguriert.
-              {isVATGERLead() && ' Erstellen Sie die erste FIR um zu beginnen.'}
-            </p>
-            {isVATGERLead() && (
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Erste FIR erstellen
-              </Button>
-            )}
           </CardContent>
         </Card>
       ) : (
@@ -112,9 +90,6 @@ export default function FIRsPage() {
                       <Settings className="w-4 h-4 mr-2" />
                       Verwalten
                     </Button>
-                    {isVATGERLead() && (
-                      <DeleteFIRDialog fir={fir} onDelete={loadData} />
-                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -167,17 +142,6 @@ export default function FIRsPage() {
             </Card>
           ))}
         </div>
-      )}
-
-      {showCreateDialog && (
-        <CreateFIRDialog
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-          onSuccess={() => {
-            setShowCreateDialog(false);
-            loadData();
-          }}
-        />
       )}
     </div>
   );

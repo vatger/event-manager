@@ -30,6 +30,7 @@ export function GroupPermissions({ group, firCode, canManage, onUpdate }: GroupP
 
   // Sync selected permissions when group or availablePermissions change
   useEffect(() => {
+    if(!group.permissions) return;
     if (availablePermissions.length > 0 && group.permissions.length > 0) {
       // Erstelle Mapping von permission key zu ID
       const keyToIdMap = new Map(
@@ -104,6 +105,7 @@ export function GroupPermissions({ group, firCode, canManage, onUpdate }: GroupP
       availablePermissions.map(perm => [perm.key, perm.id])
     );
     const selectedIds = new Set<number>();
+    if(!group.permissions) return;
     group.permissions.forEach(perm => {
       const permissionId = keyToIdMap.get(perm.key);
       if (permissionId) {
@@ -116,7 +118,7 @@ export function GroupPermissions({ group, firCode, canManage, onUpdate }: GroupP
 
   // Prüfe ob Änderungen vorliegen
   const currentPermissionIds = new Set(
-    group.permissions
+    group.permissions!
       .map(perm => availablePermissions.find(p => p.key === perm.key)?.id)
       .filter(Boolean) as number[]
   );
@@ -219,20 +221,6 @@ export function GroupPermissions({ group, firCode, canManage, onUpdate }: GroupP
       {!canManage && (
         <div className="text-sm text-muted-foreground">
           Sie haben keine Berechtigung, die Berechtigungen dieser Gruppe zu ändern.
-        </div>
-      )}
-
-      {/* Debug Information - nur in Entwicklung anzeigen */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mt-4 p-3 bg-muted rounded-lg">
-          <h4 className="text-sm font-medium mb-2">Debug Info:</h4>
-          <div className="text-xs space-y-1">
-            <div>Verfügbare Permissions: {availablePermissions.length}</div>
-            <div>Ausgewählte Permission IDs: {Array.from(selectedPermissionIds).join(', ')}</div>
-            <div>Gruppen-ID: {group.id}</div>
-            <div>FIR Code: {firCode}</div>
-            <div>Hat Änderungen: {hasChanges ? 'Ja' : 'Nein'}</div>
-          </div>
         </div>
       )}
     </div>

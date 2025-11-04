@@ -69,16 +69,6 @@ import {
           label: "FIR Overview", 
           icon: Map,
         },
-        { 
-          href: "/admin/firs/create", 
-          label: "Create FIR", 
-          icon: PlusCircle,
-        },
-        { 
-          href: "/admin/firs/airports", 
-          label: "Airport Management", 
-          icon: Settings,
-        },
       ]
     },
     

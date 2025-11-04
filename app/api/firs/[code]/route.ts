@@ -40,16 +40,3 @@ export async function PATCH(
   });
   return NextResponse.json(fir);
 }
-
-export async function DELETE(
-  _: Request,
-  { params }: { params: Promise<{ code: string }> }
-) {
-  const user = await getSessionUser();
-  if (!user || await isVatgerEventleitung(Number(user.cid)))
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const { code } = await params;
-  await prisma.fIR.delete({ where: { code } });
-  return NextResponse.json({ success: true });
-}
