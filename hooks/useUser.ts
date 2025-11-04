@@ -44,6 +44,7 @@ export function useUser() {
   const isMainAdmin = (): boolean => data?.role === "MAIN_ADMIN";
 
   const hasAdminAcess = (): boolean => {
+    if(data?.role == "MAIN_ADMIN") return true;
     if(data?.groups && data?.groups.length > 0) return true;
     
     return false

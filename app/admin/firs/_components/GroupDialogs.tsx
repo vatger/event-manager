@@ -134,7 +134,6 @@ export function CreateGroupDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="GLOBAL_VATGER_LEITUNG">VATGER Eventleitung</SelectItem>
                   <SelectItem value="FIR_LEITUNG">FIR Eventleitung</SelectItem>
                   <SelectItem value="FIR_TEAM">FIR Team</SelectItem>
                   <SelectItem value="CUSTOM">CUSTOM</SelectItem>
@@ -260,7 +259,6 @@ export function EditGroupDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="GLOBAL_VATGER_LEITUNG">VATGER Eventleitung</SelectItem>
                   <SelectItem value="FIR_LEITUNG">FIR Eventleitung</SelectItem>
                   <SelectItem value="FIR_TEAM">FIR Team</SelectItem>
                   <SelectItem value="CUSTOM">CUSTOM</SelectItem>

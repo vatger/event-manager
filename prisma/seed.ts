@@ -4,7 +4,6 @@ const prisma = new PrismaClient();
 
 async function ensureBasePermissions() {
   const permissions = [
-    { key: "admin.access", description: "Zugriff auf Admin-Bereich" },
     { key: "event.create", description: "Events erstellen" },
     { key: "event.edit", description: "Events bearbeiten" },
     { key: "event.delete", description: "Events löschen" },
@@ -39,7 +38,6 @@ async function createStandardGroups(firId: number, firCode: string) {
   });
 
   const leitungPerms = [
-    "admin.access",
     "event.create",
     "event.edit",
     "event.delete",
@@ -57,14 +55,6 @@ async function createStandardGroups(firId: number, firCode: string) {
     })),
   });
 
-  // admin.access zusätzlich global (ALL)
-  await prisma.groupPermission.create({
-    data: {
-      groupId: firLeitung.id,
-      permissionId: byKey["admin.access"],
-      scope: PermissionScope.ALL,
-    },
-  });
 
   // FIR-Team
   const firTeam = await prisma.group.create({
@@ -76,15 +66,6 @@ async function createStandardGroups(firId: number, firCode: string) {
     },
   });
 
-  // Keine Berechtigungen – außer admin.access mit ALL
-  await prisma.groupPermission.create({
-    data: {
-      groupId: firTeam.id,
-      permissionId: byKey["admin.access"],
-      scope: PermissionScope.ALL,
-    },
-  });
-
   return { firLeitung, firTeam };
 }
 
@@ -93,14 +74,14 @@ async function main() {
 
   // Datenbank bereinigen
   await prisma.eventSignup.deleteMany();
-  await prisma.event.deleteMany();
+  await prisma.notification.deleteMany();
   await prisma.userGroup.deleteMany();
   await prisma.groupPermission.deleteMany();
+  await prisma.event.deleteMany();
   await prisma.group.deleteMany();
   await prisma.permission.deleteMany();
-  await prisma.fIR.deleteMany();
   await prisma.user.deleteMany();
-
+  await prisma.fIR.deleteMany();
   // Permissions
   await ensureBasePermissions();
 
@@ -110,6 +91,15 @@ async function main() {
     { code: "EDWW", name: "FIR Bremen" },
     { code: "EDGG", name: "FIR Langen" },
   ];
+
+  //VATGER Leitung gruppe erstellen
+  await prisma.group.create({
+    data: {
+      name: `VATGER Eventleitung`,
+      description: `Eventleitung von VATGER`,
+      kind: GroupKind.GLOBAL_VATGER_LEITUNG,
+    },
+  });
 
   for (const firData of firs) {
     const fir = await prisma.fIR.create({ data: firData });
