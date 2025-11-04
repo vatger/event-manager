@@ -175,8 +175,8 @@ export default function FIRDetailPage() {
                         </Badge>
                       </CardTitle>
                     </div>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mr-4">
+                    <div className="flex items-center gap-2">
+                      <div className="hidden lg:flex items-center gap-2 text-sm text-muted-foreground mr-4">
                         <Users className="w-4 h-4" />
                         {group.members?.length || 0} Mitglieder
                       </div>

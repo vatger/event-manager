@@ -318,65 +318,7 @@ export default function EventOverviewPage() {
         </CardContent>
       </Card>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Anmeldungen</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSignups}</div>
-            <p className="text-xs text-muted-foreground">
-              Angemeldete Controller
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Mit Verfügbarkeit</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.withAvailability}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.totalSignups > 0 ? Math.round((stats.withAvailability / stats.totalSignups) * 100) : 0}% der Anmeldungen
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Stationen</CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.staffedStationsCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Zu besetzen
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Auslastung</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.staffedStationsCount > 0 
-                ? Math.round((stats.totalSignups / stats.staffedStationsCount) * 100) 
-                : 0
-              }%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Anmeldungen pro Station
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      
 
       {/* Quick Actions */}
       <Card>

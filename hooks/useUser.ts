@@ -43,10 +43,12 @@ export function useUser() {
 
   const isMainAdmin = (): boolean => data?.role === "MAIN_ADMIN";
 
-  const hasAdminAcess = (): boolean => 
-    (data?.effectivePermissions.includes("admin.access") ?? false) ||
-    data?.effectiveLevel == "MAIN_ADMIN";
+  const hasAdminAcess = (): boolean => {
+    if(data?.groups && data?.groups.length > 0) return true;
+    
+    return false
 
+  }
   // ---------- RETURN ----------
   return {
     user: data,

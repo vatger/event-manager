@@ -1,4 +1,3 @@
-// utils/endorsementUtils.ts
 export interface AirportEndorsement {
   airport: string;
   position: string;

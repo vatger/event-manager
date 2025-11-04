@@ -68,7 +68,10 @@ export async function POST(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   // falls FIR-gebunden → User der FIR zuordnen
-  if (group.firId && targetUser.firId !== group.firId) {
+  if (group.firId) {
+    if(targetUser.firId && targetUser.firId !== group.firId) {
+      return NextResponse.json({ error: "User belongs to another FIR" }, { status: 409 });
+    }
     await prisma.user.update({
       where: { cid: targetUser.cid },
       data: { firId: group.firId },
@@ -117,15 +120,21 @@ export async function DELETE(
 
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const target = await prisma.user.findUnique({ where: { cid: cid } });
+  const target = await prisma.user.findUnique({ where: { cid: cid }, include: { groups: true } });
   if (!target)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   await prisma.userGroup.deleteMany({
     where: { userCID: target.cid, groupId: Number(groupId) },
   });
-  
-  //Cache invalidieren
+
+  if(target.groups.length === 1 && group.firId) {
+    // Der User war nur in dieser Gruppe → FIR-Zuordnung entfernen
+    await prisma.user.update({
+      where: { cid: target.cid },
+      data: { firId: null },
+    });
+  }
   
   return NextResponse.json({ success: true });
 }
