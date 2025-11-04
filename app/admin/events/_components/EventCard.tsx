@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
+import { useUser } from "@/hooks/useUser";
 
 
 interface Props {
@@ -23,7 +24,8 @@ const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "
 
 export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
   const {data: session} = useSession()
-  
+  const { canInFIR } = useUser();
+
   const formatZuluRange = useMemo(() => {
     const pad = (n: number) => n.toString().padStart(2, "0");
     const start = new Date(event.startTime);
@@ -62,6 +64,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           size="icon" 
           variant="outline" 
           onClick={onEdit}
+          disabled={!canInFIR(event.firCode, "events.edit")}
           className="h-8 w-8"
           aria-label="Event bearbeiten"
         >
@@ -120,6 +123,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
             variant="outline" 
             onClick={() => onpublishRoster(event)}
             size="sm"
+            disabled={!canInFIR(event.firCode, "roster.publish")}
           >
             Roster veröffentlichen
           </Button>
@@ -146,7 +150,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           size="sm" 
           variant="destructive" 
           onClick={onDelete}
-          disabled={session?.user.role !== "MAIN_ADMIN"}
+          disabled={!canInFIR(event.firCode, "events.delete")}
           aria-label="Event löschen"
         >
           <Trash2 className="w-4 h-4" />
