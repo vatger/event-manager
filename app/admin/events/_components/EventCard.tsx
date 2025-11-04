@@ -64,7 +64,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           size="icon" 
           variant="outline" 
           onClick={onEdit}
-          disabled={!canInFIR(event.firCode, "events.edit")}
+          disabled={!canInFIR(event.firCode, "event.edit")}
           className="h-8 w-8"
           aria-label="Event bearbeiten"
         >

@@ -84,11 +84,6 @@ import {
       permission: ["MAIN_ADMIN"],
       items: [
         { 
-          href: "/admin/system/users", 
-          label: "User Management", 
-          icon: Users,
-        },
-        { 
           href: "/admin/system/settings", 
           label: "System Settings", 
           icon: Settings,

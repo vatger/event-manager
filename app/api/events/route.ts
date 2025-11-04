@@ -24,7 +24,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  firCode: z.string().optional(),
+  firCode: z.string().nullable().optional(),
 });
 
 // --- GET: Alle Events ---
@@ -92,6 +92,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = eventSchema.safeParse(body);
     if (!parsed.success) {
+      console.log("Validation errors:", parsed.error.flatten().fieldErrors);
       return NextResponse.json(
         { error: "Validation failed", details: parsed.error.flatten().fieldErrors },
         { status: 400 }

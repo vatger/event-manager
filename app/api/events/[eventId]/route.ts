@@ -25,7 +25,7 @@ const eventSchema = z.object({
     }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  firCode: z.string().optional()
+  firCode: z.string().nullable().optional()
 });
 
 
