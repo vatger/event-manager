@@ -6,6 +6,7 @@ import {
     Settings,
     Map,
     PlusCircle,
+    CheckCheckIcon,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -46,6 +47,11 @@ import {
     {
       title: "Tools",
       items: [
+        {
+          href: "/admin/userinfo",
+          label: "Controller Info",
+          icon: CheckCheckIcon,
+        },
         { 
           href: "/admin/event-calendar", 
           label: "Event Calendar", 
