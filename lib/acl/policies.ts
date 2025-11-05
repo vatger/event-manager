@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export type UserWithAll = Prisma.UserGetPayload<{
   include: {
     fir: true;
+    vatgerLeitung: true;
     groups: {
       include: {
         group: {
@@ -77,12 +78,10 @@ export function computeEffectiveData(user: UserWithAll): EffectiveData {
   ) {
     effectiveLevel = "FIR_EVENTLEITER";
   }
-
-  // Gruppen mit GLOBAL_VATGER_LEITUNG prüfen
-  const vatgerLead = user.groups.some(
-    (ug) => ug.group.kind === "GLOBAL_VATGER_LEITUNG"
-  );
-  if (vatgerLead) effectiveLevel = "VATGER_LEITUNG";
+  if (user.vatgerLeitung) {
+    effectiveLevel = "VATGER_LEITUNG";
+    effectivePermissions.add("*");
+  }
 
   return {
     effectivePermissions: Array.from(effectivePermissions),
@@ -98,6 +97,7 @@ export async function getUserWithEffectiveData(cid: number) {
     where: { cid },
     include: {
       fir: true,
+      vatgerLeitung: true,
       groups: {
         include: {
           group: {

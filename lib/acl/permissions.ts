@@ -79,21 +79,22 @@ export async function canManageFir(cid: number, firCode?: string) {
  */
 export async function isVatgerEventleitung(cid: number) {
   const user = await prisma.user.findUnique({
-    where: { cid },
-    include: {
-      groups: {
-        include: { group: true },
-      },
-    },
+    where: { cid }
   });
 
   if (!user) return false;
+
+  // Hauptadmin ist immer berechtigt
   if (user.role === "MAIN_ADMIN") return true;
 
-  return user.groups.some(
-    (ug) => ug.group.kind === "GLOBAL_VATGER_LEITUNG"
-  );
+  // Prüfen, ob User in der neuen Tabelle 'VatgerLeitung' ist
+  const isInVatgerLeitungTable = await prisma.vATGERLeitung.findUnique({
+    where: { userCID: cid },
+  });
+
+  return !!isInVatgerLeitungTable;
 }
+
 
 /**
  * Hilfsfunktion ob zu prüfen ob ein Nutzer die Brechtigungen an einem

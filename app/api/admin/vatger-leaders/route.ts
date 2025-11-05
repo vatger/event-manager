@@ -9,28 +9,24 @@ export async function GET() {
   }
 
   try {
-    const vatgerGroup = await prisma.group.findFirst({
-      where: { kind: "GLOBAL_VATGER_LEITUNG" },
+    const leaders = await prisma.vATGERLeitung.findMany({
       include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                cid: true,
-                name: true,
-                rating: true,
-              }
-            }
-          }
-        }
-      }
+        user: {
+          select: {
+            cid: true,
+            name: true,
+            rating: true,
+          },
+        },
+      },
     });
 
-    if (!vatgerGroup) {
-      return NextResponse.json({ error: "VATGER group not found" }, { status: 404 });
+    if (!leaders) {
+      return NextResponse.json({ error: "VATGER Table not found" }, { status: 404 });
     }
 
-    return NextResponse.json(vatgerGroup.members);
+    return NextResponse.json(leaders);
+
   } catch (error) {
     console.error("Failed to load VATGER leaders:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

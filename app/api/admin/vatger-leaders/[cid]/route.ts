@@ -20,31 +20,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ cid: st
         return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const VATGERgroup = await prisma.group.findMany({
-        where: { kind: "GLOBAL_VATGER_LEITUNG" },
+    // Prüfen, ob bereits in VatgerLeitung
+    const existing = await prisma.vATGERLeitung.findUnique({
+        where: { userCID: cid },
     });
 
-    const existingMembership = await prisma.userGroup.findFirst({
-        where: {
-            userCID: Number(cid),
-            groupId: VATGERgroup[0].id,
-        },
-    });
-    
-    if (existingMembership) {
-        return NextResponse.json({ error: "User is already in VATGER Eventleitung group" },
-            { status: 400 }
-        );
+    if (existing) {
+        return NextResponse.json({ error: "User is already a VATGER Leader" }, { status: 400 });
     }
 
-    const updatedUser = await prisma.userGroup.create({
-        data: {
-            userCID: Number(cid),
-            groupId: VATGERgroup[0].id,
-        },
+    // Hinzufügen
+    const newLeader = await prisma.vATGERLeitung.create({
+        data: { userCID: cid },
     });
 
-    return NextResponse.json(updatedUser, { status: 201 });
+    return NextResponse.json(newLeader, { status: 201 });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ cid: string }> }) {
@@ -59,26 +49,15 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ cid: 
         return NextResponse.json({ error: "CID required" }, { status: 400 });
     }
     
-    const VATGERgroup = await prisma.group.findMany({
-        where: { kind: "GLOBAL_VATGER_LEITUNG" },
-    });
-
-    const existingMembership = await prisma.userGroup.findFirst({
-        where: {
-            userCID: Number(cid),
-            groupId: VATGERgroup[0].id,
-        },
+    const existing = await prisma.vATGERLeitung.findUnique({
+        where: { userCID: cid },
     });
     
-    if (!existingMembership) {
-        return NextResponse.json({ error: "User does not exist in this group" },
-            { status: 400 }
-        );
+    if (!existing) {
+        return NextResponse.json({ error: "User is not in VATGER Leitung" }, { status: 404 });
     }
 
-    await prisma.userGroup.deleteMany({
-        where: { userCID: Number(cid), groupId: VATGERgroup[0].id },
-    });
+    await prisma.vATGERLeitung.delete({ where: { userCID: cid } });
 
     return NextResponse.json({ success: true }, { status: 200 });
 }
