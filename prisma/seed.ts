@@ -80,6 +80,7 @@ async function main() {
   await prisma.event.deleteMany();
   await prisma.group.deleteMany();
   await prisma.permission.deleteMany();
+  await prisma.vATGERLeitung.deleteMany();
   await prisma.user.deleteMany();
   await prisma.fIR.deleteMany();
   // Permissions
@@ -91,15 +92,6 @@ async function main() {
     { code: "EDWW", name: "FIR Bremen" },
     { code: "EDGG", name: "FIR Langen" },
   ];
-
-  //VATGER Leitung gruppe erstellen
-  await prisma.group.create({
-    data: {
-      name: `VATGER Eventleitung`,
-      description: `Eventleitung von VATGER`,
-      kind: GroupKind.GLOBAL_VATGER_LEITUNG,
-    },
-  });
 
   for (const firData of firs) {
     const fir = await prisma.fIR.create({ data: firData });
