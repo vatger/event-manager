@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import axios from "axios";
 import { CurrentUser } from "@/types/fir";
+import { da } from "date-fns/locale";
 
 const fetcher = async (url: string): Promise<CurrentUser> => {
   const res = await axios.get<CurrentUser>(url);
@@ -16,12 +17,18 @@ export function useUser() {
   );
 
   // ---------- PERMISSION HELPERS ----------
-  const can = (perm: string): boolean =>
-    (data?.effectivePermissions.includes(perm) ?? false) ||
-    data?.effectiveLevel == "MAIN_ADMIN"
+  const can = (perm: string): boolean => {
+    if(!data) return false
+    if(data.role == "MAIN_ADMIN") return true
+    if(perm == "MAIN_ADMIN") return false
+    if(data.effectivePermissions.includes("*")) return true
+    if(data.effectivePermissions.includes(perm)) return true
+    return false
+  };
 
   const canInFIR = (firCode: string, perm: string): boolean => {
-    if(data?.effectiveLevel == "MAIN_ADMIN") return true; 
+    if(data?.effectiveLevel == "MAIN_ADMIN") return true;
+    if(data?.effectivePermissions.includes("*")) return true;
     return data?.firScopedPermissions[firCode]?.includes(perm) ?? false;
   }
 
@@ -29,6 +36,7 @@ export function useUser() {
     if(data?.effectiveLevel == "MAIN_ADMIN") return true
     const code = data?.fir?.code;
     if (!code) return false;
+    if(data?.effectivePermissions.includes("*")) return true;
     return data?.firScopedPermissions[code]?.includes(perm) ?? false;
   };
 
@@ -45,6 +53,7 @@ export function useUser() {
 
   const hasAdminAcess = (): boolean => {
     if(data?.role == "MAIN_ADMIN") return true;
+    if(data?.effectiveLevel == "VATGER_LEITUNG") return true;
     if(data?.groups && data?.groups.length > 0) return true;
     
     return false

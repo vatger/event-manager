@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserWithPermissions, userHasFirPermission } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
     const fir = parsed.data.firCode || user?.fir?.code
     if(!fir) return NextResponse.json({ error: "Unauthorized", message: "Invalid FIR" }, { status: 401 });
     
-    if (await userHasFirPermission(Number(session.user.cid), fir, "event.create") === false) {
+    if (await userHasFirPermission(Number(session.user.cid), fir, "event.create") === false && await isVatgerEventleitung(Number(session.user.cid)) === false) {
       return NextResponse.json({ error: "Unauthorized", message: "You have no permission to create events (in this FIR)" }, { status: 401 });
     }
 

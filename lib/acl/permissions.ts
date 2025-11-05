@@ -19,7 +19,7 @@ export async function userHasPermission(cid: number, permissionKey: string) {
 
   // MAIN_ADMIN darf alles
   if (user.role === "MAIN_ADMIN") return true;
-
+  if (user.effectivePermissions.includes("*")) return true;
   return user.effectivePermissions.includes(permissionKey);
 }
 
@@ -35,7 +35,7 @@ export async function userHasFirPermission(
 ) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
-
+  if (user.effectivePermissions.includes("*")) return true;
   if (user.role === "MAIN_ADMIN") return true;
   return user.firScopedPermissions[firCode]?.includes(permissionKey) ?? false;
 }
@@ -50,7 +50,7 @@ export async function userHasOwnFirPermission(
 ) {
   const user = await getUserWithEffectiveData(cid);
   if (!user || !user.fir?.code) return false;
-
+  if (user.effectivePermissions.includes("*")) return true;
   if (user.role === "MAIN_ADMIN") return true;
   return (
     user.firScopedPermissions[user.fir.code]?.includes(permissionKey) ?? false
@@ -106,7 +106,6 @@ export async function userhasPermissiononEvent(cid: number, eventId: number, per
     where: { id: eventId },
     select: { firCode: true }
   })
-
   if(await isVatgerEventleitung(cid)) return true
   if(!event?.firCode) return false
   return await userHasFirPermission(cid, event?.firCode, permission)
@@ -121,7 +120,7 @@ export async function userhasAdminAcess(cid: number) {
   if (!user) return false;
 
   if (user.role === "MAIN_ADMIN") return true;
-
+  if (user.effectiveLevel === "VATGER_LEITUNG") return true;
   if(user.groups && user.groups.length > 0) return true;
 
   return false

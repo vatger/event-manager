@@ -150,7 +150,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
           size="sm" 
           variant="destructive" 
           onClick={onDelete}
-          disabled={!canInFIR(event.firCode, "events.delete")}
+          disabled={!canInFIR(event.firCode, "event.delete")}
           aria-label="Event löschen"
         >
           <Trash2 className="w-4 h-4" />

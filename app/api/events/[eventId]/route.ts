@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
   })
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   
-  if(parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(Number(session.user.cid))) {
+  if(parsed.data.firCode && (parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(Number(session.user.cid)))) {
     return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and  VATGER can move the event to another FIR"}, { status: 401 });
   }
   const fir = parsed.data.firCode || firbyevent.firCode
@@ -177,8 +177,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
 
-  if(parsed.data.firCode != firbyevent.firCode && user.effectiveLevel != "MAIN_ADMIN" && user.effectiveLevel != "VATGER_LEITUNG") {
-    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and  VATGER can move the event to another FIR"}, { status: 401 });
+  if(parsed.data.firCode && (parsed.data.firCode != firbyevent.firCode && user.effectiveLevel != "MAIN_ADMIN" && user.effectiveLevel != "VATGER_LEITUNG")) {
+    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and VATGER can move the event to another FIR"}, { status: 401 });
   }
   
   const fir = parsed.data.firCode || firbyevent.firCode

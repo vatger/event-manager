@@ -351,7 +351,6 @@ export default function EventNotificationPage() {
                 />
                 <div className="text-xs text-muted-foreground flex justify-between">
                   <span>{notificationMessage.length} Zeichen</span>
-                  <span>Mindestens 10 Zeichen empfohlen</span>
                 </div>
               </div>
 
@@ -379,8 +378,7 @@ export default function EventNotificationPage() {
                 disabled={
                   selectedUsers.length === 0 ||
                   !notificationMessage.trim() ||
-                  sending ||
-                  notificationMessage.length < 5
+                  sending
                 }
                 className="w-full"
                 size="lg"
