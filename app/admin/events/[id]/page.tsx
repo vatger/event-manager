@@ -15,6 +15,7 @@ import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import router from "next/router";
+import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 
 export default function EventOverviewPage() {
   const params = useParams();
@@ -122,17 +123,24 @@ export default function EventOverviewPage() {
     return actions[event.status as keyof typeof actions] ? [actions[event.status as keyof typeof actions]] : [];
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeVariant = (
+    status: string
+  ): "outline" | "secondary" | "default" => {
     const variants = {
       DRAFT: "outline",
       PLANNING: "secondary",
       SIGNUP_OPEN: "default",
       SIGNUP_CLOSED: "outline",
       ROSTER_PUBLISHED: "secondary",
-      COMPLETED: "default"
+      COMPLETED: "default",
     };
-    return variants[status as keyof typeof variants] || "outline";
+  
+    return (variants[status as keyof typeof variants] || "outline") as
+  | "outline"
+  | "secondary"
+  | "default";
   };
+  
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('de-DE', {
@@ -250,7 +258,7 @@ export default function EventOverviewPage() {
                     <span>Status</span>
                   </div>
                   <Badge 
-                    variant={getStatusBadgeVariant(event.status) as any}
+                    variant={getStatusBadgeVariant(event.status)}
                     className="font-semibold"
                   >
                     {event.status.replace('_', ' ')}

@@ -1,4 +1,3 @@
-// app/admin/firs/_components/PermissionsMatrix.tsx
 "use client";
 
 import { useEffect, useState } from "react";
