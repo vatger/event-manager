@@ -170,15 +170,17 @@ export default function AdminEventForm({ event, fir }: Props) {
         let message = `HTTP ${res.status}`;
         try {
           const data = await res.json();
-          // Falls API { error: "..."} oder { message: "..."} zurückgibt
           message = data.message || message;
         } catch {
-          // kein gültiges JSON (z.B. 500 mit HTML)
           const text = await res.text().catch(() => "");
           if (text) message = text;
         }
         throw new Error(message);
       }
+      if(!isEdit) {
+        router.push(`/admin/events`);
+      }
+      toast.success(`Event erfolgreich ${isEdit ? "aktualisiert" : "erstellt"}`);
       router.refresh();
     } catch (err: unknown) {
       console.error("Error saving event:", err);
