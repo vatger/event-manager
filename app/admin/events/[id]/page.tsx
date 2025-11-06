@@ -7,13 +7,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, Clock, MapPin, Users, Settings, Play, Lock, Eye, Edit3, RefreshCw, AlertCircle, CheckCircle2, Image, Link } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Settings, Play, Lock, Eye, Edit3, RefreshCw, AlertCircle, CheckCircle2, Image, LinkIcon } from "lucide-react";
 import { Event, Signup } from "@/types";
 import { toast } from "sonner";
 import { BannerUrlDialog } from "./_components/BannerUrlDialog";
 import { RosterLinkDialog } from "./_components/RosterLinkDialog";
 import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
 import { useUser } from "@/hooks/useUser";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import router from "next/router";
 
 export default function EventOverviewPage() {
   const params = useParams();
@@ -277,7 +280,7 @@ export default function EventOverviewPage() {
                           <span className="whitespace-nowrap">Roster veröffentlicht</span>
                           {event.rosterlink && (
                             <a href={event.rosterlink} target="_blank" rel="noopener noreferrer">
-                              <Link className="h-3 w-3" />
+                              <LinkIcon className="h-3 w-3" />
                             </a>
                           )}
                         </div>
@@ -334,33 +337,36 @@ export default function EventOverviewPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Button asChild variant="outline" className="w-full justify-start h-auto py-3">
-              <a href={`/admin/events/${event.id}/signups`}>
+              <Link href={`/admin/events/${event.id}/signups`}>
                 <Users className="h-4 w-4 mr-2" />
                 <div className="text-left">
                   <div className="font-medium">Anmeldungen</div>
                   <div className="text-xs text-muted-foreground">{stats.totalSignups} Controller</div>
                 </div>
-              </a>
+              </Link>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto py-3"
+              disabled={!canInOwnFIR("user.notif")}
+              onClick={() => router.push(`/admin/events/${event.id}/notify`)}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              <div className="text-left">
+                <div className="font-medium">Benachrichtigen</div>
+                <div className="text-xs text-muted-foreground">Nachricht senden</div>
+              </div>
             </Button>
             
             <Button asChild variant="outline" className="w-full justify-start h-auto py-3">
-              <a href={`/admin/events/${event.id}/notify`}>
-                <Eye className="h-4 w-4 mr-2" />
-                <div className="text-left">
-                  <div className="font-medium">Benachrichtigen</div>
-                  <div className="text-xs text-muted-foreground">Nachricht senden</div>
-                </div>
-              </a>
-            </Button>
-            
-            <Button asChild variant="outline" className="w-full justify-start h-auto py-3">
-              <a href={`/admin/events/${event.id}/candidates`}>
+              <Link href={`/admin/events/${event.id}/candidates`}>
                 <Users className="h-4 w-4 mr-2" />
                 <div className="text-left">
                   <div className="font-medium">Lotsen finden</div>
                   <div className="text-xs text-muted-foreground">Qualifizierte Controller</div>
                 </div>
-              </a>
+              </Link>
             </Button>
 
             {event.status === "SIGNUP_OPEN" && (

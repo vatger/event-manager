@@ -15,6 +15,7 @@ import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
+import { toast } from "sonner";
 
 interface FormData {
   name: string;
@@ -166,16 +167,30 @@ export default function AdminEventForm({ event, fir }: Props) {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        console.log("Error: ", data)
-        throw new Error(data.error || `HTTP error! status: ${res.status}`);
+        let message = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          // Falls API { error: "..."} oder { message: "..."} zurückgibt
+          message = data.message || message;
+        } catch {
+          // kein gültiges JSON (z.B. 500 mit HTML)
+          const text = await res.text().catch(() => "");
+          if (text) message = text;
+        }
+        throw new Error(message);
       }
-
-      router.push("/admin/events");
       router.refresh();
-    } catch (err) {
-      setError(`Fehler beim ${isEdit ? "Speichern" : "Erstellen"} des Events! ${err instanceof Error ? err.message : "Unbekannter Fehler"}`);
+    } catch (err: unknown) {
       console.error("Error saving event:", err);
+  
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+          ? err
+          : "Unbekannter Fehler beim Speichern";
+  
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -207,6 +222,7 @@ export default function AdminEventForm({ event, fir }: Props) {
   };
 
   const handleDelete = async () => {
+    setError("")
     if (!confirm("Event wirklich löschen?")) return;
     try {
       if(!event) return;
@@ -214,7 +230,7 @@ export default function AdminEventForm({ event, fir }: Props) {
       if (!res.ok) throw new Error("Fehler beim Löschen");
       router.push("/admin/events");
     } catch (err) {
-      setError("Fehler beim Löschen des Events");
+      toast.error("Fehler beim Löschen des Events");
     }
   };
 
