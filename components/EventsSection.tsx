@@ -18,7 +18,7 @@ export default function EventsSection({ events, onSelect }: EventsSectionProps) 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <EventCard event={event} onClick={() => onSelect(event)} />
+          <EventCard event={event} showBanner/>
         </motion.div>
       ))}
     </div>
