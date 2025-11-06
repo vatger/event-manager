@@ -1,4 +1,3 @@
-// app/admin/events/[id]/_components/EventAdminNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -6,8 +5,16 @@ import { useParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useUser } from "@/hooks/useUser";
 
-const eventAdminTabs = [
+const eventAdminTabs: {
+    id: string;
+    label: string;
+    href: string;
+    icon: any;
+    badge?: "count";
+    permission?: string;
+  }[] = [
   {
     id: "overview",
     label: "Übersicht",
@@ -33,12 +40,14 @@ const eventAdminTabs = [
     label: "Benachrichtigungen",
     href: "/notify",
     icon: Bell,
+    permission: "user.notif"
   },
   {
     id: "edit",
     label: "Bearbeiten",
     href: "/edit",
     icon: Settings,
+    permission: "event.edit"
   }
 ];
 
@@ -53,7 +62,9 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
   const eventId = params.id as string;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-
+  
+  const { canInOwnFIR } = useUser();
+  
   const basePath = `/admin/events/${eventId}`;
 
   // Scroll-Listener für Shadow-Effect
@@ -81,6 +92,11 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
         return null;
     }
   };
+
+  const visibleTabs = eventAdminTabs.filter((tab) => {
+    if (!tab.permission) return true;
+    return canInOwnFIR(tab.permission);
+  });
 
   const NavItem = ({ tab }: { tab: typeof eventAdminTabs[0] }) => {
     const href = `${basePath}${tab.href}`;
@@ -156,7 +172,7 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex space-x-1 pt-3">
-            {eventAdminTabs.map((tab) => (
+            {visibleTabs.map((tab) => (
               <NavItem key={tab.id} tab={tab} />
             ))}
           </nav>
@@ -171,7 +187,7 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
             >
               <div className="container mx-auto px-4 py-2">
                 <nav className="flex flex-col space-y-1">
-                  {eventAdminTabs.map((tab) => {
+                  {visibleTabs.map((tab) => {
                     const href = `${basePath}${tab.href}`;
                     const isActive = pathname === href || 
                                    (tab.href !== "" && pathname.startsWith(`${basePath}${tab.href}`));

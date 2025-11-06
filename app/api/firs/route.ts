@@ -31,7 +31,7 @@ export async function GET() {
   console.log("user", user, "global", isGlobal)
   const canManageOwnFIR =
     !!user.fir?.code &&
-    user.firScopedPermissions[user.fir.code]?.includes("fir.manage");
+    user.effectiveLevel === "FIR_EVENTLEITER";
   
   if (!isGlobal && !canManageOwnFIR) {
     return NextResponse.json(

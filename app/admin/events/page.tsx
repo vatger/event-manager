@@ -211,7 +211,7 @@ export default function AdminEventsPage() {
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold">Event Management</h1>
-          <Button onClick={() => router.push("/admin/events/create")}>
+          <Button onClick={() => router.push("/admin/events/create")} disabled={!canInOwnFIR("event.create")}>
             <CalendarPlus />
               Neues Event
           </Button>

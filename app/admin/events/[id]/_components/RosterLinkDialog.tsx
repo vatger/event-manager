@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Link } from "lucide-react";
+import { useUser } from "@/hooks/useUser";
 
 interface RosterLinkDialogProps {
   event: Event;
@@ -19,6 +20,8 @@ export function RosterLinkDialog({ event, onUpdate, children }: RosterLinkDialog
   const [open, setOpen] = useState(false);
   const [rosterlink, setRosterlink] = useState(event.rosterlink || "");
   const [loading, setLoading] = useState(false);
+
+  const { canInOwnFIR } = useUser();
 
   const handleSave = async () => {
     setLoading(true);
@@ -49,7 +52,7 @@ export function RosterLinkDialog({ event, onUpdate, children }: RosterLinkDialog
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled={!canInOwnFIR("roster.publish")}>
             <Link className="h-4 w-4 mr-2" />
             Roster-Link {event.rosterlink ? "bearbeiten" : "hinzufügen"}
           </Button>

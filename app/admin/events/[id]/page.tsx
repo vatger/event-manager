@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { BannerUrlDialog } from "./_components/BannerUrlDialog";
 import { RosterLinkDialog } from "./_components/RosterLinkDialog";
 import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
+import { useUser } from "@/hooks/useUser";
 
 export default function EventOverviewPage() {
   const params = useParams();
@@ -22,6 +23,8 @@ export default function EventOverviewPage() {
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  const { canInOwnFIR } = useUser();
 
   useEffect(() => {
     loadEventData();
@@ -288,7 +291,7 @@ export default function EventOverviewPage() {
               <div className="flex flex-col gap-3 flex-shrink-0">
                 {event.status == "PLANNING" ? (
                   <SignupDeadlineDialog event={event} onUpdate={handleEventUpdate} />
-                ) : event.status == "SIGNUP_CLOSED" || event.status == "ROSTER_PUBLISHED" ? (
+                ) : event.status == "SIGNUP_CLOSED" || event.status == "ROSTER_PUBLISHED"  ? (
                   <RosterLinkDialog event={event} onUpdate={handleEventUpdate} />
                 ) : (
                   statusActions.map((action, index) => {

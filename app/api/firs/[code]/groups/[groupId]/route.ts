@@ -60,16 +60,16 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
 
     // FIR-Leitung darf keine Leitung/Gruppen bearbeiten
-    if (group.kind === GroupKind.FIR_LEITUNG || group.kind === GroupKind.GLOBAL_VATGER_LEITUNG)
+    if (group.kind === GroupKind.FIR_LEITUNG)
       return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung oder globale Gruppe bearbeiten" },
+        { error: "FIR-Leitung darf keine Leitungbearbeiten" },
         { status: 403 }
       );
 
     // FIR-Leitung darf keine Gruppen in Leitung/Gruppe umwandeln
-    if (kind && ([GroupKind.FIR_LEITUNG, GroupKind.GLOBAL_VATGER_LEITUNG] as GroupKind[]).includes(kind))
+    if (kind && ([GroupKind.FIR_LEITUNG] as GroupKind[]).includes(kind))
       return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung oder globale Gruppe erstellen" },
+        { error: "FIR-Leitung darf keine Leitung erstellen" },
         { status: 403 }
       );
   } else {
@@ -126,9 +126,9 @@ export async function DELETE(
     if (me.fir?.id !== fir.id)
       return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
 
-    if (group.kind === GroupKind.FIR_LEITUNG || group.kind === GroupKind.GLOBAL_VATGER_LEITUNG)
+    if (group.kind === GroupKind.FIR_LEITUNG)
       return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung oder globale Gruppe löschen" },
+        { error: "FIR-Leitung darf keine Leitungs Gruppe löschen" },
         { status: 403 }
       );
   } else {

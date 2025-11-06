@@ -74,16 +74,16 @@ export async function POST(
 
   // Sicherheitslogik:
   // MainAdmin / VATGER-Leitung dürfen alles
-  // FIR-Leitung nur Gruppen in eigener FIR und keine Leitung/Global-Gruppen
+  // FIR-Leitung nur Gruppen in eigener FIR und keine Leitung-Gruppen
   if (me.effectiveLevel == "MAIN_ADMIN" || me.effectiveLevel == "VATGER_LEITUNG") {
     // ok, volle Rechte
   } else if (me.effectiveLevel == "FIR_EVENTLEITER") {
     if (me.fir?.id !== fir.id)
       return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
 
-    if (kind && ([GroupKind.FIR_LEITUNG, GroupKind.GLOBAL_VATGER_LEITUNG] as GroupKind[]).includes(kind))
+    if (kind && ([GroupKind.FIR_LEITUNG] as GroupKind[]).includes(kind))
       return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung oder globale Gruppe erstellen" },
+        { error: "FIR-Leitung darf keine Leitung erstellen" },
         { status: 403 }
       );
   } else {
