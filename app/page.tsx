@@ -211,7 +211,7 @@ export default function EventsPage() {
         <section className="mb-12">
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 mb-1">Events nach FIR</h2>
-            <p className="text-gray-600 text-sm">Filtere Events nach Fluginformationsregionen</p>
+            <p className="text-gray-600 text-sm">Schaue die Events der einzelnen FIRs an</p>
           </div>
 
           {/* Suchleiste und FIR Filter */}
