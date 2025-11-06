@@ -45,7 +45,7 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-40">
               {hasAdminAcess() && (
                 <DropdownMenuItem>
-                  <Link href="/admin" className="w-full">Admin</Link>
+                  <Link href="/admin/events" className="w-full">Admin</Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem

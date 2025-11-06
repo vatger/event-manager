@@ -1,11 +1,14 @@
-import React from 'react'
+"use client";
 
-const Dashboard = () => {
-  return (
-    <div>
-      Admin Dashboard Page
-    </div>
-  )
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Dashboard() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.push("/admin/events");
+  }, [router]);
+
+  return <div>Admin Dashboard Page</div>;
 }
-
-export default Dashboard

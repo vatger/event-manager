@@ -1,4 +1,3 @@
-// config/navigation.ts
 import { 
     LayoutDashboard, 
     Calendar, 
@@ -30,11 +29,6 @@ import {
     {
       title: "Main",
       items: [
-        { 
-          href: "/admin", 
-          label: "Dashboard", 
-          icon: LayoutDashboard,
-        },
         { 
           href: "/admin/events", 
           label: "Events", 

@@ -1,4 +1,3 @@
-// app/admin/events/[id]/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,7 +14,6 @@ import { RosterLinkDialog } from "./_components/RosterLinkDialog";
 import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 import router from "next/router";
 
 export default function EventOverviewPage() {
