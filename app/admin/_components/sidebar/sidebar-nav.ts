@@ -68,7 +68,7 @@ import {
     // FIR Management (nur für berechtigte User)
     {
       title: "FIR Management",
-      permission: ["fir.manage"],
+      permission: ["FIR_EVENTLEITER"],
       items: [
         { 
           href: "/admin/firs", 

@@ -74,6 +74,9 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
     // MAIN_ADMIN hat immer alle Berechtigungen
     if (isMainAdmin()) return true;
     
+    // Permission entspricht dem effektiven Level des Users
+    if(requiredPermissions[0] === user?.effectiveLevel) return true;
+
     return requiredPermissions.some(permission => can(permission) || canInOwnFIR(permission));
   };
 
