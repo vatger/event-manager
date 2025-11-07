@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isVatgerEventleitung } from "@/lib/acl/permissions";
+import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
+import { invalidateCache } from "@/lib/cache/cacheManager";
 
 // GET: alle Signups für ein Event
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
@@ -47,6 +49,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
       },
     });
 
+    await invalidateSignupTable(eventid)
     return NextResponse.json(signup);
   } catch (err) {
     console.error("Error", err);

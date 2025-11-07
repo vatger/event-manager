@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 
 
 
@@ -23,7 +24,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     if (!signup) {
       return NextResponse.json({ error: "Signup nicht gefunden" }, { status: 404 });
     }
-
     return NextResponse.json(signup);
   } catch (err) {
     console.error(err);
@@ -57,7 +57,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         remarks: body.remarks,
       },
     });
-
+    await invalidateSignupTable(Number(eventId))
     return NextResponse.json(updated);
   } catch (err) {
     console.error(err);
@@ -85,6 +85,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
       },
     });
 
+    await invalidateSignupTable(Number(eventId))
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error(err);

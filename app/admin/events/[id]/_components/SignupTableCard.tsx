@@ -32,12 +32,8 @@ export default function SignupsTableCard({
       </CardHeader>
       <CardContent>
         <SignupsTable
-          signups={signups}
-          loading={loading}
-          error={error}
-          columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
+          eventId={Number(event.id)}
           editable={true}
-          event={tableEvent}
           onRefresh={onRefresh}
         />
       </CardContent>
