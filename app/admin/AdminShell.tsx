@@ -8,7 +8,11 @@ import { AdminHeader } from "./_components/AdminHeader";
 import { EventAdminNav } from "./events/[id]/_components/EventAdminNav";
 import { navigationConfig } from "./_components/sidebar/sidebar-nav";
 
-export default function AdminShell({ children, user }: any) {
+type User = {
+  name: string;
+  cid: string;
+};
+export default function AdminShell({ children, user }: { children: React.ReactNode; user: User }) {
   const pathname = usePathname();
 
   const isFIRPage = pathname.includes("/firs");

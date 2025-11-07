@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Save, Key, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { getErrorMessage } from '@/utils/errorUtils';
 
 interface GroupPermissionsProps {
   group: Group;
@@ -92,12 +93,14 @@ export function GroupPermissions({ group, firCode, canManage, onUpdate }: GroupP
 
       await firApi.updateGroupPermissions(firCode, group.id, updates);
       onUpdate();
-    } catch (err) {
-      console.error('Failed to update permissions:', err);
-      setError('Berechtigungen konnten nicht gespeichert werden');
+    } catch (err: unknown) {
+      const message = getErrorMessage(err, "Berechtigungen konnten nicht gespeichert werden");
+      console.error("Failed to update permissions:", message, err);
+      setError(message);
     } finally {
       setSaving(false);
     }
+    
   };
 
   const handleReset = () => {

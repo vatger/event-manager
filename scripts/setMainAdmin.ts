@@ -27,7 +27,7 @@ async function main() {
     process.exit(1);
   }
 
-  const newRole = remove ? "ADMIN" : "MAIN_ADMIN";
+  const newRole = remove ? "USER" : "MAIN_ADMIN";
 
   if (user.role === newRole) {
     console.log(chalk.yellow(`ℹ️ Benutzer ${user.name} (${cid}) ist bereits ${newRole}.`));

@@ -9,7 +9,8 @@ declare module "next-auth" {
       cid: string;
       name: string;
       rating: string;
-      role: "ADMIN" | "USER" | "MAIN_ADMIN";
+      role: "USER" | "MAIN_ADMIN";
+      fir: string;
     } & DefaultSession["user"];
   }
 
@@ -18,7 +19,8 @@ declare module "next-auth" {
     cid: string;
     name: string;
     rating: string;
-    role: "ADMIN" | "USER" | "MAIN_ADMIN";
+    role: "USER" | "MAIN_ADMIN";
+    fir: string;
   }
 }
 
@@ -28,6 +30,7 @@ declare module "next-auth/jwt" {
     cid: string;
     rating: string;
     name: string;
-    role: "ADMIN" | "USER" | "MAIN_ADMIN";
+    role: "USER" | "MAIN_ADMIN";
+    fir: string;
   }
 }

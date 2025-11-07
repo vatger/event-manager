@@ -51,11 +51,6 @@ import {
           label: "Event Calendar", 
           icon: Calendar,
         },
-        { 
-          href: "/admin/cpts", 
-          label: "CPT Manager", 
-          icon: Users,
-        },
       ]
     },
     

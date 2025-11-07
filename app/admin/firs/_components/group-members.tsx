@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Trash2, UserPlus, UserMinus, Search } from 'lucide-react';
 import { firApi } from '@/lib/api/fir';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/utils/errorUtils';
 
 interface GroupMembersProps {
   group: Group;
@@ -38,26 +39,26 @@ export function GroupMembers({ group, firCode, canManage, VATGERStaff, onUpdate 
     setLoading(true);
     try {
       await firApi.addGroupMember(firCode, group.id, cid);
-      setNewMemberCID('');
-      toast.success('Mitglied erfolgreich hinzugefügt');
+      setNewMemberCID("");
+      toast.success("Mitglied erfolgreich hinzugefügt");
       onUpdate();
-    } catch (error: any) {
-      console.error('Failed to add member:', error);
-      toast.error(error.message || 'Fehler beim Hinzufügen des Mitglieds');
+    } catch (error: unknown) {
+      console.error("Failed to add member:", error);
+      toast.error(getErrorMessage(error) || "Fehler beim Hinzufügen des Mitglieds");
     } finally {
       setLoading(false);
     }
   };
-
-  const handleRemoveMember = async (cid: string, memberName: string) => {
+  
+  const handleRemoveMember = async (cid: string, memberName: string): Promise<void> => {
     setLoading(true);
     try {
       await firApi.removeGroupMember(firCode, group.id, cid);
       toast.success(`${memberName} wurde entfernt`);
       onUpdate();
-    } catch (error: any) {
-      console.error('Failed to remove member:', error);
-      toast.error(error.message || 'Fehler beim Entfernen des Mitglieds');
+    } catch (error: unknown) {
+      console.error("Failed to remove member:", error);
+      toast.error(getErrorMessage(error) || "Fehler beim Entfernen des Mitglieds");
     } finally {
       setLoading(false);
     }

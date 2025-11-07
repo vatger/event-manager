@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { firApi } from '@/lib/api/fir';
-import { FIR } from '@/types/fir';
+import { FIR, Group } from '@/types/fir';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +14,7 @@ import { GroupMembers } from '../_components/group-members';
 import { GroupPermissions } from '../_components/group-permissions';
 import { useUser } from '@/hooks/useUser';
 import { CreateGroupDialog, EditGroupDialog, DeleteGroupDialog } from '../_components/GroupDialogs';
+
 
 export default function FIRDetailPage() {
   const params = useParams();
@@ -26,7 +27,7 @@ export default function FIRDetailPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<any>(null);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
 
   const { isVATGERLead, isFIRLead } = useUser();
 
@@ -54,12 +55,12 @@ export default function FIRDetailPage() {
     loadData();
   };
 
-  const handleEditGroup = (group: any) => {
+  const handleEditGroup = (group: Group) => {
     setSelectedGroup(group);
     setEditDialogOpen(true);
   };
 
-  const handleDeleteGroup = (group: any) => {
+  const handleDeleteGroup = (group: Group) => {
     setSelectedGroup(group);
     setDeleteDialogOpen(true);
   };
@@ -269,7 +270,7 @@ export default function FIRDetailPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         firCode={fir.code}
-        groupId={selectedGroup?.id}
+        groupId={selectedGroup?.id || 0}
         onDeleted={handleGroupDeleted}
       />
     </div>

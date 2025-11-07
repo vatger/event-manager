@@ -1,4 +1,5 @@
 import { FIR, CreateFIRData, Group, CurrentUser, Permission} from '@/types/fir';
+import { User } from '@prisma/client';
 
 class FIRAPI {
   private async fetchWithAuth(url: string, options?: RequestInit) {
@@ -41,7 +42,7 @@ class FIRAPI {
     return this.fetchWithAuth(`/api/firs/${firCode}/groups`);
   }
 
-  async addGroupMember(firCode: string, groupId: number, cid: number): Promise<any> {
+  async addGroupMember(firCode: string, groupId: number, cid: number): Promise<unknown> {
     return this.fetchWithAuth(`/api/firs/${firCode}/groups/${groupId}/members`, {
       method: 'POST',
       body: JSON.stringify({ cid }),

@@ -335,7 +335,7 @@ export function DeleteGroupDialog({
             Gruppe löschen
           </DialogTitle>
           <DialogDescription>
-            Sind Sie sicher, dass Sie die Gruppe <strong>'{groupName}'</strong> löschen möchten? 
+            Sind Sie sicher, dass Sie die Gruppe <strong>{groupName}</strong> löschen möchten? 
             Diese Aktion kann nicht rückgängig gemacht werden.
           </DialogDescription>
         </DialogHeader>

@@ -1,5 +1,7 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { useUser } from '@/hooks/useUser';
 import { useState } from 'react';
 
 interface SyncToSheetsButtonProps {
@@ -11,6 +13,8 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string>('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  const { canInOwnFIR } = useUser();
 
   const handleSync = async () => {
     setIsLoading(true);
@@ -56,9 +60,9 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
   return (
     <>
       <div className={`flex flex-col gap-2 ${className}`}>
-        <button
+        <Button
           onClick={handleSyncClick}
-          disabled={isLoading}
+          disabled={isLoading  || !canInOwnFIR("event.export")}
           className={`
             px-4 py-2 rounded-md font-medium text-sm
             ${isLoading 
@@ -84,7 +88,7 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
               Zu Sheets synchronisieren
             </span>
           )}
-        </button>
+        </Button>
         
         {message && (
           <div className={`text-sm ${message.includes('Fehler') ? 'text-red-600' : 'text-green-600'}`}>

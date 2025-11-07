@@ -24,7 +24,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
       {/* Footer (ebenfalls sticky unten) */}
       {!isAdmin && (
-        <footer className="flex-shrink-0 border-t bg-background">
+        <footer className="flex-shrink-0 bg-background">
           <Footer />
         </footer>
       )}

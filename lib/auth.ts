@@ -10,6 +10,7 @@ interface VatsimProfile {
   fullname: string,
   rating_atc: number,
   rating_atc_short: string,
+  fir_code: string,
   data?: {
       cid: string | number;
       personal?: {
@@ -33,7 +34,7 @@ interface VatsimProfile {
       rating: {
         short: string;
       };
-    };
+    },
   }
   
   const VatgerProvider: OAuthConfig<VatsimProfile> = {
@@ -42,7 +43,7 @@ interface VatsimProfile {
     type: 'oauth',
     authorization: {
       url: process.env.VATGER_CONNECT_URL,
-      params: { scope: 'name rating legacy' },
+      params: { scope: 'name rating legacy assignment' },
     },
     token: process.env.VATGER_TOKEN_URL!,
     userinfo: process.env.VATGER_USER_INFO!,
@@ -62,13 +63,13 @@ interface VatsimProfile {
       }
   
       const rating = data.vatsim?.rating?.short || "UNKNOWN";
-  
       return {
         id: String(cid),
         cid: String(cid),
         name: fullName,
         rating,
         role: "USER",
+        fir: profile.fir_code
       };
     },
   };
@@ -101,6 +102,7 @@ interface VatsimProfile {
         name: fullName,
         rating,
         role: "USER",
+        fir: ""
       };
     },
   };
@@ -157,6 +159,7 @@ export const authOptions: NextAuthOptions = {
           token.name = user.name!;
           token.rating = user.rating;
           token.role = user.role || "USER";
+          token.fir = user.fir
         }
         return token;
       },
@@ -171,6 +174,7 @@ export const authOptions: NextAuthOptions = {
           name: token.name,
           rating: token.rating,
           role: dbUser?.role || token.role || "USER",
+          fir: token.fir
         };
         return session;
       },

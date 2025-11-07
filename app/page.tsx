@@ -12,10 +12,9 @@ import { Input } from "@/components/ui/input";
 
 export default function EventsPage() {
   const { data: session } = useSession();
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFIR, setSelectedFIR] = useState("all");
+  const [selectedFIR, setSelectedFIR] = useState(session?.user.fir || "all");
   const [showArchived, setShowArchived] = useState(false);
   
   useEffect(() => {

@@ -18,6 +18,7 @@ import { navigationConfig, type NavGroup } from "./sidebar-nav";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
+import { getAvatarColor } from "@/utils/getAvatarColor";
 
 interface AdminSidebarProps {
   user: {
@@ -25,6 +26,7 @@ interface AdminSidebarProps {
     cid: string;
   };
 }
+
 
 // Navigation Item Komponente
 const NavItem = ({ 
@@ -139,6 +141,14 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
 export function AdminSidebar({ user }: AdminSidebarProps) {
   const pathname = usePathname();
 
+  const getInitials = () => {
+    if (!user?.name) return "N";
+    const names = user?.name.split(' ');
+    const firstInitial = names[0]?.charAt(0) || '';
+    const lastInitial = names[1]?.charAt(0) || '';
+    return `${firstInitial}${lastInitial}`.toUpperCase();
+  };
+  
   return (
     <Sidebar className="border-r bg-background">
       <SidebarHeader className="border-b p-4">
@@ -165,12 +175,10 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
 
       <SidebarFooter className="border-t p-4">
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {user?.name ? user.name.charAt(0) : "NA"}
-              {user?.name && user.name.split(" ").length > 1 ? user.name.split(" ")[1].charAt(0) : ""}
-            </AvatarFallback>
-          </Avatar>
+          {/* Avatar Circle */}
+          <div className={`flex items-center justify-center h-8 w-8 rounded-full ${getAvatarColor(user.name)} text-white font-semibold text-sm shadow-sm`}>
+            {getInitials()}
+          </div>
           <div className="flex flex-1 flex-col min-w-0">
             <span className="text-sm font-medium truncate">{user?.name}</span>
             <span className="text-xs text-muted-foreground truncate">CID {user?.cid}</span>

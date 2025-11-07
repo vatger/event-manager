@@ -8,6 +8,8 @@ import AvailabilityTimeline from "../_components/AvailabilityTimeline";
 import StatsCard from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
 import SignupsTableCard from "../_components/SignupTableCard";
+import { userHasOwnFirPermission } from "@/lib/acl/permissions";
+import { useUser } from "@/hooks/useUser";
 
 export default function AdminEventSignupsPage() {
   const params = useParams();
@@ -20,6 +22,8 @@ export default function AdminEventSignupsPage() {
   const [signups, setSignups] = useState<Signup[]>([]);
   const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
   const [signupsError, setSignupsError] = useState<string>("");
+
+  const { canInOwnFIR } = useUser();
 
   // Event laden
   useEffect(() => {
@@ -91,7 +95,9 @@ export default function AdminEventSignupsPage() {
         error={signupsError}
         onRefresh={loadSignups}
       />
+      
       <SyncToSheetsButton eventId={parseInt(event.id.toString())} />
+      
     </div>
   );
 }
