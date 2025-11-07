@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useUserSettings } from "@/lib/stores/userSettingsStore";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { Button } from "../ui/button";
 
 export default function EmailNotificationToggle() {
   const { emailNotificationsEnabled, setEmailNotifications } = useUserSettings();
@@ -27,7 +29,7 @@ export default function EmailNotificationToggle() {
   const handleToggle = async (value: boolean) => {
     setEmailNotifications(value);
     try {
-      const res = await fetch("/api/user/notifications/email", {
+      const res = await fetch("/api/notifications/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emailNotificationsEnabled: value }),
@@ -43,15 +45,33 @@ export default function EmailNotificationToggle() {
   if (emailNotificationsEnabled === null) return null; // Noch nicht geladen
 
   return (
-    <div className="flex items-center gap-4">
-      <Settings className="w-5 h-5 text-muted-foreground" />
-      <Label htmlFor="email-toggle">E-Mail-Benachrichtigungen</Label>
-      <Switch
-        id="email-toggle"
-        checked={emailNotificationsEnabled}
-        onCheckedChange={handleToggle}
-        disabled={loading}
-      />
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          className="rounded-full p-2 hover:bg-muted transition-colors bg-transparent"
+          aria-label="Einstellungen"
+        >
+          <Settings className="w-5 h-5 text-muted-foreground" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel>Benachrichtigungen</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="flex justify-between items-center">
+          <span className="text-sm">E-Mail</span>
+          <Switch
+            checked={emailNotificationsEnabled ?? false}
+            onCheckedChange={handleToggle}
+            disabled={emailNotificationsEnabled === null || loading}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex justify-between items-center">
+          <span className="text-sm">
+            Forum
+          </span>
+          <Switch checked disabled/>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -67,6 +67,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
       },
     });
 
+    const isEmailNotifEnabled = signup.user.emailNotificationsEnabled ?? false;
+    const body = {
+      title,
+      message: `[${event.name}] ${message}`,
+      source_name: "Eventsystem",
+      link_text: "Jetzt ansehen",
+      link_url: `${process.env.NEXTAUTH_URL}/events/${event.id}`,
+      ...(isEmailNotifEnabled ? {} : { via: "board.ping" }),
+    };
+
     // VATGER-API aufrufen
     try {
       await fetch(`${process.env.VATGER_API}/${signup.user.cid}/send_notification`, {
@@ -75,14 +85,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
           "Authorization": `Bearer ${process.env.VATGER_API_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          title,
-          message: `[${event.name}] ${message}`,
-          source_name: "Eventsystem",
-          link_text: "Jetzt ansehen",
-          link_url: `${process.env.NEXTAUTH_URL}/events/${event.id}`,
-          via: "board.ping"
-        }),
+        body: JSON.stringify(body),
       });
     } catch (apiError) {
       console.error("VATGER API Error:", apiError);

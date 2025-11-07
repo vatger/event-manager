@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import NotificationsWidget from "./NotificationsWidget";
+import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
 import { Menu, User, LogOut, Settings, Shield, ChevronDown, Database, CalendarRange } from "lucide-react";
 import { useUser } from "@/hooks/useUser";

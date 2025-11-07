@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
-import NotificationsWidget from "@/components/NotificationsWidget";
+import NotificationsWidget from "@/components/notifs/NotificationsWidget";
 import { useEffect, useState } from "react";
 import { firApi } from "@/lib/api/fir";
 import { CurrentUser } from "@/types/fir";

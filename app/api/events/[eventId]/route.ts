@@ -208,7 +208,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       data: parsed.data
     });
 
-    // Notifications: Beispiel - wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
+    // Notifications: wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
     if (parsed.data.status === "ROSTER_PUBLISHED") {
       const count = await notifyRosterPublished(Number(eventId));
       console.log(`✅ ${count} Benutzer benachrichtigt`);

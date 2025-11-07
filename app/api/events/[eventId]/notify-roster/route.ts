@@ -57,23 +57,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
 
   // VATGER-API aufrufen
   const results = await Promise.allSettled(
-    signups.map((s) =>
+    signups.map((s) => {
+      const isEmailNotifEnabled = s.user.emailNotificationsEnabled ?? false;
+      const body = {
+        title: `Roster veröffentlicht – ${event.name}`,
+        message,
+        source_name: "Eventsystem",
+        link_text: "Jetzt ansehen",
+        link_url: `${process.env.NEXTAUTH_URL}/events/${event.id}`,
+        ...(isEmailNotifEnabled ? {} : { via: "board.ping" }),
+      };
+
       fetch(`${process.env.VATGER_API}/${s.user.cid}/send_notification`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${VATGER_API_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          title: `Roster veröffentlicht – ${event.name}`,
-          message,
-          source_name: "Eventsystem",
-          link_text: "Jetzt ansehen",
-          link_url: `${process.env.NEXTAUTH_URL}/events/${event.id}`,
-          via: "board.ping"
-        }),
-      })
-    )
+        body: JSON.stringify(body),
+      });
+    })
   );
 
   const successCount = results.filter((r) => r.status === "fulfilled").length;
