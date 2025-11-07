@@ -124,8 +124,8 @@ export default function SignupEditDialog({
             <div className="text-sm text-muted-foreground">
               Nutzer: {signup.user?.name || "Unbekannt"} • CID {String(signup.user?.cid ?? signup.userCID)}
             </div>
-            <div>
-              <Label>Availability (UTC)</Label>
+            <div className="flex flex-col gap-2">
+              <Label>Availability</Label>
               <AvailabilityEditor
                 eventStart={toHHMMUTC(event.startTime, "down")}
                 eventEnd={toHHMMUTC(event.endTime, "up")}
@@ -133,11 +133,11 @@ export default function SignupEditDialog({
                 innerRef={avRef}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Desired Position</Label>
               <Input value={preferredStations} onChange={(e) => setPreferredStations(e.target.value)} placeholder="e.g. EDDM_N_TWR" />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Remarks</Label>
               <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Bemerkungen..." />
             </div>

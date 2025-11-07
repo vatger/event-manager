@@ -139,9 +139,9 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
         )}
         
         <Button size="sm" variant="outline" asChild>
-              <Link href={`/admin/events/${event.id}/signups`}>
+              <Link href={`/admin/events/${event.id}`}>
               <Eye className="w-4 h-4 mr-1" />
-              Anmeldungen
+              Verwalten
               </Link>
           </Button>
         

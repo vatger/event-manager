@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import SignupEditDialog from "@/components/SignupEditDialog";
+import SignupEditDialog from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { Edit } from "lucide-react";
 import { Signup, TimeRange } from "@/types";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";

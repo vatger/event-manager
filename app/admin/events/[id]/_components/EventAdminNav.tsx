@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const eventAdminTabs: {
     id: string;
@@ -54,9 +55,14 @@ const eventAdminTabs: {
 interface EventAdminNavProps {
   signupsCount?: number;
   candidatesCount?: number;
+  eventName?: string;
+  user?: {
+    name: string;
+    rating: string;
+  };
 }
 
-export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAdminNavProps) {
+export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName, user }: EventAdminNavProps) {
   const params = useParams();
   const pathname = usePathname();
   const eventId = params.id as string;
@@ -110,22 +116,25 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
       <Link
         href={href}
         className={cn(
-          "group relative flex items-center gap-2 lg:gap-3 border-b-2 py-3 lg:py-4 px-2 lg:px-3 text-sm font-medium transition-all hover:bg-accent/50",
+          "group relative flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200",
           isActive
-            ? "border-primary text-primary bg-accent/20"
-            : "border-transparent text-muted-foreground hover:text-foreground"
+            ? "bg-blue-900 text-white shadow-sm"
+            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
         )}
         onClick={() => setIsMobileMenuOpen(false)}
       >
-        <Icon className="h-4 w-4 lg:h-5 lg:w-5 flex-shrink-0" />
+        <Icon className={cn(
+          "h-4 w-4 flex-shrink-0",
+          isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"
+        )} />
         <span className="whitespace-nowrap">{tab.label}</span>
         
         {badgeCount !== null && badgeCount > 0 && (
           <span className={cn(
             "flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium flex-shrink-0",
             isActive 
-              ? "bg-primary text-primary-foreground" 
-              : "bg-muted-foreground text-background"
+              ? "bg-white text-blue-900" 
+              : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
           )}>
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
@@ -138,54 +147,96 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
     <>
       {/* Sticky Navigation Header */}
       <div className={cn(
-        "sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 border-b transition-all duration-200 h-18",
+        "sticky top-0 z-40 bg-white border-b border-gray-200 transition-all duration-200 h-18 pt-2",
         isScrolled && "shadow-sm"
       )}>
-        <div className="container mx-auto px-4 lg:px-6">
-          {/* Mobile Header */}
-          <div className="flex lg:hidden items-center justify-between py-4">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md hover:bg-accent transition-colors"
-              aria-label="Menü öffnen"
-            >
-              {isMobileMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </button>
-            
-            <div className="text-sm font-medium text-muted-foreground">
-              Event Navigation
-            </div>
-            
-            {/* Mobile Badge Summary */}
-            <div className="flex gap-1">
-              {signupsCount > 0 && (
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
-                  {signupsCount}
+        <div className="w-full px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14">
+            {/* Left Section - Sidebar Trigger & Navigation */}
+            <div className="flex items-center gap-4">
+              {/* Sidebar Trigger */}
+              <SidebarTrigger className="-ml-2" />
+              
+              {/* Event Name */}
+              {eventName && (
+                <div className="hidden lg:block border-r border-gray-200 pr-4">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {eventName}
+                    </span>
+                    <span className="text-xs text-gray-500">Event Administration</span>
+                  </div>
                 </div>
               )}
+
+              {/* Desktop Navigation */}
+              <nav className="hidden lg:flex items-center gap-1">
+                {visibleTabs.map((tab) => (
+                  <NavItem key={tab.id} tab={tab} />
+                ))}
+              </nav>
+
+              {/* Mobile Menu Button */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors duration-200"
+                aria-label="Menü öffnen"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="h-5 w-5 text-gray-600" />
+                ) : (
+                  <Menu className="h-5 w-5 text-gray-600" />
+                )}
+              </button>
+            </div>
+
+            {/* Right Section - User Info */}
+            <div className="flex items-center gap-3">
+              {/* User Info */}
+              {user && (
+                <div className="hidden sm:flex flex-col items-end">
+                  <span className="text-sm font-medium text-gray-900">
+                    {user.name}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {user.rating}
+                  </span>
+                </div>
+              )}
+              
+              {/* Badge Summary */}
+              <div className="flex gap-1">
+                {signupsCount > 0 && (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-900 text-white text-xs font-medium">
+                    {signupsCount > 99 ? "99+" : signupsCount}
+                  </div>
+                )}
+                {candidatesCount > 0 && (
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-600 text-white text-xs font-medium">
+                    {candidatesCount > 99 ? "99+" : candidatesCount}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex space-x-1 pt-3">
-            {visibleTabs.map((tab) => (
-              <NavItem key={tab.id} tab={tab} />
-            ))}
-          </nav>
         </div>
 
         {/* Mobile Menu Overlay */}
         {isMobileMenuOpen && (
-          <div className="lg:hidden bg-background/80 backdrop-blur-sm fixed inset-0 z-30 mt-16">
+          <div className="lg:hidden bg-black/10 backdrop-blur-sm fixed inset-0 z-30 mt-14">
             <div 
-              className="bg-card border-b shadow-lg"
+              className="bg-white border-b border-gray-200 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="container mx-auto px-4 py-2">
+              <div className="max-w-7xl mx-auto px-4 py-3">
+                {/* Mobile Event Info */}
+                {eventName && (
+                  <div className="px-3 py-2 mb-3 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900 text-sm">{eventName}</h3>
+                    <p className="text-xs text-gray-500">Event Administration</p>
+                  </div>
+                )}
+
                 <nav className="flex flex-col space-y-1">
                   {visibleTabs.map((tab) => {
                     const href = `${basePath}${tab.href}`;
@@ -199,22 +250,25 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0 }: EventAd
                         key={tab.id}
                         href={href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-3 text-base font-medium transition-colors",
+                          "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-200",
                           isActive
-                            ? "bg-accent text-accent-foreground"
-                            : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                            ? "bg-blue-900 text-white"
+                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                         )}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
-                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <Icon className={cn(
+                          "h-4 w-4 flex-shrink-0",
+                          isActive ? "text-white" : "text-gray-400"
+                        )} />
                         <span className="flex-1">{tab.label}</span>
                         
                         {badgeCount !== null && badgeCount > 0 && (
                           <span className={cn(
-                            "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium",
+                            "flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium",
                             isActive 
-                              ? "bg-primary text-primary-foreground" 
-                              : "bg-muted-foreground text-background"
+                              ? "bg-white text-blue-900" 
+                              : "bg-gray-200 text-gray-700"
                           )}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>

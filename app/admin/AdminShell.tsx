@@ -26,13 +26,9 @@ export default function AdminShell({ children, user }: { children: React.ReactNo
 
         <SidebarInset>
           {/* Sticky Header je nach Seite */}
-          {!isFIRPage && !isEventpage ? (
+          {!isEventpage ? (
             <div className="sticky top-0 z-50 bg-background border-b">
               <AdminHeader title={pageTitle} user={user} />
-            </div>
-          ) : isFIRPage ? (
-            <div className="sticky top-0 z-50 bg-background border-b">
-              <FIRNavbar />
             </div>
           ) : (
             <div className="sticky top-0 z-50 bg-background border-b">

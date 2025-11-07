@@ -1,4 +1,3 @@
-// components/AdminHeader.tsx
 "use client";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -7,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -16,7 +14,7 @@ import NotificationsWidget from "@/components/notifs/NotificationsWidget";
 import { useEffect, useState } from "react";
 import { firApi } from "@/lib/api/fir";
 import { CurrentUser } from "@/types/fir";
-import { LogOut, User, ChevronDown, Settings, Shield } from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 
