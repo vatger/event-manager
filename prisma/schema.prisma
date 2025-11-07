@@ -56,6 +56,7 @@ model User {
   fir       FIR?     @relation(fields: [firId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  emailNotificationsEnabled Boolean? 
 
   signups      EventSignup[]
   Notification Notification[]
