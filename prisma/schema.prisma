@@ -234,3 +234,13 @@ model TrainingCacheMetadata {
   lastUpdated DateTime
   forceUpdate Boolean  @default(false)
 }
+
+model EventSignupCache {
+  id         Int      @id @default(autoincrement())
+  eventId    Int      @unique
+  data       Json     // enthält die komplette SignupTableResponse (inkl. Endorsements)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  expiresAt  DateTime?
+}
+
