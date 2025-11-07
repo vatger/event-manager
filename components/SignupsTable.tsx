@@ -10,6 +10,7 @@ import { Signup, TimeRange } from "@/types";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { EndorsementResponse } from "@/lib/endorsements/types";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { useUser } from "@/hooks/useUser";
 
 export type SignupRow = Signup;
 
@@ -66,6 +67,7 @@ export default function SignupsTable(props: SignupsTableProps) {
   const [groupResults, setGroupResults] = useState<Record<string | number, EndorsementResponse>>({});
   const [endorsementsLoading, setEndorsementsLoading] = useState(false);
 
+  const { canInOwnFIR } = useUser()
   // Fetch dynamic group + restrictions per signup
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +181,7 @@ export default function SignupsTable(props: SignupsTableProps) {
                   if (col === "__actions__") {
                     return (
                       <TableCell key={`${s.id}-actions`} className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => { setEditSignup(s); setEditOpen(true); }} disabled={!event}>
+                        <Button size="sm" variant="outline" onClick={() => { setEditSignup(s); setEditOpen(true); }} disabled={!event || !canInOwnFIR("signups.manage")}>
                           <Edit />
                         </Button>
                       </TableCell>
