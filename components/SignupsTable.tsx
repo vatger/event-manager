@@ -298,8 +298,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
             onClose={() => setEditOpen(false)}
             signup={editSignup}
             event={event}
-            onSaved={onRefresh}
-            onDeleted={onRefresh}
+            onSaved={loadSignups}
+            onDeleted={loadSignups}
           />
         )}
       </>
