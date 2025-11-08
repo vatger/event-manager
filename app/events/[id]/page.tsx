@@ -17,6 +17,7 @@ import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
+import { useUser } from "@/hooks/useUser";
 
 const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
@@ -35,9 +36,7 @@ export default function EventPage() {
   const [eventError, setEventError] = useState("");
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [signups, setSignups] = useState<Signup[]>([]);
-  const [signupsLoading, setSignupsLoading] = useState(false);
-  const [signupsError, setSignupsError] = useState("");
+  const {canInFIR} = useUser();
 
   // Event laden
   useEffect(() => {
@@ -61,30 +60,6 @@ export default function EventPage() {
       })
       .finally(() => setEventLoading(false));
   }, [id]);
-
-  // Signups laden
-  const loadSignups = useMemo(() => () => {
-    if (!id) return;
-    
-    setSignupsLoading(true);
-    setSignupsError("");
-
-    fetch(`/api/events/${id}/signup`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Fehler beim Laden der Anmeldungen");
-        return res.json();
-      })
-      .then((data) => setSignups(data))
-      .catch((err) => {
-        console.error("Signups loading error:", err);
-        setSignupsError("Fehler beim Laden der Anmeldungen");
-      })
-      .finally(() => setSignupsLoading(false));
-  }, [id]);
-
-  useEffect(() => {
-    loadSignups();
-  }, [loadSignups]);
 
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
@@ -289,13 +264,10 @@ export default function EventPage() {
         </CardHeader>
         <CardContent>
           <SignupsTable
-            signups={signups}
-            loading={signupsLoading}
-            error={signupsError}
+            eventId={Number(event.id)}
             columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
-            editable={false}
-            event={event ? { id: event.id, startTime: event.startTime, endTime: event.endTime, airport: Array.isArray(event.airports) ? event.airports[0] : event.airports, fir: "EDMM" } : undefined}
-            onRefresh={loadSignups}
+            editable={canInFIR(event.firCode, "signups.manage")}
+            event={event}
           />
         </CardContent>
 
@@ -320,8 +292,7 @@ export default function EventPage() {
             event={selectedEvent}
             onClose={() => setSelectedEvent(null)}
             onChanged={() => { 
-              refetch(); 
-              loadSignups(); 
+              refetch();
             }}
           />
         )}
