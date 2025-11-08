@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Event, Signup } from "@/types";
 import EventHeader from "../_components/EventHeader";
-import AvailabilityTimeline from "../_components/AvailabilityTimeline";
-import StatsCard from "../_components/StatsCard";
+import { StatsCard, StatsCardHandle } from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
-import SignupsTableCard from "../_components/SignupTableCard";
-import { userHasOwnFirPermission } from "@/lib/acl/permissions";
 import { useUser } from "@/hooks/useUser";
+import { AvailabilityTimeline, AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
+import { Users, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function AdminEventSignupsPage() {
   const params = useParams();
@@ -19,11 +21,10 @@ export default function AdminEventSignupsPage() {
   const [eventLoading, setEventLoading] = useState<boolean>(true);
   const [eventError, setEventError] = useState<string>("");
 
-  const [signups, setSignups] = useState<Signup[]>([]);
-  const [signupsLoading, setSignupsLoading] = useState<boolean>(false);
-  const [signupsError, setSignupsError] = useState<string>("");
-
-  const { canInOwnFIR } = useUser();
+  const tableRef = useRef<SignupsTableRef>(null);
+  const timelineRef = useRef<AvailabilityTimelineHandle>(null);
+  const statsRef = useRef<StatsCardHandle>(null);
+  const { canInFIR } = useUser();
 
   // Event laden
   useEffect(() => {
@@ -44,57 +45,58 @@ export default function AdminEventSignupsPage() {
       .finally(() => setEventLoading(false));
   }, [eventId]);
 
-  // Signups laden
-  const loadSignups = () => {
-    if (!eventId) return;
-    setSignupsLoading(true);
-    setSignupsError("");
-
-    fetch(`/api/events/${eventId}/signup`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Fehler beim Laden der Anmeldungen");
-        return res.json();
-      })
-      .then((data) => setSignups(data))
-      .catch((err) => setSignupsError("Fehler beim Laden der Anmeldungen"))
-      .finally(() => setSignupsLoading(false));
-  };
-
-  useEffect(() => {
-    loadSignups();
-  }, [eventId]);
-
   // Slots für Timeline generieren
   const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
 
   if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
   if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
 
+  
+  const handleSignupChanged = async () => {
+    await Promise.all([
+      timelineRef.current?.reload(),
+      statsRef.current?.reload(),
+      tableRef.current?.reload(),
+    ]);
+  };
   return (
     <div className="p-6 space-y-6">
       <EventHeader 
         event={event} 
-        onRefresh={loadSignups} 
-        loading={signupsLoading} 
+        onRefresh={handleSignupChanged} 
+        loading={eventLoading} 
       />
       
-      <StatsCard signups={signups} event={{ airports: event.airports, fir: "EDMM" }} />
+      <StatsCard ref={statsRef} eventId={Number(eventId)} />
       
-      <AvailabilityTimeline 
-        signups={signups} 
-        slots={slots} 
-        loading={signupsLoading} 
-        error={signupsError}
-        event={{ airports: event.airports, fir: "EDMM" }}
+      <AvailabilityTimeline
+        ref={timelineRef}
+        eventId={Number(eventId)}
+        slots={slots}
       />
       
-      <SignupsTableCard
-        signups={signups}
-        event={event}
-        loading={signupsLoading}
-        error={signupsError}
-        onRefresh={loadSignups}
-      />
+      <Card className="relative overflow-hidden">
+        <CardHeader>
+        <CardTitle className="flex justify-between">
+          <div className="flex items-center gap-2">
+          <Users className="w-5 h-5" />
+            Angemeldete Teilnehmer
+          </div>
+          <Button onClick={handleSignupChanged} variant="outline" size="sm">
+            <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+          </Button>
+        </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SignupsTable
+            ref={tableRef}
+            eventId={Number(event.id)}
+            editable={canInFIR(event.firCode, "signups.manage")}
+            event={event}
+            onRefresh={handleSignupChanged}
+          />
+        </CardContent>
+      </Card>
       
       <SyncToSheetsButton eventId={parseInt(event.id.toString())} />
       

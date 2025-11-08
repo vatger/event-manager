@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Send, Users, Calendar, Filter, AlertCircle, CheckCircle2, RefreshCw, MapPin, Clock } from "lucide-react";
+import { Search, Send, Users, Calendar, Filter, AlertCircle, CheckCircle2, RefreshCw, MapPin, Clock, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Event, Signup } from "@/types";
 
@@ -214,10 +214,9 @@ export default function EventNotificationPage() {
             </div>
             
             <div className="flex gap-2">
-              <Button variant="outline" onClick={loadSignups} disabled={signupsLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${signupsLoading ? 'animate-spin' : ''}`} />
-                Aktualisieren
-              </Button>
+            <Button onClick={loadSignups} variant="outline" size="sm">
+              <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+            </Button>
             </div>
           </div>
         </CardContent>

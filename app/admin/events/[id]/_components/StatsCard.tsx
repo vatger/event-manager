@@ -1,62 +1,120 @@
-import { Signup } from "@/types";
+"use client";
+
+import React, {
+  useEffect,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useEndorsements } from "@/hooks/useEndorsements";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import type { SignupTableEntry } from "@/lib/cache/types";
+
+export interface StatsCardHandle {
+  reload: () => Promise<void>;
+}
 
 interface StatsCardProps {
-  signups: Signup[];
-  event?: { airports?: string | string[]; fir?: string };
+  eventId: number;
 }
 
-export default function StatsCard({ signups, event }: StatsCardProps) {
-  const { data: endorsementData, loading } = useEndorsements(signups, event);
-  const stats = {
-    GND: 0,
-    TWR: 0,
-    APP: 0,
-    CTR: 0,
-    UNSPEC: 0
-  };
+export const StatsCard = forwardRef<StatsCardHandle, StatsCardProps>(
+  ({ eventId }, ref) => {
+    const [signups, setSignups] = useState<SignupTableEntry[]>([]);
+    const [cached, setCached] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  // Statistik berechnen
-  signups.forEach((s) => {
-    const cid = String(s.user?.cid ?? s.userCID ?? "");
-    const k = (endorsementData[cid]?.group || "UNSPEC") as string;
-    if (stats[k as keyof typeof stats] !== undefined) {
-      stats[k as keyof typeof stats] += 1;
-    } else {
-      stats.UNSPEC += 1;
+    const loadSignups = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        if (!res.ok) throw new Error("Fehler beim Laden der Statistikdaten");
+
+        const data = await res.json();
+        setSignups(Array.isArray(data.signups) ? data.signups : []);
+        setCached(Boolean(data.cached));
+      } catch (err) {
+        console.error("[StatsCard] Load error:", err);
+        setError("Fehler beim Laden der Statistikdaten");
+        setSignups([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Load on mount
+    useEffect(() => {
+      loadSignups();
+    }, [eventId]);
+
+    // Expose reload() to parent
+    useImperativeHandle(ref, () => ({
+      reload: loadSignups,
+    }));
+
+    // Statistik berechnen
+    const stats = {
+      GND: 0,
+      TWR: 0,
+      APP: 0,
+      CTR: 0,
+      UNSPEC: 0,
+    };
+
+    for (const s of signups) {
+      const group = s.endorsement?.group || s.user.rating || "UNSPEC";
+      if (group in stats) {
+        stats[group as keyof typeof stats]++;
+      } else {
+        stats.UNSPEC++;
+      }
     }
-  });
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Controller Statistik{loading && <span className="ml-2 text-sm text-muted-foreground">lädt…</span>}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
-          <div>
-            <p className="text-sm text-muted-foreground">GND</p>
-            <p className="text-xl font-semibold">{stats.GND}</p>
+    // Render states
+    if (loading)
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Controller Statistik</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">Lade Daten…</p>
+          </CardContent>
+        </Card>
+      );
+
+    if (error)
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      );
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            Controller Statistik{" "}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+            {Object.entries(stats).map(([key, val]) => (
+              <div key={key}>
+                <p className="text-sm text-muted-foreground">{key}</p>
+                <p className="text-xl font-semibold">{val}</p>
+              </div>
+            ))}
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">TWR</p>
-            <p className="text-xl font-semibold">{stats.TWR}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">APP</p>
-            <p className="text-xl font-semibold">{stats.APP}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">CTR</p>
-            <p className="text-xl font-semibold">{stats.CTR}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Unbekannt</p>
-            <p className="text-xl font-semibold">{stats.UNSPEC}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+        </CardContent>
+      </Card>
+    );
+  }
+);
+
+StatsCard.displayName = "StatsCard";

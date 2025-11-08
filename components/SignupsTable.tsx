@@ -119,7 +119,6 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     useImperativeHandle(ref, () => ({
       reload: loadSignups,
     }));
-
     // Initial Load
     useEffect(() => {
       loadSignups();
@@ -298,8 +297,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
             onClose={() => setEditOpen(false)}
             signup={editSignup}
             event={event}
-            onSaved={loadSignups}
-            onDeleted={loadSignups}
+            onSaved={onRefresh}
+            onDeleted={onRefresh}
           />
         )}
       </>

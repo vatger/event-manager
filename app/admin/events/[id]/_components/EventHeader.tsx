@@ -1,6 +1,7 @@
 import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { RotateCcw } from "lucide-react";
 
 interface EventHeaderProps {
   event: Event;
@@ -36,8 +37,8 @@ export default function EventHeader({ event, onRefresh, loading }: EventHeaderPr
         <Badge variant={event.status === "SIGNUP_OPEN" ? "default" : "secondary"}>
           {event.status || "-"}
         </Badge>
-        <Button variant="outline" onClick={onRefresh} disabled={loading}>
-          Neu laden
+        <Button onClick={onRefresh} variant="outline" size="sm">
+          <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
         </Button>
       </div>
     </div>

@@ -58,7 +58,6 @@ export default function SignupEditDialog({
   const [remarks, setRemarks] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  console.log(signup)
 
   useEffect(() => {
     if (!signup) return;

@@ -21,23 +21,21 @@ export default function AdminShell({ children, user }: { children: React.ReactNo
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full overflow-hidden">
+      <div className="flex min-h-screen w-full">
         <AdminSidebar user={user} />
 
-        <SidebarInset>
+        <SidebarInset className="flex flex-col flex-1 min-w-0">
           {/* Sticky Header je nach Seite */}
-          {!isEventpage ? (
-            <div className="sticky top-0 z-50 bg-background border-b">
+          <div className="sticky top-0 z-50 bg-background border-b">
+            {!isEventpage ? (
               <AdminHeader title={pageTitle} user={user} />
-            </div>
-          ) : (
-            <div className="sticky top-0 z-50 bg-background border-b">
+            ) : (
               <EventAdminNav />
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Scrollbarer Inhalt */}
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
             {children}
           </div>
         </SidebarInset>

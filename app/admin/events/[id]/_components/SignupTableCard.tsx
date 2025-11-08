@@ -4,6 +4,7 @@ import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
 import { RotateCcw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef } from "react";
+import { useUser } from "@/hooks/useUser";
 
 interface SignupsTableCardProps {
   event: Event;
@@ -16,6 +17,7 @@ export default function SignupsTableCard({
 }: SignupsTableCardProps) {
 
   const tableRef = useRef<SignupsTableRef>(null);
+  const { canInFIR } = useUser();
   const handleSignupChanged = () => {
     tableRef.current?.reload();
   };
@@ -36,7 +38,7 @@ export default function SignupsTableCard({
         <SignupsTable
           ref={tableRef}
           eventId={Number(event.id)}
-          editable={true}
+          editable={canInFIR(event.firCode, "signups.manage")}
           event={event}
           onRefresh={onRefresh}
         />

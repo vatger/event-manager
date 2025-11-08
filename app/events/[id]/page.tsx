@@ -63,7 +63,6 @@ export default function EventPage() {
       })
       .finally(() => setEventLoading(false));
   }, [id]);
-
   const handleSignupChanged = () => {
     tableRef.current?.reload();
   };
