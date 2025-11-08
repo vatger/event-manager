@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -98,6 +99,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         firCode: fir,
       },
   });
+  await invalidateSignupTable(Number(eventId))
   return NextResponse.json(event);
 }
 
@@ -124,6 +126,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
 
   await prisma.eventSignup.deleteMany({ where: { eventId: Number(eventId) } });
   await prisma.event.delete({ where: { id: Number(eventId) } });
+  await invalidateSignupTable(Number(eventId))
   return NextResponse.json({ success: true });
 }
 
@@ -214,6 +217,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       console.log(`✅ ${count} Benutzer benachrichtigt`);
     }
 
+    await invalidateSignupTable(Number(eventId))
     return NextResponse.json(updatedEvent, { status: 200 }, );
   } catch (err) {
     if(err instanceof z.ZodError){

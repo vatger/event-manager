@@ -172,9 +172,6 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       return (
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground">{emptyMessage}</p>
-          <Button onClick={loadSignups} variant="outline" size="sm">
-            <RotateCcw className="h-4 w-4 mr-1" /> Neu laden
-          </Button>
         </div>
       );
     }
