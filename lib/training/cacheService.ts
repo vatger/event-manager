@@ -1,6 +1,7 @@
 import axios from 'axios'
 import prisma from '@/lib/prisma'
 import { EndoTrainingResponse, SoloTrainingResponse } from '../endorsements/types'
+import { invalidateAllCaches } from '../cache/cacheManager'
 
 type SoloApiItem = {
   id: number
@@ -94,7 +95,7 @@ export async function refreshTrainingCache() {
       update: { lastUpdated: now, forceUpdate: false }
     })
   ])
-
+  await invalidateAllCaches()
   return { solos: soloRows.length, endorsements: endoRows.length, familiarizations: famRows.length }
 }
 

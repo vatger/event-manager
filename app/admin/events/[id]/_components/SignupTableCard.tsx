@@ -34,6 +34,7 @@ export default function SignupsTableCard({
         <SignupsTable
           eventId={Number(event.id)}
           editable={true}
+          event={event}
           onRefresh={onRefresh}
         />
       </CardContent>

@@ -113,6 +113,9 @@ export default function SignupEditDialog({
     }
   }
 
+  console.log("[SIGNUP] ", signup)
+  console.log("[EVENT] ", event)
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg max-h-[calc(100vh-4rem)] overflow-auto">

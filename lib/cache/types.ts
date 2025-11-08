@@ -1,23 +1,28 @@
-// types/signups.ts
 import { EndorsementResponse } from "@/lib/endorsements/types";
-import { User } from "@prisma/client";
+import { TimeRange } from "@/types";
 
-export interface SignupTableUser extends Pick<User, "cid" | "name" | "rating"> {}
+export interface SignupTableUser {
+  cid: number;
+  name: string;
+  rating: string;
+}
+
+export interface Availability {
+  available?: TimeRange[];
+  unavailable?: TimeRange[];
+}
 
 export interface SignupTableEntry {
   id: number;
   user: SignupTableUser;
   preferredStations?: string;
-  remarks?: string;
-  availability?: {
-    available?: { start: string; end: string }[];
-    unavailable?: { start: string; end: string }[];
-  };
-  endorsement?: EndorsementResponse | null;
+  remarks: string | null;
+  availability: Availability;
+  endorsement: EndorsementResponse | null;
 }
 
 export interface SignupTableResponse {
   eventId: number;
   signups: SignupTableEntry[];
-  cached: boolean; // true, wenn Daten aus Cache stammen
+  cached: boolean;
 }

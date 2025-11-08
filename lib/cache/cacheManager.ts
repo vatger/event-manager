@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 type CacheEntry<T> = {
   data: T;
@@ -8,66 +9,46 @@ type CacheEntry<T> = {
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 const DEFAULT_TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
-// Hilfsfunktion, um einheitliche Keys zu erzeugen
-function getEventCacheKey(eventId: number): string {
-  return `event:${eventId}`;
-}
 
 // ====================================================================
 // 🔹 Cache abrufen (erst Memory, dann DB)
 // ====================================================================
 export async function getCache<T>(key: string): Promise<T | null> {
   const cached = memoryCache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.data as T;
 
-  // 1️⃣ Memory-Cache prüfen
-  if (cached) {
-    if (cached.expires < Date.now()) {
-      console.log(`[CACHE EXPIRED] ${key} (memory)`);
-      memoryCache.delete(key);
-    } else {
-      console.log(`[CACHE HIT] ${key} (memory)`);
-      return cached.data as T;
-    }
-  }
-
-  // 2️⃣ Datenbank-Cache prüfen
   const eventId = Number(key.replace("event:", ""));
-  const dbCache = await prisma.eventSignupCache.findUnique({ where: { eventId } });
+  const dbCache = await prisma.eventSignupCache.findUnique({
+    where: { eventId },
+  });
+  if (!dbCache) return null;
 
-  if (!dbCache) {
-    console.log(`[CACHE MISS] ${key} (no DB entry)`);
-    return null;
-  }
-
-  // Ablauf prüfen
+  // Abgelaufen?
   if (dbCache.expiresAt && dbCache.expiresAt.getTime() < Date.now()) {
-    console.log(`[CACHE EXPIRED] ${key} (DB)`);
     await prisma.eventSignupCache.delete({ where: { eventId } });
+    memoryCache.delete(key);
     return null;
   }
 
-  // 3️⃣ DB-Wert in Memory übernehmen
-  memoryCache.set(key, { data: dbCache.data as T, expires: dbCache.expiresAt?.getTime() ?? Date.now() + DEFAULT_TTL });
-
-  console.log(`[CACHE HIT] ${key} (DB → memory)`);
+  memoryCache.set(key, { data: dbCache.data as T, expires: Date.now() + DEFAULT_TTL });
   return dbCache.data as T;
 }
+
 
 // ====================================================================
 // 🔹 Cache setzen / aktualisieren
 // ====================================================================
-export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL): Promise<void> {
+export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL) {
   const eventId = Number(key.replace("event:", ""));
   const expiresAt = new Date(Date.now() + ttlMs);
 
   await prisma.eventSignupCache.upsert({
     where: { eventId },
-    update: { data, expiresAt },
-    create: { eventId, data, expiresAt },
+    update: { data: data as unknown as Prisma.InputJsonValue, expiresAt },
+    create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
   });
 
   memoryCache.set(key, { data, expires: Date.now() + ttlMs });
-  console.log(`[CACHE SET] ${key} (TTL ${ttlMs / 1000 / 60} min)`);
 }
 
 // ====================================================================
