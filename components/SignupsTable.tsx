@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   Table,
   TableBody,
@@ -12,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -28,6 +35,10 @@ type SignupTableColumn =
   | "availability"
   | "preferredStations"
   | "remarks";
+
+export interface SignupsTableRef {
+  reload: () => void;
+}
 
 interface SignupsTableProps {
   eventId: number;
@@ -55,228 +66,246 @@ function formatAvailability(av?: { available?: TimeRange[]; unavailable?: TimeRa
   return ranges.map((r) => `${r.start}z-${r.end}z`).join(", ");
 }
 
-export default function SignupsTable({
-  eventId,
-  editable = false,
-  columns = ["cid", "name", "group", "availability", "preferredStations", "remarks"],
-  emptyMessage = "Keine Anmeldungen",
-  event,
-  onRefresh,
-}: SignupsTableProps) {
-  const { canInOwnFIR } = useUser();
+// =====================================================================
+// 🔹 Hauptkomponente
+// =====================================================================
+const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
+  (
+    {
+      eventId,
+      editable = false,
+      columns = ["cid", "name", "group", "availability", "preferredStations", "remarks"],
+      emptyMessage = "Keine Anmeldungen",
+      event,
+      onRefresh,
+    },
+    ref
+  ) => {
+    const { canInOwnFIR } = useUser();
 
-  // Local state
-  const [signups, setSignups] = useState<SignupTableEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+    // Local state
+    const [signups, setSignups] = useState<SignupTableEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-  // Dialog state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editSignup, setEditSignup] = useState<SignupTableEntry | null>(null);
+    // Dialog state
+    const [editOpen, setEditOpen] = useState(false);
+    const [editSignup, setEditSignup] = useState<SignupTableEntry | null>(null);
 
-  // --------------------------------------------------------------------
-  // 🔹 1️⃣ Load signups from API (cached)
-  // --------------------------------------------------------------------
-  const loadSignups = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-  
-      const res = await fetch(`/api/events/${eventId}/signup/full`);
-      if (!res.ok) throw new Error("Fehler beim Laden der Signups");
-  
-      const data = await res.json();
-      if (!Array.isArray(data.signups)) throw new Error("Invalid response format");
-      setSignups(data.signups);
-    } catch (err) {
-      console.error("SignupTable load error:", err);
-      setSignups([]); // <-- Stelle sicher, dass signups immer ein Array ist
-      setError("Fehler beim Laden der Signups");
-    } finally {
-      setLoading(false);
+    // --------------------------------------------------------------------
+    // 🔹 1️⃣ Load signups from API (cached)
+    // --------------------------------------------------------------------
+    const loadSignups = useCallback(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        if (!res.ok) throw new Error("Fehler beim Laden der Signups");
+
+        const data = await res.json();
+        if (!Array.isArray(data.signups)) throw new Error("Invalid response format");
+        setSignups(data.signups);
+      } catch (err) {
+        console.error("SignupTable load error:", err);
+        setSignups([]);
+        setError("Fehler beim Laden der Signups");
+      } finally {
+        setLoading(false);
+      }
+    }, [eventId]);
+
+    // 👇 Ref erlaubt Parent-Komponente reload() auszulösen
+    useImperativeHandle(ref, () => ({
+      reload: loadSignups,
+    }));
+
+    // Initial Load
+    useEffect(() => {
+      loadSignups();
+    }, [loadSignups]);
+
+    // --------------------------------------------------------------------
+    // 🔹 2️⃣ Group signups by endorsement level
+    // --------------------------------------------------------------------
+    const grouped = useMemo(() => {
+      const out: Record<string, SignupTableEntry[]> = {};
+      if (!Array.isArray(signups)) return out;
+
+      for (const s of signups) {
+        const label = s.endorsement?.group || s.user.rating || "UNSPEC";
+        if (!out[label]) out[label] = [];
+        out[label].push(s);
+      }
+      return out;
+    }, [signups]);
+
+    const orderedGroups = useMemo(() => {
+      const keys = Object.keys(grouped);
+      const idx = (v: string) => PRIORITY[v] ?? 999;
+      return keys.sort((a, b) => idx(a) - idx(b));
+    }, [grouped]);
+
+    // --------------------------------------------------------------------
+    // 🔹 3️⃣ Render
+    // --------------------------------------------------------------------
+    const hasActions = editable;
+    const finalColumns = hasActions ? [...columns, "__actions__"] : columns;
+
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-32">
+          <p className="text-muted-foreground">Lade Anmeldungen...</p>
+        </div>
+      );
     }
-  }, [eventId]);
 
-  useEffect(() => {
-    loadSignups();
-  }, [loadSignups]);
-
-  // --------------------------------------------------------------------
-  // 🔹 2️⃣ Group signups by endorsement level
-  // --------------------------------------------------------------------
-  const grouped = useMemo(() => {
-    const out: Record<string, SignupTableEntry[]> = {};
-  
-    if (!Array.isArray(signups)) return out; // <-- Sicherung gegen undefined oder Fehlerobjekte
-  
-    for (const s of signups) {
-      const label = s.endorsement?.group || s.user.rating || "UNSPEC";
-      if (!out[label]) out[label] = [];
-      out[label].push(s);
+    if (error) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      );
     }
-  
-    return out;
-  }, [signups]);
 
-  const orderedGroups = useMemo(() => {
-    const keys = Object.keys(grouped);
-    const idx = (v: string) => PRIORITY[v] ?? 999;
-    return keys.sort((a, b) => idx(a) - idx(b));
-  }, [grouped]);
+    if (signups.length === 0) {
+      return (
+        <div className="flex justify-between items-center">
+          <p className="text-muted-foreground">{emptyMessage}</p>
+          <Button onClick={loadSignups} variant="outline" size="sm">
+            <RotateCcw className="h-4 w-4 mr-1" /> Neu laden
+          </Button>
+        </div>
+      );
+    }
 
-  // --------------------------------------------------------------------
-  // 🔹 3️⃣ Render
-  // --------------------------------------------------------------------
-  const hasActions = editable;
-  const finalColumns = hasActions ? [...columns, "__actions__"] : columns;
-
-  if (loading) {
     return (
-      <div className="flex justify-center items-center h-32">
-        <p className="text-muted-foreground">Lade Anmeldungen...</p>
-      </div>
-    );
-  }
+      <>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {finalColumns.map((c) => (
+                <TableHead key={c}>
+                  {c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
+          <TableBody>
+            {orderedGroups.map((group) => (
+              <React.Fragment key={group}>
+                <TableRow>
+                  <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
+                    {group}
+                  </TableCell>
+                </TableRow>
 
-  if (signups.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-32 text-muted-foreground">
-        {emptyMessage}
-      </div>
-    );
-  }
+                {grouped[group].map((s) => (
+                  <TableRow key={s.id}>
+                    {finalColumns.map((col) => {
+                      switch (col) {
+                        case "cid":
+                          return <TableCell key={`${s.id}-cid`}>{s.user.cid}</TableCell>;
 
-  return (
-    <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {finalColumns.map((c) => (
-              <TableHead key={c}>{c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
+                        case "name":
+                          return (
+                            <TableCell key={`${s.id}-name`}>
+                              <div className="flex flex-col">
+                                <span>{s.user.name}</span>
+                                {!finalColumns.includes("group") && (
+                                  <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
+                                    {s.endorsement?.group || s.user.rating}
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                          );
 
-        <TableBody>
-          {orderedGroups.map((group) => (
-            <React.Fragment key={group}>
-              {/* 🔹 Group Header */}
-              <TableRow>
-                <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
-                  {group}
-                </TableCell>
-              </TableRow>
-
-              {/* 🔹 Grouped Signups */}
-              {grouped[group].map((s) => (
-                <TableRow key={s.id}>
-                  {finalColumns.map((col) => {
-                    switch (col) {
-                      case "cid":
-                        return <TableCell key={`${s.id}-cid`}>{s.user.cid}</TableCell>;
-
-                      case "name":
-                        return (
-                          <TableCell key={`${s.id}-name`}>
-                            <div className="flex flex-col">
-                              <span>{s.user.name}</span>
-                              {!finalColumns.includes("group") && (
+                        case "group":
+                          return (
+                            <TableCell key={`${s.id}-group`}>
+                              <div className="flex flex-col">
                                 <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
                                   {s.endorsement?.group || s.user.rating}
                                 </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                        );
+                                {s.endorsement?.restrictions?.length ? (
+                                  <div className="mt-1">
+                                    {s.endorsement.restrictions.map((r, idx) => (
+                                      <div key={idx} className="text-xs text-muted-foreground">
+                                        • {r}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          );
 
-                      case "group":
-                        return (
-                          <TableCell key={`${s.id}-group`}>
-                            <div className="flex flex-col">
-                              <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
-                                {s.endorsement?.group || s.user.rating}
-                              </Badge>
-                              {s.endorsement?.restrictions && s.endorsement.restrictions.length > 0 && (
-                                <div className="mt-1">
-                                  {s.endorsement.restrictions.map((r, idx) => (
-                                    <div key={idx} className="text-xs text-muted-foreground">
-                                      • {r}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                        );
+                        case "availability":
+                          return (
+                            <TableCell key={`${s.id}-av`}>
+                              {formatAvailability(s.availability)}
+                            </TableCell>
+                          );
 
-                      case "availability":
-                        return (
-                          <TableCell key={`${s.id}-av`}>
-                            {formatAvailability(s.availability)}
-                          </TableCell>
-                        );
+                        case "preferredStations":
+                          return (
+                            <TableCell key={`${s.id}-pref`}>
+                              {s.preferredStations || "-"}
+                            </TableCell>
+                          );
 
-                      case "preferredStations":
-                        return (
-                          <TableCell key={`${s.id}-pref`}>
-                            {s.preferredStations || "-"}
-                          </TableCell>
-                        );
+                        case "remarks":
+                          return (
+                            <TableCell key={`${s.id}-rmk`}>
+                              {s.remarks || "-"}
+                            </TableCell>
+                          );
 
-                      case "remarks":
-                        return (
-                          <TableCell key={`${s.id}-rmk`}>
-                            {s.remarks || "-"}
-                          </TableCell>
-                        );
+                        case "__actions__":
+                          return (
+                            <TableCell key={`${s.id}-actions`} className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!canInOwnFIR("signups.manage")}
+                                onClick={() => {
+                                  setEditSignup(s);
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Edit />
+                              </Button>
+                            </TableCell>
+                          );
 
-                      case "__actions__":
-                        return (
-                          <TableCell key={`${s.id}-actions`} className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!canInOwnFIR("signups.manage")}
-                              onClick={() => {
-                                setEditSignup(s);
-                                setEditOpen(true);
-                              }}
-                            >
-                              <Edit />
-                            </Button>
-                          </TableCell>
-                        );
+                        default:
+                          return <TableCell key={`${s.id}-${col}`}>–</TableCell>;
+                      }
+                    })}
+                  </TableRow>
+                ))}
+              </React.Fragment>
+            ))}
+          </TableBody>
+        </Table>
 
-                      default:
-                        return <TableCell key={`${s.id}-${col}`}>–</TableCell>;
-                    }
-                  })}
-                </TableRow>
-              ))}
-            </React.Fragment>
-          ))}
-        </TableBody>
-      </Table>
+        {editable && event && (
+          <SignupEditDialog
+            open={editOpen}
+            onClose={() => setEditOpen(false)}
+            signup={editSignup}
+            event={event}
+            onSaved={onRefresh}
+            onDeleted={onRefresh}
+          />
+        )}
+      </>
+    );
+  }
+);
 
-      {editable && event &&(
-        <SignupEditDialog
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          signup={editSignup}
-          event={event}
-          onSaved={onRefresh}
-          onDeleted={onRefresh}
-        />
-      )}
-    </>
-  );
-}
+SignupsTable.displayName = "SignupsTable";
+export default SignupsTable;

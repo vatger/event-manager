@@ -1,37 +1,40 @@
 import { Event, Signup } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import SignupsTable from "@/components/SignupsTable";
+import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
+import { RotateCcw, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 interface SignupsTableCardProps {
-  signups: Signup[];
   event: Event;
-  loading: boolean;
-  error: string;
   onRefresh: () => void;
 }
 
 export default function SignupsTableCard({ 
-  signups, 
   event, 
-  loading, 
-  error, 
   onRefresh 
 }: SignupsTableCardProps) {
-  const tableEvent = event ? { 
-    id: event.id, 
-    startTime: event.startTime, 
-    endTime: event.endTime,
-    airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
-    fir: "EDMM"
-  } : undefined;
 
+  const tableRef = useRef<SignupsTableRef>(null);
+  const handleSignupChanged = () => {
+    tableRef.current?.reload();
+  };
   return (
     <Card className="relative overflow-hidden">
       <CardHeader>
-        <CardTitle>Alle Anmeldungen</CardTitle>
+      <CardTitle className="flex justify-between">
+        <div className="flex items-center gap-2">
+        <Users className="w-5 h-5" />
+          Angemeldete Teilnehmer
+        </div>
+        <Button onClick={handleSignupChanged} variant="outline" size="sm">
+          <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+        </Button>
+      </CardTitle>
       </CardHeader>
       <CardContent>
         <SignupsTable
+          ref={tableRef}
           eventId={Number(event.id)}
           editable={true}
           event={event}

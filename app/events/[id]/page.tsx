@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
@@ -9,10 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import SignupsTable from "@/components/SignupsTable";
+import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Calendar, Clock, MapPin, Tags, Users } from "lucide-react";
+import { AlertCircle, Calendar, Clock, MapPin, RotateCcw, Tags, Users } from "lucide-react";
 import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
@@ -38,6 +38,9 @@ export default function EventPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const {canInFIR} = useUser();
 
+  const tableRef = useRef<SignupsTableRef>(null);
+
+  
   // Event laden
   useEffect(() => {
     if (!id) return;
@@ -60,6 +63,10 @@ export default function EventPage() {
       })
       .finally(() => setEventLoading(false));
   }, [id]);
+
+  const handleSignupChanged = () => {
+    tableRef.current?.reload();
+  };
 
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
@@ -257,13 +264,19 @@ export default function EventPage() {
       {/* Teilnehmer Tabelle */}
       <Card className="relative overflow-hidden">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex justify-between">
+            <div className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Angemeldete Teilnehmer
+              Angemeldete Teilnehmer
+            </div>
+            <Button onClick={handleSignupChanged} variant="outline" size="sm">
+              <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <SignupsTable
+            ref={tableRef}
             eventId={Number(event.id)}
             columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
             editable={canInFIR(event.firCode, "signups.manage")}
@@ -293,6 +306,7 @@ export default function EventPage() {
             onClose={() => setSelectedEvent(null)}
             onChanged={() => { 
               refetch();
+              handleSignupChanged();
             }}
           />
         )}
