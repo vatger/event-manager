@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import { Trash2Icon } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
@@ -63,13 +63,11 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
   
-  const rating = session?.user.rating || "";
   const userCID = session?.user.id;
 
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
-  const hasAutoSetRemarks = useRef(false);
 
   useEffect(() => {
     if (!signupData || hydrated) return;
@@ -82,6 +80,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setHydrated(true);
     
   }, [signupData, hydrated]);
+
+  
 
   if (!session) {
     return (
@@ -96,6 +96,17 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       </Dialog>
     );
   }
+
+  const autoEndorsementProps = useMemo(() => ({
+    user: {
+      userCID: Number(userCID),
+      rating: getRatingValue(session.user.rating),
+    },
+    event: {
+      airport: event.airports,
+      fir: "EDMM",
+    },
+  }), [userCID, session.user.rating, event.airports]);
 
   async function submitSignup() {
     
@@ -207,20 +218,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           {/* Automatische Gruppenzuweisung */}
           {!loading && userCID && (
           <div>
-            <AutomaticEndorsement
-              user={
-                {
-                  userCID: Number(userCID), 
-                  rating: getRatingValue(session.user.rating)
-                }
-              }
-              event={
-                {
-                  airport: event.airports,
-                  fir: "EDMM"
-                }
-              }
-            />
+            {!loading && userCID && (
+              <AutomaticEndorsement {...autoEndorsementProps} />
+            )}
           </div>
           )}
 
