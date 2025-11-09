@@ -5,7 +5,7 @@
 
 */
 -- DropIndex
-DROP INDEX `UserGroup_id_groupId_key` ON `usergroup`;
+DROP INDEX `UserGroup_id_groupId_key` ON `UserGroup`;
 
 -- CreateIndex
 CREATE UNIQUE INDEX `UserGroup_userCID_groupId_key` ON `UserGroup`(`userCID`, `groupId`);

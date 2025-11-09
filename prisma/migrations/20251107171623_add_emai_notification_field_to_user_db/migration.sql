@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE `user` ADD COLUMN `emailNotificationsEnabled` BOOLEAN NULL;
+ALTER TABLE `User` ADD COLUMN `emailNotificationsEnabled` BOOLEAN NULL;
