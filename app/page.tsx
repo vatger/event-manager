@@ -145,7 +145,7 @@ export default function EventsPage() {
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-1">Deine Events</h2>
                 <p className="text-gray-600 text-sm">
-                  {signedUpEvents.length} angemeldet{signedUpEvents.length !== 1 ? 'e' : ''} Event{signedUpEvents.length !== 1 ? 's' : ''}
+                  {signedUpEvents.length} angemeldet{signedUpEvents.length !== 1 ? 'e' : 'es'} Event{signedUpEvents.length !== 1 ? 's' : ''}
                 </p>
               </div>
               <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-md">
@@ -287,7 +287,7 @@ export default function EventsPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-1">Archiv</h2>
               <p className="text-gray-600 text-sm">
-                {archivedEvents.length} vergangen{archivedEvents.length !== 1 ? 'e' : ''} Event{archivedEvents.length !== 1 ? 's' : ''}
+                {archivedEvents.length} vergangen{archivedEvents.length !== 1 ? 'e' : 'es'} Event{archivedEvents.length !== 1 ? 's' : ''}
               </p>
             </div>
             <Button
