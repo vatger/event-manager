@@ -7,6 +7,7 @@ async function ensureBasePermissions() {
     { key: "event.create", description: "Events erstellen" },
     { key: "event.edit", description: "Events bearbeiten" },
     { key: "event.delete", description: "Events löschen" },
+    { key: "event.export", description: "Signups der Events Exportieren"},
     { key: "roster.publish", description: "Roster veröffentlichen" },
     { key: "signups.manage", description: "Anmeldungen verwalten" },
     { key: "user.notif", description: "Benutzer benachrichtigen" },
@@ -40,6 +41,7 @@ async function createStandardGroups(firId: number, firCode: string) {
     "event.create",
     "event.edit",
     "event.delete",
+    "event.export",
     "roster.publish",
     "signups.manage",
     "user.notif",
@@ -79,6 +81,7 @@ async function main() {
   await prisma.group.deleteMany();
   await prisma.permission.deleteMany();
   await prisma.vATGERLeitung.deleteMany();
+  await prisma.eventSignupCache.deleteMany();
   await prisma.user.deleteMany();
   await prisma.fIR.deleteMany();
   // Permissions

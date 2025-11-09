@@ -51,7 +51,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
             rating: getRatingValue(user.rating),
           },
           event: {
-            airport: Array.isArray(event.airports) ? event.airports[0] : (event.airports as any)?.[0],
+            airport: (event.airports as string[] | null)?.[0] ?? "",
             fir: event.fir?.code,
           },
         });

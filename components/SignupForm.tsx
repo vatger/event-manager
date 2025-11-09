@@ -81,6 +81,16 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     
   }, [signupData, hydrated]);
 
+  const autoEndorsementProps = useMemo(() => ({
+    user: {
+      userCID: Number(userCID),
+      rating: getRatingValue(session?.user.rating || "OBS"),
+    },
+    event: {
+      airport: event.airports,
+      fir: "EDMM",
+    },
+  }), [userCID, session?.user.rating, event.airports]);
   
 
   if (!session) {
@@ -97,16 +107,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     );
   }
 
-  const autoEndorsementProps = useMemo(() => ({
-    user: {
-      userCID: Number(userCID),
-      rating: getRatingValue(session.user.rating),
-    },
-    event: {
-      airport: event.airports,
-      fir: "EDMM",
-    },
-  }), [userCID, session.user.rating, event.airports]);
+  
 
   async function submitSignup() {
     

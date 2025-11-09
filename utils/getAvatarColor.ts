@@ -7,6 +7,5 @@ export function getAvatarColor(name?: string): string {
         'bg-pink-900', 'bg-indigo-900', 'bg-teal-900', 'bg-cyan-900'
     ];
     const index = name.length % colors.length;
-    console.log("name", name)
     return colors[index];
 }; 
