@@ -11,7 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
-import { Menu, User, LogOut, Settings, Shield, ChevronDown, Database, CalendarRange } from "lucide-react";
+import Image from "next/image";
+import { LogOut, Shield, ChevronDown, CalendarRange } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 
@@ -37,7 +38,13 @@ export default function Header() {
           <Link href="/">
             <div className="flex items-center gap-3 px-2 hover:bg-gray-50 rounded-lg transition-colors duration-200">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900 shadow-sm">
-                <img src="logo.png" alt="Logo" className="p-1 m-2"/>
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                width={40}
+                height={40}
+                className="p-1 m-2 rounded-lg"
+              />
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-gray-900 tracking-tight">Eventmanager</span>
