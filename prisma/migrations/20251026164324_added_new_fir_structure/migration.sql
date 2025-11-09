@@ -5,10 +5,10 @@
 
 */
 -- AlterTable
-ALTER TABLE `event` ADD COLUMN `firId` INTEGER NULL;
+ALTER TABLE `Event` ADD COLUMN `firId` INTEGER NULL;
 
 -- AlterTable
-ALTER TABLE `user` ADD COLUMN `firId` INTEGER NULL,
+ALTER TABLE `User` ADD COLUMN `firId` INTEGER NULL,
     MODIFY `role` ENUM('USER', 'MAIN_ADMIN') NOT NULL DEFAULT 'USER';
 
 -- CreateTable

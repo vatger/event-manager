@@ -5,4 +5,4 @@
 
 */
 -- AlterTable
-ALTER TABLE `eventsignup` DROP COLUMN `endorsement`;
+ALTER TABLE `EventSignup` DROP COLUMN `endorsement`;

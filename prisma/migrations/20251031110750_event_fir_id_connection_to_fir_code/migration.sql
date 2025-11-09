@@ -5,13 +5,13 @@
 
 */
 -- DropForeignKey
-ALTER TABLE `event` DROP FOREIGN KEY `Event_firId_fkey`;
+ALTER TABLE `Event` DROP FOREIGN KEY `Event_firId_fkey`;
 
 -- DropIndex
-DROP INDEX `Event_firId_fkey` ON `event`;
+DROP INDEX `Event_firId_fkey` ON `Event`;
 
 -- AlterTable
-ALTER TABLE `event` DROP COLUMN `firId`,
+ALTER TABLE `Event` DROP COLUMN `firId`,
     ADD COLUMN `firCode` VARCHAR(191) NULL;
 
 -- AddForeignKey
