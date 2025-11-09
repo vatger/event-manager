@@ -86,6 +86,7 @@ export default function AdminEventForm({ event, fir }: Props) {
         deadline: event.signupDeadline ? new Date(event.signupDeadline).toISOString() : "",
         fir: isVATGERLead() ? event.firCode : "",
       });
+      console.log("Status", formData.status)
     } else {
       // Setze Standardwerte für neues Event
       const now = new Date();
@@ -356,7 +357,7 @@ export default function AdminEventForm({ event, fir }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
-                    value={formData.status}
+                    value={formData.status || "PLANNING"}
                     onValueChange={(value) =>
                       setFormData((prev) => ({ ...prev, status: value as Event["status"] }))
                     }

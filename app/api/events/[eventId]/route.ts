@@ -39,12 +39,8 @@ export async function GET(request: Request,
     include: { signups: true }
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const normalizedEvent = {
-    ...event,
-    status: event.status?.toUpperCase?.() || event.status,
-  };
 
-  return NextResponse.json(normalizedEvent);
+  return NextResponse.json(event);
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
