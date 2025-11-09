@@ -75,6 +75,7 @@ export default function AdminEventSignupsPage() {
         slots={slots}
       />
       
+
       <Card className="relative overflow-hidden">
         <CardHeader>
         <CardTitle className="flex justify-between">

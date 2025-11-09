@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw, PlusCircle } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -178,6 +178,19 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
     return (
       <>
+        {canInOwnFIR("signups.manage") && (
+          <div className="justify-self-end">
+            <Button onClick={() => {
+              setEditSignup(null);
+              setEditOpen(true);
+            }}
+            variant={"outline"}>
+              <PlusCircle />
+            </Button>
+          </div>
+          
+        )}
+
         <Table>
           <TableHeader>
             <TableRow>

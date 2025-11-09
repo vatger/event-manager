@@ -280,6 +280,7 @@ export default function EventPage() {
             columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
             editable={canInFIR(event.firCode, "signups.manage")}
             event={event}
+            onRefresh={handleSignupChanged}
           />
         </CardContent>
 
