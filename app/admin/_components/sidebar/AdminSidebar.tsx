@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChevronDown, LogOut } from "lucide-react";
@@ -75,6 +76,8 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
     
     // MAIN_ADMIN hat immer alle Berechtigungen
     if (isMainAdmin()) return true;
+
+    if(requiredPermissions[0] == "MAIN_ADMIN") return false
     
     // Permission entspricht dem effektiven Level des Users
     if(requiredPermissions[0] === user?.effectiveLevel) return true;
@@ -155,7 +158,13 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
       <Link href="/">
         <div className="flex items-center gap-2 px-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
-                <img src="../logo.png" alt="Logo" className="p-1 m-2"/>
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={36}
+              height={36}
+              className="p-1 m-2 rounded-lg"
+            />
             </div>
             <div className="flex flex-col">
                 <span className="font-bold">Eventmanager</span>

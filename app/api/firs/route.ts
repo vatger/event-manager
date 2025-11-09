@@ -28,7 +28,6 @@ export async function GET() {
   const isGlobal =
     user.effectiveLevel === "MAIN_ADMIN" ||
     user.effectiveLevel === "VATGER_LEITUNG";
-  console.log("user", user, "global", isGlobal)
   const canManageOwnFIR =
     !!user.fir?.code &&
     user.effectiveLevel === "FIR_EVENTLEITER";

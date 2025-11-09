@@ -3,7 +3,6 @@
 import useSWR from "swr";
 import axios from "axios";
 import { CurrentUser } from "@/types/fir";
-import { da } from "date-fns/locale";
 
 const fetcher = async (url: string): Promise<CurrentUser> => {
   const res = await axios.get<CurrentUser>(url);
@@ -13,7 +12,7 @@ const fetcher = async (url: string): Promise<CurrentUser> => {
 export function useUser() {
   const { data, error, isLoading, mutate } = useSWR<CurrentUser>(
     "/api/user/me",
-    fetcher
+    fetcher,
   );
 
   // ---------- PERMISSION HELPERS ----------

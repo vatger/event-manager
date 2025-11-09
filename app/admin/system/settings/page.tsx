@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users, UserPlus, UserMinus, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import TrainingCacheCard from './RefreshEndorsements';
 
 interface VATGERMember {
   id: string;
@@ -204,6 +205,7 @@ export default function SystemSettingsPage() {
           )}
         </CardContent>
       </Card>
+      <TrainingCacheCard />
     </div>
   );
 }
