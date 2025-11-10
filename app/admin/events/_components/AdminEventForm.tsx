@@ -62,17 +62,38 @@ export default function AdminEventForm({ event, fir }: Props) {
     endTime: "",
     airport: "",
     staffedStations: [],
-    status: "PLANNING",
+    status: "DRAFT",
     fir: "",
   });
 
   const { isVATGERLead } = useUser();
 
   // Initialisierung basierend auf Event (Edit-Modus) oder leere Werte (Create-Modus)
-  useEffect(() => {
-    if (event) {
+    useEffect(() => {
+      if (!event) {
+        // Create mode
+        const now = new Date();
+        const defaultStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const defaultEnd = new Date(defaultStart.getTime() + 2 * 60 * 60 * 1000);
+        setFormData({
+          name: "",
+          description: "",
+          bannerUrl: "",
+          startTime: defaultStart.toISOString(),
+          endTime: defaultEnd.toISOString(),
+          airport: "",
+          staffedStations: [],
+          status: "PLANNING",
+          rosterUrl: "",
+          fir: "",
+        });
+        return;
+      }
+    
+      // Edit mode (wird nur 1x pro Event gesetzt)
       const start = new Date(event.startTime);
       const end = new Date(event.endTime);
+    
       setFormData({
         name: event.name || "",
         description: event.description || "",
@@ -81,32 +102,18 @@ export default function AdminEventForm({ event, fir }: Props) {
         endTime: end.toISOString(),
         airport: event.airports?.toString() || "",
         staffedStations: event.staffedStations || [],
-        status: (event.status as Event["status"]) || "PLANNING",
+        status: (event.status as Event["status"]) ?? "DRAFT",
         rosterUrl: event.rosterlink || "",
-        deadline: event.signupDeadline ? new Date(event.signupDeadline).toISOString() : "",
-        fir: isVATGERLead() ? event.firCode : "",
+        deadline: event.signupDeadline
+          ? new Date(event.signupDeadline).toISOString()
+          : "",
+        fir: event.firCode || "",
       });
-      console.log("Status", formData.status)
-    } else {
-      // Setze Standardwerte für neues Event
-      const now = new Date();
-      const defaultStart = new Date(now.getTime() + 24 * 60 * 60 * 1000); // Morgen
-      const defaultEnd = new Date(defaultStart.getTime() + 2 * 60 * 60 * 1000); // +2 Stunden
-      
-      setFormData({
-        name: "",
-        description: "",
-        bannerUrl: "",
-        startTime: defaultStart.toISOString(),
-        endTime: defaultEnd.toISOString(),
-        airport: "",
-        staffedStations: [],
-        status: "PLANNING",
-        rosterUrl: "",
-        fir: isVATGERLead() ? (fir?.code || "EDMM") : "",
-      });
-    }
-  }, [event]);
+    }, [event?.id]);
+
+  useEffect(() => {
+    console.log("formData.status (aktualisiert):", formData.status);
+  }, [formData.status]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -237,6 +244,9 @@ export default function AdminEventForm({ event, fir }: Props) {
     }
   };
 
+  
+  
+
   return (
     <div className="container mx-auto py-6 max-w-4xl px-4">
         {/* Header */}
@@ -357,10 +367,11 @@ export default function AdminEventForm({ event, fir }: Props) {
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
                   <Select
-                    value={formData.status || "PLANNING"}
-                    onValueChange={(value) =>
+                    value={formData.status}
+                    onValueChange={(value) => {
+                      if (!value) return;
                       setFormData((prev) => ({ ...prev, status: value as Event["status"] }))
-                    }
+                    }}
                     disabled={isSaving}
                   >
                     <SelectTrigger className="w-full">
