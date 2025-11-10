@@ -111,9 +111,6 @@ export default function AdminEventForm({ event, fir }: Props) {
       });
     }, [event?.id]);
 
-  useEffect(() => {
-    console.log("formData.status (aktualisiert):", formData.status);
-  }, [formData.status]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

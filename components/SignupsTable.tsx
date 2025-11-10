@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw, PlusCircle } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -168,18 +168,10 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       );
     }
 
-    if (signups.length === 0) {
-      return (
-        <div className="flex justify-between items-center">
-          <p className="text-muted-foreground">{emptyMessage}</p>
-        </div>
-      );
-    }
-
     return (
       <>
         {canInOwnFIR("signups.manage") && (
-          <div className="justify-self-end">
+          <div className="flex justify-self-end pb-2">
             <Button onClick={() => {
               setEditSignup(null);
               setEditOpen(true);
@@ -188,118 +180,131 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
               <PlusCircle />
             </Button>
           </div>
-          
         )}
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {finalColumns.map((c) => (
-                <TableHead key={c}>
-                  {c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
+         {signups.length === 0 ? (
+          <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+          <UserSearch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Keine Anmeldungen gefunden
+          </h3>
+          <p className="text-gray-500">
+            Derzeit gibt es noch keine Anmeldungen, für dieses Event.
+          </p>
+        </div>
+         ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {finalColumns.map((c) => (
+                  <TableHead key={c}>
+                    {c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
 
-          <TableBody>
-            {orderedGroups.map((group) => (
-              <React.Fragment key={group}>
-                <TableRow>
-                  <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
-                    {group}
-                  </TableCell>
-                </TableRow>
+            <TableBody>
+              {orderedGroups.map((group) => (
+                <React.Fragment key={group}>
+                  <TableRow>
+                    <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
+                      {group}
+                    </TableCell>
+                  </TableRow>
 
-                {grouped[group].map((s) => (
-                  <TableRow key={s.id}>
-                    {finalColumns.map((col) => {
-                      switch (col) {
-                        case "cid":
-                          return <TableCell key={`${s.id}-cid`}>{s.user.cid}</TableCell>;
+                  {grouped[group].map((s) => (
+                    <TableRow key={s.id}>
+                      {finalColumns.map((col) => {
+                        switch (col) {
+                          case "cid":
+                            return <TableCell key={`${s.id}-cid`}>{s.user.cid}</TableCell>;
 
-                        case "name":
-                          return (
-                            <TableCell key={`${s.id}-name`}>
-                              <div className="flex flex-col">
-                                <span>{s.user.name}</span>
-                                {!finalColumns.includes("group") && (
+                          case "name":
+                            return (
+                              <TableCell key={`${s.id}-name`}>
+                                <div className="flex flex-col">
+                                  <span>{s.user.name}</span>
+                                  {!finalColumns.includes("group") && (
+                                    <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
+                                      {s.endorsement?.group || s.user.rating}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                            );
+
+                          case "group":
+                            return (
+                              <TableCell key={`${s.id}-group`}>
+                                <div className="flex flex-col">
                                   <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
                                     {s.endorsement?.group || s.user.rating}
                                   </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                          );
+                                  {s.endorsement?.restrictions?.length ? (
+                                    <div className="mt-1">
+                                      {s.endorsement.restrictions.map((r, idx) => (
+                                        <div key={idx} className="text-xs text-muted-foreground">
+                                          • {r}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                            );
 
-                        case "group":
-                          return (
-                            <TableCell key={`${s.id}-group`}>
-                              <div className="flex flex-col">
-                                <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
-                                  {s.endorsement?.group || s.user.rating}
-                                </Badge>
-                                {s.endorsement?.restrictions?.length ? (
-                                  <div className="mt-1">
-                                    {s.endorsement.restrictions.map((r, idx) => (
-                                      <div key={idx} className="text-xs text-muted-foreground">
-                                        • {r}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          );
+                          case "availability":
+                            return (
+                              <TableCell key={`${s.id}-av`}>
+                                {formatAvailability(s.availability)}
+                              </TableCell>
+                            );
 
-                        case "availability":
-                          return (
-                            <TableCell key={`${s.id}-av`}>
-                              {formatAvailability(s.availability)}
-                            </TableCell>
-                          );
+                          case "preferredStations":
+                            return (
+                              <TableCell key={`${s.id}-pref`}>
+                                {s.preferredStations || "-"}
+                              </TableCell>
+                            );
 
-                        case "preferredStations":
-                          return (
-                            <TableCell key={`${s.id}-pref`}>
-                              {s.preferredStations || "-"}
-                            </TableCell>
-                          );
+                          case "remarks":
+                            return (
+                              <TableCell key={`${s.id}-rmk`}>
+                                {s.remarks || "-"}
+                              </TableCell>
+                            );
 
-                        case "remarks":
-                          return (
-                            <TableCell key={`${s.id}-rmk`}>
-                              {s.remarks || "-"}
-                            </TableCell>
-                          );
+                          case "__actions__":
+                            return (
+                              <TableCell key={`${s.id}-actions`} className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!canInOwnFIR("signups.manage")}
+                                  onClick={() => {
+                                    setEditSignup(s);
+                                    setEditOpen(true);
+                                  }}
+                                >
+                                  <Edit />
+                                </Button>
+                              </TableCell>
+                            );
 
-                        case "__actions__":
-                          return (
-                            <TableCell key={`${s.id}-actions`} className="text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={!canInOwnFIR("signups.manage")}
-                                onClick={() => {
-                                  setEditSignup(s);
-                                  setEditOpen(true);
-                                }}
-                              >
-                                <Edit />
-                              </Button>
-                            </TableCell>
-                          );
+                          default:
+                            return <TableCell key={`${s.id}-${col}`}>–</TableCell>;
+                        }
+                      })}
+                    </TableRow>
+                  ))}
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+         )}
 
-                        default:
-                          return <TableCell key={`${s.id}-${col}`}>–</TableCell>;
-                      }
-                    })}
-                  </TableRow>
-                ))}
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
+        
 
         {editable && event && (
           <SignupEditDialog

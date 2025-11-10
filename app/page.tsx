@@ -5,7 +5,7 @@ import EventsSection from "@/components/EventsSection";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Filter, Search, User } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Filter, FolderArchive, Search, User } from "lucide-react";
 import EventCard from "@/components/EventCard";
 import { Input } from "@/components/ui/input";
 
@@ -123,7 +123,7 @@ export default function EventsPage() {
           Willkommen{session?.user?.name && `, ${session.user.name.split(' ')[0]}`}
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Melde dich hier für Events der FIR München an.
+          Melde dich hier für Events der einzelnen FIRs an.
         </p>
         
         {/* Quick Stats mit Countdown */}
@@ -172,7 +172,7 @@ export default function EventsPage() {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-1">Controlleranmeldungen</h2>
               <p className="text-gray-600 text-sm">
-                {openEvents.length} verfügbar{openEvents.length !== 1 ? 'e' : ''} Event{openEvents.length !== 1 ? 's' : ''}
+                {openEvents.length} verfügbar{openEvents.length !== 1 ? 'e' : 'es'} Event{openEvents.length !== 1 ? 's' : ''}
               </p>
             </div>
             {openEvents.length > 0 && (
@@ -322,8 +322,8 @@ export default function EventsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <div className="text-gray-300 text-4xl mb-2">📂</div>
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                  <FolderArchive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-base font-medium text-gray-400 mb-1">
                     Keine vergangenen Events
                   </h3>

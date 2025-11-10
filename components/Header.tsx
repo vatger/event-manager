@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, Shield, ChevronDown, CalendarRange } from "lucide-react";
+import { LogOut, ChevronDown, CalendarRange } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 
@@ -182,7 +182,7 @@ export default function Header() {
                     {hasAdminAcess() && (
                       <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer mb-1">
                         <Link href="/admin" className="flex items-center w-full">
-                          <Shield className="w-4 h-4 mr-3 text-blue-600" />
+                          <CalendarRange className="w-4 h-4 mr-3 text-blue-600" />
                           <span className="text-sm font-medium">Admin Bereich</span>
                         </Link>
                       </DropdownMenuItem>

@@ -74,6 +74,8 @@ export default function StaffedStations({ callsigns }: StaffedStationsProps) {
   // Standard-Tab Wert (erste nicht-leere Gruppe oder "GND")
   const defaultTab = groupedStations[0]?.[0] as string || "GND";
 
+  if(groupedStations.length === 0) return null
+
   return (
     <Card>
       <CardHeader>
