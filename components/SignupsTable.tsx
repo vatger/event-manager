@@ -31,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -109,7 +110,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     },
     ref
   ) => {
-    const { canInOwnFIR } = useUser();
+    const { user, canInOwnFIR } = useUser();
 
     // Local state
     const [signups, setSignups] = useState<SignupTableEntry[]>([]);
@@ -289,7 +290,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <span className={isDeleted ? "line-through" : ""}>
                                         {s.user.name}
                                       </span>
-                                      {hasUnacknowledgedChanges && !isDeleted && (
+                                      {hasUnacknowledgedChanges && !isDeleted && (s.user.cid === Number(user?.cid) || canInOwnFIR("signups.manage")) && (
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
@@ -304,7 +305,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                           </Tooltip>
                                         </TooltipProvider>
                                       )}
-                                      {s.modifiedAfterDeadline && s.changesAcknowledged && !isDeleted && (
+                                      {s.modifiedAfterDeadline && s.changesAcknowledged && !isDeleted && (s.user.cid === Number(user?.cid) || canInOwnFIR("signups.manage")) && (
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>

@@ -110,6 +110,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         },
         data: {
           changesAcknowledged: true,
+          changeLog: [],
         },
       });
       await invalidateSignupTable(Number(eventId))
