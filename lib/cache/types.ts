@@ -12,6 +12,14 @@ export interface Availability {
   unavailable?: TimeRange[];
 }
 
+export interface SignupChange {
+  field: string;
+  oldValue: any;
+  newValue: any;
+  changedAt: string;
+  changedBy: number;
+}
+
 export interface SignupTableEntry {
   id: number;
   user: SignupTableUser;
@@ -19,6 +27,10 @@ export interface SignupTableEntry {
   remarks: string | null;
   availability: Availability;
   endorsement: EndorsementResponse | null;
+  deletedAt?: string | null;
+  deletedBy?: number | null;
+  modifiedAfterDeadline?: boolean;
+  changeLog?: SignupChange[] | null;
 }
 
 export interface SignupTableResponse {

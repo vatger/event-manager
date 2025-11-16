@@ -19,12 +19,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2 } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
 import type { TimeRange } from "@/types";
 import { SignupTableEntry } from "@/lib/cache/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -213,91 +219,145 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                     </TableCell>
                   </TableRow>
 
-                  {grouped[group].map((s) => (
-                    <TableRow key={s.id}>
-                      {finalColumns.map((col) => {
-                        switch (col) {
-                          case "cid":
-                            return <TableCell key={`${s.id}-cid`}>{s.user.cid}</TableCell>;
+                  {grouped[group].map((s) => {
+                    const isDeleted = !!s.deletedAt;
+                    const rowClassName = isDeleted ? "opacity-50" : "";
+                    
+                    return (
+                      <TableRow key={s.id} className={rowClassName}>
+                        {finalColumns.map((col) => {
+                          const cellContent = (() => {
+                            switch (col) {
+                              case "cid":
+                                return (
+                                  <span className={isDeleted ? "line-through" : ""}>
+                                    {s.user.cid}
+                                  </span>
+                                );
 
-                          case "name":
-                            return (
-                              <TableCell key={`${s.id}-name`}>
-                                <div className="flex flex-col">
-                                  <span>{s.user.name}</span>
-                                  {!finalColumns.includes("group") && (
+                              case "name":
+                                return (
+                                  <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                      <span className={isDeleted ? "line-through" : ""}>
+                                        {s.user.name}
+                                      </span>
+                                      {s.modifiedAfterDeadline && !isDeleted && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">Geändert nach Deadline</p>
+                                                {s.changeLog && s.changeLog.length > 0 && (
+                                                  <div className="text-xs">
+                                                    {s.changeLog.map((change, idx) => (
+                                                      <div key={idx}>
+                                                        • {change.field} geändert am{" "}
+                                                        {new Date(change.changedAt).toLocaleString("de-DE")}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      {isDeleted && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <Trash2 className="h-4 w-4 text-red-500" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Gelöscht am {new Date(s.deletedAt!).toLocaleString("de-DE")}</p>
+                                              {s.deletedBy && <p className="text-xs">Von CID: {s.deletedBy}</p>}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
+                                    {!finalColumns.includes("group") && (
+                                      <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
+                                        {s.endorsement?.group || s.user.rating}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+
+                              case "group":
+                                return (
+                                  <div className="flex flex-col">
                                     <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
                                       {s.endorsement?.group || s.user.rating}
                                     </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                            );
+                                    {s.endorsement?.restrictions?.length ? (
+                                      <div className="mt-1">
+                                        {s.endorsement.restrictions.map((r, idx) => (
+                                          <div key={idx} className="text-xs text-muted-foreground">
+                                            • {r}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
 
-                          case "group":
-                            return (
-                              <TableCell key={`${s.id}-group`}>
-                                <div className="flex flex-col">
-                                  <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
-                                    {s.endorsement?.group || s.user.rating}
-                                  </Badge>
-                                  {s.endorsement?.restrictions?.length ? (
-                                    <div className="mt-1">
-                                      {s.endorsement.restrictions.map((r, idx) => (
-                                        <div key={idx} className="text-xs text-muted-foreground">
-                                          • {r}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </TableCell>
-                            );
+                              case "availability":
+                                return (
+                                  <span className={isDeleted ? "line-through" : ""}>
+                                    {formatAvailability(s.availability)}
+                                  </span>
+                                );
 
-                          case "availability":
-                            return (
-                              <TableCell key={`${s.id}-av`}>
-                                {formatAvailability(s.availability)}
-                              </TableCell>
-                            );
+                              case "preferredStations":
+                                return (
+                                  <span className={isDeleted ? "line-through" : ""}>
+                                    {s.preferredStations || "-"}
+                                  </span>
+                                );
 
-                          case "preferredStations":
-                            return (
-                              <TableCell key={`${s.id}-pref`}>
-                                {s.preferredStations || "-"}
-                              </TableCell>
-                            );
+                              case "remarks":
+                                return (
+                                  <span className={isDeleted ? "line-through" : ""}>
+                                    {s.remarks || "-"}
+                                  </span>
+                                );
 
-                          case "remarks":
-                            return (
-                              <TableCell key={`${s.id}-rmk`}>
-                                {s.remarks || "-"}
-                              </TableCell>
-                            );
+                              case "__actions__":
+                                return (
+                                  <div className="flex gap-2 justify-end">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={!canInOwnFIR("signups.manage")}
+                                      onClick={() => {
+                                        setEditSignup(s);
+                                        setEditOpen(true);
+                                      }}
+                                    >
+                                      <Edit />
+                                    </Button>
+                                  </div>
+                                );
 
-                          case "__actions__":
-                            return (
-                              <TableCell key={`${s.id}-actions`} className="text-right">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  disabled={!canInOwnFIR("signups.manage")}
-                                  onClick={() => {
-                                    setEditSignup(s);
-                                    setEditOpen(true);
-                                  }}
-                                >
-                                  <Edit />
-                                </Button>
-                              </TableCell>
-                            );
+                              default:
+                                return "–";
+                            }
+                          })();
 
-                          default:
-                            return <TableCell key={`${s.id}-${col}`}>–</TableCell>;
-                        }
-                      })}
-                    </TableRow>
-                  ))}
+                          return (
+                            <TableCell key={`${s.id}-${col}`}>
+                              {cellContent}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
                 </React.Fragment>
               ))}
             </TableBody>

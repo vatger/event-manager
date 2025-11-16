@@ -108,6 +108,10 @@ model EventSignup {
   remarks           String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  deletedAt         DateTime? // Soft delete timestamp
+  deletedBy         Int? // CID of user who deleted
+  modifiedAfterDeadline Boolean @default(false) // Flag for changes after deadline
+  changeLog         Json? // Array of changes made to the signup
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userCID], references: [cid])
