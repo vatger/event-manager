@@ -113,6 +113,7 @@ model EventSignup {
   modifiedAfterDeadline Boolean @default(false) // Flag for changes after deadline
   changeLog         Json? // Array of changes made to the signup
   changesAcknowledged Boolean @default(false) // Flag to mark if event team has acknowledged changes
+  signedUpAfterDeadline Boolean @default(false) // Flag for signups created after deadline
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userCID], references: [cid])

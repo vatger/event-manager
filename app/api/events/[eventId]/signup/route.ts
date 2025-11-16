@@ -57,6 +57,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
       usercreated = true
     }
 
+    // Check if signup is after deadline
+    const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
+
     const signup = await prisma.eventSignup.create({
       data: {
         eventId: eventid,
@@ -65,13 +68,84 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
         breakrequests: body.breakrequests ?? null,
         preferredStations: body.preferredStations ?? null,
         remarks: body.remarks ?? null,
+        signedUpAfterDeadline: !!(isAfterDeadline && !isAdmin),
       },
     });
 
+    // Send notification if signup is after deadline
+    if (isAfterDeadline && !isAdmin) {
+      await sendLateSignupNotificationToEventTeam(
+        eventid,
+        targetCID,
+        user.name,
+        eventdata.firCode
+      );
+    }
+
     await invalidateSignupTable(eventid)
-    return NextResponse.json({signup, usercreated});
+    return NextResponse.json({signup, usercreated, isAfterDeadline});
   } catch (err) {
     console.error("Error", err);
     return NextResponse.json({ error: "Fehler beim Erstellen des Signups" }, { status: 500 });
+  }
+}
+
+// Helper function to send notifications to event team about late signup
+async function sendLateSignupNotificationToEventTeam(
+  eventId: number,
+  userCID: number,
+  userName: string,
+  firCode: string | null
+) {
+  try {
+    if (!firCode) return;
+
+    // Find all users in event team (with signups.manage permission for this FIR)
+    const eventTeamGroups = await prisma.group.findMany({
+      where: {
+        firId: {
+          in: await prisma.fIR.findMany({
+            where: { code: firCode },
+            select: { id: true }
+          }).then(firs => firs.map(f => f.id))
+        },
+        permissions: {
+          some: {
+            permission: {
+              key: 'signups.manage'
+            }
+          }
+        }
+      },
+      include: {
+        members: true
+      }
+    });
+
+    const eventTeamCIDs = new Set<number>();
+    eventTeamGroups.forEach(group => {
+      group.members.forEach(member => {
+        eventTeamCIDs.add(member.userCID);
+      });
+    });
+
+    // Create notifications for each event team member
+    const notifications = Array.from(eventTeamCIDs).map(cid => ({
+      userCID: cid,
+      eventId: eventId,
+      type: 'EVENT' as const,
+      title: 'Anmeldung nach Anmeldeschluss',
+      message: `${userName} (CID: ${userCID}) hat sich nach dem Anmeldeschluss angemeldet`,
+      data: JSON.parse(JSON.stringify({ userCID, userName, lateSignup: true }))
+    }));
+
+    if (notifications.length > 0) {
+      await prisma.notification.createMany({
+        data: notifications
+      });
+    }
+  } catch (error) {
+    console.error('Error sending late signup notifications:', error);
+    // Don't throw - notifications are not critical
   }
 }
