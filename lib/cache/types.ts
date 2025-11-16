@@ -14,8 +14,8 @@ export interface Availability {
 
 export interface SignupChange {
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   changedAt: string;
   changedBy: number;
 }

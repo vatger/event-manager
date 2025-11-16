@@ -85,7 +85,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
     let changeLog = currentSignup.changeLog ? (Array.isArray(currentSignup.changeLog) ? currentSignup.changeLog : []) : [];
     
     if (isAfterDeadline && !hasManagePermission) {
-      const changes: any[] = [];
+      const changes: Array<{
+        field: string;
+        oldValue: unknown;
+        newValue: unknown;
+        changedAt: string;
+        changedBy: number;
+      }> = [];
       
       // Track availability changes
       if (JSON.stringify(currentSignup.availability) !== JSON.stringify(body.availability)) {
@@ -121,7 +127,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       }
       
       if (changes.length > 0) {
-        changeLog = [...changeLog, ...changes];
+        changeLog = [...(changeLog as unknown[]), ...changes] as typeof changeLog;
         
         // Send notification to event team
         await sendChangeNotificationToEventTeam(
@@ -147,48 +153,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         preferredStations: body.preferredStations,
         remarks: body.remarks,
         modifiedAfterDeadline: isAfterDeadline || currentSignup.modifiedAfterDeadline,
-        changeLog: changeLog.length > 0 ? changeLog : currentSignup.changeLog,
-      },
-    });
-    await invalidateSignupTable(Number(eventId))
-    return NextResponse.json(updated);
-  } catch (err) {
-    console.error(err);
-    return NextResponse.json({ error: "Fehler beim Updaten" }, { status: 500 });
-  }
-}
-          changedBy: Number(session.user.cid)
-        });
-      }
-      
-      if (changes.length > 0) {
-        changeLog = [...changeLog, ...changes];
-        
-        // Send notification to event team
-        await sendChangeNotificationToEventTeam(
-          parseInt(eventId, 10),
-          currentSignup.userCID,
-          session.user.name || 'Unknown',
-          changes,
-          eventdata.firCode
-        );
-      }
-    }
-
-    const updated = await prisma.eventSignup.update({
-      where: {
-        eventId_userCID: {
-          eventId: parseInt(eventId, 10),
-          userCID: parseInt(userId, 10),
-        },
-      },
-      data: {
-        availability: body.availability,
-        breakrequests: body.breakrequests,
-        preferredStations: body.preferredStations,
-        remarks: body.remarks,
-        modifiedAfterDeadline: isAfterDeadline || currentSignup.modifiedAfterDeadline,
-        changeLog: changeLog.length > 0 ? changeLog : currentSignup.changeLog,
+        changeLog: changeLog.length > 0 ? JSON.parse(JSON.stringify(changeLog)) : currentSignup.changeLog,
       },
     });
     await invalidateSignupTable(Number(eventId))
@@ -262,7 +227,7 @@ async function sendChangeNotificationToEventTeam(
   eventId: number,
   userCID: number,
   userName: string,
-  changes: any[],
+  changes: Array<{ field: string; oldValue: unknown; newValue: unknown }>,
   firCode: string | null
 ) {
   try {
@@ -316,7 +281,7 @@ async function sendChangeNotificationToEventTeam(
       type: 'EVENT' as const,
       title: 'Anmeldungsänderung nach Deadline',
       message: `${userName} (CID: ${userCID}) hat die Anmeldung nach der Deadline geändert: ${changeDescriptions}`,
-      data: { changes, userCID, userName }
+      data: JSON.parse(JSON.stringify({ changes, userCID, userName }))
     }));
 
     if (notifications.length > 0) {
