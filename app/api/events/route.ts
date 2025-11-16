@@ -61,6 +61,7 @@ export async function GET(req: Request) {
           where: {
             userCID,
             eventId: { in: eventIds },
+            deletedAt: null, // Exclude soft-deleted signups
           },
           select: { eventId: true },
         });

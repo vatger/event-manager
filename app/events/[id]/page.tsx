@@ -216,6 +216,31 @@ export default function EventPage() {
                   {isSignedUp ? "Anmeldung bearbeiten" : "Jetzt anmelden"}
                 </Button>
               )
+            ) : event.status === "SIGNUP_CLOSED" ? (
+              signupLoading ? (
+                <Button className="w-full" disabled>
+                  Laden...
+                </Button>
+              ) : signupData?.deletedAt ? (
+                <Button 
+                  className="w-full" 
+                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                  variant="outline"
+                >
+                  Anmeldung wiederherstellen
+                </Button>
+              ) : isSignedUp ? (
+                <Button 
+                  className="w-full" 
+                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                >
+                  Anmeldung bearbeiten
+                </Button>
+              ) : (
+                <Button className="w-full" variant="secondary" disabled>
+                  Anmeldung geschlossen
+                </Button>
+              )
             ) : event.status === "ROSTER_PUBLISHED" ? (
               <Button className="w-full" disabled={!event.rosterlink}>
                 <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
@@ -226,10 +251,6 @@ export default function EventPage() {
               <Button className="w-full" variant="destructive" disabled>
                 Event abgesagt
               </Button>
-            ) : event.status === "SIGNUP_CLOSED" ? (
-              <Button className="w-full" variant="secondary" disabled>
-                Anmeldung geschlossen
-              </Button>
             ) : null}
             {(event.status=="SIGNUP_OPEN" && event.signupDeadline) && (
                 <div className="flex items-center gap-2 text-sm">
@@ -238,7 +259,12 @@ export default function EventPage() {
               )}
             {(event.status=="SIGNUP_CLOSED" && isSignedUp) && (
               <div className="flex items-center gap-2 text-sm">
-                  <span className="text-sm text-muted-foreground w-full overflow-auto">Für Änderungen an deiner Anmeldung, wende dich bitte an das Eventteam</span>
+                  <span className="text-sm text-muted-foreground w-full overflow-auto">Du kannst deine Anmeldung weiterhin bearbeiten. Das Eventteam wird über Änderungen informiert.</span>
+              </div>
+            )}
+            {(event.status=="SIGNUP_CLOSED" && !isSignedUp && signupData?.deletedAt) && (
+              <div className="flex items-center gap-2 text-sm">
+                  <span className="text-sm text-orange-600 w-full overflow-auto">Deine Anmeldung wurde gelöscht. Du kannst sie wiederherstellen.</span>
               </div>
             )}
           </CardContent>

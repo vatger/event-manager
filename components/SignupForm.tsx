@@ -158,7 +158,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   async function deleteSignup() {
     if (!event.id || !userCID) return;
     const confirmDelete = window.confirm(
-      "Möchtest du deine Anmeldung wirklich löschen?"
+      "Möchtest du deine Anmeldung wirklich löschen? (Du kannst sie später wiederherstellen)"
     );
     if (!confirmDelete) return;
 
@@ -176,6 +176,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
         return;
       }
 
+      toast.success("Anmeldung wurde gelöscht");
       onChanged?.();
       onClose();
     } catch (err) {
@@ -186,18 +187,66 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     }
   }
 
+  async function restoreSignup() {
+    if (!event.id || !userCID) return;
+    
+    setDeleting(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/events/${event.id}/signup/${userCID}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          restore: true,
+          availability: signupData?.availability,
+          preferredStations: signupData?.preferredStations,
+          remarks: signupData?.remarks,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Wiederherstellen fehlgeschlagen.");
+        return;
+      }
+
+      toast.success("Anmeldung wurde wiederhergestellt");
+      onChanged?.();
+      onClose();
+    } catch (err) {
+      console.error("Anmeldung wiederherstellen fehlgeschlagen:", err);
+      setError("Netzwerkfehler. Bitte erneut versuchen.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const isDeleted = signupData?.deletedAt;
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md rounded-xl max-h-[calc(100vh-4rem)] overflow-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">
-            {isSignedUp ? 
-              <p>Edit Sign up for {event.name} </p> : 
-              <p>Sign up for {event.name}</p> }
-            
+            {isDeleted ? (
+              <p>Anmeldung wiederherstellen für {event.name}</p>
+            ) : isSignedUp ? (
+              <p>Edit Sign up for {event.name}</p>
+            ) : (
+              <p>Sign up for {event.name}</p>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Please fill in your availability and preferences.
+            {isDeleted ? (
+              <span className="text-orange-600">
+                Deine Anmeldung wurde gelöscht. Du kannst sie wiederherstellen oder eine neue Anmeldung erstellen.
+              </span>
+            ) : (
+              "Please fill in your availability and preferences."
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -254,26 +303,36 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             <Button variant="outline" onClick={onClose} disabled={saving || deleting}>
               Cancel
             </Button>
-            <Button onClick={submitSignup} disabled={saving || deleting} aria-busy={saving}>
-              {saving
-                ? isSignedUp
-                  ? "Saving..."
-                  : "Signing up..."
-                : isSignedUp
-                ? "Save changes"
-                : "Sign up"}
-            </Button>
-            {isSignedUp ? (
+            {isDeleted ? (
               <Button
-                variant="destructive"
-                onClick={deleteSignup}
+                onClick={restoreSignup}
                 disabled={saving || deleting}
                 aria-busy={deleting}
               >
-                {deleting ? "Deleting..." : <Trash2Icon/>}
+                {deleting ? "Wiederherstellen..." : "Anmeldung wiederherstellen"}
               </Button>
             ) : (
-              <div />
+              <>
+                <Button onClick={submitSignup} disabled={saving || deleting} aria-busy={saving}>
+                  {saving
+                    ? isSignedUp
+                      ? "Saving..."
+                      : "Signing up..."
+                    : isSignedUp
+                    ? "Save changes"
+                    : "Sign up"}
+                </Button>
+                {isSignedUp && (
+                  <Button
+                    variant="destructive"
+                    onClick={deleteSignup}
+                    disabled={saving || deleting}
+                    aria-busy={deleting}
+                  >
+                    {deleting ? "Deleting..." : <Trash2Icon/>}
+                  </Button>
+                )}
+              </>
             )}
           </div>
           

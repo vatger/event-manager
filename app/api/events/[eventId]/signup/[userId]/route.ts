@@ -24,6 +24,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     if (!signup) {
       return NextResponse.json({ error: "Signup nicht gefunden" }, { status: 404 });
     }
+    
+    // If soft-deleted, treat as not found for non-signed-up status
+    // But still return the data so users can restore it
     return NextResponse.json(signup);
   } catch (err) {
     console.error(err);
@@ -42,7 +45,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
   
   const hasManagePermission = await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage");
   
-  if(!hasManagePermission && eventdata.status !== "SIGNUP_OPEN")
+  // Allow changes even when SIGNUP_CLOSED (will be tracked if after deadline)
+  // Only block if event is in certain states AND user is not event team
+  if(!hasManagePermission && !["SIGNUP_OPEN", "SIGNUP_CLOSED"].includes(eventdata.status))
     return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
 
   try {
@@ -183,8 +188,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
     return NextResponse.json({ error: "Keine Berechtigung für Hard Delete" }, { status: 403 });
   }
   
-  // Check if signup changes are allowed
-  if(!hasManagePermission && eventdata.status !== "SIGNUP_OPEN")
+  // Allow soft delete even when SIGNUP_CLOSED
+  // Only block if event is in certain states AND user is not event team
+  if(!hasManagePermission && !["SIGNUP_OPEN", "SIGNUP_CLOSED"].includes(eventdata.status))
     return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
  
   try {

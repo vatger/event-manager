@@ -29,8 +29,14 @@ export function useEventSignup(eventId?: number | string, userId?: number | stri
           throw new Error("Fehler beim Abrufen des Signups");
         }
         const data = await res.json();
-        setIsSignedUp(true);
-        setSignupData(data);
+        // Check if signup is soft-deleted
+        if (data.deletedAt) {
+          setIsSignedUp(false); // Treat soft-deleted as not signed up
+          setSignupData(data); // But keep the data for potential restore
+        } else {
+          setIsSignedUp(true);
+          setSignupData(data);
+        }
       })
       .catch((err) => {
         console.error(err);
