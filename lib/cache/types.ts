@@ -32,6 +32,7 @@ export interface SignupTableEntry {
   modifiedAfterDeadline?: boolean;
   changeLog?: SignupChange[] | null;
   changesAcknowledged?: boolean;
+  signedUpAfterDeadline?: boolean;
 }
 
 export interface SignupTableResponse {

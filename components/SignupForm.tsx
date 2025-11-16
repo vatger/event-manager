@@ -225,6 +225,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   }
 
   const isDeleted = signupData?.deletedAt;
+  const isAfterDeadline = event.signupDeadline && new Date() > new Date(event.signupDeadline);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -243,6 +244,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             {isDeleted ? (
               <span className="text-orange-600">
                 Deine Anmeldung wurde gelöscht. Du kannst sie wiederherstellen oder eine neue Anmeldung erstellen.
+              </span>
+            ) : isAfterDeadline && !isSignedUp ? (
+              <span className="text-orange-600 font-medium">
+                ⚠️ Achtung: Der Anmeldeschluss ist bereits vorbei. Deine Anmeldung wird als Anfrage behandelt und das Eventteam wird informiert.
               </span>
             ) : (
               "Please fill in your availability and preferences."

@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2, CheckCircle2, X } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2, CheckCircle2, X, Clock } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -326,6 +326,18 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipContent>
                                               <p>Gelöscht am {new Date(s.deletedAt!).toLocaleString("de-DE")}</p>
                                               {s.deletedBy && <p className="text-xs">Von CID: {s.deletedBy}</p>}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      {s.signedUpAfterDeadline && !isDeleted && canInOwnFIR("signups.manage") && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <Clock className="h-4 w-4 text-blue-500" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="text-xs">Anmeldung nach Anmeldeschluss</p>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
