@@ -72,6 +72,26 @@ function formatAvailability(av?: { available?: TimeRange[]; unavailable?: TimeRa
   return ranges.map((r) => `${r.start}z-${r.end}z`).join(", ");
 }
 
+// Helper to get change info for a specific field
+function getFieldChanges(changeLog: any[] | null | undefined, fieldName: string) {
+  if (!changeLog || !Array.isArray(changeLog)) return [];
+  return changeLog.filter(change => change.field === fieldName);
+}
+
+// Helper to format change description
+function formatChangeDescription(change: any, fieldName: string): string {
+  if (fieldName === 'availability') {
+    return 'Verfügbarkeit geändert';
+  } else if (fieldName === 'preferredStations') {
+    const oldVal = change.oldValue || '-';
+    const newVal = change.newValue || '-';
+    return `${oldVal} → ${newVal}`;
+  } else if (fieldName === 'remarks') {
+    return 'Bemerkungen geändert';
+  }
+  return 'Geändert';
+}
+
 // =====================================================================
 // 🔹 Hauptkomponente
 // =====================================================================
@@ -320,24 +340,115 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "availability":
+                                const availabilityChanges = getFieldChanges(s.changeLog, 'availability');
                                 return (
-                                  <span className={isDeleted ? "line-through" : ""}>
-                                    {formatAvailability(s.availability)}
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className={isDeleted ? "line-through" : ""}>
+                                      {formatAvailability(s.availability)}
+                                    </span>
+                                    {availabilityChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="text-xs text-orange-600 font-medium cursor-help flex items-center gap-1">
+                                              <AlertTriangle className="h-3 w-3" />
+                                              <span>Geändert</span>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <div className="text-xs space-y-1">
+                                              {availabilityChanges.map((change, idx) => (
+                                                <div key={idx}>
+                                                  {new Date(change.changedAt).toLocaleString("de-DE", {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
                                 );
 
                               case "preferredStations":
+                                const stationChanges = getFieldChanges(s.changeLog, 'preferredStations');
                                 return (
-                                  <span className={isDeleted ? "line-through" : ""}>
-                                    {s.preferredStations || "-"}
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className={isDeleted ? "line-through" : ""}>
+                                      {s.preferredStations || "-"}
+                                    </span>
+                                    {stationChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="text-xs text-orange-600 font-medium cursor-help">
+                                              {stationChanges.map((change, idx) => (
+                                                <div key={idx} className="flex items-center gap-1">
+                                                  <AlertTriangle className="h-3 w-3" />
+                                                  <span>{formatChangeDescription(change, 'preferredStations')}</span>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <div className="text-xs space-y-1">
+                                              {stationChanges.map((change, idx) => (
+                                                <div key={idx}>
+                                                  {new Date(change.changedAt).toLocaleString("de-DE", {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
                                 );
 
                               case "remarks":
+                                const remarksChanges = getFieldChanges(s.changeLog, 'remarks');
                                 return (
-                                  <span className={isDeleted ? "line-through" : ""}>
-                                    {s.remarks || "-"}
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className={isDeleted ? "line-through" : ""}>
+                                      {s.remarks || "-"}
+                                    </span>
+                                    {remarksChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="text-xs text-orange-600 font-medium cursor-help flex items-center gap-1">
+                                              <AlertTriangle className="h-3 w-3" />
+                                              <span>Geändert</span>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <div className="text-xs space-y-1">
+                                              {remarksChanges.map((change, idx) => (
+                                                <div key={idx}>
+                                                  {new Date(change.changedAt).toLocaleString("de-DE", {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
                                 );
 
                               case "__actions__":

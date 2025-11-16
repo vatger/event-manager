@@ -66,7 +66,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
     }
 
     // Check if this is a restore operation
-    if (body.restore && hasManagePermission) {
+    if (body.restore) {
+      // Regular users can restore only when SIGNUP_OPEN
+      // Event team can restore anytime
+      const canRestore = hasManagePermission || eventdata.status === "SIGNUP_OPEN";
+      
+      if (!canRestore) {
+        return NextResponse.json({ 
+          error: "Wiederherstellen ist nur bei offener Anmeldung oder mit entsprechenden Rechten möglich" 
+        }, { status: 403 });
+      }
+      
       const updated = await prisma.eventSignup.update({
         where: {
           eventId_userCID: {
