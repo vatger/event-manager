@@ -31,6 +31,7 @@ export interface SignupTableEntry {
   deletedBy?: number | null;
   modifiedAfterDeadline?: boolean;
   changeLog?: SignupChange[] | null;
+  changesAcknowledged?: boolean;
 }
 
 export interface SignupTableResponse {

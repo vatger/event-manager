@@ -19,12 +19,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2 } from "lucide-react";
+import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2, CheckCircle2, X } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
 import type { TimeRange } from "@/types";
-import { SignupTableEntry } from "@/lib/cache/types";
+import { SignupTableEntry, Availability, SignupChange } from "@/lib/cache/types";
 import {
   Tooltip,
   TooltipContent,
@@ -73,16 +73,16 @@ function formatAvailability(av?: { available?: TimeRange[]; unavailable?: TimeRa
 }
 
 // Helper to get change info for a specific field
-function getFieldChanges(changeLog: any[] | null | undefined, fieldName: string) {
+function getFieldChanges(changeLog: SignupChange[] | null | undefined, fieldName: string): SignupChange[] {
   if (!changeLog || !Array.isArray(changeLog)) return [];
   return changeLog.filter(change => change.field === fieldName);
 }
 
 // Helper to format change description
-function formatChangeDescription(change: any, fieldName: string): string {
+function formatChangeDescription(change: SignupChange, fieldName: string): string {
   if (fieldName === 'availability') {
-    const oldVal = change.oldValue ? formatAvailability(change.oldValue) : '-';
-    const newVal = change.newValue ? formatAvailability(change.newValue) : '-';
+    const oldVal = change.oldValue ? formatAvailability(change.oldValue as Availability) : '-';
+    const newVal = change.newValue ? formatAvailability(change.newValue as Availability) : '-';
     return `${oldVal} → ${newVal}`;
   } else if (fieldName === 'preferredStations') {
     const oldVal = change.oldValue || '-';
@@ -142,6 +142,30 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         setLoading(false);
       }
     }, [eventId]);
+
+    // --------------------------------------------------------------------
+    // 🔹 Acknowledge changes
+    // --------------------------------------------------------------------
+    const acknowledgeChanges = useCallback(async (signupId: number, userCID: number) => {
+      try {
+        const res = await fetch(`/api/events/${eventId}/signup/${userCID}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ acknowledgeChanges: true }),
+        });
+        
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'Fehler beim Bestätigen');
+        }
+        
+        // Reload signups after acknowledging
+        await loadSignups();
+      } catch (err) {
+        console.error('Error acknowledging changes:', err);
+        alert('Fehler beim Bestätigen der Änderungen');
+      }
+    }, [eventId, loadSignups]);
 
     // 👇 Ref erlaubt Parent-Komponente reload() auszulösen
     useImperativeHandle(ref, () => ({
@@ -258,13 +282,14 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "name":
+                                const hasUnacknowledgedChanges = s.modifiedAfterDeadline && !s.changesAcknowledged;
                                 return (
                                   <div className="flex flex-col">
                                     <div className="flex items-center gap-2">
                                       <span className={isDeleted ? "line-through" : ""}>
                                         {s.user.name}
                                       </span>
-                                      {s.modifiedAfterDeadline && !isDeleted && (
+                                      {hasUnacknowledgedChanges && !isDeleted && (
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
@@ -273,7 +298,20 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipContent className="max-w-xs">
                                               <div className="space-y-1">
                                                 <p className="font-semibold">Geändert nach Deadline</p>
+                                                <p className="text-xs text-muted-foreground">Noch nicht bestätigt</p>
                                               </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                      {s.modifiedAfterDeadline && s.changesAcknowledged && !isDeleted && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger>
+                                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p className="text-xs">Änderungen bestätigt</p>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
@@ -320,12 +358,13 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                               case "availability":
                                 const availabilityChanges = getFieldChanges(s.changeLog, 'availability');
+                                const showAvailabilityChange = availabilityChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && !s.changesAcknowledged;
                                 return (
                                   <div className="flex flex-col gap-1">
                                     <span className={isDeleted ? "line-through" : ""}>
                                       {formatAvailability(s.availability)}
                                     </span>
-                                    {availabilityChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                    {showAvailabilityChange && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -362,12 +401,13 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                               case "preferredStations":
                                 const stationChanges = getFieldChanges(s.changeLog, 'preferredStations');
+                                const showStationChange = stationChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && !s.changesAcknowledged;
                                 return (
                                   <div className="flex flex-col gap-1">
                                     <span className={isDeleted ? "line-through" : ""}>
                                       {s.preferredStations || "-"}
                                     </span>
-                                    {stationChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                    {showStationChange && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -402,12 +442,13 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                               case "remarks":
                                 const remarksChanges = getFieldChanges(s.changeLog, 'remarks');
+                                const showRemarksChange = remarksChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && !s.changesAcknowledged;
                                 return (
                                   <div className="flex flex-col gap-1">
                                     <span className={isDeleted ? "line-through" : ""}>
                                       {s.remarks || "-"}
                                     </span>
-                                    {remarksChanges.length > 0 && canInOwnFIR("signups.manage") && !isDeleted && (
+                                    {showRemarksChange && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
@@ -437,8 +478,28 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "__actions__":
+                                const hasUnacknowledgedChanges2 = s.modifiedAfterDeadline && !s.changesAcknowledged && !isDeleted;
                                 return (
                                   <div className="flex gap-2 justify-end">
+                                    {hasUnacknowledgedChanges2 && canInOwnFIR("signups.manage") && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-green-600 border-green-600 hover:bg-green-50"
+                                              onClick={() => acknowledgeChanges(s.id, s.user.cid)}
+                                            >
+                                              <CheckCircle2 className="h-4 w-4" />
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="text-xs">Änderungen bestätigen</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
                                     <Button
                                       size="sm"
                                       variant="outline"

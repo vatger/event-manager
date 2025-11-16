@@ -112,6 +112,7 @@ model EventSignup {
   deletedBy         Int? // CID of user who deleted
   modifiedAfterDeadline Boolean @default(false) // Flag for changes after deadline
   changeLog         Json? // Array of changes made to the signup
+  changesAcknowledged Boolean @default(false) // Flag to mark if event team has acknowledged changes
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userCID], references: [cid])

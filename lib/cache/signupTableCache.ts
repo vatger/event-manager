@@ -71,6 +71,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
           changeLog: s.changeLog ? (Array.isArray(s.changeLog) ? JSON.parse(JSON.stringify(s.changeLog)) : null) : null,
+          changesAcknowledged: s.changesAcknowledged,
         };
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
@@ -89,6 +90,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
           changeLog: s.changeLog ? (Array.isArray(s.changeLog) ? JSON.parse(JSON.stringify(s.changeLog)) : null) : null,
+          changesAcknowledged: s.changesAcknowledged,
         };
       }
     })

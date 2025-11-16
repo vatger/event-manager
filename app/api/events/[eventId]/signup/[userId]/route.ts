@@ -93,6 +93,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       return NextResponse.json(updated);
     }
 
+    // Check if this is an acknowledge changes operation (event team only)
+    if (body.acknowledgeChanges) {
+      if (!hasManagePermission) {
+        return NextResponse.json({ 
+          error: "Keine Berechtigung zum Bestätigen von Änderungen" 
+        }, { status: 403 });
+      }
+      
+      const updated = await prisma.eventSignup.update({
+        where: {
+          eventId_userCID: {
+            eventId: parseInt(eventId, 10),
+            userCID: parseInt(userId, 10),
+          },
+        },
+        data: {
+          changesAcknowledged: true,
+        },
+      });
+      await invalidateSignupTable(Number(eventId))
+      return NextResponse.json(updated);
+    }
+
     // Check if modification is after deadline
     const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
     
@@ -169,6 +192,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         remarks: body.remarks,
         modifiedAfterDeadline: isAfterDeadline || currentSignup.modifiedAfterDeadline,
         changeLog: changeLog.length > 0 ? JSON.parse(JSON.stringify(changeLog)) : currentSignup.changeLog,
+        // Reset acknowledged flag if new changes were made after deadline
+        changesAcknowledged: (isAfterDeadline && changeLog.length > (Array.isArray(currentSignup.changeLog) ? currentSignup.changeLog.length : 0)) ? false : currentSignup.changesAcknowledged,
       },
     });
     await invalidateSignupTable(Number(eventId))
