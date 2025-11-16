@@ -248,17 +248,30 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipTrigger>
                                               <AlertTriangle className="h-4 w-4 text-orange-500" />
                                             </TooltipTrigger>
-                                            <TooltipContent>
+                                            <TooltipContent className="max-w-xs">
                                               <div className="space-y-1">
                                                 <p className="font-semibold">Geändert nach Deadline</p>
                                                 {s.changeLog && s.changeLog.length > 0 && (
-                                                  <div className="text-xs">
-                                                    {s.changeLog.map((change, idx) => (
-                                                      <div key={idx}>
-                                                        • {change.field} geändert am{" "}
-                                                        {new Date(change.changedAt).toLocaleString("de-DE")}
-                                                      </div>
-                                                    ))}
+                                                  <div className="text-xs space-y-1">
+                                                    {s.changeLog.map((change, idx) => {
+                                                      const fieldName = change.field === 'availability' ? 'Verfügbarkeit' :
+                                                                       change.field === 'preferredStations' ? 'Gewünschte Position' :
+                                                                       change.field === 'remarks' ? 'Bemerkungen' : change.field;
+                                                      return (
+                                                        <div key={idx} className="border-l-2 border-orange-300 pl-2">
+                                                          <div className="font-semibold">{fieldName}</div>
+                                                          <div className="text-gray-600">
+                                                            {new Date(change.changedAt).toLocaleString("de-DE", {
+                                                              day: '2-digit',
+                                                              month: '2-digit',
+                                                              year: 'numeric',
+                                                              hour: '2-digit',
+                                                              minute: '2-digit'
+                                                            })}
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
                                                   </div>
                                                 )}
                                               </div>

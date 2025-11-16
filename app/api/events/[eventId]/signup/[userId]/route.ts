@@ -194,6 +194,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
     return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
  
   try {
+    // Check if deletion is after deadline and should notify team
+    const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
+    
     if (hardDelete && hasManagePermission) {
       // Hard delete - actually remove from database
       await prisma.eventSignup.delete({
@@ -218,6 +221,17 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
           deletedBy: Number(session.user.cid),
         },
       });
+      
+      // Send notification if deleted after deadline and not by event team
+      if (isAfterDeadline && !hasManagePermission) {
+        await sendChangeNotificationToEventTeam(
+          parseInt(eventId, 10),
+          parseInt(userId, 10),
+          session.user.name || 'Unknown',
+          [{ field: 'signup', oldValue: 'aktiv', newValue: 'gelöscht' }],
+          eventdata.firCode
+        );
+      }
     }
 
     await invalidateSignupTable(Number(eventId))
