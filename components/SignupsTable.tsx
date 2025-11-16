@@ -81,7 +81,9 @@ function getFieldChanges(changeLog: any[] | null | undefined, fieldName: string)
 // Helper to format change description
 function formatChangeDescription(change: any, fieldName: string): string {
   if (fieldName === 'availability') {
-    return 'Verfügbarkeit geändert';
+    const oldVal = change.oldValue ? formatAvailability(change.oldValue) : '-';
+    const newVal = change.newValue ? formatAvailability(change.newValue) : '-';
+    return `${oldVal} → ${newVal}`;
   } else if (fieldName === 'preferredStations') {
     const oldVal = change.oldValue || '-';
     const newVal = change.newValue || '-';
@@ -271,29 +273,6 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipContent className="max-w-xs">
                                               <div className="space-y-1">
                                                 <p className="font-semibold">Geändert nach Deadline</p>
-                                                {s.changeLog && s.changeLog.length > 0 && (
-                                                  <div className="text-xs space-y-1">
-                                                    {s.changeLog.map((change, idx) => {
-                                                      const fieldName = change.field === 'availability' ? 'Verfügbarkeit' :
-                                                                       change.field === 'preferredStations' ? 'Gewünschte Position' :
-                                                                       change.field === 'remarks' ? 'Bemerkungen' : change.field;
-                                                      return (
-                                                        <div key={idx} className="border-l-2 border-orange-300 pl-2">
-                                                          <div className="font-semibold">{fieldName}</div>
-                                                          <div className="text-gray-600">
-                                                            {new Date(change.changedAt).toLocaleString("de-DE", {
-                                                              day: '2-digit',
-                                                              month: '2-digit',
-                                                              year: 'numeric',
-                                                              hour: '2-digit',
-                                                              minute: '2-digit'
-                                                            })}
-                                                          </div>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                                )}
                                               </div>
                                             </TooltipContent>
                                           </Tooltip>
@@ -351,8 +330,14 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <div className="text-xs text-orange-600 font-medium cursor-help flex items-center gap-1">
-                                              <AlertTriangle className="h-3 w-3" />
-                                              <span>Geändert</span>
+                                              <div className="text-xs text-orange-600 font-medium cursor-help">
+                                              {availabilityChanges.map((change, idx) => (
+                                                <div key={idx} className="flex items-center gap-1">
+                                                  <AlertTriangle className="h-3 w-3" />
+                                                  <span>{formatChangeDescription(change, 'availability')}</span>
+                                                </div>
+                                              ))}
+                                              </div>
                                             </div>
                                           </TooltipTrigger>
                                           <TooltipContent className="max-w-xs">
