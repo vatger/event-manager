@@ -17,7 +17,6 @@ interface BannerData {
   station: string;
   date: string;
   startTime: string;
-  endTime: string;
 }
 
 export default function CPTBannerGenerator() {
@@ -29,7 +28,6 @@ export default function CPTBannerGenerator() {
     station: "",
     date: "",
     startTime: "",
-    endTime: "",
   });
 
   // Check if user is from FIR München
@@ -62,53 +60,58 @@ export default function CPTBannerGenerator() {
       ctx.textAlign = "left";
       
       // Controller name - positioned below "CONTROLLER PRACTICAL TEST"
-      // Based on the example, this appears around y=410
       if (bannerData.name) {
         ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
-        ctx.font = "64px sans-serif";
-        ctx.fillText(`feat ${bannerData.name}`, 225, 410);
+        ctx.font = "58px sans-serif";
+        ctx.fillText(`feat ${bannerData.name}`, 230, 420);
       }
 
-      // Station at bottom left - matches "EDDM_APP" position in example
+      // Station at bottom left
       if (bannerData.station) {
         ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
-        ctx.font = "bold 72px sans-serif";
-        ctx.fillText(bannerData.station, 35, 575);
+        ctx.font = "bold 82px sans-serif";
+        ctx.fillText(bannerData.station, 35, 585);
       }
 
-      // Date and Time info - if provided, show in top right area
-      if (bannerData.date || bannerData.startTime || bannerData.endTime) {
+      // Date and Time info in top right with weekday
+      if (bannerData.date || bannerData.startTime) {
         ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
         ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 2;
         ctx.shadowOffsetY = 2;
-        ctx.font = "48px sans-serif";
+        ctx.font = "52px sans-serif";
         ctx.textAlign = "right";
         
         let dateTimeText = "";
         
         if (bannerData.date) {
-          // Format date to DD.MM.YYYY
+          // Get weekday from date
           const dateObj = new Date(bannerData.date);
+          const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          const weekday = weekdays[dateObj.getDay()];
+          
+          // Format date to DD.MM.YYYY
           const day = String(dateObj.getDate()).padStart(2, '0');
           const month = String(dateObj.getMonth() + 1).padStart(2, '0');
           const year = dateObj.getFullYear();
-          dateTimeText = `${day}.${month}.${year}`;
+          
+          dateTimeText = `${weekday} ${day}.${month}.${year}`;
         }
         
-        if (bannerData.startTime && bannerData.endTime) {
+        if (bannerData.startTime) {
           if (dateTimeText) dateTimeText += " | ";
+          // Format time without colon and add 'z' suffix
           dateTimeText += `${bannerData.startTime.replace(':', '')}z`;
         }
         
         if (dateTimeText) {
-          ctx.fillText(dateTimeText, canvas.width - 50, 120);
+          ctx.fillText(dateTimeText, canvas.width - 35, 125);
         }
       }
 
@@ -182,7 +185,7 @@ export default function CPTBannerGenerator() {
       }
 
       // Date and Time
-      if (bannerData.date || bannerData.startTime || bannerData.endTime) {
+      if (bannerData.date || bannerData.startTime) {
         ctx.font = "48px sans-serif";
         let dateTimeText = "";
         
@@ -195,9 +198,7 @@ export default function CPTBannerGenerator() {
           dateTimeText = `${day}.${month}.${year}`;
         }
         
-        if (bannerData.startTime && bannerData.endTime) {
-          dateTimeText += ` • ${bannerData.startTime} - ${bannerData.endTime}Z`;
-        } else if (bannerData.startTime) {
+        if (bannerData.startTime) {
           dateTimeText += ` • ${bannerData.startTime}Z`;
         }
         
@@ -222,7 +223,7 @@ export default function CPTBannerGenerator() {
   };
 
   useEffect(() => {
-    if (bannerData.name || bannerData.station || bannerData.date || bannerData.startTime || bannerData.endTime) {
+    if (bannerData.name || bannerData.station || bannerData.date || bannerData.startTime) {
       generateBanner();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,30 +338,17 @@ export default function CPTBannerGenerator() {
               />
             </div>
 
-            {/* Time Range */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startTime">Start Zeit (UTC)</Label>
-                <Input
-                  id="startTime"
-                  type="time"
-                  value={bannerData.startTime}
-                  onChange={(e) =>
-                    setBannerData({ ...bannerData, startTime: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endTime">End Zeit (UTC)</Label>
-                <Input
-                  id="endTime"
-                  type="time"
-                  value={bannerData.endTime}
-                  onChange={(e) =>
-                    setBannerData({ ...bannerData, endTime: e.target.value })
-                  }
-                />
-              </div>
+            {/* Start Time */}
+            <div className="space-y-2">
+              <Label htmlFor="startTime">Start Zeit (UTC)</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={bannerData.startTime}
+                onChange={(e) =>
+                  setBannerData({ ...bannerData, startTime: e.target.value })
+                }
+              />
             </div>
 
             {/* Download Button */}
