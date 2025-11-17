@@ -6,6 +6,7 @@ import {
     Map,
     PlusCircle,
     CheckCheckIcon,
+    Image,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -22,6 +23,7 @@ import {
     items: NavItem[];
     permission?: string[];
     collapsible?: boolean;
+    firRestriction?: string; // Restrict to specific FIR code
   }
   
   export const navigationConfig: NavGroup[] = [
@@ -63,6 +65,19 @@ import {
           href: "/admin/firs", 
           label: "FIR Overview", 
           icon: Map,
+        },
+      ]
+    },
+    
+    // FIR Internal Tools (nur für FIR München)
+    {
+      title: "FIR Intern",
+      firRestriction: "EDMM",
+      items: [
+        { 
+          href: "/admin/cpt-banner", 
+          label: "CPT Banner Generator", 
+          icon: Image,
         },
       ]
     },
