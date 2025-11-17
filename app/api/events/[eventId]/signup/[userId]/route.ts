@@ -326,8 +326,9 @@ async function sendChangeNotificationToEventTeam(
         return `Gewünschte Position: ${c.oldValue || '-'} → ${c.newValue || '-'}`;
       } else if (c.field === 'remarks') {
         return 'Bemerkungen geändert';
+      } else if (c.field === 'signup') {
+        return `Anmeldung ${c.newValue}`;
       }
-      return `${c.field} geändert`;
     }).join(', ');
 
     // Create notifications for each event team member
@@ -342,8 +343,36 @@ async function sendChangeNotificationToEventTeam(
 
     if (notifications.length > 0) {
       await prisma.notification.createMany({
-        data: notifications
+      data: notifications
       });
+    }
+
+    // Send notifications via VATGER API
+    const vatgerNotifications = Array.from(eventTeamCIDs).map(cid => ({
+      cid: cid,
+      data: {
+        title: 'Anmeldungsänderung nach Deadline',
+        message: `${userName} (CID: ${userCID}) hat die Anmeldung nach der Deadline geändert: ${changeDescriptions}`,
+        source_name: "Eventsystem",
+        link_text: ".",
+        link_url: `${process.env.NEXTAUTH_URL}/events/${eventId}/signups`,
+        via: "board.ping"
+      }
+    }));
+
+    for (const notification of vatgerNotifications) {
+      try {
+        await fetch(`${process.env.VATGER_API}/${notification.cid}/send_notification`, {
+        method: 'POST',
+        headers: {
+          "Authorization": `Bearer ${process.env.VATGER_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(notification.data)
+      });
+      } catch (error) {
+      console.error(`Error sending VATGER notification to CID ${notification.cid}:`, error);
+      }
     }
   } catch (error) {
     console.error('Error sending change notifications:', error);

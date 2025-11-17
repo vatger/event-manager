@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Trash2Icon } from "lucide-react";
+import { Trash2Icon, UserRoundX, UserX } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -158,7 +158,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   async function deleteSignup() {
     if (!event.id || !userCID) return;
     const confirmDelete = window.confirm(
-      "Möchtest du deine Anmeldung wirklich löschen? (Du kannst sie später wiederherstellen)"
+      "Möchtest du dich wirklich abmelden?"
     );
     if (!confirmDelete) return;
 
@@ -243,7 +243,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <DialogDescription>
             {isDeleted ? (
               <span className="text-orange-600">
-                Deine Anmeldung wurde gelöscht. Du kannst sie wiederherstellen oder eine neue Anmeldung erstellen.
+                Deine Anmeldung wurde gelöscht. Du kannst sie nun wiederherstellen.
               </span>
             ) : isAfterDeadline && !isSignedUp ? (
               <span className="text-orange-600 font-medium">
@@ -334,7 +334,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                     disabled={saving || deleting}
                     aria-busy={deleting}
                   >
-                    {deleting ? "Deleting..." : <Trash2Icon/>}
+                    {deleting ? "Deleting..." : <UserX/>}
                   </Button>
                 )}
               </>

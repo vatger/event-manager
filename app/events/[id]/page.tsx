@@ -221,7 +221,7 @@ export default function EventPage() {
                 <Button className="w-full" disabled>
                   Laden...
                 </Button>
-              ) : signupData?.deletedAt ? (
+              ) : signupData?.deletedAt && canInFIR(event.firCode, "signups.manage") ? (
                 <Button 
                   className="w-full" 
                   onClick={() => setSelectedEvent(normalizedEventForSignup)}
@@ -260,11 +260,6 @@ export default function EventPage() {
             {(event.status=="SIGNUP_CLOSED" && isSignedUp) && (
               <div className="flex items-center gap-2 text-sm">
                   <span className="text-sm text-muted-foreground w-full overflow-auto">Du kannst deine Anmeldung weiterhin bearbeiten. Das Eventteam wird über Änderungen informiert.</span>
-              </div>
-            )}
-            {(event.status=="SIGNUP_CLOSED" && !isSignedUp && signupData?.deletedAt) && (
-              <div className="flex items-center gap-2 text-sm">
-                  <span className="text-sm text-orange-600 w-full overflow-auto">Deine Anmeldung wurde gelöscht. Du kannst sie wiederherstellen.</span>
               </div>
             )}
           </CardContent>

@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, RotateCcw, PlusCircle, Hourglass, UserSearch, AlertTriangle, Trash2, CheckCircle2, X, Clock } from "lucide-react";
+import { Edit, AlertCircle, PlusCircle, UserSearch, AlertTriangle, CheckCircle2, Clock, UserX } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -31,7 +31,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getSessionUser } from "@/lib/getSessionUser";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
@@ -91,6 +90,10 @@ function formatChangeDescription(change: SignupChange, fieldName: string): strin
     return `${oldVal} → ${newVal}`;
   } else if (fieldName === 'remarks') {
     return 'Bemerkungen geändert';
+  } else if (fieldName === 'remarksWithChanges') {
+    const oldVal = change.oldValue || '-';
+    const newVal = change.newValue || '-';
+    return `${oldVal} → ${newVal}`;
   }
   return 'Geändert';
 }
@@ -321,11 +324,15 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
-                                              <Trash2 className="h-4 w-4 text-red-500" />
+                                              <UserX className="h-4 w-4 text-red-500" />
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                              <p>Gelöscht am {new Date(s.deletedAt!).toLocaleString("de-DE")}</p>
-                                              {s.deletedBy && <p className="text-xs">Von CID: {s.deletedBy}</p>}
+                                              <p>Abgemeldet am {new Date(s.deletedAt!).toLocaleString("de-DE", {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}</p>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
@@ -381,15 +388,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <div className="text-xs text-orange-600 font-medium cursor-help flex items-center gap-1">
-                                              <div className="text-xs text-orange-600 font-medium cursor-help">
-                                              {availabilityChanges.map((change, idx) => (
-                                                <div key={idx} className="flex items-center gap-1">
-                                                  <AlertTriangle className="h-3 w-3" />
-                                                  <span>{formatChangeDescription(change, 'availability')}</span>
-                                                </div>
-                                              ))}
-                                              </div>
+                                          <div className="text-xs text-gray-400 font-medium cursor-help">
+                                            <span className="line-through">{formatChangeDescription(availabilityChanges[0], 'availability').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
                                           <TooltipContent className="max-w-xs">
@@ -424,13 +424,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <div className="text-xs text-orange-600 font-medium cursor-help">
-                                              {stationChanges.map((change, idx) => (
-                                                <div key={idx} className="flex items-center gap-1">
-                                                  <AlertTriangle className="h-3 w-3" />
-                                                  <span>{formatChangeDescription(change, 'preferredStations')}</span>
-                                                </div>
-                                              ))}
+                                            <div className="text-xs text-gray-400 font-medium cursor-help">
+                                              <span className="line-through">{formatChangeDescription(stationChanges[0], 'preferredStations').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
                                           <TooltipContent>
@@ -465,9 +460,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <div className="text-xs text-orange-600 font-medium cursor-help flex items-center gap-1">
-                                              <AlertTriangle className="h-3 w-3" />
-                                              <span>Geändert</span>
+                                            <div className="text-xs text-gray-400 font-medium cursor-help">
+                                              <span className="line-through">{formatChangeDescription(remarksChanges[0], 'remarksWithChanges').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
                                           <TooltipContent>

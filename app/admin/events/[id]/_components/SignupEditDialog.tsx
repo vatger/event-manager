@@ -12,6 +12,8 @@ import { useUser } from "@/hooks/useUser";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { Tooltip } from "@radix-ui/react-tooltip";
+import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export type SignupRow = Signup;
 
@@ -242,6 +244,22 @@ export default function SignupEditDialog({
         <DialogHeader>
           <DialogTitle>
             {signup ? "Signup bearbeiten" : "Neuen Signup hinzufügen"}
+            {signup && signup.modifiedAfterDeadline && !signup.deletedAt && (
+              <div className="pl-2 inline-block text-orange-500 align-text-middle">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <AlertCircle className="h-4 w-4 inline" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <div className="space-y-1">
+                        <p className="font-semibold">Diese Anmeldung wurde nach der Deadline geändert.</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -279,26 +297,6 @@ export default function SignupEditDialog({
                   <AlertDescription>
                     Diese Anmeldung wurde am {new Date(signup.deletedAt).toLocaleString("de-DE")} gelöscht
                     {signup.deletedBy && ` von CID ${signup.deletedBy}`}.
-                  </AlertDescription>
-                </Alert>
-              )}
-              {signup.modifiedAfterDeadline && !signup.deletedAt && (
-                <Alert className="border-orange-500">
-                  <AlertCircle className="h-4 w-4 text-orange-500" />
-                  <AlertDescription>
-                    Diese Anmeldung wurde nach der Deadline geändert.
-                    {signup.changeLog && signup.changeLog.length > 0 && (
-                      <div className="mt-2 text-xs">
-                        <strong>Änderungen:</strong>
-                        <ul className="list-disc list-inside mt-1">
-                          {signup.changeLog.map((change, idx) => (
-                            <li key={idx}>
-                              {change.field} am {new Date(change.changedAt).toLocaleString("de-DE")}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
                   </AlertDescription>
                 </Alert>
               )}
