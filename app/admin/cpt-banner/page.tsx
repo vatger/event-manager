@@ -89,7 +89,13 @@ export default function CPTBannerGenerator() {
 
       // Date and Time info with weekday in top right
       if (bannerData.date || bannerData.startTime) {
-        ctx.fillStyle = "#6d8db8";  // Blue-gray color
+        if(bannerData.template === "TWR") {
+          ctx.fillStyle = "#f8b27e";  // Red-gray color
+        } else if (bannerData.template === "APP") {
+          ctx.fillStyle = "#6d8db8";
+        } else {
+          ctx.fillStyle = "#FFFFFF";
+        }
         ctx.font = "50px MontserratBold";
         
         // Weekday at position 1438, 47
