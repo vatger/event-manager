@@ -24,7 +24,7 @@ export default function CPTBannerGenerator() {
   const { user } = useUser();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [bannerData, setBannerData] = useState<BannerData>({
-    template: "TWR",
+    template: "APP",
     name: "",
     station: "",
     date: "",
@@ -57,68 +57,66 @@ export default function CPTBannerGenerator() {
       // Draw template background
       ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
 
-      // Draw text content with shadow for better readability
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 15;
-      ctx.shadowOffsetX = 3;
-      ctx.shadowOffsetY = 3;
+      // Set up text rendering
       ctx.fillStyle = "#FFFFFF";
       ctx.textAlign = "left";
       
       // Controller name - positioned below "CONTROLLER PRACTICAL TEST"
+      // Based on the example, this appears around y=410
       if (bannerData.name) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.font = "64px sans-serif";
+        ctx.fillText(`feat ${bannerData.name}`, 225, 410);
+      }
+
+      // Station at bottom left - matches "EDDM_APP" position in example
+      if (bannerData.station) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
         ctx.font = "bold 72px sans-serif";
-        ctx.fillText(`feat ${bannerData.name}`, 225, 530);
+        ctx.fillText(bannerData.station, 35, 575);
       }
 
-      // Reset shadow for next elements
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
-
-      // Station and Date/Time info - position in lower area
-      let yPos = 850;
-      
-      if (bannerData.station || bannerData.date || bannerData.startTime || bannerData.endTime) {
-        // Station
-        if (bannerData.station) {
-          ctx.font = "bold 48px sans-serif";
-          ctx.fillText(bannerData.station, 225, yPos);
-          yPos += 60;
+      // Date and Time info - if provided, show in top right area
+      if (bannerData.date || bannerData.startTime || bannerData.endTime) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.font = "48px sans-serif";
+        ctx.textAlign = "right";
+        
+        let dateTimeText = "";
+        
+        if (bannerData.date) {
+          // Format date to DD.MM.YYYY
+          const dateObj = new Date(bannerData.date);
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const year = dateObj.getFullYear();
+          dateTimeText = `${day}.${month}.${year}`;
         }
-
-        // Date and Time
-        if (bannerData.date || bannerData.startTime || bannerData.endTime) {
-          ctx.font = "42px sans-serif";
-          let dateTimeText = "";
-          
-          if (bannerData.date) {
-            // Format date to DD.MM.YYYY
-            const dateObj = new Date(bannerData.date);
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            dateTimeText = `${day}.${month}.${year}`;
-          }
-          
-          if (bannerData.startTime && bannerData.endTime) {
-            if (dateTimeText) dateTimeText += " • ";
-            dateTimeText += `${bannerData.startTime} - ${bannerData.endTime}Z`;
-          } else if (bannerData.startTime) {
-            if (dateTimeText) dateTimeText += " • ";
-            dateTimeText += `${bannerData.startTime}Z`;
-          }
-          
-          if (dateTimeText) {
-            ctx.fillText(dateTimeText, 225, yPos);
-          }
+        
+        if (bannerData.startTime && bannerData.endTime) {
+          if (dateTimeText) dateTimeText += " | ";
+          dateTimeText += `${bannerData.startTime.replace(':', '')}z`;
+        }
+        
+        if (dateTimeText) {
+          ctx.fillText(dateTimeText, canvas.width - 50, 120);
         }
       }
 
-      // Reset shadow
+      // Reset settings
       ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
+      ctx.textAlign = "left";
     };
 
     bgImage.onerror = () => {
