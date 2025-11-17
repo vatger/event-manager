@@ -28,6 +28,27 @@ export default function CPTBannerGenerator() {
     startTime: "",
   });
 
+  useEffect(() => {
+    const loadFonts = async () => {
+      const montBold = new FontFace(
+        "MontserratBold",
+        "url(/fonts/Montserrat-Bold.ttf)"
+      );
+      const montExtraBold = new FontFace(
+        "MontserratExtraBold",
+        "url(/fonts/Montserrat-ExtraBold.ttf)"
+      );
+  
+      await montBold.load();
+      await montExtraBold.load();
+  
+      document.fonts.add(montBold);
+      document.fonts.add(montExtraBold);
+    };
+  
+    loadFonts();
+  }, []);
+
   // Check if user is from FIR München
   const isEDMM = user?.fir?.code === "EDMM" || user?.role === "MAIN_ADMIN";
 
@@ -63,22 +84,22 @@ export default function CPTBannerGenerator() {
         ctx.fillStyle = "#FFFFFF";  // White color
         ctx.textAlign = "left";
         ctx.font = "bold 62px Arial";
-        ctx.fillText(`feat ${bannerData.name}`, 428, 692);
+        ctx.fillText(`feat. ${bannerData.name}`, 428, 692);
       }
 
       // Date and Time info with weekday in top right
       if (bannerData.date || bannerData.startTime) {
         ctx.fillStyle = "#6d8db8";  // Blue-gray color
-        ctx.font = "bold 64px Arial";
+        ctx.font = "50px MontserratBold";
         
         // Weekday at position 1438, 47
         if (bannerData.date) {
           const dateObj = new Date(bannerData.date);
-          const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wensday', 'Thursday', 'Friday', 'Saturday'];
           const weekday = weekdays[dateObj.getDay()];
           
           ctx.textAlign = "left";
-          ctx.fillText(weekday, 1438, 47);
+          ctx.fillText(weekday, 1480, 47);
         }
         
         // Date starting at position 1437, 105
@@ -92,11 +113,11 @@ export default function CPTBannerGenerator() {
           
           // Add time with vertical bar separator
           if (bannerData.startTime) {
-            dateTimeText += ` | ${bannerData.startTime.replace(':', '')}z`;
+            dateTimeText += `|${bannerData.startTime.replace(':', '')}z`;
           }
           
           ctx.textAlign = "left";
-          ctx.fillText(dateTimeText, 1437, 105);
+          ctx.fillText(dateTimeText, 1480, 105);
         }
       }
     };
@@ -238,7 +259,7 @@ export default function CPTBannerGenerator() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">CPT Banner Generator</h1>
         <p className="text-muted-foreground">
-          Erstelle personalisierte Banner für CPT-Trainings
+          Erstelle personalisierte Banner für CPTs
         </p>
       </div>
 
