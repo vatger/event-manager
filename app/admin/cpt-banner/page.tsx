@@ -42,105 +42,185 @@ export default function CPTBannerGenerator() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Set canvas size (standard banner size)
-    canvas.width = 1200;
-    canvas.height = 400;
+    // Set canvas size to match template (1920x1080)
+    canvas.width = 1920;
+    canvas.height = 1080;
 
-    // Background based on template
-    const colors = {
-      TWR: { bg: "#1e3a8a", accent: "#3b82f6" },
-      APP: { bg: "#134e4a", accent: "#14b8a6" },
-      CTR: { bg: "#7c2d12", accent: "#f97316" },
+    // Try to load template image from public folder
+    const templatePath = `/banner/cpt-template/EDDM/${bannerData.template}/EmptyTemplateV1.png`;
+    const bgImage = new Image();
+    
+    bgImage.onload = () => {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw template background
+      ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+      // Draw text content with shadow for better readability
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "left";
+      
+      // Controller name - positioned below "CONTROLLER PRACTICAL TEST"
+      if (bannerData.name) {
+        ctx.font = "bold 72px sans-serif";
+        ctx.fillText(`feat ${bannerData.name}`, 225, 530);
+      }
+
+      // Reset shadow for next elements
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+
+      // Station and Date/Time info - position in lower area
+      let yPos = 850;
+      
+      if (bannerData.station || bannerData.date || bannerData.startTime || bannerData.endTime) {
+        // Station
+        if (bannerData.station) {
+          ctx.font = "bold 48px sans-serif";
+          ctx.fillText(bannerData.station, 225, yPos);
+          yPos += 60;
+        }
+
+        // Date and Time
+        if (bannerData.date || bannerData.startTime || bannerData.endTime) {
+          ctx.font = "42px sans-serif";
+          let dateTimeText = "";
+          
+          if (bannerData.date) {
+            // Format date to DD.MM.YYYY
+            const dateObj = new Date(bannerData.date);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            dateTimeText = `${day}.${month}.${year}`;
+          }
+          
+          if (bannerData.startTime && bannerData.endTime) {
+            if (dateTimeText) dateTimeText += " • ";
+            dateTimeText += `${bannerData.startTime} - ${bannerData.endTime}Z`;
+          } else if (bannerData.startTime) {
+            if (dateTimeText) dateTimeText += " • ";
+            dateTimeText += `${bannerData.startTime}Z`;
+          }
+          
+          if (dateTimeText) {
+            ctx.fillText(dateTimeText, 225, yPos);
+          }
+        }
+      }
+
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
     };
 
-    const color = colors[bannerData.template];
+    bgImage.onerror = () => {
+      // Fallback: draw a gradient background if template doesn't exist
+      const colors = {
+        TWR: { bg: "#1e3a8a", accent: "#3b82f6" },
+        APP: { bg: "#134e4a", accent: "#14b8a6" },
+        CTR: { bg: "#7c2d12", accent: "#f97316" },
+      };
 
-    // Draw gradient background
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, color.bg);
-    gradient.addColorStop(1, color.accent);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const color = colors[bannerData.template];
 
-    // Add pattern overlay
-    ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-    for (let i = 0; i < canvas.width; i += 40) {
-      for (let j = 0; j < canvas.height; j += 40) {
-        ctx.fillRect(i, j, 20, 20);
+      // Draw gradient background
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, color.bg);
+      gradient.addColorStop(1, color.accent);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Add pattern overlay
+      ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+      for (let i = 0; i < canvas.width; i += 60) {
+        for (let j = 0; j < canvas.height; j += 60) {
+          ctx.fillRect(i, j, 30, 30);
+        }
       }
-    }
 
-    // Template label at top
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillText(bannerData.template, 60, 60);
+      // Template label at top
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.font = "bold 42px sans-serif";
+      ctx.fillText(bannerData.template, 100, 100);
 
-    // Draw border
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+      // Draw border
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(30, 30, canvas.width - 60, canvas.height - 60);
 
-    // Main content area
-    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-    ctx.fillRect(60, 100, canvas.width - 120, canvas.height - 160);
+      // Main content area
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.fillRect(100, 200, canvas.width - 200, canvas.height - 400);
 
-    // Draw text content with shadow for better readability
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-    ctx.fillStyle = "#FFFFFF";
-    
-    // CPT Title
-    ctx.font = "bold 48px sans-serif";
-    ctx.fillText("CPT Training", 80, 160);
-
-    // Name
-    if (bannerData.name) {
-      ctx.font = "bold 36px sans-serif";
-      ctx.fillText(bannerData.name, 80, 215);
-    }
-
-    // Station
-    if (bannerData.station) {
-      ctx.font = "32px sans-serif";
-      ctx.fillText(`Station: ${bannerData.station}`, 80, 265);
-    }
-
-    // Date and Time
-    if (bannerData.date || bannerData.startTime || bannerData.endTime) {
-      ctx.font = "28px sans-serif";
-      let dateTimeText = "";
+      // Draw text content with shadow for better readability
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 3;
+      ctx.fillStyle = "#FFFFFF";
       
-      if (bannerData.date) {
-        // Format date to DD.MM.YYYY
-        const dateObj = new Date(bannerData.date);
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        dateTimeText = `${day}.${month}.${year}`;
-      }
-      
-      if (bannerData.startTime && bannerData.endTime) {
-        dateTimeText += ` • ${bannerData.startTime} - ${bannerData.endTime}Z`;
-      } else if (bannerData.startTime) {
-        dateTimeText += ` • ${bannerData.startTime}Z`;
-      }
-      
-      if (dateTimeText) {
-        ctx.fillText(dateTimeText, 80, 315);
-      }
-    }
+      // CPT Title
+      ctx.font = "bold 84px sans-serif";
+      ctx.fillText("CPT Training", 120, 350);
 
-    // VATGER Logo area (placeholder text)
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.font = "bold 24px sans-serif";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-    ctx.textAlign = "right";
-    ctx.fillText("VATGER", canvas.width - 60, canvas.height - 40);
-    ctx.textAlign = "left"; // Reset alignment
+      // Name
+      if (bannerData.name) {
+        ctx.font = "bold 64px sans-serif";
+        ctx.fillText(bannerData.name, 120, 470);
+      }
+
+      // Station
+      if (bannerData.station) {
+        ctx.font = "56px sans-serif";
+        ctx.fillText(`Station: ${bannerData.station}`, 120, 580);
+      }
+
+      // Date and Time
+      if (bannerData.date || bannerData.startTime || bannerData.endTime) {
+        ctx.font = "48px sans-serif";
+        let dateTimeText = "";
+        
+        if (bannerData.date) {
+          // Format date to DD.MM.YYYY
+          const dateObj = new Date(bannerData.date);
+          const day = String(dateObj.getDate()).padStart(2, '0');
+          const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+          const year = dateObj.getFullYear();
+          dateTimeText = `${day}.${month}.${year}`;
+        }
+        
+        if (bannerData.startTime && bannerData.endTime) {
+          dateTimeText += ` • ${bannerData.startTime} - ${bannerData.endTime}Z`;
+        } else if (bannerData.startTime) {
+          dateTimeText += ` • ${bannerData.startTime}Z`;
+        }
+        
+        if (dateTimeText) {
+          ctx.fillText(dateTimeText, 120, 690);
+        }
+      }
+
+      // VATGER Logo area (placeholder text)
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.font = "bold 42px sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.textAlign = "right";
+      ctx.fillText("VATGER", canvas.width - 100, canvas.height - 80);
+      ctx.textAlign = "left"; // Reset alignment
+    };
+
+    // Start loading the image
+    bgImage.src = templatePath;
   };
 
   useEffect(() => {
