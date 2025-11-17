@@ -14,7 +14,6 @@ type TemplateType = "TWR" | "APP" | "CTR";
 interface BannerData {
   template: TemplateType;
   name: string;
-  station: string;
   date: string;
   startTime: string;
 }
@@ -25,7 +24,6 @@ export default function CPTBannerGenerator() {
   const [bannerData, setBannerData] = useState<BannerData>({
     template: "APP",
     name: "",
-    station: "",
     date: "",
     startTime: "",
   });
@@ -55,71 +53,52 @@ export default function CPTBannerGenerator() {
       // Draw template background
       ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
 
-      // Set up text rendering
-      ctx.fillStyle = "#FFFFFF";
-      ctx.textAlign = "left";
+      // Set up text rendering - NO SHADOWS
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
       
-      // Controller name - positioned below "CONTROLLER PRACTICAL TEST"
+      // Controller name - positioned at 428, 692
       if (bannerData.name) {
-        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-        ctx.font = "58px sans-serif";
-        ctx.fillText(`feat ${bannerData.name}`, 230, 420);
+        ctx.fillStyle = "#FFFFFF";  // White color
+        ctx.textAlign = "left";
+        ctx.font = "bold 62px Arial";
+        ctx.fillText(`feat ${bannerData.name}`, 428, 692);
       }
 
-      // Station at bottom left
-      if (bannerData.station) {
-        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-        ctx.font = "bold 82px sans-serif";
-        ctx.fillText(bannerData.station, 35, 585);
-      }
-
-      // Date and Time info in top right with weekday
+      // Date and Time info with weekday in top right
       if (bannerData.date || bannerData.startTime) {
-        ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-        ctx.font = "52px sans-serif";
-        ctx.textAlign = "right";
+        ctx.fillStyle = "#6d8db8";  // Blue-gray color
+        ctx.font = "bold 64px Arial";
         
-        let dateTimeText = "";
-        
+        // Weekday at position 1438, 47
         if (bannerData.date) {
-          // Get weekday from date
           const dateObj = new Date(bannerData.date);
           const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
           const weekday = weekdays[dateObj.getDay()];
           
-          // Format date to DD.MM.YYYY
+          ctx.textAlign = "left";
+          ctx.fillText(weekday, 1438, 47);
+        }
+        
+        // Date starting at position 1437, 105
+        if (bannerData.date) {
+          const dateObj = new Date(bannerData.date);
           const day = String(dateObj.getDate()).padStart(2, '0');
           const month = String(dateObj.getMonth() + 1).padStart(2, '0');
           const year = dateObj.getFullYear();
           
-          dateTimeText = `${weekday} ${day}.${month}.${year}`;
-        }
-        
-        if (bannerData.startTime) {
-          if (dateTimeText) dateTimeText += " | ";
-          // Format time without colon and add 'z' suffix
-          dateTimeText += `${bannerData.startTime.replace(':', '')}z`;
-        }
-        
-        if (dateTimeText) {
-          ctx.fillText(dateTimeText, canvas.width - 35, 125);
+          let dateTimeText = `${day}.${month}.${year}`;
+          
+          // Add time with vertical bar separator
+          if (bannerData.startTime) {
+            dateTimeText += ` | ${bannerData.startTime.replace(':', '')}z`;
+          }
+          
+          ctx.textAlign = "left";
+          ctx.fillText(dateTimeText, 1437, 105);
         }
       }
-
-      // Reset settings
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.textAlign = "left";
     };
 
     bgImage.onerror = () => {
@@ -178,12 +157,6 @@ export default function CPTBannerGenerator() {
         ctx.fillText(bannerData.name, 120, 470);
       }
 
-      // Station
-      if (bannerData.station) {
-        ctx.font = "56px sans-serif";
-        ctx.fillText(`Station: ${bannerData.station}`, 120, 580);
-      }
-
       // Date and Time
       if (bannerData.date || bannerData.startTime) {
         ctx.font = "48px sans-serif";
@@ -223,7 +196,7 @@ export default function CPTBannerGenerator() {
   };
 
   useEffect(() => {
-    if (bannerData.name || bannerData.station || bannerData.date || bannerData.startTime) {
+    if (bannerData.name || bannerData.date || bannerData.startTime) {
       generateBanner();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,7 +211,7 @@ export default function CPTBannerGenerator() {
       
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.download = `CPT-Banner-${bannerData.template}-${bannerData.station || "default"}.png`;
+      link.download = `CPT-Banner-${bannerData.template}-${bannerData.name.replace(/\s+/g, '_') || "default"}.png`;
       link.href = url;
       link.click();
       URL.revokeObjectURL(url);
@@ -312,19 +285,6 @@ export default function CPTBannerGenerator() {
               />
             </div>
 
-            {/* Station */}
-            <div className="space-y-2">
-              <Label htmlFor="station">Station</Label>
-              <Input
-                id="station"
-                placeholder="z.B. EDDM_TWR"
-                value={bannerData.station}
-                onChange={(e) =>
-                  setBannerData({ ...bannerData, station: e.target.value })
-                }
-              />
-            </div>
-
             {/* Date */}
             <div className="space-y-2">
               <Label htmlFor="date">Datum</Label>
@@ -356,7 +316,7 @@ export default function CPTBannerGenerator() {
               className="w-full"
               size="lg"
               onClick={handleDownload}
-              disabled={!bannerData.name && !bannerData.station}
+              disabled={!bannerData.name}
             >
               <Download className="mr-2 h-4 w-4" />
               Banner herunterladen
@@ -374,7 +334,7 @@ export default function CPTBannerGenerator() {
           </CardHeader>
           <CardContent>
             <div className="relative rounded-lg overflow-hidden border bg-muted/50">
-              {(!bannerData.name && !bannerData.station) ? (
+              {!bannerData.name ? (
                 <div className="flex flex-col items-center justify-center h-[400px] text-muted-foreground">
                   <ImageIcon className="h-16 w-16 mb-4" />
                   <p>Füge Daten hinzu, um eine Vorschau zu sehen</p>
