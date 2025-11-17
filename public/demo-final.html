@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CPT Banner - Final Demo</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #f0f0f0; font-family: Arial; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
+        h1 { margin: 0 0 10px 0; color: #333; }
+        .changes { background: #e8f4fd; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .changes p { margin: 8px 0; color: #1e40af; }
+        .changes strong { color: #1e3a8a; }
+        canvas { display: block; width: 100%; border: 2px solid #ddd; margin-top: 20px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CPT Banner Generator - Final Version</h1>
+        <div class="changes">
+            <p><strong>Latest Improvements:</strong></p>
+            <p>✓ Removed "End Zeit" field - only Date, Name, and Start Time needed</p>
+            <p>✓ Automatic weekday extraction (e.g., "SUNDAY 15.12.2024 | 1234z")</p>
+            <p>✓ Improved text positioning to better match template</p>
+            <p>✓ Larger station font (82px) for better visibility</p>
+        </div>
+        <canvas id="canvas"></canvas>
+    </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        
+        const bgImage = new Image();
+        bgImage.onload = () => {
+            ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = "#FFFFFF";
+            ctx.textAlign = "left";
+            
+            // Controller name
+            ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+            ctx.shadowBlur = 8;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.font = "58px sans-serif";
+            ctx.fillText("feat Peter Zwegat", 230, 420);
+            
+            // Station
+            ctx.font = "bold 82px sans-serif";
+            ctx.fillText("EDDM_APP", 35, 585);
+            
+            // Date with weekday
+            ctx.font = "52px sans-serif";
+            ctx.textAlign = "right";
+            ctx.fillText("SUNDAY 15.12.2024 | 1234z", canvas.width - 35, 125);
+            
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+        };
+        bgImage.src = '/banner/cpt-template/EDDM/APP/EmptyTemplateV1.png';
+    </script>
+</body>
+</html>
