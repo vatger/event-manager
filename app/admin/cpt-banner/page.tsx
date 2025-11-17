@@ -84,7 +84,11 @@ export default function CPTBannerGenerator() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(60, 100, canvas.width - 120, canvas.height - 160);
 
-    // Draw text content
+    // Draw text content with shadow for better readability
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
     ctx.fillStyle = "#FFFFFF";
     
     // CPT Title
@@ -129,9 +133,14 @@ export default function CPTBannerGenerator() {
     }
 
     // VATGER Logo area (placeholder text)
-    ctx.font = "20px sans-serif";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-    ctx.fillText("VATGER", canvas.width - 150, canvas.height - 40);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.textAlign = "right";
+    ctx.fillText("VATGER", canvas.width - 60, canvas.height - 40);
+    ctx.textAlign = "left"; // Reset alignment
   };
 
   useEffect(() => {
