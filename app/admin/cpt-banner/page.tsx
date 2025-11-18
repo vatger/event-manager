@@ -6,16 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image as ImageIcon, Link, Loader2, Check, Copy } from "lucide-react";
+import { Download, Image as ImageIcon, Link as LinkIcon, Copy, Check } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
-
-type TemplateType = "TWR" | "APP" | "CTR";
+import { getTemplateConfig, getAvailableTemplates, type TemplateType } from "./templateConfig";
 
 interface BannerData {
   template: TemplateType;
   name: string;
   date: string;
   startTime: string;
+  station?: string;
 }
 
 export default function CPTBannerGenerator() {
@@ -26,35 +26,44 @@ export default function CPTBannerGenerator() {
     name: "",
     date: "",
     startTime: "",
+    station: "",
   });
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [generatedLink, setGeneratedLink] = useState<string>("");
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const loadFonts = async () => {
-      const montBold = new FontFace(
-        "MontserratBold",
-        "url(/fonts/Montserrat-Bold.ttf)"
-      );
-      const montExtraBold = new FontFace(
-        "MontserratExtraBold",
-        "url(/fonts/Montserrat-ExtraBold.ttf)"
-      );
-  
-      await montBold.load();
-      await montExtraBold.load();
-  
-      document.fonts.add(montBold);
-      document.fonts.add(montExtraBold);
-    };
-  
-    loadFonts();
-  }, []);
 
   // Check if user is from FIR München
   const isEDMM = user?.fir?.code === "EDMM" || user?.role === "MAIN_ADMIN";
+
+  // Get template configuration
+  const templateConfig = getTemplateConfig(bannerData.template);
+
+  // Generate the banner link whenever data changes
+  useEffect(() => {
+    if (bannerData.name && bannerData.date && bannerData.startTime) {
+      // Check if station is required but missing
+      if (templateConfig.requiresStation && !bannerData.station) {
+        setGeneratedLink("");
+        return;
+      }
+
+      const params = new URLSearchParams({
+        template: bannerData.template,
+        name: bannerData.name,
+        date: bannerData.date,
+        time: bannerData.startTime,
+      });
+
+      if (bannerData.station && templateConfig.requiresStation) {
+        params.append('station', bannerData.station);
+      }
+
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const link = `${baseUrl}/api/cpt-banner/generate?${params.toString()}`;
+      setGeneratedLink(link);
+    } else {
+      setGeneratedLink("");
+    }
+  }, [bannerData, templateConfig.requiresStation]);
 
   const generateBanner = () => {
     const canvas = canvasRef.current;
@@ -68,7 +77,7 @@ export default function CPTBannerGenerator() {
     canvas.height = 1080;
 
     // Try to load template image from public folder
-    const templatePath = `/banner/cpt-template/EDDM/${bannerData.template}/EmptyTemplateV1.png`;
+    const templatePath = templateConfig.templatePath;
     const bgImage = new Image();
     
     bgImage.onload = () => {
@@ -83,69 +92,84 @@ export default function CPTBannerGenerator() {
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
       
-      // Controller name - positioned at 428, 692
+      // Draw controller name using config
       if (bannerData.name) {
-        ctx.fillStyle = "#FFFFFF";  // White color
-        ctx.textAlign = "left";
-        ctx.font = "bold 62px Arial";
-        ctx.fillText(`feat. ${bannerData.name}`, 428, 692);
+        const nameConfig = templateConfig.name;
+        ctx.fillStyle = nameConfig.style.color;
+        ctx.textAlign = nameConfig.position.align || "left";
+        const fontWeight = nameConfig.style.bold ? "bold" : "normal";
+        ctx.font = `${fontWeight} ${nameConfig.style.size}px ${nameConfig.style.font}`;
+        const nameText = (nameConfig.prefix || "") + bannerData.name;
+        ctx.fillText(nameText, nameConfig.position.x, nameConfig.position.y);
       }
 
-      // Date and Time info with weekday in top right
+      // Draw weekday using config
+      if (bannerData.date) {
+        const weekdayConfig = templateConfig.weekday;
+        const dateObj = new Date(bannerData.date);
+        const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const weekday = weekdays[dateObj.getDay()];
+        
+        ctx.fillStyle = weekdayConfig.style.color;
+        ctx.textAlign = weekdayConfig.position.align || "left";
+        const fontWeight = weekdayConfig.style.bold ? "bold" : "normal";
+        ctx.font = `${fontWeight} ${weekdayConfig.style.size}px ${weekdayConfig.style.font}`;
+        ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+      }
+      
+      // Draw date and time using config
       if (bannerData.date || bannerData.startTime) {
-        if(bannerData.template === "TWR") {
-          ctx.fillStyle = "#f8b27e";  // Red-gray color
-        } else if (bannerData.template === "APP") {
-          ctx.fillStyle = "#6d8db8";
-        } else {
-          ctx.fillStyle = "#FFFFFF";
-        }
-        ctx.font = "50px MontserratBold";
+        const dateConfig = templateConfig.date;
+        const timeConfig = templateConfig.time;
         
-        // Weekday at position 1438, 47
-        if (bannerData.date) {
-          const dateObj = new Date(bannerData.date);
-          const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wensday', 'Thursday', 'Friday', 'Saturday'];
-          const weekday = weekdays[dateObj.getDay()];
-          
-          ctx.textAlign = "left";
-          ctx.fillText(weekday, 1480, 47);
-        }
+        let dateTimeText = "";
         
-        // Date starting at position 1437, 105
         if (bannerData.date) {
           const dateObj = new Date(bannerData.date);
           const day = String(dateObj.getDate()).padStart(2, '0');
           const month = String(dateObj.getMonth() + 1).padStart(2, '0');
           const year = dateObj.getFullYear();
-          
-          let dateTimeText = `${day}.${month}.${year}`;
-          
-          // Add time with vertical bar separator
-          if (bannerData.startTime) {
-            dateTimeText += `|${bannerData.startTime.replace(':', '')}z`;
-          }
-          
-          ctx.textAlign = "left";
-          ctx.fillText(dateTimeText, 1480, 105);
+          dateTimeText = `${day}.${month}.${year}`;
         }
+        
+        // Add time with separator
+        if (bannerData.startTime) {
+          if (dateTimeText && timeConfig.separator) {
+            dateTimeText += timeConfig.separator;
+          }
+          dateTimeText += `${bannerData.startTime.replace(':', '')}z`;
+        }
+        
+        if (dateTimeText) {
+          ctx.fillStyle = dateConfig.style.color;
+          ctx.textAlign = dateConfig.position.align || "left";
+          const fontWeight = dateConfig.style.bold ? "bold" : "normal";
+          ctx.font = `${fontWeight} ${dateConfig.style.size}px ${dateConfig.style.font}`;
+          ctx.fillText(dateTimeText, dateConfig.position.x, dateConfig.position.y);
+        }
+      }
+
+      // Draw station if provided and configured
+      if (bannerData.station && templateConfig.station) {
+        const stationConfig = templateConfig.station;
+        ctx.fillStyle = stationConfig.style.color;
+        ctx.textAlign = stationConfig.position.align || "left";
+        const fontWeight = stationConfig.style.bold ? "bold" : "normal";
+        ctx.font = `${fontWeight} ${stationConfig.style.size}px ${stationConfig.style.font}`;
+        ctx.fillText(bannerData.station, stationConfig.position.x, stationConfig.position.y);
       }
     };
 
     bgImage.onerror = () => {
       // Fallback: draw a gradient background if template doesn't exist
-      const colors = {
-        TWR: { bg: "#1e3a8a", accent: "#3b82f6" },
-        APP: { bg: "#134e4a", accent: "#14b8a6" },
-        CTR: { bg: "#7c2d12", accent: "#f97316" },
-      };
-
-      const color = colors[bannerData.template];
-
-      // Draw gradient background
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, color.bg);
-      gradient.addColorStop(1, color.accent);
+      if (templateConfig.fallbackGradient) {
+        gradient.addColorStop(0, templateConfig.fallbackGradient.start);
+        gradient.addColorStop(1, templateConfig.fallbackGradient.end);
+      } else {
+        gradient.addColorStop(0, "#134e4a");
+        gradient.addColorStop(1, "#14b8a6");
+      }
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -186,6 +210,12 @@ export default function CPTBannerGenerator() {
       if (bannerData.name) {
         ctx.font = "bold 64px sans-serif";
         ctx.fillText(bannerData.name, 120, 470);
+      }
+
+      // Station
+      if (bannerData.station) {
+        ctx.font = "56px sans-serif";
+        ctx.fillText(`Station: ${bannerData.station}`, 120, 580);
       }
 
       // Date and Time
@@ -249,56 +279,9 @@ export default function CPTBannerGenerator() {
     });
   };
 
-  const handleGetLink = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    setIsUploading(true);
-    setUploadError(null);
-    setUploadedUrl(null);
-    setCopied(false);
-
-    try {
-      // Convert canvas to base64
-      const imageData = canvas.toDataURL('image/png');
-      
-      // Generate filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const fileName = `CPT-Banner-${bannerData.template}-${bannerData.name.replace(/\s+/g, '_') || "default"}-${timestamp}.png`;
-
-      // Upload to NextCloud via API
-      const response = await fetch('/api/cpt-banner/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageData,
-          fileName,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Upload failed');
-      }
-
-      // Set the uploaded URL
-      const linkUrl = data.shareUrl || data.directLink;
-      setUploadedUrl(linkUrl);
-
-    } catch (error) {
-      console.error('Error uploading banner:', error);
-      setUploadError(error instanceof Error ? error.message : 'Failed to upload banner');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const handleCopyLink = () => {
-    if (uploadedUrl) {
-      navigator.clipboard.writeText(uploadedUrl);
+    if (generatedLink) {
+      navigator.clipboard.writeText(generatedLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -324,7 +307,7 @@ export default function CPTBannerGenerator() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">CPT Banner Generator</h1>
         <p className="text-muted-foreground">
-          Erstelle personalisierte Banner für CPTs
+          Erstelle personalisierte Banner für CPT-Trainings. Die Banner werden dynamisch über einen Link generiert.
         </p>
       </div>
 
@@ -351,9 +334,11 @@ export default function CPTBannerGenerator() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TWR">Tower (TWR)</SelectItem>
-                  <SelectItem value="APP">Approach (APP)</SelectItem>
-                  <SelectItem value="CTR">Center (CTR)</SelectItem>
+                  {getAvailableTemplates().map((template) => (
+                    <SelectItem key={template.value} value={template.value}>
+                      {template.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -370,6 +355,24 @@ export default function CPTBannerGenerator() {
                 }
               />
             </div>
+
+            {/* Station - Only show for templates that require it */}
+            {templateConfig.requiresStation && (
+              <div className="space-y-2">
+                <Label htmlFor="station">Station</Label>
+                <Input
+                  id="station"
+                  placeholder="z.B. EDDM_CTR"
+                  value={bannerData.station || ""}
+                  onChange={(e) =>
+                    setBannerData({ ...bannerData, station: e.target.value })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Diese Vorlage benötigt eine Station-Angabe
+                </p>
+              </div>
+            )}
 
             {/* Date */}
             <div className="space-y-2">
@@ -408,37 +411,16 @@ export default function CPTBannerGenerator() {
               Banner herunterladen
             </Button>
 
-            {/* Get Link Button */}
-            <Button
-              className="w-full"
-              size="lg"
-              variant="outline"
-              onClick={handleGetLink}
-              disabled={!bannerData.name || isUploading}
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Wird hochgeladen...
-                </>
-              ) : (
-                <>
-                  <Link className="mr-2 h-4 w-4" />
-                  Link generieren
-                </>
-              )}
-            </Button>
-
-            {/* Link Display */}
-            {uploadedUrl && (
+            {/* Generated Link Display */}
+            {generatedLink && (
               <div className="space-y-2 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
-                <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
-                  <Check className="h-4 w-4" />
-                  <span className="font-medium">Banner erfolgreich hochgeladen!</span>
+                <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200 mb-2">
+                  <LinkIcon className="h-4 w-4" />
+                  <span className="font-medium">Direkt-Link zum Banner:</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Input
-                    value={uploadedUrl}
+                    value={generatedLink}
                     readOnly
                     className="flex-1 font-mono text-xs"
                   />
@@ -461,19 +443,7 @@ export default function CPTBannerGenerator() {
                   </Button>
                 </div>
                 <p className="text-xs text-green-700 dark:text-green-300">
-                  Dieser Link kann direkt in Foren oder auf Webseiten eingebettet werden.
-                </p>
-              </div>
-            )}
-
-            {/* Error Display */}
-            {uploadError && (
-              <div className="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200">
-                  <strong>Fehler:</strong> {uploadError}
-                </p>
-                <p className="text-xs text-red-700 dark:text-red-300 mt-2">
-                  Stellen Sie sicher, dass die NextCloud-Konfiguration in den Umgebungsvariablen korrekt eingerichtet ist.
+                  Dieser Link generiert das Banner dynamisch und kann direkt in Foren oder auf Webseiten eingebunden werden.
                 </p>
               </div>
             )}
@@ -499,7 +469,7 @@ export default function CPTBannerGenerator() {
                 <canvas
                   ref={canvasRef}
                   className="w-full h-auto"
-                  style={{ maxWidth: "100%" }}
+                  style={{ maxHeight: "600px" }}
                 />
               )}
             </div>

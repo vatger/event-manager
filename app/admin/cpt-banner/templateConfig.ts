@@ -33,6 +33,9 @@ export interface TemplateSettings {
   displayName: string;
   templatePath: string;
   
+  // Indicates if this template requires a station parameter
+  requiresStation?: boolean;
+  
   // Text elements configuration
   name: {
     position: TextPosition;
@@ -56,6 +59,12 @@ export interface TemplateSettings {
     style: TextStyle;
     format: string; // e.g., "HHMMz"
     separator?: string; // e.g., " | "
+  };
+  
+  // Optional station configuration (for templates that need it)
+  station?: {
+    position: TextPosition;
+    style: TextStyle;
   };
   
   // Optional fallback gradient colors (for templates without images)
@@ -185,6 +194,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     name: "CTR",
     displayName: "Center (CTR)",
     templatePath: "/banner/cpt-template/EDMM/CTR/EmptyTemplateV1.png",
+    requiresStation: true, // CTR template requires station parameter
     
     name: {
       position: { x: 428, y: 692, align: "left" },
@@ -228,6 +238,17 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
       },
       format: "HHMMz",
       separator: " | ",
+    },
+    
+    // Station configuration for CTR template
+    station: {
+      position: { x: 100, y: 900, align: "left" },
+      style: {
+        font: "Arial",
+        size: 48,
+        color: "#FFFFFF",
+        bold: true,
+      },
     },
     
     fallbackGradient: {
