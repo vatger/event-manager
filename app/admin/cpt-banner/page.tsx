@@ -37,6 +37,27 @@ export default function CPTBannerGenerator() {
   // Get template configuration
   const templateConfig = getTemplateConfig(bannerData.template);
 
+  useEffect(() => {
+    const loadFonts = async () => {
+      const montBold = new FontFace(
+        "MontserratBold",
+        "url(/fonts/Montserrat-Bold.ttf)"
+      );
+      const montExtraBold = new FontFace(
+        "MontserratExtraBold",
+        "url(/fonts/Montserrat-ExtraBold.ttf)"
+      );
+
+      await montBold.load();
+      await montExtraBold.load();
+
+      document.fonts.add(montBold);
+      document.fonts.add(montExtraBold);
+    };
+
+    loadFonts();
+  }, []);
+
   // Generate the banner link whenever data changes
   useEffect(() => {
     if (bannerData.name && bannerData.date && bannerData.startTime) {
@@ -106,15 +127,17 @@ export default function CPTBannerGenerator() {
       // Draw weekday using config
       if (bannerData.date) {
         const weekdayConfig = templateConfig.weekday;
-        const dateObj = new Date(bannerData.date);
-        const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-        const weekday = weekdays[dateObj.getDay()];
-        
-        ctx.fillStyle = weekdayConfig.style.color;
-        ctx.textAlign = weekdayConfig.position.align || "left";
-        const fontWeight = weekdayConfig.style.bold ? "bold" : "normal";
-        ctx.font = `${fontWeight} ${weekdayConfig.style.size}px ${weekdayConfig.style.font}`;
-        ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+        if(weekdayConfig.style.size > 0){
+          const dateObj = new Date(bannerData.date);
+          const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          const weekday = weekdays[dateObj.getDay()];
+          
+          ctx.fillStyle = weekdayConfig.style.color;
+          ctx.textAlign = weekdayConfig.position.align || "left";
+          const fontWeight = weekdayConfig.style.bold ? "bold" : "normal";
+          ctx.font = `${fontWeight} ${weekdayConfig.style.size}px ${weekdayConfig.style.font}`;
+          ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+        }
       }
       
       // Draw date and time using config

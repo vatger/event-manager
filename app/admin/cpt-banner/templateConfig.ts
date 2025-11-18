@@ -13,7 +13,7 @@
  * 3. Update the TemplateType union type
  */
 
-export type TemplateType = "TWR" | "APP" | "CTR";
+export type TemplateType = "EDDMTWR" | "EDDNTWR" | "APP" | "CTR";
 
 export interface TextStyle {
   font: string;
@@ -29,7 +29,7 @@ export interface TextPosition {
 }
 
 export interface TemplateSettings {
-  name: string;
+  Templatename: string;
   displayName: string;
   templatePath: string;
   
@@ -80,65 +80,11 @@ export interface TemplateSettings {
  * Each template key should match the TemplateType
  */
 export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
-  APP: {
-    name: "APP",
-    displayName: "Approach (APP)",
-    templatePath: "/banner/cpt-template/EDMM/APP/EmptyTemplateV1.png",
-    
-    name: {
-      position: { x: 428, y: 692, align: "left" },
-      style: {
-        font: "Arial",
-        size: 62,
-        color: "#FFFFFF",
-        bold: true,
-      },
-      prefix: "feat ",
-    },
-    
-    weekday: {
-      position: { x: 1438, y: 47, align: "left" },
-      style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
-        bold: true,
-      },
-    },
-    
-    date: {
-      position: { x: 1437, y: 105, align: "left" },
-      style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
-        bold: true,
-      },
-      format: "DD.MM.YYYY",
-    },
-    
-    time: {
-      position: { x: 1437, y: 105, align: "left" }, // Same line as date
-      style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
-        bold: true,
-      },
-      format: "HHMMz",
-      separator: " | ",
-    },
-    
-    fallbackGradient: {
-      start: "#134e4a",
-      end: "#14b8a6",
-    },
-  },
   
-  TWR: {
-    name: "TWR",
-    displayName: "Tower (TWR)",
-    templatePath: "/banner/cpt-template/EDMM/TWR/EmptyTemplateV1.png",
+  EDDMTWR: {
+    Templatename: "TWR EDDM",
+    displayName: "Tower (EDDM)",
+    templatePath: "/banner/cpt-template/EDDM/TWR/EmptyTemplateV1.png",
     
     name: {
       position: { x: 428, y: 692, align: "left" },
@@ -154,30 +100,30 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     weekday: {
       position: { x: 1438, y: 47, align: "left" },
       style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
+        font: "MontserratBold",
+        size: 50,
+        color: "#f8b27e",
         bold: true,
       },
     },
     
     date: {
-      position: { x: 1437, y: 105, align: "left" },
+      position: { x: 1437, y: 100, align: "left" },
       style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
+        font: "MontserratBold",
+        size: 50,
+        color: "#f8b27e",
         bold: true,
       },
       format: "DD.MM.YYYY",
     },
     
     time: {
-      position: { x: 1437, y: 105, align: "left" },
+      position: { x: 1437, y: 100, align: "left" },
       style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
+        font: "MontserratBold",
+        size: 50,
+        color: "#f8b27e",
         bold: true,
       },
       format: "HHMMz",
@@ -189,12 +135,11 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
       end: "#3b82f6",
     },
   },
-  
-  CTR: {
-    name: "CTR",
-    displayName: "Center (CTR)",
-    templatePath: "/banner/cpt-template/EDMM/CTR/EmptyTemplateV1.png",
-    requiresStation: true, // CTR template requires station parameter
+
+  EDDNTWR: {
+    Templatename: "TWR EDDN",
+    displayName: "Tower (EDDN)",
+    templatePath: "/banner/cpt-template/EDDN/TWR/EmptyTemplateV1.png",
     
     name: {
       position: { x: 428, y: 692, align: "left" },
@@ -210,8 +155,119 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     weekday: {
       position: { x: 1438, y: 47, align: "left" },
       style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+    },
+    
+    date: {
+      position: { x: 1437, y: 100, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+      format: "DD.MM.YYYY",
+    },
+    
+    time: {
+      position: { x: 1437, y: 100, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+      format: "HHMMz",
+      separator: " | ",
+    },
+    
+    fallbackGradient: {
+      start: "#1e3a8a",
+      end: "#3b82f6",
+    },
+  },
+
+  APP: {
+    Templatename: "APP",
+    displayName: "Approach (EDDM)",
+    templatePath: "/banner/cpt-template/EDDM/APP/EmptyTemplateV1.png",
+    
+    name: {
+      position: { x: 428, y: 692, align: "left" },
+      style: {
         font: "Arial",
-        size: 64,
+        size: 62,
+        color: "#FFFFFF",
+        bold: true,
+      },
+      prefix: "feat ",
+    },
+    
+    weekday: {
+      position: { x: 1480, y: 47, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#6d8db8",
+        bold: true,
+      },
+    },
+    
+    date: {
+      position: { x: 1480, y: 100, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#6d8db8",
+        bold: true,
+      },
+      format: "DD.MM.YYYY",
+    },
+    
+    time: {
+      position: { x: 1480, y: 100, align: "left" }, // Same line as date
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#6d8db8",
+        bold: true,
+      },
+      format: "HHMMz",
+      separator: "|",
+    },
+    
+    fallbackGradient: {
+      start: "#134e4a",
+      end: "#14b8a6",
+    },
+  },
+
+  CTR: {
+    Templatename: "CTR",
+    displayName: "Center (EDMM)",
+    templatePath: "/banner/cpt-template/EDDM/CTR/EmptyTemplateV1.png",
+    requiresStation: true, // CTR template requires station parameter
+    
+    name: {
+      position: { x: 696, y: 719, align: "left" },
+      style: {
+        font: "Arial",
+        size: 62,
+        color: "#000000",
+        bold: true,
+      },
+      prefix: "feat ",
+    },
+    
+    weekday: {
+      position: { x: 1438, y: 47, align: "left" },
+      style: {
+        font: "Arial",
+        size: -1,
         color: "#6d8db8",
         bold: true,
       },
@@ -220,9 +276,9 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     date: {
       position: { x: 1437, y: 105, align: "left" },
       style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
+        font: "MontserratBold",
+        size: 50,
+        color: "#dccfc8",
         bold: true,
       },
       format: "DD.MM.YYYY",
@@ -231,9 +287,9 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     time: {
       position: { x: 1437, y: 105, align: "left" },
       style: {
-        font: "Arial",
-        size: 64,
-        color: "#6d8db8",
+        font: "MontserratBold",
+        size: 50,
+        color: "#dccfc8",
         bold: true,
       },
       format: "HHMMz",
@@ -242,11 +298,11 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     
     // Station configuration for CTR template
     station: {
-      position: { x: 100, y: 900, align: "left" },
+      position: { x: 1438, y: 47, align: "left" },
       style: {
-        font: "Arial",
-        size: 48,
-        color: "#FFFFFF",
+        font: "MontserratBold",
+        size: 50,
+        color: "#dccfc8",
         bold: true,
       },
     },
@@ -270,7 +326,7 @@ export function getTemplateConfig(template: TemplateType): TemplateSettings {
  */
 export function getAvailableTemplates(): Array<{ value: TemplateType; label: string }> {
   return Object.values(TemplateConfig).map((config) => ({
-    value: config.name as TemplateType,
+    value: config.Templatename as TemplateType,
     label: config.displayName,
   }));
 }
