@@ -73,19 +73,19 @@ async function main() {
   console.log("🌱 Seeding initial data...");
 
   // Datenbank bereinigen
-  await prisma.eventSignup.deleteMany();
-  await prisma.notification.deleteMany();
-  await prisma.userGroup.deleteMany();
-  await prisma.groupPermission.deleteMany();
-  await prisma.event.deleteMany();
-  await prisma.group.deleteMany();
-  await prisma.permission.deleteMany();
-  await prisma.vATGERLeitung.deleteMany();
-  await prisma.eventSignupCache.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.fIR.deleteMany();
-  // Permissions
-  await ensureBasePermissions();
+  // await prisma.eventSignup.deleteMany();
+  // await prisma.notification.deleteMany();
+  // await prisma.userGroup.deleteMany();
+  // await prisma.groupPermission.deleteMany();
+  // await prisma.event.deleteMany();
+  // await prisma.group.deleteMany();
+  // await prisma.permission.deleteMany();
+  // await prisma.vATGERLeitung.deleteMany();
+  // await prisma.eventSignupCache.deleteMany();
+  // await prisma.user.deleteMany();
+  // await prisma.fIR.deleteMany();
+  // // Permissions
+  // await ensureBasePermissions();
 
   // FIRs erstellen
   const firs = [
