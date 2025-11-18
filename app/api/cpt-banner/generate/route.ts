@@ -1,7 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { createCanvas, loadImage, registerFont } from 'canvas';
 import { getTemplateConfig, type TemplateType } from '@/app/admin/cpt-banner/templateConfig';
 import { join } from 'path';
+import { existsSync } from 'fs';
+
+// Register fonts once when the module loads
+let fontsRegistered = false;
+
+function ensureFontsRegistered() {
+  if (fontsRegistered) return;
+  
+  try {
+    const publicDir = join(process.cwd(), 'public');
+    const boldPath = join(publicDir, 'fonts', 'Montserrat-Bold.ttf');
+    const extraBoldPath = join(publicDir, 'fonts', 'Montserrat-ExtraBold.ttf');
+
+    // Check if fonts exist
+    if (!existsSync(boldPath)) {
+      console.error('Font not found:', boldPath);
+      return;
+    }
+    if (!existsSync(extraBoldPath)) {
+      console.error('Font not found:', extraBoldPath);
+      return;
+    }
+
+    // Register fonts with the EXACT same names as in the frontend
+    registerFont(boldPath, {
+      family: 'MontserratBold'
+    });
+    
+    registerFont(extraBoldPath, {
+      family: 'MontserratExtraBold'
+    });
+    
+    fontsRegistered = true;
+    console.log('✅ Fonts registered successfully');
+  } catch (error) {
+    console.error('Error registering fonts:', error);
+  }
+}
 
 /**
  * API Route: Generate CPT Banner Dynamically
@@ -22,6 +60,9 @@ import { join } from 'path';
 
 export async function GET(request: NextRequest) {
   try {
+    // Ensure fonts are registered
+    ensureFontsRegistered();
+
     const searchParams = request.nextUrl.searchParams;
     
     // Extract parameters
@@ -83,13 +124,27 @@ export async function GET(request: NextRequest) {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
+    // Helper function to get the correct font family
+    const getFontFamily = (configFont: string, isBold: boolean): string => {
+      // If the config specifies MontserratBold or MontserratExtraBold, use it directly
+      if (configFont === 'MontserratBold' || configFont === 'MontserratExtraBold') {
+        return configFont;
+      }
+      
+      // Otherwise, map based on bold flag
+      return isBold ? 'MontserratBold' : 'MontserratExtraBold';
+    };
+
     // Draw controller name
     if (name) {
       const nameConfig = config.name;
       ctx.fillStyle = nameConfig.style.color;
       ctx.textAlign = (nameConfig.position.align || "left") as CanvasTextAlign;
-      const fontWeight = nameConfig.style.bold ? "bold" : "normal";
-      ctx.font = `${fontWeight} ${nameConfig.style.size}px ${nameConfig.style.font}`;
+      
+      // Use the font family from config or map it
+      const fontFamily = getFontFamily(nameConfig.style.font, nameConfig.style.bold! || false);
+      ctx.font = `${nameConfig.style.size-4}px ${fontFamily}`;
+      
       const nameText = (nameConfig.prefix || "") + name;
       ctx.fillText(nameText, nameConfig.position.x, nameConfig.position.y);
     }
@@ -97,15 +152,19 @@ export async function GET(request: NextRequest) {
     // Draw weekday
     if (date) {
       const weekdayConfig = config.weekday;
-      const dateObj = new Date(date);
-      const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-      const weekday = weekdays[dateObj.getDay()];
-      
-      ctx.fillStyle = weekdayConfig.style.color;
-      ctx.textAlign = (weekdayConfig.position.align || "left") as CanvasTextAlign;
-      const fontWeight = weekdayConfig.style.bold ? "bold" : "normal";
-      ctx.font = `${fontWeight} ${weekdayConfig.style.size}px ${weekdayConfig.style.font}`;
-      ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+      if (weekdayConfig.style.size > 0) {
+        const dateObj = new Date(date);
+        const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const weekday = weekdays[dateObj.getDay()];
+        
+        ctx.fillStyle = weekdayConfig.style.color;
+        ctx.textAlign = (weekdayConfig.position.align || "left") as CanvasTextAlign;
+        
+        const fontFamily = getFontFamily(weekdayConfig.style.font, weekdayConfig.style.bold! ||false);
+        ctx.font = `${weekdayConfig.style.size-4}px ${fontFamily}`;
+        
+        ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+      }
     }
 
     // Draw date and time
@@ -134,8 +193,10 @@ export async function GET(request: NextRequest) {
       if (dateTimeText) {
         ctx.fillStyle = dateConfig.style.color;
         ctx.textAlign = (dateConfig.position.align || "left") as CanvasTextAlign;
-        const fontWeight = dateConfig.style.bold ? "bold" : "normal";
-        ctx.font = `${fontWeight} ${dateConfig.style.size}px ${dateConfig.style.font}`;
+        
+        const fontFamily = getFontFamily(dateConfig.style.font, dateConfig.style.bold! || false);
+        ctx.font = `${dateConfig.style.size-4}px ${fontFamily}`;
+        
         ctx.fillText(dateTimeText, dateConfig.position.x, dateConfig.position.y);
       }
     }
@@ -145,8 +206,10 @@ export async function GET(request: NextRequest) {
       const stationConfig = config.station;
       ctx.fillStyle = stationConfig.style.color;
       ctx.textAlign = (stationConfig.position.align || "left") as CanvasTextAlign;
-      const fontWeight = stationConfig.style.bold ? "bold" : "normal";
-      ctx.font = `${fontWeight} ${stationConfig.style.size}px ${stationConfig.style.font}`;
+      
+      const fontFamily = getFontFamily(stationConfig.style.font, stationConfig.style.bold! || false);
+      ctx.font = `${stationConfig.style.size-4}px ${fontFamily}`;
+      
       ctx.fillText(station, stationConfig.position.x, stationConfig.position.y);
     }
 
@@ -154,7 +217,7 @@ export async function GET(request: NextRequest) {
     const buffer = canvas.toBuffer('image/png');
 
     // Return the image
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',

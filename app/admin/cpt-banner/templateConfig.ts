@@ -253,7 +253,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     requiresStation: true, // CTR template requires station parameter
     
     name: {
-      position: { x: 696, y: 719, align: "left" },
+      position: { x: 696, y: 710, align: "left" },
       style: {
         font: "Arial",
         size: 62,

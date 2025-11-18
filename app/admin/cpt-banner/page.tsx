@@ -330,7 +330,7 @@ export default function CPTBannerGenerator() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">CPT Banner Generator</h1>
         <p className="text-muted-foreground">
-          Erstelle personalisierte Banner für CPT-Trainings. Die Banner werden dynamisch über einen Link generiert.
+          Erstelle personalisierte Banner für CPT-Trainings.
         </p>
       </div>
 
@@ -340,7 +340,7 @@ export default function CPTBannerGenerator() {
           <CardHeader>
             <CardTitle>Banner-Daten</CardTitle>
             <CardDescription>
-              Wähle eine Vorlage und gib die CPT-Informationen ein
+              Wähle eine Vorlage und gib die CPT-Informationen ein:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -385,15 +385,12 @@ export default function CPTBannerGenerator() {
                 <Label htmlFor="station">Station</Label>
                 <Input
                   id="station"
-                  placeholder="z.B. EDDM_CTR"
+                  placeholder="z.B. EDMM_STA_CTR"
                   value={bannerData.station || ""}
                   onChange={(e) =>
                     setBannerData({ ...bannerData, station: e.target.value })
                   }
                 />
-                <p className="text-xs text-muted-foreground">
-                  Diese Vorlage benötigt eine Station-Angabe
-                </p>
               </div>
             )}
 
