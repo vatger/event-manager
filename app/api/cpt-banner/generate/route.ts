@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { getTemplateConfig, type TemplateType } from '@/app/admin/cpt-banner/templateConfig';
+import { join } from 'path';
 
 /**
  * API Route: Generate CPT Banner Dynamically
@@ -8,7 +10,7 @@ import { getTemplateConfig, type TemplateType } from '@/app/admin/cpt-banner/tem
  * No file storage needed - banners are generated on each request.
  * 
  * Query Parameters:
- * - template: Template type (TWR, APP, CTR)
+ * - template: Template type (EDDMTWR, EDDNTWR, APP, CTR)
  * - name: Controller name
  * - date: Date in YYYY-MM-DD format
  * - time: Start time in HH:MM format
@@ -36,6 +38,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Validate template type
+    if (!['EDDMTWR', 'EDDNTWR', 'APP', 'CTR'].includes(template)) {
+      return new NextResponse(`Invalid template: ${template}. Must be one of: EDDMTWR, EDDNTWR, APP, CTR`, {
+        status: 400,
+      });
+    }
+
     // Get template configuration
     const config = getTemplateConfig(template);
     
@@ -46,19 +55,112 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // For now, return a simple response indicating the banner would be generated
-    // In production, this would use canvas or similar to generate the actual image
-    return new NextResponse(
-      JSON.stringify({
-        message: 'Banner generation endpoint',
-        parameters: { template, name, date, time, station },
-        note: 'Canvas-based image generation will be implemented',
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
+    // Create canvas
+    const canvas = createCanvas(1920, 1080);
+    const ctx = canvas.getContext('2d');
+
+    // Try to load and draw template background
+    const templatePath = join(process.cwd(), 'public', config.templatePath);
+    try {
+      const bgImage = await loadImage(templatePath);
+      ctx.drawImage(bgImage, 0, 0, 1920, 1080);
+    } catch {
+      // Fallback: draw a gradient background if template doesn't exist
+      const gradient = ctx.createLinearGradient(0, 0, 1920, 1080);
+      if (config.fallbackGradient) {
+        gradient.addColorStop(0, config.fallbackGradient.start);
+        gradient.addColorStop(1, config.fallbackGradient.end);
+      } else {
+        gradient.addColorStop(0, "#134e4a");
+        gradient.addColorStop(1, "#14b8a6");
       }
-    );
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1920, 1080);
+    }
+
+    // Disable shadows
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Draw controller name
+    if (name) {
+      const nameConfig = config.name;
+      ctx.fillStyle = nameConfig.style.color;
+      ctx.textAlign = (nameConfig.position.align || "left") as CanvasTextAlign;
+      const fontWeight = nameConfig.style.bold ? "bold" : "normal";
+      ctx.font = `${fontWeight} ${nameConfig.style.size}px ${nameConfig.style.font}`;
+      const nameText = (nameConfig.prefix || "") + name;
+      ctx.fillText(nameText, nameConfig.position.x, nameConfig.position.y);
+    }
+
+    // Draw weekday
+    if (date) {
+      const weekdayConfig = config.weekday;
+      const dateObj = new Date(date);
+      const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+      const weekday = weekdays[dateObj.getDay()];
+      
+      ctx.fillStyle = weekdayConfig.style.color;
+      ctx.textAlign = (weekdayConfig.position.align || "left") as CanvasTextAlign;
+      const fontWeight = weekdayConfig.style.bold ? "bold" : "normal";
+      ctx.font = `${fontWeight} ${weekdayConfig.style.size}px ${weekdayConfig.style.font}`;
+      ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
+    }
+
+    // Draw date and time
+    if (date || time) {
+      const dateConfig = config.date;
+      const timeConfig = config.time;
+      
+      let dateTimeText = "";
+      
+      if (date) {
+        const dateObj = new Date(date);
+        const day = String(dateObj.getDate()).padStart(2, '0');
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const year = dateObj.getFullYear();
+        dateTimeText = `${day}.${month}.${year}`;
+      }
+      
+      // Add time with separator
+      if (time) {
+        if (dateTimeText && timeConfig.separator) {
+          dateTimeText += timeConfig.separator;
+        }
+        dateTimeText += `${time.replace(':', '')}z`;
+      }
+      
+      if (dateTimeText) {
+        ctx.fillStyle = dateConfig.style.color;
+        ctx.textAlign = (dateConfig.position.align || "left") as CanvasTextAlign;
+        const fontWeight = dateConfig.style.bold ? "bold" : "normal";
+        ctx.font = `${fontWeight} ${dateConfig.style.size}px ${dateConfig.style.font}`;
+        ctx.fillText(dateTimeText, dateConfig.position.x, dateConfig.position.y);
+      }
+    }
+
+    // Draw station if provided and configured
+    if (station && config.station) {
+      const stationConfig = config.station;
+      ctx.fillStyle = stationConfig.style.color;
+      ctx.textAlign = (stationConfig.position.align || "left") as CanvasTextAlign;
+      const fontWeight = stationConfig.style.bold ? "bold" : "normal";
+      ctx.font = `${fontWeight} ${stationConfig.style.size}px ${stationConfig.style.font}`;
+      ctx.fillText(station, stationConfig.position.x, stationConfig.position.y);
+    }
+
+    // Convert canvas to PNG buffer
+    const buffer = canvas.toBuffer('image/png');
+
+    // Return the image
+    return new NextResponse(buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      },
+    });
 
   } catch (error) {
     console.error('Error generating banner:', error);

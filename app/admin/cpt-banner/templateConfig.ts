@@ -325,8 +325,8 @@ export function getTemplateConfig(template: TemplateType): TemplateSettings {
  * Get all available templates
  */
 export function getAvailableTemplates(): Array<{ value: TemplateType; label: string }> {
-  return Object.values(TemplateConfig).map((config) => ({
-    value: config.Templatename as TemplateType,
-    label: config.displayName,
+  return Object.keys(TemplateConfig).map((key) => ({
+    value: key as TemplateType,
+    label: TemplateConfig[key as TemplateType].displayName,
   }));
 }
