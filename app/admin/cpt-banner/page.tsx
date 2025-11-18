@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image as ImageIcon } from "lucide-react";
+import { Download, Image as ImageIcon, Link, Loader2, Check, Copy } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 
 type TemplateType = "TWR" | "APP" | "CTR";
@@ -27,6 +27,10 @@ export default function CPTBannerGenerator() {
     date: "",
     startTime: "",
   });
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const loadFonts = async () => {
@@ -245,6 +249,61 @@ export default function CPTBannerGenerator() {
     });
   };
 
+  const handleGetLink = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadedUrl(null);
+    setCopied(false);
+
+    try {
+      // Convert canvas to base64
+      const imageData = canvas.toDataURL('image/png');
+      
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `CPT-Banner-${bannerData.template}-${bannerData.name.replace(/\s+/g, '_') || "default"}-${timestamp}.png`;
+
+      // Upload to NextCloud via API
+      const response = await fetch('/api/cpt-banner/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData,
+          fileName,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || data.message || 'Upload failed');
+      }
+
+      // Set the uploaded URL
+      const linkUrl = data.shareUrl || data.directLink;
+      setUploadedUrl(linkUrl);
+
+    } catch (error) {
+      console.error('Error uploading banner:', error);
+      setUploadError(error instanceof Error ? error.message : 'Failed to upload banner');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    if (uploadedUrl) {
+      navigator.clipboard.writeText(uploadedUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   if (!isEDMM) {
     return (
       <div className="container mx-auto py-8 px-4">
@@ -348,6 +407,76 @@ export default function CPTBannerGenerator() {
               <Download className="mr-2 h-4 w-4" />
               Banner herunterladen
             </Button>
+
+            {/* Get Link Button */}
+            <Button
+              className="w-full"
+              size="lg"
+              variant="outline"
+              onClick={handleGetLink}
+              disabled={!bannerData.name || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Wird hochgeladen...
+                </>
+              ) : (
+                <>
+                  <Link className="mr-2 h-4 w-4" />
+                  Link generieren
+                </>
+              )}
+            </Button>
+
+            {/* Link Display */}
+            {uploadedUrl && (
+              <div className="space-y-2 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                <div className="flex items-center gap-2 text-sm text-green-800 dark:text-green-200">
+                  <Check className="h-4 w-4" />
+                  <span className="font-medium">Banner erfolgreich hochgeladen!</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={uploadedUrl}
+                    readOnly
+                    className="flex-1 font-mono text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCopyLink}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-3 w-3 mr-1" />
+                        Kopiert
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3 mr-1" />
+                        Kopieren
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-green-700 dark:text-green-300">
+                  Dieser Link kann direkt in Foren oder auf Webseiten eingebettet werden.
+                </p>
+              </div>
+            )}
+
+            {/* Error Display */}
+            {uploadError && (
+              <div className="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-sm text-red-800 dark:text-red-200">
+                  <strong>Fehler:</strong> {uploadError}
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-300 mt-2">
+                  Stellen Sie sicher, dass die NextCloud-Konfiguration in den Umgebungsvariablen korrekt eingerichtet ist.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
