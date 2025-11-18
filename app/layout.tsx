@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "VATGER Eventmanager",
-  description: "by Yannik S.",
+  description: "VATSIM Germany",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
