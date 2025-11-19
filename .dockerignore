@@ -6,4 +6,3 @@ node_modules
 Dockerfile
 .dockerignore
 *.log
-package-lock.json

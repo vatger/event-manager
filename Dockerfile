@@ -11,11 +11,8 @@ RUN apt-get update && apt-get install -y \
 # Arbeitsverzeichnis
 WORKDIR /app
 
-# Nur package.json kopieren
-COPY package.json ./
-
-# Dependencies installieren - generiert automatisch ein neues package-lock.json für Linux
-RUN npm install --legacy-peer-deps
+COPY package.json package-lock.json ./
+RUN npm ci --legacy-peer-deps
 
 
 # App-Code kopieren
