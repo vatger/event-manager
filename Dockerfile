@@ -8,7 +8,9 @@ RUN apk add --no-cache \
     jpeg-dev \
     giflib-dev \
     libpng-dev \
-    freetype-dev
+    freetype freetype-dev \
+	  fontconfig
+
 
 WORKDIR /app
 
@@ -36,7 +38,8 @@ RUN apk add --no-cache \
   jpeg \
   giflib \
   libpng \
-  freetype
+  freetype freetype-dev \
+	fontconfig
   
 WORKDIR /app
 
