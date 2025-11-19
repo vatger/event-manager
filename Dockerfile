@@ -3,12 +3,11 @@ FROM node:18-alpine AS builder
 # ---- Für Canvas benötigte Pakete installieren ----
 RUN apk add --no-cache \
     build-base \
-    python3 \
-    pixman-dev \
     cairo-dev \
     pango-dev \
     jpeg-dev \
     giflib-dev \
+    libpng-dev \
     freetype-dev
 
 WORKDIR /app
@@ -31,6 +30,14 @@ RUN npm run build
 # ---- RUNNER ----
 FROM node:18-alpine
 
+RUN apk add --no-cache \
+  cairo \
+  pango \
+  jpeg \
+  giflib \
+  libpng \
+  freetype
+  
 WORKDIR /app
 
 COPY --from=builder /app/.next/standalone ./
