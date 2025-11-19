@@ -1,5 +1,5 @@
 # Basis-Image
-FROM node:18-bookworm AS builder
+FROM node:20-bookworm AS builder
 
 # Installiere Build-Tools für native Dependencies
 RUN apt-get update && apt-get install -y \
@@ -11,12 +11,15 @@ RUN apt-get update && apt-get install -y \
 # Arbeitsverzeichnis
 WORKDIR /app
 
-# Dependencies installieren
-COPY package.json package-lock.json ./
-RUN npm install
+# Package files kopieren
+COPY package.json package-lock.json* ./
 
-# Lösche package-lock und installiere neu für Linux
-RUN rm -f package-lock.json && npm install --legacy-peer-deps
+# Clean install ohne cache
+RUN npm cache clean --force
+RUN rm -rf node_modules package-lock.json
+
+# Neu installieren für Linux x64
+RUN npm install --legacy-peer-deps
 
 # App-Code kopieren
 COPY . .
@@ -31,7 +34,7 @@ RUN npm run build
 # Build artefacts are located in .next/standalone
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-FROM node:18-bookworm-slim AS runner
+FROM node:20-bookworm-slim AS runner
 
 WORKDIR /app
 
