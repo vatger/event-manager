@@ -11,15 +11,16 @@ RUN apt-get update && apt-get install -y \
 # Arbeitsverzeichnis
 WORKDIR /app
 
-# Package files kopieren
+# Nur Package-Dateien kopieren (für besseres Layer-Caching)
 COPY package.json package-lock.json* ./
 
-# Clean install ohne cache
-RUN npm cache clean --force
-RUN rm -rf node_modules package-lock.json
-
-# Neu installieren für Linux x64
-RUN npm install --legacy-peer-deps
+# Dependencies installieren
+# Dieser Layer wird gecacht, solange sich package.json nicht ändert
+RUN if [ -f package-lock.json ]; then \
+        npm ci --legacy-peer-deps; \
+    else \
+        npm install --legacy-peer-deps; \
+    fi
 
 # App-Code kopieren
 COPY . .
