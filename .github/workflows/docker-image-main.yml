@@ -28,5 +28,5 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          docker build --pull -t ${{ env.REGISTRY }}/vatger/event-manager:latest .
+          docker build --no-cache --pull -t ${{ env.REGISTRY }}/vatger/event-manager:latest .
           docker push ${{ env.REGISTRY }}/vatger/event-manager:latest
