@@ -34,6 +34,7 @@ jobs:
         with:
           context: .
           push: true
+          no-cache: true
           tags: ${{ env.REGISTRY }}/vatger/event-manager:latest
           cache-from: type=registry,ref=${{ env.REGISTRY }}/vatger/event-manager:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/vatger/event-manager:buildcache,mode=max

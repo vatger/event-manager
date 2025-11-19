@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 
 # App-Code kopieren

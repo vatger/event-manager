@@ -1,8 +1,9 @@
 node_modules
 .next
+dist
+npm-debug.log
 .env
 .env.local
 .DS_Store
-Dockerfile
-.dockerignore
+.git
 *.log
