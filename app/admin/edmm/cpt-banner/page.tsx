@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Image as ImageIcon, Link as LinkIcon, Copy, Check } from "lucide-react";
+import { Download, Image as ImageIcon, Link as LinkIcon, Copy, Check, ShieldX, Lock } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getTemplateConfig, getAvailableTemplates, type TemplateType } from "./templateConfig";
 
@@ -313,14 +313,27 @@ export default function CPTBannerGenerator() {
   if (!isEDMM) {
     return (
       <div className="container mx-auto py-8 px-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Zugriff verweigert</CardTitle>
-            <CardDescription>
-              Dieser Bereich ist nur für Mitglieder der FIR München verfügbar.
-            </CardDescription>
+        <div className="container mx-auto py-8 px-4">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader className="text-center space-y-4 pb-6">
+            <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+              <ShieldX className="h-8 w-8 text-destructive" />
+            </div>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl">Zugriff verweigert</CardTitle>
+              <CardDescription className="text-base">
+                Dieser Bereich ist nur für Mitglieder der FIR München verfügbar.
+              </CardDescription>
+            </div>
           </CardHeader>
+          <CardContent className="text-center pb-6">
+            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 px-4 py-2 rounded-md">
+              <Lock className="h-4 w-4" />
+              <span>FIR interner Bereich</span>
+            </div>
+          </CardContent>
         </Card>
+      </div>
       </div>
     );
   }
@@ -330,7 +343,7 @@ export default function CPTBannerGenerator() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">CPT Banner Generator</h1>
         <p className="text-muted-foreground">
-          Erstelle personalisierte Banner für CPT-Trainings.
+          Erstelle personalisierte Banner für CPTs der FIR München.
         </p>
       </div>
 
@@ -463,7 +476,7 @@ export default function CPTBannerGenerator() {
                   </Button>
                 </div>
                 <p className="text-xs text-green-700 dark:text-green-300">
-                  Dieser Link generiert das Banner dynamisch und kann direkt in Foren oder auf Webseiten eingebunden werden.
+                  Dieser Link generiert das Banner dynamisch und kann z.B. direkt im Forum eingebunden werden.
                 </p>
               </div>
             )}

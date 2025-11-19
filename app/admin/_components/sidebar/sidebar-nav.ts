@@ -71,11 +71,11 @@ import {
     
     // FIR Internal Tools (nur für FIR München)
     {
-      title: "FIR Intern",
+      title: "EDMM Intern",
       firRestriction: "EDMM",
       items: [
         { 
-          href: "/admin/cpt-banner", 
+          href: "/admin/edmm/cpt-banner", 
           label: "CPT Banner Generator", 
           icon: Image,
         },

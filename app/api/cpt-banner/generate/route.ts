@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCanvas, loadImage, registerFont } from 'canvas';
-import { getTemplateConfig, type TemplateType } from '@/app/admin/cpt-banner/templateConfig';
+import { getTemplateConfig, type TemplateType } from '@/app/admin/edmm/cpt-banner/templateConfig';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
