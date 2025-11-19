@@ -21,7 +21,7 @@ RUN npm run build
 # Build artefacts are located in .next/standalone
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-FROM node:18-alpine
+FROM node:18-slim AS runner
 
 WORKDIR /app
 
