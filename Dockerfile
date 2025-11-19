@@ -1,26 +1,26 @@
-# Basis-Image
-FROM node:20-bookworm AS builder
+FROM node:18-alpine AS builder
 
-# Installiere Build-Tools für native Dependencies
-RUN apt-get update && apt-get install -y \
+# ---- Für Canvas benötigte Pakete installieren ----
+RUN apk add --no-cache \
+    build-base \
     python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+    pixman-dev \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    freetype-dev
 
-# Arbeitsverzeichnis
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm install
 
-
-# App-Code kopieren
 COPY . .
 
 # Prisma-Schema kopieren und Client generieren
 COPY prisma ./prisma
-RUN npx --package=prisma@6.19.0 prisma generate
+RUN npx prisma generate
 
 # Next.js Build
 RUN npm run build
@@ -28,7 +28,8 @@ RUN npm run build
 # Build artefacts are located in .next/standalone
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-FROM node:20-bookworm-slim AS runner
+# ---- RUNNER ----
+FROM node:18-alpine
 
 WORKDIR /app
 
