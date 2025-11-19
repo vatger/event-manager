@@ -1,5 +1,12 @@
 # Basis-Image
-FROM node:18-bookworm-slim AS builder
+FROM node:18-bookworm AS builder
+
+# Installiere Build-Tools für native Dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Arbeitsverzeichnis
 WORKDIR /app
@@ -7,6 +14,9 @@ WORKDIR /app
 # Dependencies installieren
 COPY package.json package-lock.json ./
 RUN npm install
+
+# Lösche package-lock und installiere neu für Linux
+RUN rm -f package-lock.json && npm install --legacy-peer-deps
 
 # App-Code kopieren
 COPY . .
