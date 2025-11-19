@@ -18,9 +18,8 @@ RUN npm ci
 # App-Code kopieren
 COPY . .
 
-# Prisma-Schema kopieren und Client generieren
-COPY prisma ./prisma
-RUN npx --package=prisma@6.19.0 prisma generate
+# Prisma Client generieren
+RUN npx prisma generate
 
 # Next.js Build
 RUN npm run build
