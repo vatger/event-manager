@@ -20,7 +20,7 @@ COPY . .
 
 # Prisma-Schema kopieren und Client generieren
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npx --package=prisma@6.19.0 prisma generate
 
 # Next.js Build
 RUN npm run build
