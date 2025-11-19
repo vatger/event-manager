@@ -17,12 +17,13 @@ COPY package.json ./
 # Dependencies installieren - generiert automatisch ein neues package-lock.json für Linux
 RUN npm install --legacy-peer-deps
 
-# App-Code kopieren
-COPY . .
-
 # Prisma-Schema kopieren und Client generieren
 COPY prisma ./prisma
 RUN npx prisma generate
+
+# App-Code kopieren
+COPY . .
+
 
 # Next.js Build
 RUN npm run build
