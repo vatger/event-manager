@@ -89,6 +89,11 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
     return null;
   }
 
+  // FIR restriction check
+  if (group.firRestriction && user?.fir?.code !== group.firRestriction && !isMainAdmin()) {
+    return null;
+  }
+
   // Filter items based on permissions
   const visibleItems = group.items.filter(item => 
     !item.permission || hasPermission(item.permission)

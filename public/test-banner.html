@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPT Banner Test with Real Template</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .canvas-container {
+            margin-top: 30px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CPT Banner Test - Real Template (1920x1080)</h1>
+        <p class="description">Test mit echtem Template aus public/banner</p>
+
+        <div class="form-group">
+            <label for="template">Vorlage</label>
+            <select id="template">
+                <option value="TWR">Tower (TWR)</option>
+                <option value="APP" selected>Approach (APP)</option>
+                <option value="CTR">Center (CTR)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="name">Name des Controllers</label>
+            <input type="text" id="name" placeholder="z.B. Peter Zwegat" value="Peter Zwegat">
+        </div>
+
+        <div class="form-group">
+            <label for="station">Station</label>
+            <input type="text" id="station" placeholder="z.B. EDDM_APP" value="EDDM_APP">
+        </div>
+
+        <div class="form-group">
+            <label for="date">Datum</label>
+            <input type="date" id="date" value="2024-12-15">
+        </div>
+
+        <div class="grid">
+            <div class="form-group">
+                <label for="startTime">Start Zeit (UTC)</label>
+                <input type="time" id="startTime" value="14:00">
+            </div>
+            <div class="form-group">
+                <label for="endTime">End Zeit (UTC)</label>
+                <input type="time" id="endTime" value="16:00">
+            </div>
+        </div>
+
+        <button id="downloadBtn">Banner herunterladen</button>
+
+        <div class="canvas-container">
+            <canvas id="bannerCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('bannerCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Form elements
+        const templateSelect = document.getElementById('template');
+        const nameInput = document.getElementById('name');
+        const stationInput = document.getElementById('station');
+        const dateInput = document.getElementById('date');
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        function generateBanner() {
+            const template = templateSelect.value;
+            const name = nameInput.value;
+            const station = stationInput.value;
+            const date = dateInput.value;
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+
+            // Set canvas size to 1920x1080
+            canvas.width = 1920;
+            canvas.height = 1080;
+
+            // Try to load template image
+            const templatePath = `/banner/cpt-template/EDDM/${template}/EmptyTemplateV1.png`;
+            const bgImage = new Image();
+            
+            bgImage.onload = () => {
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw template background
+                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+
+                // Draw text content with shadow
+                ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+                ctx.fillStyle = "#FFFFFF";
+                ctx.textAlign = "left";
+                
+                // Controller name - positioned below "CONTROLLER PRACTICAL TEST"
+                if (name) {
+                    ctx.font = "bold 72px sans-serif";
+                    ctx.fillText(`feat ${name}`, 225, 530);
+                }
+
+                // Reset shadow for next elements
+                ctx.shadowBlur = 10;
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+
+                // Station and Date/Time info - position in lower area
+                let yPos = 850;
+                
+                if (station || date || startTime || endTime) {
+                    // Station
+                    if (station) {
+                        ctx.font = "bold 48px sans-serif";
+                        ctx.fillText(station, 225, yPos);
+                        yPos += 60;
+                    }
+
+                    // Date and Time
+                    if (date || startTime || endTime) {
+                        ctx.font = "42px sans-serif";
+                        let dateTimeText = "";
+
+                        if (date) {
+                            const dateObj = new Date(date + 'T00:00:00');
+                            const day = String(dateObj.getDate()).padStart(2, '0');
+                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const year = dateObj.getFullYear();
+                            dateTimeText = `${day}.${month}.${year}`;
+                        }
+
+                        if (startTime && endTime) {
+                            if (dateTimeText) dateTimeText += " • ";
+                            dateTimeText += `${startTime} - ${endTime}Z`;
+                        } else if (startTime) {
+                            if (dateTimeText) dateTimeText += " • ";
+                            dateTimeText += `${startTime}Z`;
+                        }
+
+                        if (dateTimeText) {
+                            ctx.fillText(dateTimeText, 225, yPos);
+                        }
+                    }
+                }
+
+                // Reset shadow
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            };
+
+            bgImage.onerror = () => {
+                console.error('Failed to load template:', templatePath);
+                // Fallback to gradient
+                const colors = {
+                    TWR: { bg: "#1e3a8a", accent: "#3b82f6" },
+                    APP: { bg: "#134e4a", accent: "#14b8a6" },
+                    CTR: { bg: "#7c2d12", accent: "#f97316" }
+                };
+                const color = colors[template];
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, color.bg);
+                gradient.addColorStop(1, color.accent);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw text with fallback positions
+                ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+                ctx.fillStyle = "#FFFFFF";
+                ctx.font = "bold 84px sans-serif";
+                ctx.fillText("CPT Training", 120, 350);
+                
+                if (name) {
+                    ctx.font = "bold 64px sans-serif";
+                    ctx.fillText(name, 120, 470);
+                }
+            };
+
+            // Start loading
+            bgImage.src = templatePath;
+        }
+
+        // Event listeners
+        templateSelect.addEventListener('change', generateBanner);
+        nameInput.addEventListener('input', generateBanner);
+        stationInput.addEventListener('input', generateBanner);
+        dateInput.addEventListener('change', generateBanner);
+        startTimeInput.addEventListener('change', generateBanner);
+        endTimeInput.addEventListener('change', generateBanner);
+
+        downloadBtn.addEventListener('click', () => {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const station = stationInput.value || 'default';
+                const template = templateSelect.value;
+                link.download = `CPT-Banner-${template}-${station}.png`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            });
+        });
+
+        // Initial render
+        generateBanner();
+    </script>
+</body>
+</html>
