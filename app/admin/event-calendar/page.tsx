@@ -228,7 +228,7 @@ export default function EventCalendar() {
         <div>
           <h1 className="text-3xl font-bold">Event Kalender</h1>
           <p className="text-muted-foreground mt-1">
-            Übersicht über anstehende Events und verfügbare Termine
+            Übersicht über alle geplanten Events und blockierten Daten.
           </p>
         </div>
         <div className="flex gap-2">
