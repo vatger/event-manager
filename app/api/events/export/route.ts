@@ -8,6 +8,7 @@ import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
 import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 import { getLayoutForFIR, getSheetIdForFIR } from "@/config/exportLayouts";
+import { formatDateGerman } from "@/lib/export/exportUtils";
 import type { 
   TimeSlot, 
   Availability, 
@@ -59,22 +60,6 @@ function isAvailability(obj: unknown): obj is Availability {
 
 function isStringArray(obj: unknown): obj is string[] {
   return Array.isArray(obj) && obj.every(item => typeof item === 'string');
-}
-
-function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
-  const [slotStart] = timeslot.split('\n');
-  const slotTimeFormatted = `${slotStart.substring(0, 2)}:${slotStart.substring(2, 4)}`;
-  const slotTime = new Date(`2025-09-29T${slotTimeFormatted}:00.000Z`);
-  
-  for (const avail of user.availability.available) {
-    const availStart = new Date(`2025-09-29T${avail.start}:00.000Z`);
-    const availEnd = new Date(`2025-09-29T${avail.end}:00.000Z`);
-    
-    if (slotTime >= availStart && slotTime < availEnd) {
-      return true;
-    }
-  }
-  return false;
 }
 
 // Konvertierungsfunktionen
@@ -160,14 +145,6 @@ function generateTimeslots(start: string, end: string, interval = 30): string[] 
     current = next;
   }
   return slots;
-}
-
-function formatDateGerman(date: Date): string {
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
 }
 
 export async function POST(req: Request) {

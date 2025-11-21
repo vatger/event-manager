@@ -4,46 +4,20 @@
  */
 
 import { ExportLayoutConfig, ConvertedEvent, ConvertedSignup, ComputedUserData } from "@/types/exportLayout";
-
-/**
- * Helper function to format date in German format
- */
-function formatDateGerman(date: Date): string {
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-}
-
-/**
- * Helper function to check if user is available for a timeslot
- */
-function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
-  const [slotStart] = timeslot.split('\n');
-  const slotTimeFormatted = `${slotStart.substring(0, 2)}:${slotStart.substring(2, 4)}`;
-  const slotTime = new Date(`2025-09-29T${slotTimeFormatted}:00.000Z`);
-  
-  for (const avail of user.availability.available) {
-    const availStart = new Date(`2025-09-29T${avail.start}:00.000Z`);
-    const availEnd = new Date(`2025-09-29T${avail.end}:00.000Z`);
-    
-    if (slotTime >= availStart && slotTime < availEnd) {
-      return true;
-    }
-  }
-  return false;
-}
+import { formatDateGerman, isUserAvailable } from "@/lib/export/exportUtils";
 
 /**
  * Default layout configuration (EDMM)
  * This is the current EDMM layout that serves as the default
  */
+const userDetailColumns = ["Preferred Stations", "Remarks", "Restrictions"];
+const endorsementOrder = ["GND", "TWR", "APP", "CTR", "UNKNOWN"];
+
 export const EDMMLayout: ExportLayoutConfig = {
   name: "EDMM Default Layout",
   firCode: "EDMM",
-  userDetailColumns: ["Preferred Stations", "Remarks", "Restrictions"],
-  endorsementOrder: ["GND", "TWR", "APP", "CTR", "UNKNOWN"],
+  userDetailColumns: userDetailColumns,
+  endorsementOrder: endorsementOrder,
   timeslotInterval: 30,
   fontFamily: "Roboto",
   
@@ -81,7 +55,7 @@ export const EDMMLayout: ExportLayoutConfig = {
   ) => {
     const controllerBlocks: string[][] = [];
     
-    for (const endorsement of EDMMLayout.endorsementOrder) {
+    for (const endorsement of endorsementOrder) {
       const users = signupsByEndorsement[endorsement];
       if (users && users.length > 0) {
         controllerBlocks.push([endorsement, ...timeslots, ...userDetailColumns]);
@@ -134,7 +108,8 @@ export const EDMMLayout: ExportLayoutConfig = {
       ? (allValues.findIndex(row => endorsementOrder.includes(row[0])) - headerRows - stationHeaderRows)
       : 0;
     
-    const requests = [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const requests: any[] = [
       // Globale Schriftart setzen
       {
         repeatCell: {
@@ -402,7 +377,7 @@ export const EDMMLayout: ExportLayoutConfig = {
         },
         fields: "userEnteredFormat.textFormat"
       }
-    } as any);
+    });
     
     return requests;
   }

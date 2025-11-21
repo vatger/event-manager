@@ -106,5 +106,6 @@ export interface ExportLayoutConfig {
     userDetailColumns: string[],
     signupsByEndorsement: Record<string, ConvertedSignup[]>,
     endorsementOrder: string[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => any[];
 }
