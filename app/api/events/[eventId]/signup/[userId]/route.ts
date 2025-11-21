@@ -355,7 +355,7 @@ async function sendChangeNotificationToEventTeam(
         message: `${userName} (CID: ${userCID}) hat die Anmeldung nach der Deadline geändert: ${changeDescriptions}`,
         source_name: "Eventsystem",
         link_text: ".",
-        link_url: `${process.env.NEXTAUTH_URL}/events/${eventId}/signups`,
+        link_url: `${process.env.NEXTAUTH_URL}/events/${eventId}`,
         via: "board.ping"
       }
     }));
