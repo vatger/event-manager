@@ -389,7 +389,9 @@ export const EDMMLayout: ExportLayoutConfig = {
         range: {
           sheetId: 0,
           startRowIndex: allValues.length - 4,
-          endRowIndex: allValues.length
+          endRowIndex: allValues.length,
+          startColumnIndex: 0,
+          endColumnIndex: 1 + timeslots.length + userDetailColumns.length
         },
         cell: {
           userEnteredFormat: {
@@ -400,7 +402,7 @@ export const EDMMLayout: ExportLayoutConfig = {
         },
         fields: "userEnteredFormat.textFormat"
       }
-    });
+    } as any);
     
     return requests;
   }
