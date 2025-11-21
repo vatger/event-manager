@@ -255,6 +255,8 @@ model CalendarBlockedDate {
   id          Int      @id @default(autoincrement())
   startDate   DateTime
   endDate     DateTime
+  startTime   String?  // Format: "HH:mm" (e.g., "14:30")
+  endTime     String?  // Format: "HH:mm" (e.g., "18:00")
   reason      String
   description String?
   createdById Int

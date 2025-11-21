@@ -36,6 +36,8 @@ interface BlockedDate {
   id: number;
   startDate: string;
   endDate: string;
+  startTime?: string;
+  endTime?: string;
   reason: string;
   description?: string;
 }
@@ -57,6 +59,8 @@ export default function EventCalendar() {
   const [blockForm, setBlockForm] = useState({
     startDate: "",
     endDate: "",
+    startTime: "",
+    endTime: "",
     reason: "",
     description: "",
   });
@@ -146,6 +150,8 @@ export default function EventCalendar() {
     setBlockForm({
       startDate: format(day, "yyyy-MM-dd"),
       endDate: format(day, "yyyy-MM-dd"),
+      startTime: "00:00",
+      endTime: "23:59",
       reason: "",
       description: "",
     });
@@ -167,6 +173,8 @@ export default function EventCalendar() {
         body: JSON.stringify({
           startDate: new Date(blockForm.startDate).toISOString(),
           endDate: new Date(blockForm.endDate).toISOString(),
+          startTime: blockForm.startTime || undefined,
+          endTime: blockForm.endTime || undefined,
           reason: blockForm.reason,
           description: blockForm.description || undefined,
         }),
@@ -178,7 +186,7 @@ export default function EventCalendar() {
       }
 
       setShowBlockDialog(false);
-      setBlockForm({ startDate: "", endDate: "", reason: "", description: "" });
+      setBlockForm({ startDate: "", endDate: "", startTime: "", endTime: "", reason: "", description: "" });
       fetchCalendarData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");
@@ -423,7 +431,11 @@ export default function EventCalendar() {
                               </div>
                             )}
                             <div className="text-xs text-red-500 dark:text-red-300 mt-1">
-                              {format(parseISO(blocked.startDate), "dd.MM.yyyy")} - {format(parseISO(blocked.endDate), "dd.MM.yyyy")}
+                              {format(parseISO(blocked.startDate), "dd.MM.yyyy")}
+                              {blocked.startTime && ` ${blocked.startTime}`}
+                              {" - "}
+                              {format(parseISO(blocked.endDate), "dd.MM.yyyy")}
+                              {blocked.endTime && ` ${blocked.endTime}`}
                             </div>
                           </div>
                           {isVATGERLead() && (
@@ -484,6 +496,29 @@ export default function EventCalendar() {
                   type="date"
                   value={blockForm.endDate}
                   onChange={(e) => setBlockForm({ ...blockForm, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startTime">Startzeit (optional)</Label>
+                <Input
+                  id="startTime"
+                  type="time"
+                  value={blockForm.startTime}
+                  onChange={(e) => setBlockForm({ ...blockForm, startTime: e.target.value })}
+                  placeholder="HH:mm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endTime">Endzeit (optional)</Label>
+                <Input
+                  id="endTime"
+                  type="time"
+                  value={blockForm.endTime}
+                  onChange={(e) => setBlockForm({ ...blockForm, endTime: e.target.value })}
+                  placeholder="HH:mm"
                 />
               </div>
             </div>

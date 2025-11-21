@@ -12,6 +12,12 @@ const updateBlockedDateSchema = z.object({
   endDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for endDate",
   }).optional(),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: "Invalid time format. Expected HH:mm",
+  }).optional().nullable(),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: "Invalid time format. Expected HH:mm",
+  }).optional().nullable(),
   reason: z.string().min(1).max(200).optional(),
   description: z.string().max(1000).optional(),
 });
@@ -98,6 +104,12 @@ export async function PATCH(
     }
     if (parsed.data.endDate) {
       updateData.endDate = new Date(parsed.data.endDate);
+    }
+    if (parsed.data.startTime !== undefined) {
+      updateData.startTime = parsed.data.startTime;
+    }
+    if (parsed.data.endTime !== undefined) {
+      updateData.endTime = parsed.data.endTime;
     }
     if (parsed.data.reason !== undefined) {
       updateData.reason = parsed.data.reason;

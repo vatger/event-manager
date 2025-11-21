@@ -12,6 +12,12 @@ const blockedDateSchema = z.object({
   endDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for endDate",
   }),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: "Invalid time format. Expected HH:mm",
+  }).optional(),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
+    message: "Invalid time format. Expected HH:mm",
+  }).optional(),
   reason: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
 });
@@ -113,6 +119,8 @@ export async function POST(req: Request) {
       data: {
         startDate,
         endDate,
+        startTime: parsed.data.startTime || null,
+        endTime: parsed.data.endTime || null,
         reason: parsed.data.reason,
         description: parsed.data.description || null,
         createdById: user.id,

@@ -51,9 +51,12 @@ model CalendarBlockedDate {
   id          Int      @id @default(autoincrement())
   startDate   DateTime
   endDate     DateTime
+  startTime   String?  // Format: "HH:mm" (e.g., "14:30")
+  endTime     String?  // Format: "HH:mm" (e.g., "18:00")
   reason      String
   description String?
   createdById Int
+  createdBy   User     @relation("BlockedDateCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -78,6 +81,8 @@ Create a new blocked date. Requires VATGER event leader permission.
 {
   "startDate": "2024-01-01T00:00:00.000Z",
   "endDate": "2024-01-03T23:59:59.999Z",
+  "startTime": "14:00",
+  "endTime": "18:00",
   "reason": "VATGER-weites Event",
   "description": "Optional additional info"
 }
@@ -94,6 +99,8 @@ Update a blocked date. Requires VATGER event leader permission.
 {
   "startDate": "2024-01-01T00:00:00.000Z",
   "endDate": "2024-01-03T23:59:59.999Z",
+  "startTime": "14:00",
+  "endTime": "18:00",
   "reason": "Updated reason",
   "description": "Updated description"
 }

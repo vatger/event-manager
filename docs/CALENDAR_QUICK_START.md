@@ -47,15 +47,27 @@ Use this when you need to prevent FIRs from scheduling events (e.g., for VATGER-
 2. Fill in the form:
    - **Startdatum**: First day to block
    - **Enddatum**: Last day to block
+   - **Startzeit**: Optional start time (HH:mm format, e.g., "14:00")
+   - **Endzeit**: Optional end time (HH:mm format, e.g., "18:00")
    - **Grund**: Reason for blocking (required, e.g., "VATGER Cross the Pond")
    - **Beschreibung**: Optional additional details
 3. Click **"Blockieren"** to save
 
-**Example:**
+**Example (Full Day Block):**
 - Start: 2024-06-15
 - End: 2024-06-16
+- Start Time: (leave empty or use 00:00)
+- End Time: (leave empty or use 23:59)
 - Reason: "Cross the Pond Event"
 - Description: "VATGER-weites Event, keine FIR-Events planen"
+
+**Example (Time Range Block):**
+- Start: 2024-06-15
+- End: 2024-06-15
+- Start Time: 14:00
+- End Time: 18:00
+- Reason: "VATGER Meeting"
+- Description: "Keine Events während der Meeting-Zeit"
 
 #### Delete Blocked Date
 1. Click on a day with a red blocked date marker
