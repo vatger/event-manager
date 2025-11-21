@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,7 +62,7 @@ export default function EventCalendar() {
   });
 
   // Fetch events and blocked dates
-  const fetchCalendarData = async () => {
+  const fetchCalendarData = useCallback(async () => {
     setLoading(true);
     try {
       const monthStart = startOfMonth(currentMonth);
@@ -99,12 +99,11 @@ export default function EventCalendar() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth]);
 
   useEffect(() => {
     fetchCalendarData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMonth]);
+  }, [fetchCalendarData]);
 
   // Generate calendar days
   const monthStart = startOfMonth(currentMonth);

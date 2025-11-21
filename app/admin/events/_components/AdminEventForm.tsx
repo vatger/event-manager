@@ -70,6 +70,9 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
   const { isVATGERLead } = useUser();
 
   // Initialisierung basierend auf Event (Edit-Modus) oder leere Werte (Create-Modus)
+  // Note: We intentionally only depend on event?.id and initialDate, not the full event object.
+  // This prevents re-initializing the form when the event object is recreated with the same data,
+  // which would overwrite user edits. We only want to reinitialize when switching to a different event.
     useEffect(() => {
       if (!event) {
         // Create mode

@@ -62,6 +62,7 @@ model User {
   Notification Notification[]
   groups       UserGroup[]
   vatgerLeitung VATGERLeitung?
+  blockedDatesCreated CalendarBlockedDate[] @relation("BlockedDateCreator")
 }
 
 model FIR {
@@ -257,6 +258,7 @@ model CalendarBlockedDate {
   reason      String
   description String?
   createdById Int
+  createdBy   User     @relation("BlockedDateCreator", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

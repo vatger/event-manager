@@ -11,3 +11,7 @@ CREATE TABLE `CalendarBlockedDate` (
 
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `CalendarBlockedDate` ADD CONSTRAINT `CalendarBlockedDate_createdById_fkey` FOREIGN KEY (`createdById`) REFERENCES `User`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
