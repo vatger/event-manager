@@ -311,14 +311,14 @@ export default function EventCalendar() {
                         
                         <div className="flex-1 space-y-1 overflow-hidden">
                           {dayBlocked.map((blocked) => (
-                            <div
-                              key={blocked.id}
-                              className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate"
-                              title={`Blockiert: ${blocked.reason}`}
-                            >
-                              <Ban className="inline h-3 w-3 mr-1" />
-                              {blocked.reason}
-                            </div>
+                          <div
+                            key={blocked.id}
+                            className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate flex items-center"
+                            title={`Blockiert: ${blocked.reason}`}
+                          >
+                            <Ban className="h-3 w-3 mr-1" />
+                            {blocked.reason}
+                          </div>
                           ))}
                           
                           {dayEvents.slice(0, 2).map((event) => (
@@ -432,10 +432,10 @@ export default function EventCalendar() {
                             )}
                             <div className="text-xs text-red-500 dark:text-red-300 mt-1">
                               {format(parseISO(blocked.startDate), "dd.MM.yyyy")}
-                              {blocked.startTime && ` ${blocked.startTime}`}
+                              {blocked.startTime && ` ${blocked.startTime}z`}
                               {" - "}
                               {format(parseISO(blocked.endDate), "dd.MM.yyyy")}
-                              {blocked.endTime && ` ${blocked.endTime}`}
+                              {blocked.endTime && ` ${blocked.endTime}z`}
                             </div>
                           </div>
                           {isVATGERLead() && (
@@ -502,7 +502,7 @@ export default function EventCalendar() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="startTime">Startzeit (optional)</Label>
+                <Label htmlFor="startTime">Startzeit UTC (optional)</Label>
                 <Input
                   id="startTime"
                   type="time"
@@ -512,7 +512,7 @@ export default function EventCalendar() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="endTime">Endzeit (optional)</Label>
+                <Label htmlFor="endTime">Endzeit UTC (optional)</Label>
                 <Input
                   id="endTime"
                   type="time"
