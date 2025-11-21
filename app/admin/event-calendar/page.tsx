@@ -19,7 +19,7 @@ import {
   Ban,
   Clock,
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO, getISODay, getDate } from "date-fns";
 import { de } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 
@@ -384,7 +384,7 @@ export default function EventCalendar() {
             <DialogHeader>
               <DialogTitle>{format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}</DialogTitle>
               <DialogDescription>
-                Was möchten Sie für dieses Datum tun?
+                Wie schauts an diesem Tag aus?
               </DialogDescription>
             </DialogHeader>
 
@@ -404,7 +404,8 @@ export default function EventCalendar() {
                           <div>
                             <div className="font-medium">{event.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {format(parseISO(event.startTime), "HH:mm")} - {format(parseISO(event.endTime), "HH:mm")}
+                              {(new Date(event.startTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z - 
+                              {(new Date(event.endTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z
                             </div>
                           </div>
                           <Badge>{event.firCode}</Badge>
