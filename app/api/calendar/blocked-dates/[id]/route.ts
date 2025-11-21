@@ -97,7 +97,14 @@ export async function PATCH(
       );
     }
 
-    const updateData: any = {};
+    const updateData: Partial<{
+      startDate: Date;
+      endDate: Date;
+      startTime?: string | null;
+      endTime?: string | null;
+      reason?: string;
+      description?: string;
+    }> = {};
     
     if (parsed.data.startDate) {
       updateData.startDate = new Date(parsed.data.startDate);
