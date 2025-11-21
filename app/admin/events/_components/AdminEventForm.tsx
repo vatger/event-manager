@@ -37,6 +37,7 @@ interface Props {
     code: string
     name: string
   } | null;
+  initialDate?: string;
 }
 
 const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
@@ -48,7 +49,7 @@ const STATUS_DESCRIPTIONS: Record<Event["status"], string> = {
   CANCELLED: "Abgesagt: Das Event findet nicht statt."
 };
 
-export default function AdminEventForm({ event, fir }: Props) {
+export default function AdminEventForm({ event, fir, initialDate }: Props) {
   const router = useRouter();
   const isEdit = Boolean(event);
   const [error, setError] = useState("");
@@ -73,7 +74,16 @@ export default function AdminEventForm({ event, fir }: Props) {
       if (!event) {
         // Create mode
         const now = new Date();
-        const defaultStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        let defaultStart: Date;
+        
+        // Use initialDate if provided from calendar, otherwise use tomorrow
+        if (initialDate) {
+          defaultStart = new Date(initialDate);
+          defaultStart.setHours(10, 0, 0, 0); // Set to 10:00 AM
+        } else {
+          defaultStart = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
         const defaultEnd = new Date(defaultStart.getTime() + 2 * 60 * 60 * 1000);
         setFormData({
           name: "",
@@ -83,7 +93,7 @@ export default function AdminEventForm({ event, fir }: Props) {
           endTime: defaultEnd.toISOString(),
           airport: "",
           staffedStations: [],
-          status: "PLANNING",
+          status: "DRAFT", // Events from calendar start as DRAFT
           rosterUrl: "",
           fir: "",
         });
@@ -109,7 +119,8 @@ export default function AdminEventForm({ event, fir }: Props) {
           : "",
         fir: event.firCode || "",
       });
-    }, [event?.id]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [event?.id, initialDate]);
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

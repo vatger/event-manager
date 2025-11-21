@@ -1,11 +1,14 @@
 "use client";
 
 import { useUser } from "@/hooks/useUser";
+import { useSearchParams } from "next/navigation";
 import AdminEventForm from "../_components/AdminEventForm";
 
 export default function CreateEventPage() {
 
   const { user, canInOwnFIR, isVATGERLead } = useUser()
+  const searchParams = useSearchParams();
+  const dateParam = searchParams.get("date");
 
   if (!user || (!user.fir && !isVATGERLead()) || (!isVATGERLead() && !canInOwnFIR('event.create'))) {
     console.log(isVATGERLead(), user, user?.fir, canInOwnFIR('event.create'));
@@ -22,6 +25,7 @@ export default function CreateEventPage() {
       <AdminEventForm
         event={null}
         fir={user.fir}
+        initialDate={dateParam || undefined}
       />
     </div>
   );
