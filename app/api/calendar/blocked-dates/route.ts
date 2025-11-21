@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isVatgerEventleitung } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung } from "@/lib/acl/permissions";
 
 const blockedDateSchema = z.object({
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -83,6 +83,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // Get user with database ID
+    const user = await getUserWithPermissions(Number(session.user.cid));
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const body = await req.json();
     const parsed = blockedDateSchema.safeParse(body);
     
@@ -109,7 +115,7 @@ export async function POST(req: Request) {
         endDate,
         reason: parsed.data.reason,
         description: parsed.data.description || null,
-        createdById: Number(session.user.id),
+        createdById: user.id,
       },
     });
 
