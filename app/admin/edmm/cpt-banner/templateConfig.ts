@@ -208,7 +208,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     },
     
     weekday: {
-      position: { x: 1480, y: 47, align: "left" },
+      position: { x: 1490, y: 47, align: "left" },
       style: {
         font: "MontserratBold",
         size: 50,
@@ -218,7 +218,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     },
     
     date: {
-      position: { x: 1480, y: 100, align: "left" },
+      position: { x: 1490, y: 100, align: "left" },
       style: {
         font: "MontserratBold",
         size: 50,
@@ -229,7 +229,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     },
     
     time: {
-      position: { x: 1480, y: 100, align: "left" }, // Same line as date
+      position: { x: 1490, y: 100, align: "left" }, // Same line as date
       style: {
         font: "MontserratBold",
         size: 50,
