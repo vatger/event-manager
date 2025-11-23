@@ -33,6 +33,7 @@ export interface ConvertedSignup {
   remarks: string | null;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
   user: User;
 }
 

@@ -310,7 +310,7 @@ export const EDMMLayout: ExportLayoutConfig = {
       }
     ];
     
-    // Add red background for unavailable cells
+    // Add red background for unavailable cells and strikethrough for deleted signups
     let currentRow = headerRows + stationHeaderRows + stationDataRows;
     
     for (const endorsement of endorsementOrder) {
@@ -319,6 +319,30 @@ export const EDMMLayout: ExportLayoutConfig = {
         currentRow += 1; // Skip endorsement header
         
         for (const user of users) {
+          // Apply strikethrough formatting for soft-deleted signups
+          if (user.deletedAt) {
+            requests.push({
+              repeatCell: {
+                range: {
+                  sheetId: 0,
+                  startRowIndex: currentRow,
+                  endRowIndex: currentRow + 1,
+                  startColumnIndex: 0,
+                  endColumnIndex: 1 + timeslots.length + userDetailColumns.length
+                },
+                cell: {
+                  userEnteredFormat: {
+                    textFormat: {
+                      strikethrough: true
+                    }
+                  }
+                },
+                fields: "userEnteredFormat.textFormat.strikethrough"
+              }
+            });
+          }
+          
+          // Add red background for unavailable cells
           for (let col = 1; col <= timeslots.length; col++) {
             if (!isUserAvailable(user, timeslots[col - 1])) {
               requests.push({

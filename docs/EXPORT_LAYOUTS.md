@@ -47,6 +47,7 @@ The EDMM layout is the default and includes:
 - Station rows with staffed stations
 - Controller blocks grouped by endorsement
 - Summary section with statistics
+- **Soft-delete handling**: Signups with `deletedAt` set are displayed with strikethrough formatting to indicate cancelled registrations
 
 #### Creating a New Layout
 
