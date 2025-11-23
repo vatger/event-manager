@@ -15,9 +15,12 @@ export function initializeCronJobs() {
 
   console.log('[Cron] Initializing scheduled jobs...')
 
-  // Refresh training data cache daily at 3:00 AM (UTC)
+  // Refresh training data cache daily at 3:00 AM (UTC) by default
   // This ensures the data is fresh at least once per day
-  cron.schedule('0 3 * * *', async () => {
+  // Can be configured via TRAINING_CACHE_REFRESH_CRON environment variable
+  const cronSchedule = process.env.TRAINING_CACHE_REFRESH_CRON || '0 3 * * *'
+  
+  cron.schedule(cronSchedule, async () => {
     console.log('[Cron] Starting scheduled training data cache refresh...')
     try {
       const result = await refreshTrainingCache()
@@ -28,7 +31,7 @@ export function initializeCronJobs() {
   })
 
   console.log('[Cron] All cron jobs initialized successfully')
-  console.log('[Cron] - Training cache refresh: Daily at 3:00 AM UTC')
+  console.log(`[Cron] - Training cache refresh: Schedule = ${cronSchedule}`)
   
   isInitialized = true
 }
