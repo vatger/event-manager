@@ -15,13 +15,17 @@ function ensureFontsRegistered() {
     const boldPath = join(publicDir, 'fonts', 'Montserrat-Bold.ttf');
     const extraBoldPath = join(publicDir, 'fonts', 'Montserrat-ExtraBold.ttf');
 
+    console.log('🔍 Checking fonts at:', { publicDir, boldPath, extraBoldPath });
+
     // Check if fonts exist
     if (!existsSync(boldPath)) {
-      console.error('Font not found:', boldPath);
+      console.error('❌ Font not found:', boldPath);
+      console.error('📁 Current working directory:', process.cwd());
       return;
     }
     if (!existsSync(extraBoldPath)) {
-      console.error('Font not found:', extraBoldPath);
+      console.error('❌ Font not found:', extraBoldPath);
+      console.error('📁 Current working directory:', process.cwd());
       return;
     }
 
@@ -36,8 +40,10 @@ function ensureFontsRegistered() {
     
     fontsRegistered = true;
     console.log('✅ Fonts registered successfully');
+    console.log('📝 Registered font families: MontserratBold, MontserratExtraBold');
   } catch (error) {
-    console.error('Error registering fonts:', error);
+    console.error('❌ Error registering fonts:', error);
+    console.error('📁 Current working directory:', process.cwd());
   }
 }
 

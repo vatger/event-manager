@@ -37,14 +37,17 @@ RUN apk add --no-cache \
   jpeg \
   giflib \
   libpng \
-  freetype
+  freetype \
+  fontconfig \
+  font-misc-misc \
+  ttf-dejavu
   
 WORKDIR /app
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
-COPY public ./public
+COPY --from=builder /app/public ./public
 
 ENV PORT=8000
 ENV HOSTNAME=0.0.0.0
