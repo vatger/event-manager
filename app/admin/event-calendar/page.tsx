@@ -354,29 +354,6 @@ export default function EventCalendar() {
         </CardContent>
       </Card>
 
-      {/* Legend */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Legende</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900 rounded"></div>
-              <span className="text-sm">Event</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-100 dark:bg-red-900 rounded"></div>
-              <span className="text-sm">Blockiertes Datum</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-primary rounded"></div>
-              <span className="text-sm">Heute</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Selected Date Dialog */}
       {selectedDate && (
         <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
