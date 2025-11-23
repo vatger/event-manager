@@ -31,6 +31,7 @@ RUN npm run build
 # ---- RUNNER ----
 FROM node:18-alpine
 
+# Install required packages for canvas and fonts
 RUN apk add --no-cache \
   cairo \
   pango \
@@ -40,7 +41,9 @@ RUN apk add --no-cache \
   freetype \
   fontconfig \
   font-misc-misc \
-  ttf-dejavu
+  ttf-dejavu \
+  font-noto \
+  && fc-cache -f
   
 WORKDIR /app
 
