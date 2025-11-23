@@ -129,7 +129,7 @@ export default function CPTBannerGenerator() {
         const weekdayConfig = templateConfig.weekday;
         if(weekdayConfig.style.size > 0){
           const dateObj = new Date(bannerData.date);
-          const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+          const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
           const weekday = weekdays[dateObj.getDay()];
           
           ctx.fillStyle = weekdayConfig.style.color;
@@ -263,16 +263,6 @@ export default function CPTBannerGenerator() {
           ctx.fillText(dateTimeText, 120, 690);
         }
       }
-
-      // VATGER Logo area (placeholder text)
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.font = "bold 42px sans-serif";
-      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-      ctx.textAlign = "right";
-      ctx.fillText("VATGER", canvas.width - 100, canvas.height - 80);
-      ctx.textAlign = "left"; // Reset alignment
     };
 
     // Start loading the image

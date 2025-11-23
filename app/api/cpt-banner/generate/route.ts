@@ -160,14 +160,14 @@ export async function GET(request: NextRequest) {
       const weekdayConfig = config.weekday;
       if (weekdayConfig.style.size > 0) {
         const dateObj = new Date(date);
-        const weekdays = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const weekday = weekdays[dateObj.getDay()];
         
         ctx.fillStyle = weekdayConfig.style.color;
         ctx.textAlign = (weekdayConfig.position.align || "left") as CanvasTextAlign;
         
         const fontFamily = getFontFamily(weekdayConfig.style.font, weekdayConfig.style.bold! ||false);
-        ctx.font = `${weekdayConfig.style.size-4}px ${fontFamily}`;
+        ctx.font = `${weekdayConfig.style.size}px ${fontFamily}`;
         
         ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
       }
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
         ctx.textAlign = (dateConfig.position.align || "left") as CanvasTextAlign;
         
         const fontFamily = getFontFamily(dateConfig.style.font, dateConfig.style.bold! || false);
-        ctx.font = `${dateConfig.style.size-4}px ${fontFamily}`;
+        ctx.font = `${dateConfig.style.size}px ${fontFamily}`;
         
         ctx.fillText(dateTimeText, dateConfig.position.x, dateConfig.position.y);
       }
@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
       ctx.textAlign = (stationConfig.position.align || "left") as CanvasTextAlign;
       
       const fontFamily = getFontFamily(stationConfig.style.font, stationConfig.style.bold! || false);
-      ctx.font = `${stationConfig.style.size-4}px ${fontFamily}`;
+      ctx.font = `${stationConfig.style.size}px ${fontFamily}`;
       
       ctx.fillText(station, stationConfig.position.x, stationConfig.position.y);
     }
