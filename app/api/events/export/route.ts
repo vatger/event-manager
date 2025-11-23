@@ -7,29 +7,18 @@ import { NextResponse } from "next/server";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
 import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { getLayoutForFIR, getSheetIdForFIR } from "@/config/exportLayouts";
+import { formatDateGerman } from "@/lib/export/exportUtils";
+import type { 
+  TimeSlot, 
+  Availability, 
+  User, 
+  ConvertedSignup, 
+  ConvertedEvent,
+  ComputedUserData
+} from "@/types/exportLayout";
 
 // Type Definitions basierend auf Ihrem Schema
-interface TimeSlot {
-  start: string;
-  end: string;
-}
-
-interface Availability {
-  available: TimeSlot[];
-  unavailable: TimeSlot[];
-}
-
-
-interface User {
-  id: number;
-  cid: number;
-  name: string;
-  rating: string;
-  role: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface EventSignup {
   id: number;
   eventId: number;
@@ -40,38 +29,8 @@ interface EventSignup {
   remarks: string | null;
   createdAt: Date;
   updatedAt: Date;
+  deletedAt: Date | null;
   user: User;
-}
-
-// Konvertierte Typen für die Anwendung
-interface ConvertedSignup {
-  id: number;
-  eventId: number;
-  userCID: number;
-  availability: Availability;
-  breakrequests: string | null;
-  preferredStations: string | null;
-  remarks: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  user: User;
-}
-
-interface ConvertedEvent {
-  id: number;
-  name: string;
-  description: string;
-  bannerUrl: string | null;
-  startTime: string | null;
-  endTime: string | null;
-  airports: string[];
-  signupDeadline: string | null;
-  staffedStations: string[];
-  status: string;
-  createdById: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-  signups: ConvertedSignup[];
 }
 
 // Type Guards
@@ -189,36 +148,6 @@ function generateTimeslots(start: string, end: string, interval = 30): string[] 
   return slots;
 }
 
-function getUserDetails(user: ConvertedSignup): [string, string] {
-  const remarks = user.remarks || "";
-  const preferredStations = user.preferredStations || "";
-  return [preferredStations, remarks];
-}
-
-function formatDateGerman(date: Date): string {
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-}
-
-function isUserAvailable(user: ConvertedSignup, timeslot: string): boolean {
-  const [slotStart] = timeslot.split('availability: parseAvailability(signupData.availability),\\n    n');
-  const slotTimeFormatted = `${slotStart.substring(0, 2)}:${slotStart.substring(2, 4)}`;
-  const slotTime = new Date(`2025-09-29T${slotTimeFormatted}:00.000Z`);
-  
-  for (const avail of user.availability.available) {
-    const availStart = new Date(`2025-09-29T${avail.start}:00.000Z`);
-    const availEnd = new Date(`2025-09-29T${avail.end}:00.000Z`);
-    
-    if (slotTime >= availStart && slotTime < availEnd) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
     if (!session) {
@@ -227,9 +156,8 @@ export async function POST(req: Request) {
   try {
     const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-    const sheetId = process.env.GOOGLE_SHEET_ID;
 
-    if (!clientEmail || !privateKey || !sheetId) {
+    if (!clientEmail || !privateKey) {
       throw new Error("Missing Google Sheets environment variables");
     }
 
@@ -262,40 +190,21 @@ export async function POST(req: Request) {
     if(!await userHasFirPermission(Number(session.user.cid), rawEvent.firCode!, "event.export") && !await isVatgerEventleitung(Number(session.user.cid))){
       return NextResponse.json({ error: "Unauthorized", message: "User has no permission to export this event (event.export needed)"}, { status: 401 })
     }
+    
+    // Get FIR-specific layout and sheet ID
+    const firCode = rawEvent.firCode || "EDMM";
+    const layout = getLayoutForFIR(firCode);
+    const sheetId = getSheetIdForFIR(firCode);
+    
+    if (!sheetId) {
+      throw new Error(`Missing Google Sheet ID for FIR ${firCode}. Please configure GOOGLE_SHEET_ID_${firCode} or GOOGLE_SHEET_ID in environment variables.`);
+    }
+    
     // Event konvertieren
     const event = convertEvent(rawEvent);
-    const timeslots = generateTimeslots(event.startTime!, event.endTime!, 30);
+    const timeslots = generateTimeslots(event.startTime!, event.endTime!, layout.timeslotInterval);
     const currentDate = formatDateGerman(new Date());
-    const userDetailColumns = ["Preferred Stations", "Remarks", "Restrictions"];
-
-    // Stations aus den Event-Daten verwenden
-    const stations = event.staffedStations;
-    
-    //Berechnung für zentrierten Header
-    const totalColumns = timeslots.length + userDetailColumns.length;
-    const headerMergeLength = timeslots.length; // Header soll über die Timeline-Spalten gemergt werden
-    const headerMergeStartCol = 1; // Startet bei Spalte B (Index 1)
-    const headerMergeEndCol = 1 + headerMergeLength; // Endet nach den Timeslots
-    // Header-Bereich
-    const header = [
-      ["", event.name], // Wird später über die Timeline-Spalten gemergt
-      ["", `Remarks: Version 1.0 – ${currentDate} – (${event.startTime!.substring(11, 16)}–${event.endTime!.substring(11, 16)})`],
-      ["", "Alle Zeiten in UTC"],
-      [], // Leerzeile
-    ];
-
-    // Stations-Besetzungsplan mit Timeline-Header
-    const stationHeader = [
-      ["Stationen", ...timeslots, ...userDetailColumns],
-    ];
-
-    const stationRows = stations.map((station: string) => [
-      station,
-      ...timeslots.map(() => ""),
-      ...Array(userDetailColumns.length).fill(""),
-    ]);
-
-    stationRows.push([]); // Leerzeile nach Stationsbereich
+    const userDetailColumns = layout.userDetailColumns;
 
     // Compute live group + restrictions via GroupService
     const airport = Array.isArray(event.airports) ? (event.airports[0] || "") : "";
@@ -303,14 +212,14 @@ export async function POST(req: Request) {
       try {
         const res = await GroupService.getControllerGroup({
           user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
-          event: { airport, fir: "EDMM"}
+          event: { airport, fir: firCode}
         });
         return { cid: s.userCID, group: res.group || "UNKNOWN", restrictions: res.restrictions };
       } catch {
         return { cid: s.userCID, group: "UNKNOWN", restrictions: [] as string[] };
       }
     }));
-    const byCid = Object.fromEntries(computed.map(r => [r.cid, r]));
+    const byCid: Record<number, ComputedUserData> = Object.fromEntries(computed.map(r => [r.cid, r]));
 
     // Controller nach ermittelter Group gruppieren
     const signupsByEndorsement: Record<string, ConvertedSignup[]> = {};
@@ -322,55 +231,32 @@ export async function POST(req: Request) {
       signupsByEndorsement[grp].push(s);
     }
 
-    // Controller-Blöcke für jedes Endorsement in der gewünschten Reihenfolge
-    const controllerBlocks: string[][] = [];
-    
-    // Definierte Reihenfolge: GND, TWR, APP, CTR
-    const endorsementOrder = ["GND", "TWR", "APP", "CTR", "UNKNOWN"];
-    
-    for (const endorsement of endorsementOrder) {
-      const users = signupsByEndorsement[endorsement];
-      if (users && users.length > 0) {
-        // // Endorsement-Header
-        // controllerBlocks.push([endorsement, ...timeslots.map(() => ""), ...userDetailColumns.map(() => "")]);
-        controllerBlocks.push([endorsement, ...timeslots, ...userDetailColumns]);
-        
-        // Nutzer-Zeilen
-        for (const user of users) {
-          const userName = user.user.name;
-          const [pref, rmk] = getUserDetails(user);
-          const restr = (byCid[user.userCID]?.restrictions || []).join("; ");
-          const userRow = [
-            userName,
-            ...timeslots.map((timeslot) => (isUserAvailable(user, timeslot) ? "" : "")),
-            pref,
-            rmk,
-            restr
-          ];
-
-          controllerBlocks.push(userRow);
-        }
-        
-        controllerBlocks.push([]); // Leerzeile nach jedem Endorsement
-      }
-    }
-
-    // Summary
-    const summary = [
-      ["ZUSAMMENFASSUNG"],
-      [`Gesamtanmeldungen: ${event.signups.length}`],
-      [`Stations: ${stations.length}`],
-      [`Zeitslots: ${timeslots.length}`],
-    ];
+    // Generate layout-specific sections using the layout configuration
+    const header = layout.generateHeader 
+      ? layout.generateHeader(event, timeslots, currentDate)
+      : [];
+      
+    const stationRows = layout.generateStationRows
+      ? layout.generateStationRows(event, timeslots, userDetailColumns)
+      : [];
+      
+    const controllerBlocks = layout.generateControllerBlocks
+      ? layout.generateControllerBlocks(event, timeslots, userDetailColumns, signupsByEndorsement, byCid)
+      : [];
+      
+    const summary = layout.generateSummary
+      ? layout.generateSummary(event, timeslots)
+      : [];
 
     // Alle Werte kombinieren
     const allValues = [
       ...header,
-      ...stationHeader,
       ...stationRows,
       ...controllerBlocks,
       ...summary,
     ];
+    
+    const totalColumns = timeslots.length + userDetailColumns.length;
 
     // ===== Daten schreiben =====
     //Komplette Tabelle clearen
@@ -464,294 +350,10 @@ export async function POST(req: Request) {
     });
 
     // ===== Zellformatierung =====
-    const requests = [
-      // Globale Schriftart auf Roboto setzen für alle Zellen
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 0,
-            endRowIndex: allValues.length,
-            startColumnIndex: 0,
-            endColumnIndex: 1 + timeslots.length + userDetailColumns.length
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                fontFamily: "Roboto"
-              }
-            }
-          },
-          fields: "userEnteredFormat.textFormat.fontFamily"
-        }
-      },
-      // Event-Name mergen (über die Timeline-Spalten)
-      {
-        mergeCells: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 0,
-            endRowIndex: 1,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol // Mergt über Station + alle Timeslots
-          }
-        }
-      },
-  
-      // Remarks-Zeile mergen
-      {
-        mergeCells: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 1,
-            endRowIndex: 2,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol
-          }
-        }
-      },
-      // "Alle Zeiten in UTC" mergen
-      {
-        mergeCells: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 2,
-            endRowIndex: 3,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol
-          }
-        }
-      },
-      // Event-Name Formatierung (groß, bold, zentriert)
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 0,
-            endRowIndex: 1,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                fontSize: 20, // Größere Schrift
-                bold: true
-              },
-              horizontalAlignment: "CENTER",
-              verticalAlignment: "MIDDLE"
-            }
-          },
-          fields: "userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)"
-        }
-      },
-      // Remarks Formatierung
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 1,
-            endRowIndex: 2,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                fontSize: 11,
-                italic: true
-              },
-              horizontalAlignment: "CENTER",
-              verticalAlignment: "MIDDLE"
-            }
-          },
-          fields: "userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)"
-        }
-      },
-      // "Alle Zeiten in UTC" Formatierung
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 2,
-            endRowIndex: 3,
-            startColumnIndex: headerMergeStartCol,
-            endColumnIndex: headerMergeEndCol
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                fontSize: 11,
-                italic: true
-              },
-              horizontalAlignment: "CENTER",
-              verticalAlignment: "MIDDLE"
-            }
-          },
-          fields: "userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)"
-        }
-      },
-      // Stations-Header Formatierung
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 4,
-            endRowIndex: 5
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                bold: true
-              },
-              horizontalAlignment: "CENTER"
-            }
-          },
-          fields: "userEnteredFormat(textFormat,horizontalAlignment)"
-        }
-      },
-      // Timeslot-Zellen Textumbruch und Zentrierung
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 4,
-            endRowIndex: allValues.length,
-            startColumnIndex: 1,
-            endColumnIndex: 1 + timeslots.length
-          },
-          cell: {
-            userEnteredFormat: {
-              wrapStrategy: "WRAP",
-              horizontalAlignment: "CENTER",
-              verticalAlignment: "MIDDLE"
-            }
-          },
-          fields: "userEnteredFormat(wrapStrategy,horizontalAlignment,verticalAlignment)"
-        }
-      },
-      // User-Detail-Spalten linksbündig formatieren
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 4,
-            endRowIndex: allValues.length,
-            startColumnIndex: 1 + timeslots.length,
-            endColumnIndex: 1 + timeslots.length + userDetailColumns.length
-          },
-          cell: {
-            userEnteredFormat: {
-              wrapStrategy: "WRAP",
-              horizontalAlignment: "LEFT",
-              verticalAlignment: "MIDDLE"
-            }
-          },
-          fields: "userEnteredFormat(wrapStrategy,horizontalAlignment,verticalAlignment)"
-        }
-      },
-      // Endorsement-Überschriften formatieren
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 4 + stationHeader.length + stationRows.length,
-            endRowIndex: allValues.length - summary.length
-          },
-          cell: {
-            userEnteredFormat: {
-              textFormat: {
-                bold: true
-              }
-            }
-          },
-          fields: "userEnteredFormat.textFormat"
-        }
-      },
-      // Weiße Hintergrundfarbe für alle Zellen
-      {
-        repeatCell: {
-          range: {
-            sheetId: 0,
-            startRowIndex: 0,
-            endRowIndex: allValues.length,
-            startColumnIndex: 0,
-            endColumnIndex: 1 + timeslots.length + userDetailColumns.length
-          },
-          cell: {
-            userEnteredFormat: {
-              backgroundColor: {
-                red: 1,
-                green: 1,
-                blue: 1
-              }
-            }
-          },
-          fields: "userEnteredFormat.backgroundColor"
-        }
-      }
-    ];
-
-    // Rote Formatierung für N/A-Zellen hinzufügen
-    let currentRow = 4 + stationHeader.length + stationRows.length;
-    
-    for (const endorsement of endorsementOrder) {
-      const users = signupsByEndorsement[endorsement];
-      if (users && users.length > 0) {
-        // Überspringen der Endorsement-Header (1 Zeile)
-        currentRow += 1;
-        
-        // Für jeden Nutzer
-        for (const user of users) {
-          for (let col = 1; col <= timeslots.length; col++) {
-            if (!isUserAvailable(user, timeslots[col - 1])) {
-              requests.push({
-                repeatCell: {
-                  range: {
-                    sheetId: 0,
-                    startRowIndex: currentRow,
-                    endRowIndex: currentRow + 1,
-                    startColumnIndex: col,
-                    endColumnIndex: col + 1
-                  },
-                  cell: {
-                    userEnteredFormat: {
-                      backgroundColor: {
-                        red: 1,
-                        green: 0.8,
-                        blue: 0.8
-                      }
-                    }
-                  },
-                  fields: "userEnteredFormat.backgroundColor"
-                }
-              });
-            }
-          }
-          currentRow += 1;
-        }
-        currentRow += 1; // Leerzeile
-      }
-    }
-
-    // Summary Formatierung
-    requests.push({
-      repeatCell: {
-        range: {
-          sheetId: 0,
-          startRowIndex: allValues.length - 4,
-          endRowIndex: allValues.length
-        },
-        cell: {
-          userEnteredFormat: {
-            textFormat: {
-              bold: true
-            }
-          }
-        },
-        fields: "userEnteredFormat.textFormat"
-      }
-    });
+    // Use layout-specific formatting if available
+    const requests = layout.generateFormatting
+      ? layout.generateFormatting(allValues, timeslots, userDetailColumns, signupsByEndorsement, layout.endorsementOrder)
+      : [];
 
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sheetId,
