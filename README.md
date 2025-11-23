@@ -12,7 +12,6 @@ Er vereinfacht interne Abläufe im Zusammenhang mit Events, automatisiert viele 
 - **Konfigurierbare Export-Layouts**: Anpassbare Layouts für verschiedene Event-Teams
 - **Automatisierter Export**: Direkte Synchronisation von Anmeldungen zu Google Sheets
 
-Weitere Informationen zum Export-System finden Sie in der [Export Layouts Dokumentation](docs/EXPORT_LAYOUTS.md).
 
 ## Running the Application
 
