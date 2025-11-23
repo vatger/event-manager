@@ -188,10 +188,3 @@ To test the new layout system:
 3. Use the "Zu Sheets synchronisieren" button to export
 4. Verify that each FIR's events export to the correct sheet with the correct layout
 
-## Future Enhancements
-
-Possible future improvements:
-- UI for configuring layouts without code changes
-- Layout templates for common patterns
-- Export format selection per event (CSV, Excel, etc.)
-- Preview of export before syncing to Google Sheets
