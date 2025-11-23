@@ -1,6 +1,6 @@
 FROM node:18-alpine AS builder
 
-# ---- Für Canvas benötigte Pakete installieren ----
+# ---- Install packages required for Canvas ----
 RUN apk add --no-cache \
     build-base \
     cairo-dev \
@@ -18,7 +18,7 @@ RUN npm install
 
 COPY . .
 
-# Prisma-Schema kopieren und Client generieren
+# Copy Prisma schema and generate client
 COPY prisma ./prisma
 RUN npx prisma generate
 
@@ -55,6 +55,6 @@ COPY --from=builder /app/public ./public
 ENV PORT=8000
 ENV HOSTNAME=0.0.0.0
 
-# Port und Startbefehl
+# Port and start command
 EXPOSE 8000
 CMD ["node", "server.js"]
