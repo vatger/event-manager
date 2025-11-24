@@ -319,35 +319,40 @@ export default function AdminEventsPage() {
         )}
 
         {/* Section for past events */}
-        <div className="mt-6">
-          <button
-            className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
-            onClick={() => setShowPastEvents((prev) => !prev)}
-          >
-            {showPastEvents ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            {showPastEvents ? "Vergangene Events ausblenden" : "Vergangene Events anzeigen"}
-          </button>
+        {pastEvents.length != 0 && (
+          
+          <div className="mt-6">
+            <hr className="my-6" />
+            <button
+              className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
+              onClick={() => setShowPastEvents((prev) => !prev)}
+            >
+              {showPastEvents ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {showPastEvents ? "Vergangene Events ausblenden" : "Vergangene Events anzeigen"}
+            </button>
 
-          {showPastEvents && (
-            <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
-              {pastEvents.length === 0 ? (
-                <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
-              ) : (
-                pastEvents.map((event) => (
-                  <EventCard
-                    key={event.id}
-                    onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
-                    event={event}
-                    onDelete={() => handleDelete(event.id)}
-                    onOpenSignup={() => openSignup(event)}
-                    onCloseSignup={() => closeSignup(event.id)}
-                    onpublishRoster={() => publishRoster(event)}
-                  />
-                ))
-              )}
-            </div>
-          )}
-        </div>
+            {showPastEvents && (
+              <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
+                {pastEvents.length === 0 ? (
+                  <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
+                ) : (
+                  pastEvents.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
+                      event={event}
+                      onDelete={() => handleDelete(event.id)}
+                      onOpenSignup={() => openSignup(event)}
+                      onCloseSignup={() => closeSignup(event.id)}
+                      onpublishRoster={() => publishRoster(event)}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent>
