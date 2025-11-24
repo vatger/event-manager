@@ -441,6 +441,12 @@ export default function EventCalendar() {
                 <Plus className="mr-2 h-4 w-4" />
                 Event erstellen
               </Button>
+              {isVATGERLead() && (
+                <Button onClick={() => setShowBlockDialog(true)}>
+                  <Ban className="mr-2 h-4 w-4" />
+                  Datum blockieren
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
