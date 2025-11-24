@@ -10,8 +10,7 @@ import Protected from "@/components/Protected";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CalendarPlus, CirclePlus, Plus } from "lucide-react";
-import Link from "next/link";
+import { AlertCircle, CalendarPlus, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
@@ -37,6 +36,8 @@ export default function AdminEventsPage() {
   const [selectedFir, setSelectedFir] = useState<string | "ALL">("ALL");
   const { user, isVATGERLead, can, canInFIR, canInOwnFIR } = useUser();
 
+  const [showPastEvents, setShowPastEvents] = useState(false);
+  
   // Events aus API laden
   const refreshEvents = async (firCode?: string) => {
     setLoading(true);
@@ -198,6 +199,10 @@ export default function AdminEventsPage() {
     return matchesQuery && matchesStatus;
   });
 
+  const upcomingEvents = filteredEvents.filter((event) => new Date(event.endTime) >= new Date());
+  const pastEvents = filteredEvents.filter((event) => new Date(event.endTime) < new Date());
+
+
   const stats = {
     total: filteredEvents.length,
     open: filteredEvents.filter((e) => e.status === "SIGNUP_OPEN").length,
@@ -293,13 +298,13 @@ export default function AdminEventsPage() {
           <div className="flex justify-center items-center h-32">
             <p className="text-muted-foreground">Lade Events...</p>
           </div>
-        ) : filteredEvents.length === 0 ? (
+        ) : upcomingEvents.length === 0 ? (
           <div className="flex justify-center items-center h-32">
             <p className="text-muted-foreground">Keine Events gefunden</p>
           </div>
         ) : (
           <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
-            {filteredEvents.map((event) => (
+            {upcomingEvents.map((event) => (
               <EventCard
                 key={event.id}
                 onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
@@ -311,10 +316,38 @@ export default function AdminEventsPage() {
               />
             ))}
           </div>
-
-
-
         )}
+
+        {/* Section for past events */}
+        <div className="mt-6">
+          <button
+            className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
+            onClick={() => setShowPastEvents((prev) => !prev)}
+          >
+            {showPastEvents ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {showPastEvents ? "Vergangene Events ausblenden" : "Vergangene Events anzeigen"}
+          </button>
+
+          {showPastEvents && (
+            <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
+              {pastEvents.length === 0 ? (
+                <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
+              ) : (
+                pastEvents.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
+                    event={event}
+                    onDelete={() => handleDelete(event.id)}
+                    onOpenSignup={() => openSignup(event)}
+                    onCloseSignup={() => closeSignup(event.id)}
+                    onpublishRoster={() => publishRoster(event)}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
           <DialogContent>
