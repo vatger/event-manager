@@ -303,7 +303,7 @@ export default function AdminEventsPage() {
             <p className="text-muted-foreground">Keine Events gefunden</p>
           </div>
         ) : (
-          <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
             {upcomingEvents.map((event) => (
               <EventCard
                 key={event.id}
@@ -332,7 +332,7 @@ export default function AdminEventsPage() {
             </button>
 
             {showPastEvents && (
-              <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
+              <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
                 {pastEvents.length === 0 ? (
                   <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
                 ) : (
