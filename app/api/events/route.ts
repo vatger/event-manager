@@ -47,9 +47,13 @@ export async function GET(req: Request) {
       orderBy: { startTime: "asc" },
       where,
       include: {
-        _count: {
-          select: { signups: true },
+      _count: {
+        select: { 
+        signups: {
+          where: { deletedAt: null },
         },
+        },
+      },
       },
     });
 
