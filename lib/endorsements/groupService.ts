@@ -1,7 +1,7 @@
 import { isAirportTier1 } from '@/utils/configUtils';
 import { EndorsementService } from './endorsementService';
 import { getCachedUserEndorsements, getCachedUserFamiliarizations, getCachedUserSolos } from '@/lib/training/cacheService';
-import { ControllerGroup, EndorsementQueryParams, EndorsementResponse } from './types';
+import { ControllerGroup, EndorsementQueryParams, EndorsementResponse, MultiAirportEndorsementQueryParams, MultiAirportEndorsementResponse, AirportEndorsementResult } from './types';
 
 export class GroupService {
 
@@ -167,6 +167,78 @@ export class GroupService {
   public static getSector(solo: string): string | null {
     const parts = solo.split("_");
     return parts.length === 3 ? parts[1] : null;
+  }
+
+  /**
+   * Get endorsement information for multiple airports
+   * This is used for multi-airport events to show which airports a user can control
+   */
+  static async getMultiAirportEndorsements(params: MultiAirportEndorsementQueryParams): Promise<MultiAirportEndorsementResponse> {
+    const { user, event } = params;
+    
+    // Get cached data once for all airports
+    const endorsements = await getCachedUserEndorsements(user.userCID);
+    const solos = await getCachedUserSolos(user.userCID);
+    const familiarizations = await getCachedUserFamiliarizations(user.userCID);
+    const fir = event.fir;
+    
+    const famsMap = (familiarizations as { familiarizations: Record<string, string[]> }).familiarizations ?? {};
+    const famsForFir: string[] = fir ? (famsMap[fir] ?? []) : [];
+    
+    // Calculate endorsements for each airport
+    const airportResults: AirportEndorsementResult[] = await Promise.all(
+      event.airports.map(async (airport) => {
+        const relevantEndorsements = EndorsementService.getEndorsementsForAirport(
+          endorsements,
+          airport,
+          event.fir
+        );
+        const relevantSolos = EndorsementService.getEndorsementsForAirport(
+          solos.map(s => s.position),
+          airport,
+          event.fir
+        );
+        
+        const isTier1 = isAirportTier1(airport);
+        
+        const { group, restrictions } = isTier1 
+          ? this.calculateGroupTier1(user, relevantEndorsements, relevantSolos, famsForFir, solos)
+          : this.calculateGroupNonTier1(user, relevantEndorsements, relevantSolos, famsForFir, solos);
+        
+        return {
+          airport,
+          canControl: group !== null,
+          group,
+          restrictions
+        };
+      })
+    );
+    
+    // Calculate highest group across all controllable airports
+    const controllableAirports = airportResults.filter(r => r.canControl);
+    let highestGroup: 'GND' | 'TWR' | 'APP' | 'CTR' | null = null;
+    
+    if (controllableAirports.length > 0) {
+      const groupRanks = { 'GND': 0, 'TWR': 1, 'APP': 2, 'CTR': 3 };
+      let maxRank = -1;
+      
+      for (const result of controllableAirports) {
+        if (result.group) {
+          const rank = groupRanks[result.group];
+          if (rank > maxRank) {
+            maxRank = rank;
+            highestGroup = result.group;
+          }
+        }
+      }
+    }
+    
+    return {
+      airports: airportResults,
+      highestGroup,
+      endorsements,
+      familiarizations: famsForFir
+    };
   }
   
 }

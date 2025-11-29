@@ -12,7 +12,7 @@ import { Station, StationGroup } from "@/lib/stations/types";
 import { fetchAllStations, fetchStationsByAirport } from "@/lib/stations/fetchStations";
 
 interface StationSelectorProps {
-  airport: string;
+  airports: string[];
   selectedStations: string[];
   onStationsChange: (stations: string[]) => void;
   disabled?: boolean;
@@ -21,7 +21,7 @@ interface StationSelectorProps {
 const GROUPS: StationGroup[] = ["GND", "TWR", "APP", "CTR"];
 
 export default function StationSelector({ 
-  airport, 
+  airports, 
   selectedStations, 
   onStationsChange, 
   disabled = false 
@@ -31,23 +31,38 @@ export default function StationSelector({
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [allStations, setAllStations] = useState<Station[]>([]);
+  const [activeAirport, setActiveAirport] = useState<string>(airports[0] || "");
   
+  // Update active airport when airports change
+  useEffect(() => {
+    if (airports.length > 0 && !airports.includes(activeAirport)) {
+      setActiveAirport(airports[0]);
+    }
+  }, [airports, activeAirport]);
+
   // Stationen dynamisch laden (vom Datahub)
   useEffect(() => {
     const loadStations = async () => {
       try {
         const all = await fetchAllStations();
-        const data = airport
-          ? await fetchStationsByAirport(airport)
-          : all;
-        setStations(data);
-        setAllStations(all)
+        // For multi-airport, fetch stations for all airports
+        const stationsPromises = airports.map(airport => fetchStationsByAirport(airport));
+        const allAirportStations = await Promise.all(stationsPromises);
+        // Flatten and deduplicate
+        const combinedStations = allAirportStations.flat();
+        const uniqueStations = combinedStations.filter((station, index, self) =>
+          index === self.findIndex(s => s.callsign === station.callsign)
+        );
+        setStations(uniqueStations);
+        setAllStations(all);
       } catch (err) {
         console.error("Fehler beim Laden der Stationen:", err);
       }
     };
-    loadStations();
-  }, [airport]);
+    if (airports.length > 0) {
+      loadStations();
+    }
+  }, [airports]);
 
   // Sortierte Stationen nach Gruppe
   const sortedStations = useMemo(() => {
@@ -58,13 +73,13 @@ export default function StationSelector({
     });
   }, [stations]);
 
-  // Gefilterte Stationen (für Tabs)
+  // Gefilterte Stationen (für Tabs) - filter by active airport
   const filteredStations = GROUPS.map((group) => ({
     group,
     stations: sortedStations.filter(
       (s) =>
         s.group === group &&
-        (!s.airport || s.airport === airport.toUpperCase()) &&
+        (!s.airport || s.airport === activeAirport.toUpperCase()) &&
         s.callsign.toLowerCase().includes(searchTerm.toLowerCase())
     ),
   })).filter(({ stations }) => stations.length > 0);
@@ -126,8 +141,10 @@ export default function StationSelector({
   };
 
   const selectAllStations = () => {
-    const allStations = filteredStations.flatMap((g) => g.stations.map((s) => s.callsign));
-    onStationsChange(allStations);
+    const allStationsForAirport = filteredStations.flatMap((g) => g.stations.map((s) => s.callsign));
+    // Merge with existing selected stations
+    const merged = [...new Set([...selectedStations, ...allStationsForAirport])];
+    onStationsChange(merged);
   };
 
   return (
@@ -200,11 +217,36 @@ export default function StationSelector({
         </CardContent>
       </Card>
 
+      {/* Airport selector for multi-airport events */}
+      {airports.length > 1 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Airport auswählen</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {airports.map((airport) => (
+                <Button
+                  key={airport}
+                  type="button"
+                  variant={activeAirport === airport ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveAirport(airport)}
+                  disabled={disabled}
+                >
+                  {airport}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Vordefinierte Stationen */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">
-            Vordefinierte Stationen für {airport.toUpperCase()}
+            Vordefinierte Stationen für {activeAirport.toUpperCase()}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -314,7 +356,7 @@ export default function StationSelector({
               onClick={selectAllStations}
               disabled={disabled}
             >
-              Alle auswählen
+              Alle von {activeAirport} auswählen
             </Button>
           </div>
         </CardContent>

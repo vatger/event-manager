@@ -14,13 +14,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Trash2Icon, UserRoundX, UserX } from "lucide-react";
+import { UserX } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
 import { getRatingValue } from "@/utils/ratingToValue";
 import AutomaticEndorsement from "./AutomaticEndorsement";
+import MultiAirportEndorsement from "./MultiAirportEndorsement";
 
 
 interface SignupFormProps {
@@ -81,16 +82,40 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     
   }, [signupData, hydrated]);
 
+  // Check if this is a multi-airport event
+  const eventAirports = useMemo(() => {
+    if (Array.isArray(event.airports)) {
+      return event.airports;
+    }
+    if (typeof event.airports === "string") {
+      return event.airports.split(",").map(a => a.trim()).filter(Boolean);
+    }
+    return [];
+  }, [event.airports]);
+  
+  const isMultiAirport = eventAirports.length > 1;
+
   const autoEndorsementProps = useMemo(() => ({
     user: {
       userCID: Number(userCID),
       rating: getRatingValue(session?.user.rating || "OBS"),
     },
     event: {
-      airport: event.airports,
-      fir: "EDMM",
+      airport: eventAirports[0] || "",
+      fir: event.firCode || "EDMM",
     },
-  }), [userCID, session?.user.rating, event.airports]);
+  }), [userCID, session?.user.rating, eventAirports, event.firCode]);
+
+  const multiAirportEndorsementProps = useMemo(() => ({
+    user: {
+      userCID: Number(userCID),
+      rating: getRatingValue(session?.user.rating || "OBS"),
+    },
+    event: {
+      airports: eventAirports,
+      fir: event.firCode || "EDMM",
+    },
+  }), [userCID, session?.user.rating, eventAirports, event.firCode]);
   
 
   if (!session) {
@@ -274,9 +299,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           {!loading && userCID && (
           <div>
             {!loading && userCID && (
-              <AutomaticEndorsement {...autoEndorsementProps} />
+              isMultiAirport ? (
+                <MultiAirportEndorsement {...multiAirportEndorsementProps} />
+              ) : (
+                <AutomaticEndorsement {...autoEndorsementProps} />
+              )
             )}
           </div>
+          )}
+
+          {/* Info about excluding airports for multi-airport events */}
+          {isMultiAirport && (
+            <div className="text-xs text-muted-foreground p-2 bg-muted/50 rounded-lg">
+              <strong>Multi-Airport Event:</strong> Du wirst automatisch für alle Airports angemeldet, die du lotsen darfst. 
+              Wenn du einen Airport nicht besetzen möchtest, schreibe <code className="bg-muted px-1 rounded">!ICAO</code> in die Remarks (z.B. <code className="bg-muted px-1 rounded">!EDDP</code>).
+            </div>
           )}
 
           <div>

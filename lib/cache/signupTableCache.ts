@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { getCache, setCache, invalidateCache } from "./cacheManager";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
-import type { EndorsementResponse } from "@/lib/endorsements/types";
+import type { EndorsementResponse, MultiAirportEndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
@@ -34,6 +34,10 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
 
   if (!event) throw new Error(`Event ${eventId} not found`);
 
+  // Check if this is a multi-airport event
+  const airports = (event.airports as string[] | null) ?? [];
+  const isMultiAirport = airports.length > 1;
+
   // 3️⃣ Alle Signups abrufen
   const signups = await prisma.eventSignup.findMany({
     where: { eventId },
@@ -45,16 +49,46 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
       try {
-        const result: EndorsementResponse = await GroupService.getControllerGroup({
-          user: {
-            userCID: user.cid,
-            rating: getRatingValue(user.rating),
-          },
-          event: {
-            airport: (event.airports as string[] | null)?.[0] ?? "",
-            fir: event.fir?.code,
-          },
-        });
+        // For multi-airport events, calculate endorsements for all airports
+        let endorsement: EndorsementResponse | null = null;
+        let multiAirportEndorsement: MultiAirportEndorsementResponse | null = null;
+
+        if (isMultiAirport) {
+          // Get multi-airport endorsement data
+          multiAirportEndorsement = await GroupService.getMultiAirportEndorsements({
+            user: {
+              userCID: user.cid,
+              rating: getRatingValue(user.rating),
+            },
+            event: {
+              airports: airports,
+              fir: event.fir?.code,
+            },
+          });
+          
+          // Also set single endorsement based on highest group for backwards compatibility
+          endorsement = {
+            group: multiAirportEndorsement.highestGroup,
+            restrictions: [],
+            endorsements: multiAirportEndorsement.endorsements,
+            familiarizations: multiAirportEndorsement.familiarizations,
+          };
+        } else {
+          // Single airport event - use existing logic
+          endorsement = await GroupService.getControllerGroup({
+            user: {
+              userCID: user.cid,
+              rating: getRatingValue(user.rating),
+            },
+            event: {
+              airport: airports[0] ?? "",
+              fir: event.fir?.code,
+            },
+          });
+        }
+
+        // Parse excluded airports from signup data if it exists
+        const excludedAirports = parseExcludedAirports(s.remarks);
 
         return {
           id: s.id,
@@ -66,7 +100,9 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           preferredStations: s.preferredStations || "",
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
-          endorsement: result,
+          endorsement: endorsement,
+          multiAirportEndorsement: multiAirportEndorsement,
+          excludedAirports: excludedAirports,
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -87,6 +123,8 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: null,
+          multiAirportEndorsement: null,
+          excludedAirports: [],
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -123,4 +161,18 @@ function parseAvailability(value: Prisma.JsonValue | null): Availability {
     return { available, unavailable };
   }
   return { available: [], unavailable: [] };
+}
+
+/**
+ * Parse excluded airports from remarks field
+ * Users can specify airports they don't want to control with format: "!ICAO" (e.g., "!EDDP")
+ */
+function parseExcludedAirports(remarks: string | null): string[] {
+  if (!remarks) return [];
+  
+  // Match ICAO codes prefixed with ! (e.g., !EDDP, !EDDN)
+  const matches = remarks.match(/!([A-Z]{4})/g);
+  if (!matches) return [];
+  
+  return matches.map(m => m.substring(1)); // Remove the ! prefix
 }

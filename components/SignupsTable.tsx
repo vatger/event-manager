@@ -359,6 +359,64 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "group":
+                                // Check if multi-airport endorsement data is available
+                                const multiAirport = s.multiAirportEndorsement;
+                                const excludedAirports = s.excludedAirports || [];
+                                
+                                if (multiAirport && multiAirport.airports.length > 1) {
+                                  // Multi-airport display
+                                  const controllableAirports = multiAirport.airports.filter(a => a.canControl && !excludedAirports.includes(a.airport));
+                                  return (
+                                    <div className="flex flex-col gap-1">
+                                      <Badge className={getBadgeClassForEndorsement(multiAirport.highestGroup || s.user.rating)}>
+                                        {multiAirport.highestGroup || s.user.rating}
+                                      </Badge>
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {multiAirport.airports.map((airport) => {
+                                          const isExcluded = excludedAirports.includes(airport.airport);
+                                          return (
+                                            <TooltipProvider key={airport.airport}>
+                                              <Tooltip>
+                                                <TooltipTrigger>
+                                                  <span 
+                                                    className={`text-xs px-1 rounded ${
+                                                      isExcluded 
+                                                        ? "bg-gray-200 text-gray-500 line-through dark:bg-gray-700"
+                                                        : airport.canControl 
+                                                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
+                                                          : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                                    }`}
+                                                  >
+                                                    {airport.airport}
+                                                  </span>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <div className="text-xs">
+                                                    {isExcluded 
+                                                      ? `${airport.airport}: Ausgeschlossen` 
+                                                      : airport.canControl 
+                                                        ? `${airport.airport}: ${airport.group}` 
+                                                        : `${airport.airport}: Nicht berechtigt`
+                                                    }
+                                                    {airport.restrictions.length > 0 && (
+                                                      <div className="mt-1">
+                                                        {airport.restrictions.map((r, idx) => (
+                                                          <div key={idx}>• {r}</div>
+                                                        ))}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
+                                // Single airport display (fallback)
                                 return (
                                   <div className="flex flex-col">
                                     <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
