@@ -3,7 +3,7 @@ export interface Event {
     name: string;
     description: string;
     bannerUrl: string;
-    airports: string;
+    airports: string | string[]; // Can be either a single ICAO code or array for multi-airport events
     startTime: string;
     endTime: string;
     staffedStations: string[];
