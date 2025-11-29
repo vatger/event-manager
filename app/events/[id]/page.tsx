@@ -95,10 +95,12 @@ export default function EventPage() {
     [event?.airports]
   );
 
-  const normalizedEventForSignup = useMemo(() => 
+  // Keep full event data for signup form (including all airports for multi-airport events)
+  const eventForSignup = useMemo(() => 
     event ? {
       ...event,
-      airports: Array.isArray(event.airports) ? event.airports[0] : event.airports,
+      // Keep airports as-is for multi-airport support
+      airports: event.airports,
     } : null,
     [event]
   );
@@ -189,7 +191,14 @@ export default function EventPage() {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">{airportsLabel}</span>
+                <div className="flex flex-col">
+                  <span className="font-medium">{airportsLabel}</span>
+                  {Array.isArray(event.airports) && event.airports.length > 1 && (
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
+                      Multi-Airport Event
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -211,7 +220,7 @@ export default function EventPage() {
               ) : (
                 <Button 
                   className="w-full" 
-                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                  onClick={() => setSelectedEvent(eventForSignup)}
                 >
                   {isSignedUp ? "Anmeldung bearbeiten" : "Jetzt anmelden"}
                 </Button>
@@ -224,7 +233,7 @@ export default function EventPage() {
               ) : signupData?.deletedAt && canInFIR(event.firCode, "signups.manage") ? (
                 <Button 
                   className="w-full" 
-                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                  onClick={() => setSelectedEvent(eventForSignup)}
                   variant="outline"
                 >
                   Anmeldung wiederherstellen
@@ -232,7 +241,7 @@ export default function EventPage() {
               ) : isSignedUp ? (
                 <Button 
                   className="w-full" 
-                  onClick={() => setSelectedEvent(normalizedEventForSignup)}
+                  onClick={() => setSelectedEvent(eventForSignup)}
                 >
                   Anmeldung bearbeiten
                 </Button>

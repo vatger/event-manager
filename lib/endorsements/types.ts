@@ -75,3 +75,29 @@ type Solo = {
     airport: string;
     isTier1: boolean;
   }
+
+  // Multi-Airport Support
+  export interface MultiAirportEndorsementQueryParams {
+    user: { 
+      userCID: number,
+      rating: number
+    }
+    event: { 
+      airports: string[],
+      fir?: string 
+    }
+  }
+
+  export interface AirportEndorsementResult {
+    airport: string;
+    canControl: boolean;
+    group: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
+    restrictions: string[];
+  }
+
+  export interface MultiAirportEndorsementResponse {
+    airports: AirportEndorsementResult[];
+    highestGroup: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
+    endorsements: string[];
+    familiarizations: string[];
+  }
