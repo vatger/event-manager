@@ -163,16 +163,17 @@ function parseAvailability(value: Prisma.JsonValue | null): Availability {
   return { available: [], unavailable: [] };
 }
 
+// Pattern for parsing excluded airports from remarks (case-insensitive)
+const EXCLUDED_AIRPORT_PATTERN = /!([A-Za-z]{4})/gi;
+
 /**
  * Parse excluded airports from remarks field
  * Users can specify airports they don't want to control with format: "!ICAO" (e.g., "!EDDP")
+ * Supports both uppercase and lowercase input.
  */
 function parseExcludedAirports(remarks: string | null): string[] {
   if (!remarks) return [];
   
-  // Match ICAO codes prefixed with ! (e.g., !EDDP, !EDDN)
-  const matches = remarks.match(/!([A-Z]{4})/g);
-  if (!matches) return [];
-  
-  return matches.map(m => m.substring(1)); // Remove the ! prefix
+  const matches = remarks.matchAll(EXCLUDED_AIRPORT_PATTERN);
+  return Array.from(matches, m => m[1].toUpperCase());
 }

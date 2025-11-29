@@ -171,7 +171,23 @@ export class GroupService {
 
   /**
    * Get endorsement information for multiple airports
-   * This is used for multi-airport events to show which airports a user can control
+   * This is used for multi-airport events to show which airports a user can control.
+   * 
+   * Algorithm:
+   * 1. Fetch all endorsements, solos, and familiarizations for the user once
+   * 2. For each airport in the event:
+   *    - Filter endorsements relevant to that airport
+   *    - Calculate the user's group level (GND/TWR/APP/CTR)
+   *    - Determine any restrictions
+   * 3. Calculate the highest group across all controllable airports
+   * 
+   * @param params - Contains user info (CID, rating) and event info (airports array, FIR)
+   * @returns MultiAirportEndorsementResponse with per-airport results and overall highest group
+   * 
+   * Edge cases:
+   * - If user has no endorsements for any airport, all airports will have canControl: false
+   * - If airports array is empty, returns empty airports array with null highestGroup
+   * - FIR is optional - if not provided, CTR endorsements won't be included
    */
   static async getMultiAirportEndorsements(params: MultiAirportEndorsementQueryParams): Promise<MultiAirportEndorsementResponse> {
     const { user, event } = params;

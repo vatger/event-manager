@@ -365,18 +365,17 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 
                                 if (multiAirport && multiAirport.airports.length > 1) {
                                   // Multi-airport display
-                                  const controllableAirports = multiAirport.airports.filter(a => a.canControl && !excludedAirports.includes(a.airport));
                                   return (
                                     <div className="flex flex-col gap-1">
                                       <Badge className={getBadgeClassForEndorsement(multiAirport.highestGroup || s.user.rating)}>
                                         {multiAirport.highestGroup || s.user.rating}
                                       </Badge>
-                                      <div className="flex flex-wrap gap-1 mt-1">
-                                        {multiAirport.airports.map((airport) => {
-                                          const isExcluded = excludedAirports.includes(airport.airport);
-                                          return (
-                                            <TooltipProvider key={airport.airport}>
-                                              <Tooltip>
+                                      <TooltipProvider>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          {multiAirport.airports.map((airport) => {
+                                            const isExcluded = excludedAirports.includes(airport.airport);
+                                            return (
+                                              <Tooltip key={airport.airport}>
                                                 <TooltipTrigger>
                                                   <span 
                                                     className={`text-xs px-1 rounded ${
@@ -408,10 +407,10 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                                   </div>
                                                 </TooltipContent>
                                               </Tooltip>
-                                            </TooltipProvider>
-                                          );
-                                        })}
-                                      </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </TooltipProvider>
                                     </div>
                                   );
                                 }

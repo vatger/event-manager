@@ -48,10 +48,10 @@ export default function StationSelector({
         // For multi-airport, fetch stations for all airports
         const stationsPromises = airports.map(airport => fetchStationsByAirport(airport));
         const allAirportStations = await Promise.all(stationsPromises);
-        // Flatten and deduplicate
+        // Flatten and deduplicate using Map for O(n) complexity
         const combinedStations = allAirportStations.flat();
-        const uniqueStations = combinedStations.filter((station, index, self) =>
-          index === self.findIndex(s => s.callsign === station.callsign)
+        const uniqueStations = Array.from(
+          new Map(combinedStations.map(s => [s.callsign, s])).values()
         );
         setStations(uniqueStations);
         setAllStations(all);

@@ -24,6 +24,9 @@ export default React.memo(function MultiAirportEndorsement(params: MultiAirportE
 
   const { user, event } = params;
 
+  // Stringify airports array for stable dependency
+  const airportsKey = event.airports.join(',');
+
   useEffect(() => {
     let cancelled = false;
 
@@ -60,7 +63,7 @@ export default React.memo(function MultiAirportEndorsement(params: MultiAirportE
     return () => {
       cancelled = true;
     };
-  }, [user.userCID, user.rating, JSON.stringify(event.airports), event.fir]);
+  }, [user.userCID, user.rating, airportsKey, event.fir]);
 
   const controllableAirports = data?.airports.filter(a => a.canControl) || [];
   const nonControllableAirports = data?.airports.filter(a => !a.canControl) || [];
