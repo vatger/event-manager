@@ -4,9 +4,16 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Bell, Send } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Qualification {
   type: 'endorsement' | 'solo';
@@ -74,13 +81,64 @@ function LoadingSkeleton() {
 function GroupTable({ 
   group, 
   candidates,
-  groupLabel 
+  groupLabel,
+  eventId,
+  eventName
 }: { 
   group: keyof typeof groupLabels;
   candidates: Candidate[];
   groupLabel: string;
+  eventId: number;
+  eventName: string;
 }) {
   const isCTRGroup = group === 'CTR';
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [notifyTitle, setNotifyTitle] = useState('');
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const handleNotifyClick = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
+    setNotifyTitle(`Unterstützung gesucht - ${eventName}`);
+    setNotifyMessage(`Hallo ${candidate.name || 'Lotse'},\n\nwir suchen noch Unterstützung für das Event "${eventName}". Du hast die erforderlichen Qualifikationen. Hast du Lust, uns zu helfen?\n\nMelde dich jetzt an!`);
+    setNotifyDialogOpen(true);
+  };
+
+  const handleSendNotification = async () => {
+    if (!selectedCandidate || !notifyMessage.trim()) {
+      toast.error('Bitte gib eine Nachricht ein');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/notify-candidates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userCIDs: [selectedCandidate.cid],
+          customMessage: notifyMessage.trim(),
+          customTitle: notifyTitle.trim() || `Unterstützung gesucht - ${eventName}`,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`Benachrichtigung an ${selectedCandidate.name || 'Lotse'} gesendet`);
+        setNotifyDialogOpen(false);
+      } else {
+        const error = await response.json();
+        toast.error(error.message || 'Fehler beim Senden der Benachrichtigung');
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error);
+      toast.error('Netzwerkfehler beim Senden der Benachrichtigung');
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (candidates.length === 0) {
     return (
@@ -114,6 +172,7 @@ function GroupTable({
               <TableHead>Lotsen-Info</TableHead>
               <TableHead>Qualifikationen</TableHead>
               {isCTRGroup && <TableHead>Familiarizations</TableHead>}
+              <TableHead className="text-right">Aktionen</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -170,10 +229,76 @@ function GroupTable({
                     )}
                   </TableCell>
                 )}
+
+                <TableCell className="text-right">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleNotifyClick(candidate)}
+                    disabled={candidate.signedUp}
+                  >
+                    <Bell className="h-4 w-4 mr-1" />
+                    Benachrichtigen
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+
+        {/* Notification Dialog */}
+        <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
+          <DialogContent className="sm:max-w-[525px]">
+            <DialogHeader>
+              <DialogTitle>Lotsen benachrichtigen</DialogTitle>
+              <DialogDescription>
+                Sende eine Benachrichtigung an {selectedCandidate?.name || 'den Lotsen'} ({selectedCandidate?.cid})
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="notify-title">Titel</Label>
+                <Input
+                  id="notify-title"
+                  value={notifyTitle}
+                  onChange={(e) => setNotifyTitle(e.target.value)}
+                  placeholder={`Unterstützung gesucht - ${eventName}`}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="notify-message">Nachricht *</Label>
+                <Textarea
+                  id="notify-message"
+                  value={notifyMessage}
+                  onChange={(e) => setNotifyMessage(e.target.value)}
+                  rows={6}
+                  placeholder="Gib hier deine Benachrichtigungsnachricht ein..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNotifyDialogOpen(false)}>
+                Abbrechen
+              </Button>
+              <Button 
+                onClick={handleSendNotification} 
+                disabled={!notifyMessage.trim() || sending}
+              >
+                {sending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Sende...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Senden
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
@@ -282,6 +407,8 @@ export default function CandidatesPage() {
               group={group as keyof typeof groupLabels}
               candidates={getCandidatesForGroup(group as keyof typeof groupLabels)}
               groupLabel={groupLabels[group as keyof typeof groupLabels]}
+              eventId={event.id}
+              eventName={event.name}
             />
           </TabsContent>
         ))}
