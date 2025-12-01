@@ -101,7 +101,8 @@ function GroupTable({
   const handleNotifyClick = (candidate: Candidate) => {
     setSelectedCandidate(candidate);
     setNotifyTitle(`Unterstützung gesucht - ${eventName}`);
-    setNotifyMessage(`Hallo ${candidate.name || 'Lotse'},\nwir suchen noch Unterstützung für das Event "${eventName}". Hast du Zeit und Lust mitzuhelfen?\nMelde dich jetzt an!`);
+    const firstName = candidate.name?.split(' ')[0];
+    setNotifyMessage(`Hallo${firstName ? " " + firstName : ''},\nwir suchen noch Unterstützung für das Event "${eventName}". Hast du Zeit und Lust mitzuhelfen?\nMelde dich jetzt an!`);
     setNotifyDialogOpen(true);
   };
 
