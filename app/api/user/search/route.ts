@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
     const searchTerm = query.trim();
     
     // Build OR conditions based on search term
-    const orConditions = [
-      { name: { contains: searchTerm, mode: 'insensitive' as const } }
+    const orConditions: Array<{ name?: { contains: string }; cid?: number }> = [
+      { name: { contains: searchTerm } }
     ];
     
     // Only add CID search if searchTerm is numeric
