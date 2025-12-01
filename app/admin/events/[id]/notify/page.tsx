@@ -456,13 +456,13 @@ export default function EventNotificationPage() {
                           }
                         </div>
                       ) : (
-                        filteredList.map((item, index) => {
+                        filteredList.map((item) => {
                           const userCID = getUserCID(item);
                           const userName = getUserName(item);
                           const rating = getUserRating(item);
                           return (
                             <div
-                              key={`${userCID}-${index}`}
+                              key={`${activeTab}-${userCID}`}
                               className="flex items-center space-x-3 p-2 border rounded-md hover:bg-muted/50"
                             >
                               <Checkbox

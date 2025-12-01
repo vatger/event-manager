@@ -6,18 +6,18 @@ import { userhasPermissiononEvent } from '@/lib/acl/permissions';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const session = await getServerSession(authOptions);
-  const { eventId } = await params;
+  const { eventId: eventIdParam } = await params;
   if (!session?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  if (!await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "user.notif")) {
-    return NextResponse.json({ error: "Insufficient permissions", message: "You need user.notif in your FIR to notify candidates" }, { status: 403 });
+  const eventId = parseInt(eventIdParam);
+  if (isNaN(eventId)) {
+    return NextResponse.json({ error: "Invalid Event ID" }, { status: 400 });
   }
 
-  const id = parseInt(eventId);
-  if (isNaN(id)) {
-    return NextResponse.json({ error: "Invalid Event ID" }, { status: 400 });
+  if (!await userhasPermissiononEvent(Number(session.user.cid), eventId, "user.notif")) {
+    return NextResponse.json({ error: "Insufficient permissions", message: "You need user.notif in your FIR to notify candidates" }, { status: 403 });
   }
 
   try {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
     }
 
     const event = await prisma.event.findUnique({ 
-      where: { id } 
+      where: { id: eventId } 
     });
     
     if (!event) {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
         prisma.notification.create({
           data: {
             userCID: user.cid,
-            eventId: id,
+            eventId,
             type: "EVENT",
             title,
             message,
