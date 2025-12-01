@@ -12,9 +12,28 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Send, Users, Calendar, Filter, AlertCircle, CheckCircle2, RefreshCw, MapPin, Clock, RotateCcw } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Send, Users, UserPlus, AlertCircle, RefreshCw, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Event, Signup } from "@/types";
+
+interface Candidate {
+  cid: number;
+  name: string | null;
+  rating: string | null;
+  signedUp: boolean;
+}
+
+interface CandidatesApiResponse {
+  event: {
+    id: number;
+    name: string;
+    airports: string[];
+    firCode: string | null;
+  };
+  candidates: Candidate[];
+  isTier1: boolean;
+}
 
 export default function EventNotificationPage() {
   const params = useParams();
@@ -22,8 +41,19 @@ export default function EventNotificationPage() {
 
   const [event, setEvent] = useState<Event | null>(null);
   const [eventLoading, setEventLoading] = useState(true);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<"signups" | "candidates">("signups");
+  
+  // Signups state
   const [signups, setSignups] = useState<Signup[]>([]);
   const [signupsLoading, setSignupsLoading] = useState(false);
+  
+  // Candidates state
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(false);
+  const [isTier1, setIsTier1] = useState(false);
+  
   const [sending, setSending] = useState(false);
   
   // Filter und Auswahl
@@ -68,9 +98,11 @@ export default function EventNotificationPage() {
       if (response.ok) {
         const data = await response.json();
         setSignups(data);
-        // Setze selectedUsers zurück
-        setSelectedUsers([]);
-        setSelectAll(false);
+        // Reset selection when reloading
+        if (activeTab === "signups") {
+          setSelectedUsers([]);
+          setSelectAll(false);
+        }
       } else {
         toast.error('Fehler beim Laden der Anmeldungen');
       }
@@ -80,31 +112,105 @@ export default function EventNotificationPage() {
     } finally {
       setSignupsLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, activeTab]);
 
-  // Initial Signups laden
+  // Candidates laden
+  const loadCandidates = useCallback(async () => {
+    setCandidatesLoading(true);
+    try {
+      const response = await fetch(`/api/events/${eventId}/candidates`);
+      if (response.ok) {
+        const data: CandidatesApiResponse = await response.json();
+        setIsTier1(data.isTier1);
+        if (data.isTier1 && data.candidates) {
+          // Filter out candidates who are already signed up
+          const notSignedUp = data.candidates.filter(c => !c.signedUp);
+          setCandidates(notSignedUp);
+        } else {
+          setCandidates([]);
+        }
+        // Reset selection when reloading
+        if (activeTab === "candidates") {
+          setSelectedUsers([]);
+          setSelectAll(false);
+        }
+      } else {
+        toast.error('Fehler beim Laden der potentiellen Lotsen');
+      }
+    } catch (error) {
+      console.error('Error loading candidates:', error);
+      toast.error('Fehler beim Laden der potentiellen Lotsen');
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }, [eventId, activeTab]);
+
+  // Initial data laden
   useEffect(() => {
     if (eventId) {
       loadSignups();
+      loadCandidates();
     }
-  }, [eventId, loadSignups]);
+  }, [eventId, loadSignups, loadCandidates]);
 
-  // Filtere User basierend auf Search Term
-  const filteredSignups = signups.filter(signup =>
-    signup.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    signup.user?.cid?.toString().includes(searchTerm) ||
-    signup.userCID?.toString().includes(searchTerm)
-  );
+  // Reset selection when switching tabs
+  useEffect(() => {
+    setSelectedUsers([]);
+    setSelectAll(false);
+    setSearchTerm("");
+  }, [activeTab]);
+
+  // Get filtered list based on active tab
+  const getFilteredList = useCallback(() => {
+    if (activeTab === "signups") {
+      return signups.filter(signup =>
+        signup.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        signup.user?.cid?.toString().includes(searchTerm) ||
+        signup.userCID?.toString().includes(searchTerm)
+      );
+    } else {
+      return candidates.filter(candidate =>
+        candidate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        candidate.cid.toString().includes(searchTerm)
+      );
+    }
+  }, [activeTab, signups, candidates, searchTerm]);
+
+  const filteredList = getFilteredList();
+
+  // Get user CID from item
+  const getUserCID = (item: Signup | Candidate): string => {
+    if ('userCID' in item) {
+      return item.userCID?.toString() || (item as Signup).user?.cid?.toString() || "";
+    }
+    return (item as Candidate).cid.toString();
+  };
+
+  // Get user name from item
+  const getUserName = (item: Signup | Candidate): string => {
+    if ('user' in item && item.user) {
+      return item.user.name || "Unbekannt";
+    }
+    return (item as Candidate).name || "Unbekannt";
+  };
+
+  // Get rating from item (only for candidates)
+  const getUserRating = (item: Signup | Candidate): string | null => {
+    if ('rating' in item) {
+      return (item as Candidate).rating;
+    }
+    return null;
+  };
 
   // Select All Handler
   const handleSelectAll = useCallback((checked: boolean) => {
     setSelectAll(checked);
     if (checked) {
-      setSelectedUsers(filteredSignups.map(s => s.userCID?.toString() || s.user?.cid?.toString() || ""));
+      setSelectedUsers(filteredList.map(item => getUserCID(item)));
     } else {
       setSelectedUsers([]);
     }
-  }, [filteredSignups]);
+  }, [filteredList]);
 
   // Einzelnen User auswählen/abwählen
   const toggleUser = useCallback((userCID: string) => {
@@ -114,20 +220,20 @@ export default function EventNotificationPage() {
         : [...prev, userCID];
       
       // Update selectAll status based on current selection
-      setSelectAll(newSelected.length === filteredSignups.length && filteredSignups.length > 0);
+      setSelectAll(newSelected.length === filteredList.length && filteredList.length > 0);
       
       return newSelected;
     });
-  }, [filteredSignups.length]);
+  }, [filteredList.length]);
 
-  // Update selectAll when filteredSignups changes
+  // Update selectAll when filteredList changes
   useEffect(() => {
-    if (filteredSignups.length > 0 && selectedUsers.length === filteredSignups.length) {
+    if (filteredList.length > 0 && selectedUsers.length === filteredList.length) {
       setSelectAll(true);
     } else {
       setSelectAll(false);
     }
-  }, [filteredSignups.length, selectedUsers.length]);
+  }, [filteredList.length, selectedUsers.length]);
 
   // Benachrichtigungen senden
   const sendNotifications = async () => {
@@ -139,44 +245,79 @@ export default function EventNotificationPage() {
     setSending(true);
 
     try {
-      const results = await Promise.allSettled(
-        selectedUsers.map(userCID =>
-          fetch(`/api/events/${event.id}/notify-user`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              userCID,
-              customMessage: notificationMessage.trim(),
-              customTitle: notificationTitle.trim() || `Update - ${event.name}`,
-              eventId: event.id
-            }),
-          })
-        )
-      );
+      if (activeTab === "signups") {
+        // Send to signed up users (existing functionality)
+        const results = await Promise.allSettled(
+          selectedUsers.map(userCID =>
+            fetch(`/api/events/${event.id}/notify-user`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userCID,
+                customMessage: notificationMessage.trim(),
+                customTitle: notificationTitle.trim() || `Update - ${event.name}`,
+                eventId: event.id
+              }),
+            })
+          )
+        );
 
-      const successful = results.filter((r): r is PromiseFulfilledResult<Response> => 
-        r.status === 'fulfilled' && r.value.ok
-      ).length;
+        const successful = results.filter((r): r is PromiseFulfilledResult<Response> => 
+          r.status === 'fulfilled' && r.value.ok
+        ).length;
 
-      const failed = results.length - successful;
+        const failed = results.length - successful;
 
-      if (failed === 0) {
-        toast.success(`${successful} Benachrichtigungen erfolgreich gesendet`);
-        setNotificationMessage("");
-        setSelectedUsers([]);
-        setSelectAll(false);
-      } else if (successful > 0) {
-        toast.warning(`${successful} erfolgreich, ${failed} fehlgeschlagen`);
+        if (failed === 0) {
+          toast.success(`${successful} Benachrichtigungen erfolgreich gesendet`);
+          setNotificationMessage("");
+          setSelectedUsers([]);
+          setSelectAll(false);
+        } else if (successful > 0) {
+          toast.warning(`${successful} erfolgreich, ${failed} fehlgeschlagen`);
+        } else {
+          toast.error('Alle Benachrichtigungen fehlgeschlagen');
+        }
       } else {
-        toast.error('Alle Benachrichtigungen fehlgeschlagen');
+        // Send to candidates (new functionality)
+        const response = await fetch(`/api/events/${event.id}/notify-candidates`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userCIDs: selectedUsers.map(Number),
+            customMessage: notificationMessage.trim(),
+            customTitle: notificationTitle.trim() || `Unterstützung gesucht - ${event.name}`,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          toast.success(`${result.stats.successful} Benachrichtigungen an potentielle Lotsen gesendet`);
+          setNotificationMessage("");
+          setSelectedUsers([]);
+          setSelectAll(false);
+        } else {
+          const error = await response.json();
+          toast.error(error.message || 'Fehler beim Senden der Benachrichtigungen');
+        }
       }
     } catch (error) {
       console.error('Error sending notifications:', error);
       toast.error('Netzwerkfehler beim Senden der Benachrichtigungen');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleReload = () => {
+    if (activeTab === "signups") {
+      loadSignups();
+    } else {
+      loadCandidates();
     }
   };
 
@@ -200,6 +341,15 @@ export default function EventNotificationPage() {
     );
   }
 
+  const isLoading = activeTab === "signups" ? signupsLoading : candidatesLoading;
+  const totalCount = activeTab === "signups" ? signups.length : candidates.length;
+  const defaultTitle = activeTab === "signups" 
+    ? `Update - ${event.name}` 
+    : `Unterstützung gesucht - ${event.name}`;
+  const defaultMessage = activeTab === "candidates" 
+    ? `Wir suchen noch Unterstützung für das Event "${event.name}". Hast du Lust, uns zu helfen? Melde dich jetzt an!`
+    : "";
+
   return (
     <div className="space-y-6">
       {/* Header mit Event Info */}
@@ -209,40 +359,61 @@ export default function EventNotificationPage() {
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-3">
                 <h1 className="text-2xl font-bold">Benachrichtigungen</h1>
-                
               </div>
             </div>
             
             <div className="flex gap-2">
-            <Button onClick={loadSignups} variant="outline" size="sm">
-              <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
-            </Button>
+              <Button onClick={handleReload} variant="outline" size="sm">
+                <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Linke Spalte - User Liste */}
+        {/* Linke Spalte - User Liste mit Tabs */}
         <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Teilnehmer auswählen
-                <Badge variant="secondary" className="ml-auto">
-                  {selectedUsers.length}/{signups.length} ausgewählt
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "signups" | "candidates")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="signups" className="flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    <span className="hidden sm:inline">Teilnehmer</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="candidates" className="flex items-center gap-1">
+                    <UserPlus className="h-4 w-4" />
+                    <span className="hidden sm:inline">Potentielle Lotsen</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="flex items-center justify-between mt-2">
+                <CardDescription>
+                  {activeTab === "signups" 
+                    ? `${signups.length} angemeldete Teilnehmer`
+                    : isTier1 
+                      ? `${candidates.length} potentielle Lotsen`
+                      : "Nur für Tier-1 Airports verfügbar"
+                  }
+                </CardDescription>
+                <Badge variant="secondary">
+                  {selectedUsers.length}/{totalCount} ausgewählt
                 </Badge>
-              </CardTitle>
-              <CardDescription>
-                {signups.length} angemeldete Teilnehmer
-              </CardDescription>
+              </div>
             </CardHeader>
             <CardContent>
-              {signupsLoading ? (
+              {isLoading ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="text-muted-foreground mt-2">Lade Teilnehmer...</p>
+                  <p className="text-muted-foreground mt-2">
+                    {activeTab === "signups" ? "Lade Teilnehmer..." : "Lade potentielle Lotsen..."}
+                  </p>
+                </div>
+              ) : activeTab === "candidates" && !isTier1 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UserPlus className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Potentielle Lotsen sind nur für Events mit Tier-1 Airports verfügbar.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -251,13 +422,13 @@ export default function EventNotificationPage() {
                     <div className="relative">
                       <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                        placeholder="Teilnehmer suchen..."
+                        placeholder={activeTab === "signups" ? "Teilnehmer suchen..." : "Lotsen suchen..."}
                         className="pl-8"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
-                    {filteredSignups.length > 0 && (
+                    {filteredList.length > 0 && (
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="select-all"
@@ -268,7 +439,7 @@ export default function EventNotificationPage() {
                           htmlFor="select-all"
                           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
-                          Alle auswählen ({filteredSignups.length})
+                          Alle auswählen ({filteredList.length})
                         </label>
                       </div>
                     )}
@@ -277,16 +448,21 @@ export default function EventNotificationPage() {
                   {/* User Liste */}
                   <ScrollArea className="h-64">
                     <div className="space-y-2">
-                      {filteredSignups.length === 0 ? (
+                      {filteredList.length === 0 ? (
                         <div className="text-center text-muted-foreground py-4">
-                          {searchTerm ? 'Keine Teilnehmer gefunden' : 'Keine Anmeldungen'}
+                          {searchTerm 
+                            ? (activeTab === "signups" ? 'Keine Teilnehmer gefunden' : 'Keine Lotsen gefunden')
+                            : (activeTab === "signups" ? 'Keine Anmeldungen' : 'Keine potentiellen Lotsen')
+                          }
                         </div>
                       ) : (
-                        filteredSignups.map(signup => {
-                          const userCID = signup.userCID?.toString() || signup.user?.cid?.toString() || "";
+                        filteredList.map((item, index) => {
+                          const userCID = getUserCID(item);
+                          const userName = getUserName(item);
+                          const rating = getUserRating(item);
                           return (
                             <div
-                              key={signup.id}
+                              key={`${userCID}-${index}`}
                               className="flex items-center space-x-3 p-2 border rounded-md hover:bg-muted/50"
                             >
                               <Checkbox
@@ -295,10 +471,10 @@ export default function EventNotificationPage() {
                               />
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-sm truncate">
-                                  {signup.user?.name || "Unbekannt"}
+                                  {userName}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  CID: {userCID}
+                                  CID: {userCID}{rating ? ` • ${rating}` : ''}
                                 </div>
                               </div>
                             </div>
@@ -320,8 +496,12 @@ export default function EventNotificationPage() {
               <CardTitle>Benachrichtigung erstellen</CardTitle>
               <CardDescription>
                 {selectedUsers.length > 0 
-                  ? `Nachricht an ${selectedUsers.length} ausgewählte Teilnehmer`
-                  : "Wähle Teilnehmer aus, um eine Benachrichtigung zu senden"
+                  ? activeTab === "signups"
+                    ? `Nachricht an ${selectedUsers.length} ausgewählte Teilnehmer`
+                    : `Nachricht an ${selectedUsers.length} potentielle Lotsen`
+                  : activeTab === "signups"
+                    ? "Wähle Teilnehmer aus, um eine Benachrichtigung zu senden"
+                    : "Wähle potentielle Lotsen aus, um sie zur Anmeldung einzuladen"
                 }
               </CardDescription>
             </CardHeader>
@@ -331,7 +511,7 @@ export default function EventNotificationPage() {
                 <Label htmlFor="title">Titel</Label>
                 <Input
                   id="title"
-                  placeholder={`Update - ${event.name}`}
+                  placeholder={defaultTitle}
                   value={notificationTitle}
                   onChange={(e) => setNotificationTitle(e.target.value)}
                 />
@@ -342,7 +522,10 @@ export default function EventNotificationPage() {
                 <Label htmlFor="message">Nachricht *</Label>
                 <Textarea
                   id="message"
-                  placeholder="Gib hier deine Benachrichtigungsnachricht ein..."
+                  placeholder={activeTab === "candidates" 
+                    ? "z.B.: Wir suchen noch Unterstützung für dieses Event. Melde dich jetzt an!"
+                    : "Gib hier deine Benachrichtigungsnachricht ein..."
+                  }
                   value={notificationMessage}
                   onChange={(e) => setNotificationMessage(e.target.value)}
                   rows={8}
@@ -350,6 +533,16 @@ export default function EventNotificationPage() {
                 />
                 <div className="text-xs text-muted-foreground flex justify-between">
                   <span>{notificationMessage.length} Zeichen</span>
+                  {activeTab === "candidates" && notificationMessage.length === 0 && (
+                    <Button 
+                      variant="link" 
+                      size="sm" 
+                      className="h-auto p-0 text-xs"
+                      onClick={() => setNotificationMessage(defaultMessage)}
+                    >
+                      Vorlage verwenden
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -361,7 +554,7 @@ export default function EventNotificationPage() {
                     <div className="font-medium text-blue-800 mb-1">Vorschau:</div>
                     <div className="text-sm text-blue-700">
                       <div className="font-semibold">
-                        {notificationTitle || `Update - ${event.name}`}
+                        {notificationTitle || defaultTitle}
                       </div>
                       <div className="mt-1">
                         {notificationMessage}
@@ -391,7 +584,9 @@ export default function EventNotificationPage() {
                   <>
                     <Send className="h-4 w-4 mr-2" />
                     {selectedUsers.length > 0 
-                      ? `An ${selectedUsers.length} Teilnehmer senden`
+                      ? activeTab === "signups"
+                        ? `An ${selectedUsers.length} Teilnehmer senden`
+                        : `An ${selectedUsers.length} potentielle Lotsen senden`
                       : 'Benachrichtigungen senden'
                     }
                   </>
@@ -402,8 +597,17 @@ export default function EventNotificationPage() {
               <Alert variant="default" className="bg-amber-50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-sm">
-                  <strong>Hinweis:</strong> Benachrichtigungen werden sowohl im Eventsystem 
-                  als auch über das Forum an die ausgewählten User gesendet.
+                  {activeTab === "signups" ? (
+                    <>
+                      <strong>Hinweis:</strong> Benachrichtigungen werden sowohl im Eventsystem 
+                      als auch über das Forum an die ausgewählten User gesendet.
+                    </>
+                  ) : (
+                    <>
+                      <strong>Hinweis:</strong> Diese Nachricht wird an potentielle Lotsen gesendet, 
+                      die noch nicht für das Event angemeldet sind. Sie werden aufgefordert, sich anzumelden.
+                    </>
+                  )}
                 </AlertDescription>
               </Alert>
             </CardContent>
