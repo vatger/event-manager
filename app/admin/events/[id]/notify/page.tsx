@@ -535,7 +535,7 @@ export default function EventNotificationPage() {
                   <>
                     <Send className="h-4 w-4 mr-2" />
                     {selectedUsers.length > 0 
-                      ? `An ${selectedUsers.length} Teilnehmer senden`
+                      ? `An ${selectedUsers.length} ${activeTab === "signups" ? "Teilnehmer" : "Nutzer"} senden`
                       : 'Benachrichtigungen senden'
                     }
                   </>

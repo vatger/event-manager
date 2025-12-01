@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { userHasOwnFirPermission } from '@/lib/acl/permissions';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Check if user has permission to search users for notifications in their FIR
+  const hasPermission = await userHasOwnFirPermission(Number(session.user.cid), "user.notif");
+  if (!hasPermission) {
+    return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
   }
 
   const searchParams = req.nextUrl.searchParams;
@@ -19,13 +26,20 @@ export async function GET(req: NextRequest) {
   try {
     const searchTerm = query.trim();
     
+    // Build OR conditions based on search term
+    const orConditions = [
+      { name: { contains: searchTerm, mode: 'insensitive' as const } }
+    ];
+    
+    // Only add CID search if searchTerm is numeric
+    if (!isNaN(Number(searchTerm))) {
+      orConditions.push({ cid: Number(searchTerm) });
+    }
+    
     // Search by CID or name
     const users = await prisma.user.findMany({
       where: {
-        OR: [
-          { cid: isNaN(Number(searchTerm)) ? undefined : Number(searchTerm) },
-          { name: { contains: searchTerm, mode: 'insensitive' } }
-        ].filter(Boolean)
+        OR: orConditions
       },
       select: {
         cid: true,
