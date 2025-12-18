@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # ---- Install packages required for Canvas ----
 RUN apk add --no-cache \
@@ -29,7 +29,7 @@ RUN npm run build
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
 # ---- RUNNER ----
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install required packages for canvas and fonts
 RUN apk add --no-cache \
