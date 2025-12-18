@@ -23,6 +23,9 @@ export async function GET(
         airports: true,
         firCode: true,
         signups: {
+          where: {
+            deletedAt: null  // Exclude soft-deleted signups
+          },
           select: { userCID: true }
         }
       }
