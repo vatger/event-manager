@@ -38,7 +38,7 @@ interface VatsimProfile {
   }
   
   const VatgerProvider: OAuthConfig<VatsimProfile> = {
-    id: 'vatsim',
+    id: 'vatger',
     name: 'VATGER',
     type: 'oauth',
     authorization: {

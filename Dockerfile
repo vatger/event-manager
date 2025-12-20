@@ -1,16 +1,5 @@
 FROM node:20-bookworm AS builder
 
-# ---- Install packages required for Canvas ----
-# RUN apk add --no-cache \
-#     build-base \
-#     cairo-dev \
-#     pango-dev \
-#     jpeg-dev \
-#     giflib-dev \
-#     libpng-dev \
-#     freetype-dev
-
-
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -30,20 +19,6 @@ RUN npm run build
 
 # ---- RUNNER ----
 FROM node:20-bookworm-slim AS runner
-
-# Install required packages for canvas and fonts
-# RUN apk add --no-cache \
-#   cairo \
-#   pango \
-#   jpeg \
-#   giflib \
-#   libpng \
-#   freetype \
-#   fontconfig \
-#   font-misc-misc \
-#   ttf-dejavu \
-#   font-noto \
-#   && fc-cache -f
   
 WORKDIR /app
 
