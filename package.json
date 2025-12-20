@@ -17,7 +17,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
-    "@prisma/client": "^6.19.0",
+    "@prisma/client": "^7.2.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -54,6 +54,7 @@
     "node-cache": "^5.1.2",
     "node-cron": "^4.2.1",
     "postcss": "^8.4.0",
+    "prisma": "^7.2.0",
     "react": "^19.2.3",
     "react-day-picker": "^9.11.0",
     "react-dom": "^19.2.3",
@@ -64,8 +65,7 @@
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.0",
     "zod": "^4.1.12",
-    "zustand": "^5.0.8",
-    "prisma": "^6.19.0"
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -76,7 +76,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
-    "prisma": "^6.19.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
     "tsx": "^4.20.6",
