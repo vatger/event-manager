@@ -38,29 +38,29 @@ enum NotificationType {
   EVENT
   OTHER
 }
+
 enum GroupKind {
-  FIR_LEITUNG             
-  FIR_TEAM                
-  CUSTOM                  
+  FIR_LEITUNG
+  FIR_TEAM
+  CUSTOM
 }
 
-
 model User {
-  id        Int      @id @default(autoincrement())
-  cid       Int      @unique
-  name      String
-  rating    String
-  role      Role     @default(USER)
-  firId     Int?
-  fir       FIR?     @relation(fields: [firId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  emailNotificationsEnabled Boolean? 
+  id                        Int      @id @default(autoincrement())
+  cid                       Int      @unique
+  name                      String
+  rating                    String
+  role                      Role     @default(USER)
+  firId                     Int?
+  fir                       FIR?     @relation(fields: [firId], references: [id])
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  emailNotificationsEnabled Boolean?
 
-  signups      EventSignup[]
-  Notification Notification[]
-  groups       UserGroup[]
-  vatgerLeitung VATGERLeitung?
+  signups             EventSignup[]
+  Notification        Notification[]
+  groups              UserGroup[]
+  vatgerLeitung       VATGERLeitung?
   blockedDatesCreated CalendarBlockedDate[] @relation("BlockedDateCreator")
 }
 
@@ -92,28 +92,28 @@ model Event {
   updatedAt       DateTime    @updatedAt
 
   firCode String?
-  fir   FIR? @relation(fields: [firCode], references: [code])
+  fir     FIR?    @relation(fields: [firCode], references: [code])
 
   signups      EventSignup[]
   Notification Notification[]
 }
 
 model EventSignup {
-  id                Int      @id @default(autoincrement())
-  eventId           Int
-  userCID           Int
-  availability      Json
-  breakrequests     String?
-  preferredStations String?
-  remarks           String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  deletedAt         DateTime? // Soft delete timestamp
-  deletedBy         Int? // CID of user who deleted
-  modifiedAfterDeadline Boolean @default(false) // Flag for changes after deadline
-  changeLog         Json? // Array of changes made to the signup
-  changesAcknowledged Boolean @default(false) // Flag to mark if event team has acknowledged changes
-  signedUpAfterDeadline Boolean @default(false) // Flag for signups created after deadline
+  id                    Int       @id @default(autoincrement())
+  eventId               Int
+  userCID               Int
+  availability          Json
+  breakrequests         String?
+  preferredStations     String?
+  remarks               String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime? // Soft delete timestamp
+  deletedBy             Int? // CID of user who deleted
+  modifiedAfterDeadline Boolean   @default(false) // Flag for changes after deadline
+  changeLog             Json? // Array of changes made to the signup
+  changesAcknowledged   Boolean   @default(false) // Flag to mark if event team has acknowledged changes
+  signedUpAfterDeadline Boolean   @default(false) // Flag for signups created after deadline
 
   event Event @relation(fields: [eventId], references: [id])
   user  User  @relation(fields: [userCID], references: [cid])
@@ -147,14 +147,14 @@ model Permission {
 }
 
 model Group {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   name        String
   description String?
-  kind        GroupKind  @default(CUSTOM)
+  kind        GroupKind @default(CUSTOM)
   firId       Int? // null = global Gruppe
-  fir         FIR?     @relation(fields: [firId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  fir         FIR?      @relation(fields: [firId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relations
   permissions GroupPermission[]
@@ -242,20 +242,20 @@ model TrainingCacheMetadata {
 }
 
 model EventSignupCache {
-  id         Int      @id @default(autoincrement())
-  eventId    Int      @unique
-  data       Json     // enthält die komplette SignupTableResponse (inkl. Endorsements)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  expiresAt  DateTime?
+  id        Int       @id @default(autoincrement())
+  eventId   Int       @unique
+  data      Json // enthält die komplette SignupTableResponse (inkl. Endorsements)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime?
 }
 
 model CalendarBlockedDate {
   id          Int      @id @default(autoincrement())
   startDate   DateTime
   endDate     DateTime
-  startTime   String?  // Format: "HH:mm" (e.g., "14:30")
-  endTime     String?  // Format: "HH:mm" (e.g., "18:00")
+  startTime   String? // Format: "HH:mm" (e.g., "14:30")
+  endTime     String? // Format: "HH:mm" (e.g., "18:00")
   reason      String
   description String?
   createdById Int
@@ -263,4 +263,3 @@ model CalendarBlockedDate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
-

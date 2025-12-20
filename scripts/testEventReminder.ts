@@ -7,7 +7,9 @@
 import { PrismaClient } from '@prisma/client';
 import { addDays, startOfDay, endOfDay } from 'date-fns';
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+});
 
 async function testEventReminderLogic() {
   console.log('=== Testing Event Reminder Logic ===\n');

@@ -1,6 +1,8 @@
 import { PrismaClient, GroupKind, PermissionScope, Role } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+});
 
 async function ensureBasePermissions() {
   const permissions = [

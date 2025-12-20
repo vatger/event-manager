@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+});
 
 async function main() {
   const migrationName = process.argv[2]; // Argument aus CLI (z. B. 20251025_added_training_cashing_tablesfor_auto_endo)

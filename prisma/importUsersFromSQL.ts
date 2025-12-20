@@ -1,7 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import chalk from "chalk"; // npm install chalk
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+});
 
 async function importUsers() {
   console.log(chalk.cyan.bold("\n🚀 Starte User-Import..."));
