@@ -29,7 +29,7 @@ RUN npm run build
 # https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
 # ---- RUNNER ----
-FROM node:20-bookworm AS runner
+FROM node:20-bookworm-slim AS runner
 
 # Install required packages for canvas and fonts
 # RUN apk add --no-cache \
