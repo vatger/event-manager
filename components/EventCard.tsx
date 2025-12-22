@@ -147,8 +147,19 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
 
       <CardFooter>
           <Link className="w-full" href={`/events/${event.id}`}>
-            <Button className="w-full hover:bg-gray-700">
-              See More
+          <Button
+            variant="default"
+            className="
+              w-full h-10
+              bg-gradient-to-r from-primary to-primary/80
+              text-primary-foreground
+
+              hover:from-primary/90 hover:to-primary/70
+
+              transition-colors
+            "
+          >
+            See More
               {typeof event.isSignedUp === "boolean" && event.isSignedUp && (
                 <UserCheck />
               )} 

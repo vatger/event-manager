@@ -229,7 +229,7 @@ export default function NotificationsWidget() {
                 key={notification.id}
                 className={cn(
                   "p-4 border-b transition-colors hover:bg-muted/30",
-                  notification.readAt ? "bg-background" : "bg-accent/40"
+                  notification.readAt ? "bg-card" : "bg-accent/40"
                 )}
               >
                 <div className="flex items-start gap-3">
