@@ -14,10 +14,18 @@ export function createDatabaseAdapter() {
   // Check multiple indicators for build phase
   if (
     process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.SKIP_ENV_VALIDATION === "true" ||
-    !process.env.DATABASE_URL ||
-    process.env.DATABASE_URL.includes("dummy")
+    process.env.SKIP_ENV_VALIDATION === "true"
   ) {
+    return undefined;
+  }
+  
+  // If no DATABASE_URL is set, return undefined (build phase or misconfiguration)
+  if (!process.env.DATABASE_URL) {
+    return undefined;
+  }
+  
+  // Check for dummy DATABASE_URL used in Docker build (exact match from Dockerfile)
+  if (process.env.DATABASE_URL === "mysql://user:pass@localhost:3306/dummy") {
     return undefined;
   }
   
