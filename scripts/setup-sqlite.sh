@@ -4,6 +4,12 @@
 
 set -e
 
+# Trap to clean up backup files
+cleanup() {
+    rm -f .env.bak
+}
+trap cleanup EXIT
+
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║   SQLite Test Database Setup for Event Manager          ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
@@ -17,22 +23,27 @@ else
     echo "✓ .env file already exists"
 fi
 
-# Configure for SQLite
+# Configure for SQLite (use different approach for Linux/Mac compatibility)
 echo "⚙️  Configuring .env for SQLite..."
 if grep -q "^USE_TEST_DB=" .env; then
-    sed -i.bak 's/^USE_TEST_DB=.*/USE_TEST_DB=true/' .env
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i.bak 's/^USE_TEST_DB=.*/USE_TEST_DB=true/' .env
+    else
+        sed -i 's/^USE_TEST_DB=.*/USE_TEST_DB=true/' .env
+    fi
 else
     echo "USE_TEST_DB=true" >> .env
 fi
 
 if grep -q "^DATABASE_URL=" .env; then
-    sed -i.bak 's|^DATABASE_URL=.*|DATABASE_URL=file:./dev.db|' .env
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i.bak 's|^DATABASE_URL=.*|DATABASE_URL=file:./dev.db|' .env
+    else
+        sed -i 's|^DATABASE_URL=.*|DATABASE_URL=file:./dev.db|' .env
+    fi
 else
     echo "DATABASE_URL=file:./dev.db" >> .env
 fi
-
-# Clean up backup files
-rm -f .env.bak
 
 echo "✓ .env configured for SQLite"
 echo ""
