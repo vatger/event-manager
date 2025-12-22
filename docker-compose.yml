@@ -25,6 +25,7 @@ services:
       - VATGER_TOKEN_URL
       - VATGER_USER_INFO
       - VATGER_CONNECT_URL
+      - USE_TEST_DB
       - DB_HOST
       - DB_PORT
       - DB_USER
@@ -39,3 +40,4 @@ services:
       - GOOGLE_SHEET_ID_EDGG
       - GOOGLE_SHEET_ID_EDWW
       - TRAINING_CACHE_REFRESH_CRON
+      - EVENT_REMINDER_CRON
