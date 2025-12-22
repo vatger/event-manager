@@ -10,6 +10,21 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Helper function for cross-platform sed
+update_env_var() {
+    local key=$1
+    local value=$2
+    if grep -q "^${key}=" .env; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i.bak "s|^${key}=.*|${key}=${value}|" .env
+        else
+            sed -i "s|^${key}=.*|${key}=${value}|" .env
+        fi
+    else
+        echo "${key}=${value}" >> .env
+    fi
+}
+
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║   SQLite Test Database Setup for Event Manager          ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
@@ -23,27 +38,10 @@ else
     echo "✓ .env file already exists"
 fi
 
-# Configure for SQLite (use different approach for Linux/Mac compatibility)
+# Configure for SQLite
 echo "⚙️  Configuring .env for SQLite..."
-if grep -q "^USE_TEST_DB=" .env; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i.bak 's/^USE_TEST_DB=.*/USE_TEST_DB=true/' .env
-    else
-        sed -i 's/^USE_TEST_DB=.*/USE_TEST_DB=true/' .env
-    fi
-else
-    echo "USE_TEST_DB=true" >> .env
-fi
-
-if grep -q "^DATABASE_URL=" .env; then
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        sed -i.bak 's|^DATABASE_URL=.*|DATABASE_URL=file:./dev.db|' .env
-    else
-        sed -i 's|^DATABASE_URL=.*|DATABASE_URL=file:./dev.db|' .env
-    fi
-else
-    echo "DATABASE_URL=file:./dev.db" >> .env
-fi
+update_env_var "USE_TEST_DB" "true"
+update_env_var "DATABASE_URL" "file:./dev.db"
 
 echo "✓ .env configured for SQLite"
 echo ""
