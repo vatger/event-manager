@@ -97,7 +97,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       rating: getRatingValue(session?.user.rating || "OBS"),
     },
     event: {
-      airport: event.airports,
+      airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
       fir: "EDMM",
     },
   }), [userCID, session?.user.rating, event.airports]);

@@ -545,9 +545,9 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {formData.airport ? (
+                {formData.airports.length > 0 ? (
                   <StationSelector
-                    airport={formData.airport}
+                    airport={formData.airports[0]}
                     selectedStations={formData.staffedStations}
                     onStationsChange={handleStationsChange}
                     disabled={isSaving}
