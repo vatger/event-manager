@@ -4,6 +4,7 @@ import React, { useEffect, useImperativeHandle, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { Button } from "./ui/button"
 
 // ===================== Types & API =====================
 export type TimeRange = { start: string; end: string }
@@ -252,18 +253,29 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
               return (
                 <Tooltip key={t}>
                   <TooltipTrigger asChild>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => onSlotClick(i)}
                       className={cn(
-                        "h-10 rounded-md border text-xs font-medium transition-colors",
-                        isBlocked && "bg-red-500 text-white border-red-600 hover:bg-red-600",
-                        isPending && !isBlocked && "bg-yellow-400 text-black border-yellow-500",
-                        !isBlocked && !isPending && "bg-green-100 text-foreground hover:bg-green-200 border-green-300"
+                        "h-10 rounded-md border px-3 text-xs font-medium transition-colors",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      
+                        // ❌ Blocked
+                        isBlocked &&
+                          "bg-destructive/50 text-destructive-foreground border-destructive/60 hover:bg-destructive/90",
+                      
+                        // ⏳ Pending
+                        isPending &&
+                          !isBlocked &&
+                          "bg-amber-500/20 text-amber-700 border-amber-500/40 hover:bg-amber-500/30 dark:text-amber-400",
+                      
+                        // ✅ Available
+                        !isBlocked &&
+                          !isPending &&
+                          "bg-green-500/30 text-primary border-primary/40 hover:bg-primary/25"
                       )}
                     >
                       {t}
-                    </button>
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     {isBlocked ? "Klicken, um diesen 30‑Min‑Slot wieder verfügbar zu machen" : pendingStartIdx!=null ? "Endzeit wählen" : "Klicken, um Nicht‑Verfügbarkeit zu starten"}
@@ -284,12 +296,12 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
             </div>
           ) : (
             <div>
-            <div className="font-medium">Unavailable:</div>
+            <div className="font-medium pb-2">Unavailable:</div>
             <ul className="list-disc">
               {ranges.map((r, idx) => {
                 const tr = idxRangeToTimeRange(r, slots)
                 return (
-                  <li key={idx} className="flex items-center justify-between bg-red-100 px-2 py-1 rounded mb-2">
+                  <li key={idx} className="flex items-center bg-destructive/20 dark:bg-destructive/50 justify-between px-2 py-1 rounded mb-2">
                     {tr.start}z – {tr.end}z
                   <button
                   onClick={() => {
@@ -297,7 +309,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
                       prev.filter((_, i) => i !== idx)
                     )
                   }}
-                  className="text-red-600 hover:text-red-800 font-bold ml-2"
+                  className="hover:text-destructive font-bold ml-2"
                 >
                   ✕
                 </button>

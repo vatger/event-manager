@@ -129,7 +129,7 @@ export default function EventsPage() {
         {/* Quick Stats mit Countdown */}
         <div className="flex justify-center gap-6 pt-4 flex-wrap">
           {signedUpEvents.length > 0 && timeUntilNextEvent && (
-            <div className="bg-gradient-to-br from-blue-900 to-blue-300 text-white px-6 py-3 rounded-lg shadow-lg">
+            <div className="bg-gradient-to-br from-blue-900 to-blue-300 dark:via-blue-800/60 dark:to-black text-white px-6 py-3 rounded-lg shadow-lg">
               <div className="text-sm font-medium">Dein nächstes Event in</div>
               <div className="text-2xl font-bold">{timeUntilNextEvent}</div>
             </div>
@@ -214,7 +214,7 @@ export default function EventsPage() {
           </div>
 
           {/* Suchleiste und FIR Filter */}
-          <div className="bg-gray-50 rounded-lg border p-6 mb-6">
+          <div className="bg-card rounded-lg border p-6 mb-6">
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -322,7 +322,7 @@ export default function EventsPage() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                <div className="text-center py-8 bg-secondary rounded-lg border border-dashed border-gray-300">
                   <FolderArchive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-base font-medium text-gray-400 mb-1">
                     Keine vergangenen Events

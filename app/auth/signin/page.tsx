@@ -76,7 +76,13 @@ export default function SignInPage() {
             {isDevMode && (
               <Button 
               onClick={() => signIn("vatsim-sandbox", { callbackUrl: "/" })}
-              className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all duration-200 bg-blue-900"
+              className="
+                w-full h-12
+                bg-blue-900
+                text-white
+                transition-all duration-400
+                dark:hover:text-black
+              "
               size="lg"
               >
               <CodesandboxIcon className="mr-2 h-5 w-5" />
@@ -85,7 +91,13 @@ export default function SignInPage() {
             )}
             <Button 
               onClick={() => signIn("vatsim", { callbackUrl: "/" })}
-              className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all duration-200 bg-blue-900"
+              className="
+                w-full h-12
+                bg-blue-900
+                text-white
+                transition-all duration-400
+                dark:hover:text-black
+              "
               size="lg"
             >
               <LogInIcon className="mr-2 h-5 w-5" />

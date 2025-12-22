@@ -399,7 +399,7 @@ export default function EventCalendar() {
                   <h4 className="font-medium mb-2">Blockierungen:</h4>
                   <div className="space-y-2">
                     {getBlockedDatesForDay(selectedDate).map((blocked) => (
-                      <div key={blocked.id} className="p-3 border border-red-200 bg-red-50 dark:bg-red-950 rounded-lg">
+                      <div key={blocked.id} className="p-3 border border-red-200 bg-red-50 dark:bg-red-950 dark:border-border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="font-medium text-red-800 dark:text-red-100">{blocked.reason}</div>

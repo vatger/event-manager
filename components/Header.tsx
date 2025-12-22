@@ -38,7 +38,7 @@ export default function Header() {
           {/* Logo Bereich - unverändert */}
           <Link href="/">
             <div className="flex items-center gap-3 px-2 hover:bg-accent rounded-lg transition-colors duration-200">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900 shadow-sm">
               <Image
                 src="/logo.png"
                 alt="Logo"

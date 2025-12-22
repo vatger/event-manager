@@ -499,11 +499,16 @@ export default function EventNotificationPage() {
 
               {/* Vorschau */}
               {notificationMessage && (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                <Alert
+                  className="
+                    border-blue-200 bg-blue-50 text-blue-900
+                    dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200
+                  "
+                >
+                 <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    <div className="font-medium text-blue-800 mb-1">Vorschau:</div>
-                    <div className="text-sm text-blue-700">
+                    <div className="font-medium mb-1">Vorschau:</div>
+                    <div className="text-sm">
                       <div className="font-semibold">
                         {notificationTitle || `Update - ${event.name}`}
                       </div>
@@ -543,7 +548,13 @@ export default function EventNotificationPage() {
               </Button>
 
               {/* Hinweise */}
-              <Alert variant="default" className="bg-amber-50 border-amber-200">
+              <Alert
+                variant="default"
+                className="
+                  border-amber-200 bg-amber-50 text-amber-900
+                  dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-300
+                "
+              >
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-sm">
                   <strong>Hinweis:</strong> Benachrichtigungen werden sowohl im Eventsystem 

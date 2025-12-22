@@ -268,7 +268,12 @@ export default function EventOverviewPage() {
 
               {/* Zusätzliche Info je nach Status */}
               {event.status === "SIGNUP_OPEN" && event.signupDeadline && (
-                <Alert className="bg-blue-50 border-blue-200">
+                <Alert
+                  className="
+                    border-blue-200 bg-blue-50 text-blue-900
+                    dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200
+                  "
+                >
                   <AlertCircle className="h-4 w-4 text-blue-600" />
                   <AlertDescription>
                     Anmeldung offen bis: <strong>{formatDate(event.signupDeadline)}</strong>
