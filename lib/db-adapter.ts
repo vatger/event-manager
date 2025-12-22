@@ -10,6 +10,10 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
  * @returns Database adapter for PrismaClient
  */
 export function createDatabaseAdapter() {
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return undefined;
+  }
+  
   const useTestDb = process.env.USE_TEST_DB === "true";
 
   if (useTestDb) {
