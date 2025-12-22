@@ -17,6 +17,7 @@ import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { normalizeAirportCode, isValidAirportCode } from "@/utils/airportUtils";
 
 interface FormData {
   name: string;
@@ -150,22 +151,22 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
   const [newAirport, setNewAirport] = useState("");
   
   const handleAddAirport = () => {
-    const airport = newAirport.trim().toUpperCase();
-    if (!airport) return;
+    const normalized = normalizeAirportCode(newAirport);
+    if (!normalized) return;
     
-    if (airport.length !== 4) {
+    if (!isValidAirportCode(normalized)) {
       toast.error("ICAO-Code muss genau 4 Zeichen lang sein");
       return;
     }
     
-    if (formData.airports.includes(airport)) {
+    if (formData.airports.includes(normalized)) {
       toast.error("Airport bereits hinzugefügt");
       return;
     }
     
     setFormData(prev => ({
       ...prev,
-      airports: [...prev.airports, airport]
+      airports: [...prev.airports, normalized]
     }));
     setNewAirport("");
   };
@@ -202,7 +203,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         bannerUrl: formData.bannerUrl.trim(),
         startTime: formData.startTime,
         endTime: formData.endTime,
-        airports: formData.airports.map(a => a.trim().toUpperCase()), // Support multiple airports
+        airports: formData.airports.map(normalizeAirportCode),
         staffedStations: formData.staffedStations,
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
@@ -266,7 +267,8 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
 
     // Validate all airports are 4 characters
     for (const airport of formData.airports) {
-      if (!airport.trim() || airport.trim().length !== 4) {
+      const normalized = normalizeAirportCode(airport);
+      if (!isValidAirportCode(normalized)) {
         setError(`Ungültiger ICAO-Code: ${airport}. Alle Codes müssen 4 Zeichen lang sein.`);
         setActiveTab("basic");
         return false;

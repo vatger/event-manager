@@ -184,12 +184,14 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     useImperativeHandle(ref, () => ({
       reload: loadSignups,
     }));
-    // Initial Load (only if not using filtered signups)
+    // Initial Load - either from API or use provided filtered signups
     useEffect(() => {
-      if (!filteredSignups) {
-        loadSignups();
-      } else {
+      if (filteredSignups) {
+        // Using pre-filtered signups from parent component
         setLoading(false);
+      } else {
+        // Load from API
+        loadSignups();
       }
     }, [loadSignups, filteredSignups]);
 

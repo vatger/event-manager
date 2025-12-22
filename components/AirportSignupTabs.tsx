@@ -93,7 +93,7 @@ export default function AirportSignupTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${airports.length + 1}, 1fr)` }}>
+      <TabsList className="grid w-full auto-cols-fr" style={{ gridTemplateColumns: `repeat(${airports.length + 1}, minmax(0, 1fr))` }}>
         <TabsTrigger value="all" className="gap-2">
           <Plane className="h-4 w-4" />
           Alle Airports

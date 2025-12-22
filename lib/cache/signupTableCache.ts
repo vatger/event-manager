@@ -1,4 +1,3 @@
-// lib/cache/signupTableCache.ts
 import prisma from "@/lib/prisma";
 import { getCache, setCache, invalidateCache } from "./cacheManager";
 import { GroupService } from "@/lib/endorsements/groupService";
@@ -7,6 +6,7 @@ import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
+import { normalizeSelectedAirports } from "@/utils/airportUtils";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
@@ -67,7 +67,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: result,
-          selectedAirports: s.selectedAirports ? (Array.isArray(s.selectedAirports) ? s.selectedAirports as string[] : []) : [],
+          selectedAirports: normalizeSelectedAirports(s.selectedAirports),
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -88,7 +88,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: null,
-          selectedAirports: s.selectedAirports ? (Array.isArray(s.selectedAirports) ? s.selectedAirports as string[] : []) : [],
+          selectedAirports: normalizeSelectedAirports(s.selectedAirports),
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
