@@ -194,12 +194,12 @@ export default function EventsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
+              <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
                 Keine offenen Events
               </h3>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 Derzeit gibt es keine Events, für die du dich anmelden kannst.
               </p>
             </div>
@@ -266,12 +266,12 @@ export default function EventsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-              <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
+              <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
                 Keine Events gefunden
               </h3>
-              <p className="text-gray-500">
+              <p className="text-muted-foreground">
                 {searchQuery || selectedFIR !== "all" 
                   ? "Keine Events entsprechen deinen Suchfiltern." 
                   : "Keine zukünftigen Events verfügbar."

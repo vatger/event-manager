@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { Plane } from "lucide-react";
+import Link from "next/link";
 
 export default function SignInPage() {
   const { data: session, status } = useSession();
@@ -32,11 +33,11 @@ export default function SignInPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <Button 
-              onClick={() => window.location.href = "/"}
+              asChild
               className="w-full"
               size="lg"
             >
-              Zur Startseite
+              <Link href="/">Zur Startseite</Link>
             </Button>
           </CardContent>
         </Card>
