@@ -91,6 +91,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     
   }, [signupData, hydrated, eventAirports]);
 
+  // Auto-endorsement uses the first airport as a representative
+  // This is acceptable as endorsements are typically valid across all airports in an event
   const autoEndorsementProps = useMemo(() => ({
     user: {
       userCID: Number(userCID),

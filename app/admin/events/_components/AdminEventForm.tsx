@@ -266,13 +266,11 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     }
 
     // Validate all airports are 4 characters
-    for (const airport of formData.airports) {
-      const normalized = normalizeAirportCode(airport);
-      if (!isValidAirportCode(normalized)) {
-        setError(`Ungültiger ICAO-Code: ${airport}. Alle Codes müssen 4 Zeichen lang sein.`);
-        setActiveTab("basic");
-        return false;
-      }
+    const invalidAirport = formData.airports.find(airport => !isValidAirportCode(normalizeAirportCode(airport)));
+    if (invalidAirport) {
+      setError(`Ungültiger ICAO-Code: ${invalidAirport}. Alle Codes müssen 4 Zeichen lang sein.`);
+      setActiveTab("basic");
+      return false;
     }
 
     const startTime = new Date(formData.startTime);

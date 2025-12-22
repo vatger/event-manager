@@ -186,11 +186,11 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     }));
     // Initial Load - either from API or use provided filtered signups
     useEffect(() => {
-      if (filteredSignups) {
+      if (filteredSignups !== undefined) {
         // Using pre-filtered signups from parent component
         setLoading(false);
       } else {
-        // Load from API
+        // Load from API when no filtered signups provided
         loadSignups();
       }
     }, [loadSignups, filteredSignups]);

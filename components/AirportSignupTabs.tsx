@@ -93,23 +93,25 @@ export default function AirportSignupTabs({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full auto-cols-fr" style={{ gridTemplateColumns: `repeat(${airports.length + 1}, minmax(0, 1fr))` }}>
-        <TabsTrigger value="all" className="gap-2">
-          <Plane className="h-4 w-4" />
-          Alle Airports
-          <Badge variant="secondary" className="ml-1">
-            {signups.filter(s => !s.deletedAt).length}
-          </Badge>
-        </TabsTrigger>
-        {airports.map(airport => (
-          <TabsTrigger key={airport} value={airport} className="gap-2">
-            {airport}
+      <div className="w-full overflow-x-auto">
+        <TabsList className="inline-grid w-full min-w-max auto-cols-fr gap-1" style={{ gridTemplateColumns: `repeat(${airports.length + 1}, minmax(120px, 1fr))` }}>
+          <TabsTrigger value="all" className="gap-2">
+            <Plane className="h-4 w-4" />
+            Alle Airports
             <Badge variant="secondary" className="ml-1">
-              {airportStats[airport]?.total || 0}
+              {signups.filter(s => !s.deletedAt).length}
             </Badge>
           </TabsTrigger>
-        ))}
-      </TabsList>
+          {airports.map(airport => (
+            <TabsTrigger key={airport} value={airport} className="gap-2">
+              {airport}
+              <Badge variant="secondary" className="ml-1">
+                {airportStats[airport]?.total || 0}
+              </Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
 
       <TabsContent value="all" className="space-y-4 mt-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
