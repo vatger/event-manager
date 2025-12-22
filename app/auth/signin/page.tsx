@@ -62,17 +62,6 @@ export default function SignInPage() {
               <Plane className="mr-2 h-5 w-5" />
               Mit VATSIM Connect anmelden
             </Button>
-            
-            {process.env.NEXT_PUBLIC_DEV_MODE === "true" && (
-              <Button 
-                onClick={() => signIn("vatsim-sandbox", { callbackUrl: "/" })}
-                variant="outline"
-                className="w-full h-12 text-base font-medium"
-                size="lg"
-              >
-                Mit VATSIM Sandbox anmelden
-              </Button>
-            )}
 
             <div className="pt-4 text-center">
               <p className="text-xs text-muted-foreground">
