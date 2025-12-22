@@ -444,6 +444,7 @@ export default function EventCalendar() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleEditBlockedDate(blocked)}
+                                aria-label="Blockierung bearbeiten"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
@@ -451,6 +452,7 @@ export default function EventCalendar() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleDeleteBlockedDate(blocked.id)}
+                                aria-label="Blockierung löschen"
                               >
                                 Löschen
                               </Button>
