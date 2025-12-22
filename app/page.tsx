@@ -122,7 +122,7 @@ export default function EventsPage() {
         <h1 className="text-4xl font-bold tracking-tight">
           Willkommen{session?.user?.name && `, ${session.user.name.split(' ')[0]}`}
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Melde dich hier für Events der einzelnen FIRs an.
         </p>
         
@@ -143,8 +143,8 @@ export default function EventsPage() {
           <section className="mb-12">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-1">Deine Events</h2>
-                <p className="text-gray-600 text-sm">
+                <h2 className="text-xl font-semibold text-foreground mb-1">Deine Events</h2>
+                <p className="text-muted-foreground text-sm">
                   {signedUpEvents.length} angemeldet{signedUpEvents.length !== 1 ? 'e' : 'es'} Event{signedUpEvents.length !== 1 ? 's' : ''}
                 </p>
               </div>
@@ -170,8 +170,8 @@ export default function EventsPage() {
         <section className="mb-12">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Controlleranmeldungen</h2>
-              <p className="text-gray-600 text-sm">
+              <h2 className="text-xl font-semibold text-foreground mb-1">Controlleranmeldungen</h2>
+              <p className="text-muted-foreground text-sm">
                 {openEvents.length} verfügbar{openEvents.length !== 1 ? 'e' : 'es'} Event{openEvents.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -196,7 +196,7 @@ export default function EventsPage() {
           ) : (
             <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
               <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 Keine offenen Events
               </h3>
               <p className="text-gray-500">
@@ -209,8 +209,8 @@ export default function EventsPage() {
         {/* FIR Filter & Suche */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-1">Events nach FIR</h2>
-            <p className="text-gray-600 text-sm">Schaue die Events der einzelnen FIRs an</p>
+            <h2 className="text-xl font-semibold text-foreground mb-1">Events nach FIR</h2>
+            <p className="text-muted-foreground text-sm">Schaue die Events der einzelnen FIRs an</p>
           </div>
 
           {/* Suchleiste und FIR Filter */}
@@ -268,7 +268,7 @@ export default function EventsPage() {
           ) : (
             <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
               <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 Keine Events gefunden
               </h3>
               <p className="text-gray-500">
@@ -285,8 +285,8 @@ export default function EventsPage() {
         <section>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Archiv</h2>
-              <p className="text-gray-600 text-sm">
+              <h2 className="text-xl font-semibold text-foreground mb-1">Archiv</h2>
+              <p className="text-muted-foreground text-sm">
                 {archivedEvents.length} vergangen{archivedEvents.length !== 1 ? 'e' : 'es'} Event{archivedEvents.length !== 1 ? 's' : ''}
               </p>
             </div>

@@ -239,12 +239,12 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         )}
 
          {signups.length === 0 ? (
-          <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <UserSearch className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
+          <UserSearch className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">
             Keine Anmeldungen gefunden
           </h3>
-          <p className="text-gray-500">
+          <p className="text-muted-foreground">
             Derzeit gibt es noch keine Anmeldungen, für dieses Event.
           </p>
         </div>
