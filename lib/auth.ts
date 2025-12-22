@@ -111,7 +111,7 @@ interface VatsimProfile {
 // Deine gesamte authOptions Konfiguration hier...
 export const authOptions: NextAuthOptions = {
     providers: [
-      ...(process.env.DEV_MODE === "true" 
+      ...(process.env.NEXT_PUBLIC_DEV_MODE === "true" 
         ? [VatsimSandboxProvider, VatgerProvider] 
         : [VatgerProvider]
       ),

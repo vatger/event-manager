@@ -4,11 +4,13 @@ import { useSession, signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
-import { Plane } from "lucide-react";
+import { CodesandboxIcon, LogInIcon, Plane } from "lucide-react";
 import Link from "next/link";
 
 export default function SignInPage() {
   const { data: session, status } = useSession();
+  const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+
 
   if (status === "loading") {
     return (
@@ -49,9 +51,9 @@ export default function SignInPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-2xl border-0 dark:border">
-          <CardHeader className="space-y-4 pb-8">
+          <CardHeader className="space-y-4 pb-2">
             <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-900 shadow-lg">
                 <Image
                   src="/logo.png"
                   alt="VATGER Logo"
@@ -66,25 +68,29 @@ export default function SignInPage() {
                 Willkommen zurück
               </CardTitle>
               <CardDescription className="text-base">
-                Melde dich mit deinem VATSIM Account an
+                Melde dich beim VATGER Eventmanager an
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isDevMode && (
+              <Button 
+              onClick={() => signIn("vatsim-sandbox", { callbackUrl: "/" })}
+              className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all duration-200 bg-blue-900"
+              size="lg"
+              >
+              <CodesandboxIcon className="mr-2 h-5 w-5" />
+              Mit VATSIM Sandbox anmelden
+              </Button>
+            )}
             <Button 
               onClick={() => signIn("vatsim", { callbackUrl: "/" })}
-              className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all duration-200"
+              className="w-full h-12 text-base font-medium shadow-md hover:shadow-lg transition-all duration-200 bg-blue-900"
               size="lg"
             >
-              <Plane className="mr-2 h-5 w-5" />
-              Mit VATSIM Connect anmelden
+              <LogInIcon className="mr-2 h-5 w-5" />
+              Mit VATGER Connect anmelden
             </Button>
-
-            <div className="pt-4 text-center">
-              <p className="text-xs text-muted-foreground">
-                Durch die Anmeldung stimmst du der Verwendung deiner VATSIM-Daten zu.
-              </p>
-            </div>
           </CardContent>
         </Card>
         
