@@ -116,6 +116,9 @@ export const authOptions: NextAuthOptions = {
         : [VatgerProvider]
       ),
     ],
+    pages: {
+      signIn: "/auth/signin",
+    },
     callbacks: {
       async signIn({ user }) {
         const cid = Number(user.cid);

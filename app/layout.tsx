@@ -5,6 +5,7 @@ import SessionProviderWrapper from "./SessionProviderWrapper";
 import Protected from "@/components/Protected";
 import { Toaster } from "@/components/ui/sonner";
 import ClientLayout from "./ClientLayout";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,14 +24,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="de">
+    <html lang="de" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background`}>
-        <SessionProviderWrapper>
-          <Protected>
-            <ClientLayout>{children}</ClientLayout>
-          </Protected>
-        </SessionProviderWrapper>
-        <Toaster />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <SessionProviderWrapper>
+            <Protected>
+              <ClientLayout>{children}</ClientLayout>
+            </Protected>
+          </SessionProviderWrapper>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

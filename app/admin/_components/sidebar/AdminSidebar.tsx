@@ -19,6 +19,7 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
+import { ModeToggle } from "@/components/ModeToggle";
 
 interface AdminSidebarProps {
   user: {
@@ -187,7 +188,7 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="border-t p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           {/* Avatar Circle */}
           <div className={`flex items-center justify-center h-8 w-8 rounded-full ${getAvatarColor(user.name)} text-white font-semibold text-sm shadow-sm`}>
             {getInitials()}
@@ -205,6 +206,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
           >
             <LogOut className="h-4 w-4" />
           </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <ModeToggle />
+          </div>
         </div>
       </SidebarFooter>
     </Sidebar>

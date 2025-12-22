@@ -57,7 +57,7 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
     <header className="flex h-18 shrink-0 items-center gap-2 border-b bg-background px-4 lg:px-6">
       <SidebarTrigger className="-ml-1" />
       <div className="flex flex-1 items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+        <h1 className="text-lg font-semibold text-foreground">{title}</h1>
         <div className="flex items-center gap-3">
           <NotificationsWidget />
           {currentUser && (
@@ -65,7 +65,7 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  className="h-10 px-3 rounded-full hover:bg-gray-100 transition-colors duration-200 group"
+                  className="h-10 px-3 rounded-full hover:bg-accent transition-colors duration-200 group"
                 >
                   <div className="flex items-center gap-3">
                     {/* Avatar Circle */}
@@ -75,33 +75,33 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
                     
                     {/* User Info - nur auf Desktop */}
                     <div className="hidden md:flex flex-col items-start max-w-32">
-                      <span className="text-sm font-medium text-gray-900 leading-none truncate">
+                      <span className="text-sm font-medium text-foreground leading-none truncate">
                         {currentUser.name?.split(' ')[0] || "Admin"}
                       </span>
-                      <span className="text-xs text-gray-500 leading-none mt-0.5 truncate">
+                      <span className="text-xs text-muted-foreground leading-none mt-0.5 truncate">
                       {currentUser.effectiveLevel == "USER" ? "EVENTLER" : currentUser.effectiveLevel}
                       </span>
                     </div>
                     
                     {/* Chevron Icon */}
-                    <ChevronDown className="w-4 h-4 text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                   </div>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent 
                 align="end" 
-                className="w-72 rounded-xl shadow-lg border border-gray-200 p-2"
+                className="w-72 rounded-xl shadow-lg border p-2"
               >
                 {/* User Info Section */}
-                <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-gray-50 mb-2">
+                <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-muted mb-2">
                   <div className={`flex items-center justify-center h-12 w-12 rounded-full ${getAvatarColor(currentUser.name)} text-white font-semibold text-base shadow-sm`}>
                     {getInitials()}
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate capitalize">
+                      <p className="text-sm font-semibold text-foreground truncate capitalize">
                         {currentUser.name || "User N/A"}
                       </p>
-                      <p className="text-xs text-gray-500 truncate">
+                      <p className="text-xs text-muted-foreground truncate">
                         {currentUser.rating} • {currentUser.fir ? ("FIR: " + currentUser.fir.code) : "VATSIM Germany"}
                       </p>
                       <Badge 
@@ -118,7 +118,7 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
                 {/* Sign Out */}
                 <DropdownMenuItem 
                   onClick={() => signOut()}
-                  className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                  className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950"
                 >
                   <LogOut className="w-4 h-4 mr-3" />
                   <div className="flex flex-col">

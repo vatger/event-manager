@@ -15,6 +15,7 @@ import Image from "next/image";
 import { LogOut, ChevronDown, CalendarRange } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
+import { ModeToggle } from "@/components/ModeToggle";
 
 export default function Header() {
   const { data: session } = useSession();
@@ -31,13 +32,13 @@ export default function Header() {
 
   
   return (
-    <header className="w-full border-b bg-white/95 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60">
+    <header className="w-full border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
       <div className="px-4 sm:px-6">
         <div className="flex justify-between items-center h-16">
           {/* Logo Bereich - unverändert */}
           <Link href="/">
-            <div className="flex items-center gap-3 px-2 hover:bg-gray-50 rounded-lg transition-colors duration-200">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900 shadow-sm">
+            <div className="flex items-center gap-3 px-2 hover:bg-accent rounded-lg transition-colors duration-200">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary shadow-sm">
               <Image
                 src="/logo.png"
                 alt="Logo"
@@ -47,8 +48,8 @@ export default function Header() {
               />
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-gray-900 tracking-tight">Eventmanager</span>
-                <span className="text-xs text-gray-500">VATSIM Germany</span>
+                <span className="font-bold text-foreground tracking-tight">Eventmanager</span>
+                <span className="text-xs text-muted-foreground">VATSIM Germany</span>
               </div>
             </div>
           </Link>
@@ -57,6 +58,9 @@ export default function Header() {
             <div className="flex items-center gap-4">
               {/* Desktop Version */}
               <div className="hidden md:flex items-center gap-3">
+                {/* Theme Toggle */}
+                <ModeToggle />
+                
                 {/* Notifications */}
                 <div className="relative">
                   <NotificationsWidget />
@@ -67,7 +71,7 @@ export default function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
-                      className="h-10 px-3 rounded-full hover:bg-gray-100 transition-colors duration-200 group"
+                      className="h-10 px-3 rounded-full hover:bg-accent transition-colors duration-200 group"
                     >
                       <div className="flex items-center gap-3">
                         {/* Avatar Circle */}
@@ -77,33 +81,33 @@ export default function Header() {
                         
                         {/* User Info */}
                         <div className="flex flex-col items-start max-w-32">
-                          <span className="text-sm font-medium text-gray-900 leading-none truncate">
+                          <span className="text-sm font-medium text-foreground leading-none truncate">
                             {session.user?.name?.split(' ')[0] || "User"}
                           </span>
-                          <span className="text-xs text-gray-500 leading-none mt-0.5 truncate">
+                          <span className="text-xs text-muted-foreground leading-none mt-0.5 truncate">
                             {session.user?.rating}
                           </span>
                         </div>
                         
                         {/* Chevron Icon */}
-                        <ChevronDown className="w-4 h-4 text-gray-400 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        <ChevronDown className="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </div>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent 
                     align="end" 
-                    className="w-64 rounded-xl shadow-lg border border-gray-200 p-2"
+                    className="w-64 rounded-xl shadow-lg border p-2"
                   >
                     {/* User Info Section */}
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-gray-50 mb-2">
+                    <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-muted mb-2">
                       <div className={`flex items-center justify-center h-10 w-10 rounded-full ${getAvatarColor(session.user.name)} text-white font-semibold text-sm shadow-sm`}>
                         {getInitials()}
                       </div>
                       <div className="flex flex-col min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-900 truncate capitalize">
+                        <p className="text-sm font-semibold text-foreground truncate capitalize">
                           {session.user?.name || "User N/A"}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                         {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATSIM Germany"}
                         </p>
                       </div>
@@ -115,7 +119,7 @@ export default function Header() {
                     {hasAdminAcess() && (
                       <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer mb-1">
                         <Link href="/admin/events" className="flex items-center w-full">
-                          <CalendarRange className="w-4 h-4 mr-3 text-blue-900" />
+                          <CalendarRange className="w-4 h-4 mr-3 text-primary" />
                           <div className="flex flex-col">
                             <span className="text-sm font-medium">Admin Bereich</span>
                           </div>
@@ -126,7 +130,7 @@ export default function Header() {
                     {/* Sign Out */}
                     <DropdownMenuItem 
                       onClick={() => signOut()}
-                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       <div className="flex flex-col">
@@ -139,6 +143,9 @@ export default function Header() {
 
               {/* Mobile Version */}
               <div className="flex md:hidden items-center gap-2">
+                {/* Theme Toggle */}
+                <ModeToggle />
+                
                 {/* Notifications */}
                 <div className="relative">
                   <NotificationsWidget />
@@ -150,7 +157,7 @@ export default function Header() {
                     <Button 
                       variant="ghost" 
                       size="icon"
-                      className="h-10 w-10 rounded-full hover:bg-gray-100"
+                      className="h-10 w-10 rounded-full hover:bg-accent"
                     >
                       <div className={`flex items-center justify-center h-8 w-8 rounded-full ${getAvatarColor(session.user.name)} text-white font-semibold text-sm shadow-sm`}>
                         {getInitials()}
@@ -159,18 +166,18 @@ export default function Header() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent 
                     align="end" 
-                    className="w-64 rounded-xl shadow-lg border border-gray-200 p-2"
+                    className="w-64 rounded-xl shadow-lg border p-2"
                   >
                     {/* User Info Section */}
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-gray-50 mb-2">
+                    <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-muted mb-2">
                       <div className={`flex items-center justify-center h-10 w-10 rounded-full ${getAvatarColor(session.user.name)} text-white font-semibold text-sm shadow-sm`}>
                         {getInitials()}
                       </div>
                       <div className="flex flex-col min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-gray-900 truncate capitalize">
+                        <p className="text-sm font-semibold text-foreground truncate capitalize">
                           {session.user?.name || "User N/A"}
                         </p>
-                        <p className="text-xs text-gray-500 truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATSIM Germany"}
                         </p>
                       </div>
@@ -182,7 +189,7 @@ export default function Header() {
                     {hasAdminAcess() && (
                       <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer mb-1">
                         <Link href="/admin" className="flex items-center w-full">
-                          <CalendarRange className="w-4 h-4 mr-3 text-blue-600" />
+                          <CalendarRange className="w-4 h-4 mr-3 text-primary" />
                           <span className="text-sm font-medium">Admin Bereich</span>
                         </Link>
                       </DropdownMenuItem>
@@ -191,7 +198,7 @@ export default function Header() {
                     {/* Sign Out */}
                     <DropdownMenuItem 
                       onClick={() => signOut()}
-                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       <span className="text-sm font-medium">Abmelden</span>
