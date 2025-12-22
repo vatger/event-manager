@@ -1,16 +1,9 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { createDatabaseAdapter } from "../lib/db-adapter";
 import chalk from "chalk";
 
-const config = {
-  host: process.env.DB_HOST || "localhost",
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  connectionLimit: 5,
-};
-const adapter = new PrismaMariaDb(config);
+const adapter = createDatabaseAdapter();
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

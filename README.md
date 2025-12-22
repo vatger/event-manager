@@ -22,8 +22,34 @@ Development:
 3. Edit the values stored in the `.env` file
    - Configure Google Sheets credentials
    - (Optional) Set FIR-specific sheet IDs: `GOOGLE_SHEET_ID_EDMM`, `GOOGLE_SHEET_ID_EDGG`, `GOOGLE_SHEET_ID_EDWW`
-4. Initialize the Database `npx prisma migrate dev`
-4. Run `npm run dev`
+4. **Choose your database:**
+   - **Option A (Easy - SQLite):** No MySQL installation required!
+     ```bash
+     # In .env, set:
+     USE_TEST_DB=true
+     DATABASE_URL=file:./dev.db
+     
+     # Then run:
+     npx prisma generate --schema=prisma/schema.sqlite.prisma
+     npx prisma db push --schema=prisma/schema.sqlite.prisma
+     npx tsx prisma/seed.ts  # Optional: add initial data
+     ```
+   - **Option B (MySQL/MariaDB):**
+     ```bash
+     # In .env, configure:
+     USE_TEST_DB=false
+     DATABASE_URL=mysql://user:password@localhost:3306/dbname
+     DB_HOST=localhost
+     DB_PORT=3306
+     DB_USER=user
+     DB_PASSWORD=password
+     DB_NAME=dbname
+     
+     # Then run:
+     npx prisma migrate dev
+     ```
+   - See [SQLite Test Database Guide](docs/SQLITE_TEST_DATABASE.md) for more details
+5. Run `npm run dev`
 
 Alternatively, you can build the project using Docker and the `docker-compose.yml`. 
 Note that you will be required to add the environment variables to your development environment.
