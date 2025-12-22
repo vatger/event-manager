@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Ban,
   Clock,
+  Pencil,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO, getISODay, getDate } from "date-fns";
 import { de } from "date-fns/locale";
@@ -51,6 +52,7 @@ export default function EventCalendar() {
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingBlockId, setEditingBlockId] = useState<number | null>(null);
   
   const { isVATGERLead } = useUser();
   const router = useRouter();
@@ -147,6 +149,7 @@ export default function EventCalendar() {
 
   const handleDayClick = (day: Date) => {
     setSelectedDate(day);
+    setEditingBlockId(null);
     setBlockForm({
       startDate: format(day, "yyyy-MM-dd"),
       endDate: format(day, "yyyy-MM-dd"),
@@ -155,6 +158,19 @@ export default function EventCalendar() {
       reason: "",
       description: "",
     });
+  };
+
+  const handleEditBlockedDate = (blocked: BlockedDate) => {
+    setEditingBlockId(blocked.id);
+    setBlockForm({
+      startDate: format(parseISO(blocked.startDate), "yyyy-MM-dd"),
+      endDate: format(parseISO(blocked.endDate), "yyyy-MM-dd"),
+      startTime: blocked.startTime || "",
+      endTime: blocked.endTime || "",
+      reason: blocked.reason,
+      description: blocked.description || "",
+    });
+    setShowBlockDialog(true);
   };
 
   const handleBlockDate = async () => {
@@ -167,8 +183,13 @@ export default function EventCalendar() {
     setError("");
 
     try {
-      const res = await fetch("/api/calendar/blocked-dates", {
-        method: "POST",
+      const method = editingBlockId ? "PATCH" : "POST";
+      const url = editingBlockId 
+        ? `/api/calendar/blocked-dates/${editingBlockId}`
+        : "/api/calendar/blocked-dates";
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           startDate: new Date(blockForm.startDate).toISOString(),
@@ -182,10 +203,11 @@ export default function EventCalendar() {
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.message || "Fehler beim Blockieren des Datums");
+        throw new Error(errorData.message || "Fehler beim Speichern der Blockierung");
       }
 
       setShowBlockDialog(false);
+      setEditingBlockId(null);
       setBlockForm({ startDate: "", endDate: "", startTime: "", endTime: "", reason: "", description: "" });
       fetchCalendarData();
     } catch (err) {
@@ -417,13 +439,22 @@ export default function EventCalendar() {
                             </div>
                           </div>
                           {isVATGERLead() && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteBlockedDate(blocked.id)}
-                            >
-                              Löschen
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditBlockedDate(blocked)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteBlockedDate(blocked.id)}
+                              >
+                                Löschen
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -453,12 +484,21 @@ export default function EventCalendar() {
       )}
 
       {/* Block Date Dialog */}
-      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+      <Dialog open={showBlockDialog} onOpenChange={(open) => {
+        setShowBlockDialog(open);
+        if (!open) {
+          setEditingBlockId(null);
+          setError("");
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Datum blockieren</DialogTitle>
+            <DialogTitle>{editingBlockId ? "Blockierung bearbeiten" : "Datum blockieren"}</DialogTitle>
             <DialogDescription>
-              Blockieren Sie ein Datum oder einen Zeitraum, an dem keine FIR ein Event planen soll.
+              {editingBlockId 
+                ? "Bearbeiten Sie die Blockierung eines Datums oder Zeitraums."
+                : "Blockieren Sie ein Datum oder einen Zeitraum, an dem keine FIR ein Event planen soll."
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -538,11 +578,15 @@ export default function EventCalendar() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBlockDialog(false)} disabled={busy}>
+            <Button variant="outline" onClick={() => {
+              setShowBlockDialog(false);
+              setEditingBlockId(null);
+              setError("");
+            }} disabled={busy}>
               Abbrechen
             </Button>
             <Button onClick={handleBlockDate} disabled={busy}>
-              {busy ? "Wird blockiert..." : "Blockieren"}
+              {busy ? (editingBlockId ? "Wird gespeichert..." : "Wird blockiert...") : (editingBlockId ? "Speichern" : "Blockieren")}
             </Button>
           </DialogFooter>
         </DialogContent>
