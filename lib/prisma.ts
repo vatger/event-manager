@@ -3,10 +3,12 @@ import { createDatabaseAdapter } from "./db-adapter";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+const adapter = createDatabaseAdapter();
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
-    adapter: createDatabaseAdapter(),
+    ...(adapter ? { adapter } : {}),
     log: ["error", "warn"],
   });
 
