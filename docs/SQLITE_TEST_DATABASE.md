@@ -109,12 +109,14 @@ npx tsx prisma/seed.ts
 When you need to create a new migration for production:
 
 1. **Update BOTH schema files**:
-   - Edit `prisma/schema.prisma` (MySQL schema - main version)
-   - Make the **same changes** to `prisma/schema.sqlite.prisma`
+   - **PRIMARY**: Edit `prisma/schema.prisma` (MySQL schema)
+   - **MIRROR**: Copy changes to `prisma/schema.sqlite.prisma`
    
-   **Note:** The only differences between the schemas should be:
-   - `provider` field (mysql vs sqlite)
-   - JSON columns (MySQL uses `Json` type, SQLite uses `String`)
+   **Important:** The two schemas should be identical except for:
+   - Line 1-4: Comments and provider declaration
+   - `datasource db { provider }` field only (mysql vs sqlite)
+   
+   Everything else (models, fields, relations, etc.) MUST be identical.
 
 2. **Create migration with MySQL**:
    ```bash
@@ -128,6 +130,12 @@ When you need to create a new migration for production:
    npx prisma db push --schema=prisma/schema.sqlite.prisma
    npx prisma generate --schema=prisma/schema.sqlite.prisma
    ```
+
+**Pro Tip**: You can use `diff` to verify schemas are in sync:
+```bash
+diff -u <(grep -v "^datasource\|^}\|^  provider\|^//.*This file" prisma/schema.prisma) \
+        <(grep -v "^datasource\|^}\|^  provider\|^//.*This file" prisma/schema.sqlite.prisma)
+```
 
 This ensures migrations are created in MySQL format (for production) while keeping SQLite development working.
 
@@ -247,7 +255,19 @@ This approach ensures:
 3. Set all `DB_*` variables for the MariaDB adapter
 4. Run migrations: `npx prisma migrate deploy`
 
-## Additional Resources
+## Known Limitations with SQLite
+
+While SQLite works great for development, there are a few limitations compared to MySQL:
+
+1. **`skipDuplicates` not supported**: SQLite doesn't support the `skipDuplicates` option in `createMany`. Some code may have TypeScript warnings about this, but it won't affect most development workflows.
+
+2. **No native JSON validation**: SQLite stores JSON as TEXT without validation. Always ensure your JSON data is valid.
+
+3. **Different date handling**: SQLite stores dates as TEXT. Prisma handles this automatically, but be aware of potential timezone differences.
+
+4. **Limited concurrent writes**: SQLite uses file-based locking. This is fine for development but not suitable for production.
+
+These limitations are why we use MySQL/MariaDB in production while allowing SQLite for convenient local development.
 
 - [Prisma Adapters Documentation](https://www.prisma.io/docs/orm/overview/databases/database-drivers)
 - [Prisma SQLite Documentation](https://www.prisma.io/docs/orm/overview/databases/sqlite)
