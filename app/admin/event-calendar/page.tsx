@@ -19,6 +19,7 @@ import {
   Ban,
   Clock,
   Pencil,
+  TrashIcon,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO, getISODay, getDate } from "date-fns";
 import { de } from "date-fns/locale";
@@ -454,7 +455,7 @@ export default function EventCalendar() {
                                 onClick={() => handleDeleteBlockedDate(blocked.id)}
                                 aria-label="Blockierung löschen"
                               >
-                                Löschen
+                                <TrashIcon />
                               </Button>
                             </div>
                           )}
