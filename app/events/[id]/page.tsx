@@ -313,7 +313,7 @@ export default function EventPage() {
                 <SignupsTable
                   ref={tableRef}
                   eventId={Number(event.id)}
-                  columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
+                  columns={["cid", "name", "group", "airports", "availability", "preferredStations", "remarks"]}
                   editable={canInFIR(event.firCode, "signups.manage")}
                   event={event}
                   onRefresh={handleSignupChanged}

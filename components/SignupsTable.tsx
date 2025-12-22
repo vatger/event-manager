@@ -38,6 +38,7 @@ type SignupTableColumn =
   | "cid"
   | "name"
   | "group"
+  | "airports"
   | "availability"
   | "preferredStations"
   | "remarks";
@@ -61,6 +62,7 @@ const HEAD_LABELS: Record<SignupTableColumn, string> = {
   cid: "CID",
   name: "Name",
   group: "Group",
+  airports: "Airports",
   availability: "Availability",
   preferredStations: "Desired Position",
   remarks: "RMK",
@@ -384,6 +386,30 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         ))}
                                       </div>
                                     ) : null}
+                                  </div>
+                                );
+
+                              case "airports":
+                                // Get event airports for comparison
+                                const eventAirports = event?.airports 
+                                  ? (Array.isArray(event.airports) ? event.airports : [event.airports])
+                                  : [];
+                                const signupAirports = s.selectedAirports && s.selectedAirports.length > 0
+                                  ? s.selectedAirports
+                                  : eventAirports;
+                                  
+                                // Only show if multiple airports in event
+                                if (eventAirports.length <= 1) {
+                                  return <span className="text-muted-foreground">-</span>;
+                                }
+                                
+                                return (
+                                  <div className="flex flex-wrap gap-1">
+                                    {signupAirports.map((airport) => (
+                                      <Badge key={airport} variant="outline" className="text-xs">
+                                        {airport}
+                                      </Badge>
+                                    ))}
                                   </div>
                                 );
 
