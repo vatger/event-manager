@@ -118,14 +118,14 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
         className={cn(
           "group relative flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200",
           isActive
-            ? "bg-blue-900 text-white shadow-sm"
-            : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
         onClick={() => setIsMobileMenuOpen(false)}
       >
         <Icon className={cn(
           "h-4 w-4 flex-shrink-0",
-          isActive ? "text-white" : "text-gray-400 group-hover:text-gray-600"
+          isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
         )} />
         <span className="whitespace-nowrap">{tab.label}</span>
         
@@ -133,8 +133,8 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
           <span className={cn(
             "flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium flex-shrink-0",
             isActive 
-              ? "bg-white text-blue-900" 
-              : "bg-gray-200 text-gray-700 group-hover:bg-gray-300"
+              ? "bg-primary-foreground text-primary" 
+              : "bg-muted text-muted-foreground group-hover:bg-muted"
           )}>
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
@@ -147,7 +147,7 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
     <>
       {/* Sticky Navigation Header */}
       <div className={cn(
-        "sticky top-0 z-40 bg-white border-b border-gray-200 transition-all duration-200 h-18 pt-2",
+        "sticky top-0 z-40 bg-background border-b transition-all duration-200 h-18 pt-2",
         isScrolled && "shadow-sm"
       )}>
         <div className="w-full px-4 sm:px-6">
@@ -159,12 +159,12 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
               
               {/* Event Name */}
               {eventName && (
-                <div className="hidden lg:block border-r border-gray-200 pr-4">
+                <div className="hidden lg:block border-r pr-4">
                   <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-foreground">
                       {eventName}
                     </span>
-                    <span className="text-xs text-gray-500">Event Administration</span>
+                    <span className="text-xs text-muted-foreground">Event Administration</span>
                   </div>
                 </div>
               )}
@@ -179,13 +179,13 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors duration-200"
+                className="lg:hidden p-2 rounded-md hover:bg-accent transition-colors duration-200"
                 aria-label="Menü öffnen"
               >
                 {isMobileMenuOpen ? (
-                  <X className="h-5 w-5 text-gray-600" />
+                  <X className="h-5 w-5 text-foreground" />
                 ) : (
-                  <Menu className="h-5 w-5 text-gray-600" />
+                  <Menu className="h-5 w-5 text-foreground" />
                 )}
               </button>
             </div>
@@ -195,10 +195,10 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
               {/* User Info */}
               {user && (
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-foreground">
                     {user.name}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-muted-foreground">
                     {user.rating}
                   </span>
                 </div>
@@ -207,12 +207,12 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
               {/* Badge Summary */}
               <div className="flex gap-1">
                 {signupsCount > 0 && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-900 text-white text-xs font-medium">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
                     {signupsCount > 99 ? "99+" : signupsCount}
                   </div>
                 )}
                 {candidatesCount > 0 && (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-600 text-white text-xs font-medium">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
                     {candidatesCount > 99 ? "99+" : candidatesCount}
                   </div>
                 )}
@@ -225,15 +225,15 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
         {isMobileMenuOpen && (
           <div className="lg:hidden bg-black/10 backdrop-blur-sm fixed inset-0 z-30 mt-14">
             <div 
-              className="bg-white border-b border-gray-200 shadow-lg"
+              className="bg-background border-b shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="max-w-7xl mx-auto px-4 py-3">
                 {/* Mobile Event Info */}
                 {eventName && (
-                  <div className="px-3 py-2 mb-3 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900 text-sm">{eventName}</h3>
-                    <p className="text-xs text-gray-500">Event Administration</p>
+                  <div className="px-3 py-2 mb-3 border-b">
+                    <h3 className="font-semibold text-foreground text-sm">{eventName}</h3>
+                    <p className="text-xs text-muted-foreground">Event Administration</p>
                   </div>
                 )}
 
@@ -252,14 +252,14 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-200",
                           isActive
-                            ? "bg-blue-900 text-white"
-                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
                         )}
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         <Icon className={cn(
                           "h-4 w-4 flex-shrink-0",
-                          isActive ? "text-white" : "text-gray-400"
+                          isActive ? "text-primary-foreground" : "text-muted-foreground"
                         )} />
                         <span className="flex-1">{tab.label}</span>
                         
@@ -267,8 +267,8 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
                           <span className={cn(
                             "flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium",
                             isActive 
-                              ? "bg-white text-blue-900" 
-                              : "bg-gray-200 text-gray-700"
+                              ? "bg-primary-foreground text-primary" 
+                              : "bg-muted text-muted-foreground"
                           )}>
                             {badgeCount > 99 ? "99+" : badgeCount}
                           </span>

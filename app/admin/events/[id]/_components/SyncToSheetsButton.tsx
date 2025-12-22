@@ -100,12 +100,12 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
       {/* Bestätigungs-Dialog */}
       {showConfirmDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="bg-background rounded-lg max-w-md w-full p-6 border shadow-lg">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
               Hinweis:
             </h3>
             
-            <div className="text-sm text-gray-600 mb-6 space-y-3">
+            <div className="text-sm text-muted-foreground mb-6 space-y-3">
               <p>
                 <strong>Achtung:</strong> Beim Synchronisieren werden alle vorhandenen Daten 
                 in der Google Sheets Output Tabelle <strong>komplett überschrieben</strong>.
@@ -113,7 +113,7 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
               <p>
                 Kopiere nach dem Sync die Daten aus dem Output File in dein gewünschtes Sheet.
               </p>
-              <p className="text-red-600 font-medium">
+              <p className="text-red-600 dark:text-red-400 font-medium">
                 Arbeit<strong> nicht </strong>im Output Sheet!
               </p>
             </div>
@@ -121,13 +121,13 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
             <div className="flex gap-3 justify-end">
               <button
                 onClick={handleCancel}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors"
               >
                 Abbrechen
               </button>
               <button
                 onClick={handleConfirm}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 rounded-md transition-colors"
               >
                 Überschreiben und synchronisieren
               </button>

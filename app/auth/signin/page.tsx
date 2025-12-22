@@ -4,19 +4,10 @@ import { useSession, signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Plane } from "lucide-react";
 
 export default function SignInPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (session) {
-      router.push("/");
-    }
-  }, [session, router]);
 
   if (status === "loading") {
     return (
@@ -24,6 +15,31 @@ export default function SignInPage() {
         <div className="animate-pulse">
           <Plane className="h-12 w-12 text-primary animate-bounce" />
         </div>
+      </div>
+    );
+  }
+
+  // If already logged in, show message with logout option
+  if (session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+        <Card className="shadow-2xl border-0 dark:border max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle>Bereits angemeldet</CardTitle>
+            <CardDescription>
+              Du bist als {session.user?.name} angemeldet
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={() => window.location.href = "/"}
+              className="w-full"
+              size="lg"
+            >
+              Zur Startseite
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
