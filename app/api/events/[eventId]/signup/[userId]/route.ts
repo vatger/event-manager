@@ -165,6 +165,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         });
       }
       
+      // Track selectedAirports changes
+      if (JSON.stringify(currentSignup.selectedAirports) !== JSON.stringify(body.selectedAirports)) {
+        changes.push({
+          field: 'selectedAirports',
+          oldValue: currentSignup.selectedAirports,
+          newValue: body.selectedAirports,
+          changedAt: new Date().toISOString(),
+          changedBy: Number(session.user.cid)
+        });
+      }
+      
       if (changes.length > 0) {
         changeLog = [...(changeLog as unknown[]), ...changes] as typeof changeLog;
         
@@ -191,6 +202,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         breakrequests: body.breakrequests,
         preferredStations: body.preferredStations,
         remarks: body.remarks,
+        selectedAirports: body.selectedAirports ?? currentSignup.selectedAirports,
         modifiedAfterDeadline: isAfterDeadline || currentSignup.modifiedAfterDeadline,
         changeLog: changeLog.length > 0 ? JSON.parse(JSON.stringify(changeLog)) : currentSignup.changeLog,
         // Reset acknowledged flag if new changes were made after deadline

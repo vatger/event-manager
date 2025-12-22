@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
@@ -58,6 +59,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [availability, setAvailability] = useState<Availability>();
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [selectedAirports, setSelectedAirports] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +71,13 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
+  // Get event airports as array
+  const eventAirports = useMemo(() => {
+    if (Array.isArray(event.airports)) return event.airports;
+    if (typeof event.airports === 'string') return [event.airports];
+    return [];
+  }, [event.airports]);
+
   useEffect(() => {
     if (!signupData || hydrated) return;
 
@@ -77,9 +86,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setAvailability(signupData.availability ?? {});
     setDesiredPosition(signupData.preferredStations ?? "");
     setRemarks(signupData.remarks ?? "");
+    setSelectedAirports(signupData.selectedAirports ?? eventAirports);
     setHydrated(true);
     
-  }, [signupData, hydrated]);
+  }, [signupData, hydrated, eventAirports]);
 
   const autoEndorsementProps = useMemo(() => ({
     user: {
@@ -117,6 +127,12 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       return;
     }
 
+    // Validate airport selection for multi-airport events
+    if (eventAirports.length > 1 && selectedAirports.length === 0) {
+      toast.error("Bitte wähle mindestens einen Airport aus");
+      return;
+    }
+
     setSaving(true)
     setError("")
 
@@ -136,6 +152,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           endorsement: null,
           preferredStations: desiredPosition,
           remarks,
+          selectedAirports: eventAirports.length > 1 ? selectedAirports : eventAirports,
         }),
       });
 
@@ -269,6 +286,39 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               innerRef={avselectorRef}
             />
           </div>
+          
+          {/* Airport Selection for Multi-Airport Events */}
+          {eventAirports.length > 1 && (
+            <div className="space-y-2">
+              <Label>Airports</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Wähle die Airports aus, die du lotsen kannst
+              </p>
+              <div className="space-y-2 border rounded-md p-3">
+                {eventAirports.map((airport) => (
+                  <div key={airport} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`airport-${airport}`}
+                      checked={selectedAirports.includes(airport)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedAirports([...selectedAirports, airport]);
+                        } else {
+                          setSelectedAirports(selectedAirports.filter(a => a !== airport));
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`airport-${airport}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {airport}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Automatische Gruppenzuweisung */}
           {!loading && userCID && (

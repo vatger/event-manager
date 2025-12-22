@@ -15,6 +15,7 @@ export interface Signup {
     availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
     remarks?: string | null;
     preferredStations?: string;
+    selectedAirports?: string[]; // Airports this signup can staff
     deletedAt?: string | null;
     deletedBy?: number | null;
     modifiedAfterDeadline?: boolean;

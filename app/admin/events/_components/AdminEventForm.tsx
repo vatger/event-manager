@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircleIcon, Loader2, ArrowLeft, DeleteIcon, Trash2Icon } from "lucide-react";
+import { AlertCircleIcon, Loader2, ArrowLeft, DeleteIcon, Trash2Icon, X, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
@@ -16,6 +16,7 @@ import StationSelector from "./StationSelector";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface FormData {
   name: string;
@@ -23,7 +24,7 @@ interface FormData {
   bannerUrl: string;
   startTime: string;
   endTime: string;
-  airport: string;
+  airports: string[]; // Changed to array for multi-airport support
   rosterUrl?: string;
   staffedStations: string[];
   status: Event["status"];
@@ -61,7 +62,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     bannerUrl: "",
     startTime: "",
     endTime: "",
-    airport: "",
+    airports: [], // Changed to empty array
     staffedStations: [],
     status: "DRAFT",
     fir: "",
@@ -94,7 +95,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           bannerUrl: "",
           startTime: defaultStart.toISOString(),
           endTime: defaultEnd.toISOString(),
-          airport: "",
+          airports: [], // Changed to empty array
           staffedStations: [],
           status: "DRAFT", // Events from calendar start as DRAFT
           rosterUrl: "",
@@ -113,7 +114,9 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         bannerUrl: event.bannerUrl || "",
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        airport: event.airports?.toString() || "",
+        airports: Array.isArray(event.airports) 
+          ? event.airports 
+          : (event.airports ? [event.airports] : []), // Handle both array and string
         staffedStations: event.staffedStations || [],
         status: (event.status as Event["status"]) ?? "DRAFT",
         rosterUrl: event.rosterlink || "",
@@ -143,6 +146,37 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     setFormData(prev => ({ ...prev, staffedStations }));
   }, []);
   
+  // Handlers for airport management
+  const [newAirport, setNewAirport] = useState("");
+  
+  const handleAddAirport = () => {
+    const airport = newAirport.trim().toUpperCase();
+    if (!airport) return;
+    
+    if (airport.length !== 4) {
+      toast.error("ICAO-Code muss genau 4 Zeichen lang sein");
+      return;
+    }
+    
+    if (formData.airports.includes(airport)) {
+      toast.error("Airport bereits hinzugefügt");
+      return;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      airports: [...prev.airports, airport]
+    }));
+    setNewAirport("");
+  };
+  
+  const handleRemoveAirport = (airport: string) => {
+    setFormData(prev => ({
+      ...prev,
+      airports: prev.airports.filter(a => a !== airport)
+    }));
+  };
+  
   const initialStartTime = useMemo(() => 
     formData.startTime ? new Date(formData.startTime) : undefined, 
     [formData.startTime]
@@ -168,7 +202,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         bannerUrl: formData.bannerUrl.trim(),
         startTime: formData.startTime,
         endTime: formData.endTime,
-        airports: [formData.airport.trim().toUpperCase()],
+        airports: formData.airports.map(a => a.trim().toUpperCase()), // Support multiple airports
         staffedStations: formData.staffedStations,
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
@@ -224,10 +258,19 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
       return false;
     }
     
-    if (!formData.airport.trim() || formData.airport.trim().length !== 4) {
-      setError("Bitte geben Sie einen gültigen ICAO-Code (4 Zeichen) ein");
+    if (!formData.airports || formData.airports.length === 0) {
+      setError("Mindestens ein Airport ist erforderlich");
       setActiveTab("basic");
       return false;
+    }
+
+    // Validate all airports are 4 characters
+    for (const airport of formData.airports) {
+      if (!airport.trim() || airport.trim().length !== 4) {
+        setError(`Ungültiger ICAO-Code: ${airport}. Alle Codes müssen 4 Zeichen lang sein.`);
+        setActiveTab("basic");
+        return false;
+      }
     }
 
     const startTime = new Date(formData.startTime);
@@ -358,20 +401,55 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="airport">Event-Airport (ICAO) *</Label>
-                  <Input
-                    id="airport"
-                    name="airport"
-                    value={formData.airport}
-                    onChange={handleChange}
-                    placeholder="EDDM"
-                    required
-                    disabled={isSaving}
-                    className="uppercase"
-                    maxLength={4}
-                  />
+                  <Label htmlFor="airport">Event-Airports (ICAO) *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="airport"
+                      value={newAirport}
+                      onChange={(e) => setNewAirport(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddAirport();
+                        }
+                      }}
+                      placeholder="z.B. EDDM"
+                      disabled={isSaving}
+                      className="uppercase"
+                      maxLength={4}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleAddAirport}
+                      disabled={isSaving || !newAirport.trim()}
+                      variant="outline"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {formData.airports.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.airports.map((airport) => (
+                        <Badge 
+                          key={airport} 
+                          variant="secondary"
+                          className="px-3 py-1 gap-2"
+                        >
+                          {airport}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAirport(airport)}
+                            className="ml-1 hover:text-destructive"
+                            disabled={isSaving}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    
+                    Fügen Sie alle Airports hinzu, die bei diesem Event geöffnet werden
                   </p>
                 </div>
 

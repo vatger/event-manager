@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
+import AirportSignupTabs from "@/components/AirportSignupTabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Calendar, Clock, MapPin, RotateCcw, Tags, Users } from "lucide-react";
@@ -39,6 +40,14 @@ export default function EventPage() {
   const {canInFIR} = useUser();
 
   const tableRef = useRef<SignupsTableRef>(null);
+
+  // Get airports as array
+  const eventAirports = useMemo(() => {
+    if (!event) return [];
+    if (Array.isArray(event.airports)) return event.airports;
+    if (typeof event.airports === 'string') return [event.airports];
+    return [];
+  }, [event?.airports]);
 
   
   // Event laden
@@ -90,10 +99,11 @@ export default function EventPage() {
     [event?.startTime, event?.endTime]
   );
 
-  const airportsLabel = useMemo(() => 
-    event ? (Array.isArray(event.airports) ? event.airports.join(", ") : String(event.airports ?? "-")) : "", 
-    [event?.airports]
-  );
+  const airportsLabel = useMemo(() => {
+    if (!event) return "";
+    const airports = Array.isArray(event.airports) ? event.airports : [event.airports];
+    return airports.join(", ");
+  }, [event?.airports]);
 
   const normalizedEventForSignup = useMemo(() => 
     event ? {
@@ -295,14 +305,33 @@ export default function EventPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <SignupsTable
-            ref={tableRef}
-            eventId={Number(event.id)}
-            columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
-            editable={canInFIR(event.firCode, "signups.manage")}
-            event={event}
-            onRefresh={handleSignupChanged}
-          />
+          {eventAirports.length > 1 ? (
+            <AirportSignupTabs
+              airports={eventAirports}
+              eventId={Number(event.id)}
+              renderSignupsTable={(filteredSignups, airport) => (
+                <SignupsTable
+                  ref={tableRef}
+                  eventId={Number(event.id)}
+                  columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
+                  editable={canInFIR(event.firCode, "signups.manage")}
+                  event={event}
+                  onRefresh={handleSignupChanged}
+                  filteredSignups={filteredSignups}
+                  currentAirport={airport}
+                />
+              )}
+            />
+          ) : (
+            <SignupsTable
+              ref={tableRef}
+              eventId={Number(event.id)}
+              columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
+              editable={canInFIR(event.firCode, "signups.manage")}
+              event={event}
+              onRefresh={handleSignupChanged}
+            />
+          )}
         </CardContent>
 
         {event.status === "ROSTER_PUBLISHED" && (

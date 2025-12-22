@@ -3,7 +3,7 @@ export interface Event {
     name: string;
     description: string;
     bannerUrl: string;
-    airports: string;
+    airports: string | string[]; // Support both single and multiple airports
     startTime: string;
     endTime: string;
     staffedStations: string[];

@@ -27,6 +27,7 @@ export interface SignupTableEntry {
   remarks: string | null;
   availability: Availability;
   endorsement: EndorsementResponse | null;
+  selectedAirports?: string[]; // Airports this signup can staff
   deletedAt?: string | null;
   deletedBy?: number | null;
   modifiedAfterDeadline?: boolean;

@@ -53,6 +53,8 @@ interface SignupsTableProps {
   emptyMessage?: string;
   event?: EventRef;
   onRefresh?: () => void;
+  filteredSignups?: SignupTableEntry[]; // Optional pre-filtered signups
+  currentAirport?: string; // Current airport context
 }
 
 const HEAD_LABELS: Record<SignupTableColumn, string> = {
@@ -110,6 +112,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       emptyMessage = "Keine Anmeldungen",
       event,
       onRefresh,
+      filteredSignups,
+      currentAirport,
     },
     ref
   ) => {
@@ -123,6 +127,9 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     // Dialog state
     const [editOpen, setEditOpen] = useState(false);
     const [editSignup, setEditSignup] = useState<SignupTableEntry | null>(null);
+    
+    // Use filtered signups if provided, otherwise fetch from API
+    const displaySignups = filteredSignups || signups;
 
     // --------------------------------------------------------------------
     // 🔹 1️⃣ Load signups from API (cached)
@@ -175,25 +182,29 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     useImperativeHandle(ref, () => ({
       reload: loadSignups,
     }));
-    // Initial Load
+    // Initial Load (only if not using filtered signups)
     useEffect(() => {
-      loadSignups();
-    }, [loadSignups]);
+      if (!filteredSignups) {
+        loadSignups();
+      } else {
+        setLoading(false);
+      }
+    }, [loadSignups, filteredSignups]);
 
     // --------------------------------------------------------------------
     // 🔹 2️⃣ Group signups by endorsement level
     // --------------------------------------------------------------------
     const grouped = useMemo(() => {
       const out: Record<string, SignupTableEntry[]> = {};
-      if (!Array.isArray(signups)) return out;
+      if (!Array.isArray(displaySignups)) return out;
 
-      for (const s of signups) {
+      for (const s of displaySignups) {
         const label = s.endorsement?.group || s.user.rating || "UNSPEC";
         if (!out[label]) out[label] = [];
         out[label].push(s);
       }
       return out;
-    }, [signups]);
+    }, [displaySignups]);
 
     const orderedGroups = useMemo(() => {
       const keys = Object.keys(grouped);
@@ -238,7 +249,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
           </div>
         )}
 
-         {signups.length === 0 ? (
+         {displaySignups.length === 0 ? (
           <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
           <UserSearch className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
