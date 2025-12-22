@@ -14,9 +14,11 @@ import NotificationsWidget from "@/components/notifs/NotificationsWidget";
 import { useEffect, useState } from "react";
 import { firApi } from "@/lib/api/fir";
 import { CurrentUser } from "@/types/fir";
-import { LogOut, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown, Moon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAvatarColor } from "@/utils/getAvatarColor";
+import { Switch } from "@/components/ui/switch";
+import { useTheme } from "next-themes";
 
 interface AdminHeaderProps {
   title: string;
@@ -28,6 +30,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ title, user }: AdminHeaderProps) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const { setTheme, theme } = useTheme()
 
   useEffect(() => {
     firApi.getCurrentUser().then(setCurrentUser).catch(console.error);
@@ -115,6 +118,23 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
 
                 <DropdownMenuSeparator />
 
+                {/* Theme Toggle */}
+                <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center">
+                      <Moon className="w-4 h-4 mr-3 text-indigo-400" />
+                      <span className="text-sm font-medium">Dark Mode</span>
+                    </div>
+                    
+                    {/* Theme Switcher */}
+                    <div className="flex items-center space-x-1">
+                      <Switch
+                      checked={theme === 'dark'}
+                      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                
                 {/* Sign Out */}
                 <DropdownMenuItem 
                   onClick={() => signOut()}

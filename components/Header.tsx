@@ -12,14 +12,17 @@ import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, ChevronDown, CalendarRange } from "lucide-react";
+import { LogOut, ChevronDown, CalendarRange, Monitor, Moon, Sun } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 import { ModeToggle } from "@/components/ModeToggle";
+import { useTheme } from "next-themes";
+import { Switch } from "./ui/switch";
 
 export default function Header() {
   const { data: session } = useSession();
   const { hasAdminAcess } = useUser();
+  const { setTheme, theme } = useTheme()
 
   // Avatar mit Initialen erstellen
   const getInitials = () => {
@@ -58,8 +61,6 @@ export default function Header() {
             <div className="flex items-center gap-4">
               {/* Desktop Version */}
               <div className="hidden md:flex items-center gap-3">
-                {/* Theme Toggle */}
-                <ModeToggle />
                 
                 {/* Notifications */}
                 <div className="relative">
@@ -126,6 +127,22 @@ export default function Header() {
                         </Link>
                       </DropdownMenuItem>
                     )}
+                    {/* Theme Toggle */}
+                    <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                          <Moon className="w-4 h-4 mr-3 text-indigo-400" />
+                          <span className="text-sm font-medium">Dark Mode</span>
+                        </div>
+                        
+                        {/* Theme Switcher */}
+                        <div className="flex items-center space-x-1">
+                          <Switch
+                          checked={theme === 'dark'}
+                          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
 
                     {/* Sign Out */}
                     <DropdownMenuItem 
@@ -194,6 +211,23 @@ export default function Header() {
                         </Link>
                       </DropdownMenuItem>
                     )}
+
+                    {/* Theme Toggle */}
+                    <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center">
+                          <Moon className="w-4 h-4 mr-3 text-indigo-400" />
+                          <span className="text-sm font-medium">Dark Mode</span>
+                        </div>
+                        
+                        {/* Theme Switcher */}
+                        <div className="flex items-center space-x-1">
+                          <Switch
+                          checked={theme === 'dark'}
+                          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+                        </div>
+                      </div>
+                    </DropdownMenuItem>
 
                     {/* Sign Out */}
                     <DropdownMenuItem 
