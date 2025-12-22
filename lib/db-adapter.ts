@@ -1,6 +1,9 @@
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
+// Dummy DATABASE_URL used during Docker build (must match Dockerfile)
+const DOCKER_BUILD_DUMMY_URL = "mysql://user:pass@localhost:3306/dummy";
+
 /**
  * Creates a database adapter based on environment configuration.
  * 
@@ -19,13 +22,16 @@ export function createDatabaseAdapter() {
     return undefined;
   }
   
-  // If no DATABASE_URL is set, return undefined (build phase or misconfiguration)
+  // If no DATABASE_URL is set, likely in build phase or testing
   if (!process.env.DATABASE_URL) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("DATABASE_URL not set in production environment");
+    }
     return undefined;
   }
   
-  // Check for dummy DATABASE_URL used in Docker build (exact match from Dockerfile)
-  if (process.env.DATABASE_URL === "mysql://user:pass@localhost:3306/dummy") {
+  // Check for dummy DATABASE_URL used in Docker build (must match Dockerfile line 13)
+  if (process.env.DATABASE_URL === DOCKER_BUILD_DUMMY_URL) {
     return undefined;
   }
   
