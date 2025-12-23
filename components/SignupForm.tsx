@@ -428,7 +428,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           )}
           
           {/* Automatische Gruppenzuweisung */}
-          {!loading && userCID && (
+          {!loading && userCID && eventAirports.length === 1 && (
             <AutomaticEndorsement {...autoEndorsementProps} />
           )}
 
