@@ -92,15 +92,17 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   // Fetch endorsements for all airports to determine which ones user can staff
   useEffect(() => {
-    if (!userCID || !session?.user.rating) return;
+    if (!userCID || !session?.user.rating || eventAirports.length === 0) return;
     
     const fetchAirportEndorsements = async () => {
       setLoadingEndorsements(true);
-      const endorsementResults: Record<string, boolean> = {};
       
       try {
+        console.log("[SignupForm] Checking endorsements for airports:", eventAirports);
+        
         // Check endorsements for each airport in parallel for better performance
         const endorsementChecks = eventAirports.map(async (airport) => {
+          console.log("[SignupForm] Checking endorsement for airport:", airport);
           const res = await fetch("/api/endorsements/group", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -118,18 +120,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           
           if (res.ok) {
             const data = await res.json();
+            console.log("[SignupForm] Endorsement result for", airport, ":", data.group);
             return { airport, canStaff: !!data.group };
           }
+          console.log("[SignupForm] No endorsement for", airport);
           return { airport, canStaff: false };
         });
         
         const results = await Promise.all(endorsementChecks);
-        const endorsementResults: Record<string, boolean> = {};
+        const finalEndorsements: Record<string, boolean> = {};
         results.forEach(({ airport, canStaff }) => {
-          endorsementResults[airport] = canStaff;
+          finalEndorsements[airport] = canStaff;
         });
         
-        setAirportEndorsements(endorsementResults);
+        console.log("[SignupForm] Final endorsement results:", finalEndorsements);
+        setAirportEndorsements(finalEndorsements);
       } catch (error) {
         console.error("Error fetching airport endorsements:", error);
       } finally {
@@ -195,6 +200,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
     // Calculate airports based on endorsements and opt-outs
     const selectedAirports = getSelectedAirports();
+    
+    console.log("[SignupForm] Submitting with selectedAirports:", selectedAirports);
+    console.log("[SignupForm] Current airportEndorsements:", airportEndorsements);
+    console.log("[SignupForm] Current remarks:", remarks);
     
     // Validate that user can staff at least one airport
     if (selectedAirports.length === 0) {
