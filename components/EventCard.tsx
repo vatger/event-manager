@@ -114,7 +114,7 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-gray-500" />
-          <span>{event.airports}</span>
+          <span>{Array(event.airports).join(', ')}</span>
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-500" />
