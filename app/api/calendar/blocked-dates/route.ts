@@ -24,6 +24,9 @@ const blockedDateSchema = z.object({
 
 // GET: Fetch all blocked dates
 export async function GET(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const { searchParams } = new URL(req.url);
     const startParam = searchParams.get("start");
@@ -74,6 +77,9 @@ export async function GET(req: Request) {
 
 // POST: Create a new blocked date (VATGER leaders only)
 export async function POST(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const session = await getServerSession(authOptions);
     if (!session) {

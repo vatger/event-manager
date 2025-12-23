@@ -6,6 +6,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ userId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { userId} = await params
   try {
     const userid = parseInt(userId, 10);

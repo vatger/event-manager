@@ -14,6 +14,9 @@ function authenticate(req: NextRequest) {
 
 // GET /api/users/[cid]
 export async function GET(req: NextRequest, { params }: { params: Promise<{ cid: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   if (!authenticate(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -45,6 +48,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cid:
 
 // DELETE /api/users/[cid]
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ cid: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   if (!authenticate(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

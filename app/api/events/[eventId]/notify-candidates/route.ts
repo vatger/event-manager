@@ -5,6 +5,9 @@ import prisma from '@/lib/prisma';
 import { userhasPermissiononEvent } from '@/lib/acl/permissions';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   const { eventId: eventIdParam } = await params;
   if (!session?.user) {
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
     // Create internal notifications for all users
     await prisma.$transaction(
       users.map((user) =>
-        prisma.notification.create({
+        prisma!.notification.create({
           data: {
             userCID: user.cid,
             eventId,

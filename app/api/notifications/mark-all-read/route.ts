@@ -3,6 +3,9 @@ import { getServerSession } from 'next-auth/next';
 import prisma from '@/lib/prisma';
 import { authOptions } from "@/lib/auth";
 export async function PATCH(request: NextRequest) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     // Authentifizierung überprüfen
     const session = await getServerSession(authOptions);

@@ -2,7 +2,11 @@ import { getSessionUser } from "@/lib/getSessionUser";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+
 export async function POST(req: Request, { params }: { params: Promise<{ cid: string }> }) {
+    if (!prisma) {
+        return new Response("Service unavailable", { status: 503 });
+      }
     const user = await getSessionUser();
     if (!user || user.role !== "MAIN_ADMIN") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
@@ -38,6 +42,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ cid: st
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ cid: string }> }) {
+    if (!prisma) {
+        return new Response("Service unavailable", { status: 503 });
+      }
     const user = await getSessionUser();
     if (!user || user.role !== "MAIN_ADMIN") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });

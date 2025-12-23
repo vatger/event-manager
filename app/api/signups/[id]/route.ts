@@ -4,6 +4,9 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { id } = await params;
   const signup = await prisma.eventSignup.findUnique({
     where: { id: Number(id) },
@@ -14,6 +17,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const {id} = await params
   const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -33,6 +39,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const {id} = await params;
   const session = await getServerSession(authOptions);
     if (!session?.user?.id) {

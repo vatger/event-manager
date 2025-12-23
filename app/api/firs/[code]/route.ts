@@ -7,6 +7,9 @@ export async function GET(
   _: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   const { code } = await params;
   const fir = await prisma.fIR.findUnique({
@@ -26,6 +29,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   if (!user || await isVatgerEventleitung(Number(user.cid)))
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

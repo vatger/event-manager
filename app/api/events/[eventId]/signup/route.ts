@@ -8,6 +8,9 @@ import { invalidateCache } from "@/lib/cache/cacheManager";
 
 // GET: alle Signups für ein Event
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const {eventId} = await params
   const eventid = parseInt( eventId, 10);
 
@@ -26,6 +29,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
 
 // POST: neuen Signup anlegen
 export async function POST(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const {eventId} = await params
   const session = await getServerSession(authOptions);
   if (!session || session.user.rating == "OBS") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -99,7 +105,7 @@ async function sendLateSignupNotificationToEventTeam(
 ) {
   try {
     if (!firCode) return;
-
+    if (!prisma) return;
     // Find all users in event team (with signups.manage permission for this FIR)
     const eventTeamGroups = await prisma.group.findMany({
       where: {

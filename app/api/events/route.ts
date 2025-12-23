@@ -29,6 +29,9 @@ const eventSchema = z.object({
 
 // --- GET: Alle Events ---
 export async function GET(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { searchParams } = new URL(req.url);
   const firCode = searchParams.get("fir");
 
@@ -90,6 +93,9 @@ export async function GET(req: Request) {
 
 // --- POST: Neues Event erstellen ---
 export async function POST(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const session = await getServerSession(authOptions);
     if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

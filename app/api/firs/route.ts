@@ -15,6 +15,9 @@ const firSchema = z.object({
  * Zugriff nur für MAINADMIN, VATGER_LEITUNG oder FIR_LEITUNG (eigene FIR).
  */
 export async function GET() {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const sessionUser = await getSessionUser();
   if (!sessionUser)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

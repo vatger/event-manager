@@ -7,6 +7,9 @@ import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 const VATGER_API_TOKEN = process.env.VATGER_API_TOKEN!;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   const { eventId } = await params;
   // 🔒 Prüfen ob eingeloggt
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   // Lokale Notification speichern
   await prisma.$transaction(
     signups.map((s) =>
-      prisma.notification.create({
+      prisma!.notification.create({
         data: {
           userCID: s.user.cid,
           eventId: id,

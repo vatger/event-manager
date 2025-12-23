@@ -18,6 +18,9 @@ export async function GET(
   _: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -54,6 +57,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

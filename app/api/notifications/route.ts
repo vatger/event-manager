@@ -4,6 +4,9 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 
 export async function GET() {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const cid = parseInt(session.user.id);

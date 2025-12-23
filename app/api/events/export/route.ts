@@ -149,6 +149,9 @@ function generateTimeslots(start: string, end: string, interval = 30): string[] 
 }
 
 export async function POST(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

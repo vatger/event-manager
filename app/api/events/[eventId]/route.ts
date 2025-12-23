@@ -33,6 +33,9 @@ const eventSchema = z.object({
 export async function GET(request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId } = await params;
   const event = await prisma.event.findUnique({
     where: { id: Number(eventId) },
@@ -44,6 +47,9 @@ export async function GET(request: Request,
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -105,6 +111,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -150,6 +159,9 @@ const updateEventSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId } = await params;
   const session = await getServerSession(authOptions);
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

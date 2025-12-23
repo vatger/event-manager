@@ -8,6 +8,10 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
+  
   try {
     const leaders = await prisma.vATGERLeitung.findMany({
       include: {

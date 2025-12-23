@@ -17,7 +17,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ cid: string }> }
 ) {
-
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
     const { cid: cidParam } = await params;
   const cid = Number(cidParam);
   if (isNaN(cid)) {

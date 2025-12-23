@@ -1,6 +1,9 @@
 import prisma from '@/lib/prisma'
 
 export async function GET() {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const meta = await prisma.trainingCacheMetadata.findFirst()
     

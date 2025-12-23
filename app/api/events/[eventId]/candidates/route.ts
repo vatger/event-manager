@@ -6,6 +6,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const { eventId: id } = await params;
     const eventId = parseInt(id);

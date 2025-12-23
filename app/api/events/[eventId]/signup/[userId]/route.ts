@@ -9,6 +9,9 @@ import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 
 // GET: einzelnes Signup holen
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId, userId } = await params;
 
   try {
@@ -36,6 +39,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
 
 // PUT: Signup aktualisieren
 export async function PUT(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId, userId } = await params;
   const body = await req.json();
   const session = await getServerSession(authOptions);
@@ -207,6 +213,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
 
 // DELETE: Signup löschen (soft delete for users, hard delete for event team)
 export async function DELETE(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { eventId, userId } = await params;
   const session = await getServerSession(authOptions);
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventId)}})
@@ -287,6 +296,9 @@ async function sendChangeNotificationToEventTeam(
   firCode: string | null
 ) {
   try {
+    if (!prisma) {
+      return;
+    }
     if (!firCode) return;
 
     // Find all users in event team (with signups.manage permission for this FIR)

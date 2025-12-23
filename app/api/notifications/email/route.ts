@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 
 // GET: aktueller Status
 export async function GET() {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -19,6 +22,9 @@ export async function GET() {
 
 // POST: neuen Status setzen
 export async function POST(req: Request) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

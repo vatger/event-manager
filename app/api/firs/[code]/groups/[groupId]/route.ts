@@ -18,6 +18,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ code: string; groupId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -94,6 +97,9 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ code: string; groupId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const user = await getSessionUser();
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

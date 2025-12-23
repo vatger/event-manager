@@ -7,6 +7,9 @@ import { clearCache } from "@/lib/cache";
 import { canManageFir, isVatgerEventleitung } from "@/lib/acl/permissions";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ code: string; groupId: string }> }) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const {code, groupId } = await params;
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -35,6 +38,9 @@ export async function PATCH(
   req: Request, 
   { params }: { params: Promise<{ code: string; groupId: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   const { code, groupId } = await params;
   const session = await getServerSession(authOptions);
   
