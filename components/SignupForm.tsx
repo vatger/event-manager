@@ -73,9 +73,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   // Get event airports as array
   const eventAirports = useMemo(() => {
-    if (Array.isArray(event.airports)) return event.airports;
-    if (typeof event.airports === 'string') return [event.airports];
-    return [];
+    let airports: string[] = [];
+    if (Array.isArray(event.airports)) {
+      airports = event.airports;
+    } else if (typeof event.airports === 'string') {
+      try {
+        // Try to parse if it's a JSON string
+        const parsed = JSON.parse(event.airports);
+        airports = Array.isArray(parsed) ? parsed : [event.airports];
+      } catch {
+        // Not JSON, treat as single airport
+        airports = [event.airports];
+      }
+    }
+    console.log("[SignupForm] Event airports parsed:", airports, "from:", event.airports);
+    return airports;
   }, [event.airports]);
 
   useEffect(() => {
@@ -149,15 +161,22 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const parseOptOutAirports = (remarksText: string): string[] => {
     const optOutPattern = /!([A-Z]{4})/g;
     const matches = remarksText.matchAll(optOutPattern);
-    return Array.from(matches, m => m[1]);
+    const optedOut = Array.from(matches, m => m[1]);
+    console.log("[SignupForm] Parsed opt-outs from remarks:", optedOut, "from:", remarksText);
+    return optedOut;
   };
 
   // Calculate final airport list based on endorsements and opt-outs
   const getSelectedAirports = (): string[] => {
     const optedOut = parseOptOutAirports(remarks);
-    return eventAirports.filter(airport => 
+    const selected = eventAirports.filter(airport => 
       airportEndorsements[airport] && !optedOut.includes(airport)
     );
+    console.log("[SignupForm] getSelectedAirports - eventAirports:", eventAirports);
+    console.log("[SignupForm] getSelectedAirports - airportEndorsements:", airportEndorsements);
+    console.log("[SignupForm] getSelectedAirports - optedOut:", optedOut);
+    console.log("[SignupForm] getSelectedAirports - result:", selected);
+    return selected;
   };
 
   // Auto-endorsement uses the first airport as a representative
