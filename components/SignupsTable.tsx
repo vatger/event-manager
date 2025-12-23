@@ -203,12 +203,18 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       if (!Array.isArray(displaySignups)) return out;
 
       for (const s of displaySignups) {
-        const label = s.endorsement?.group || s.user.rating || "UNSPEC";
+        // If viewing a specific airport, use that airport's endorsement for grouping
+        let label: string;
+        if (currentAirport && s.airportEndorsements?.[currentAirport]) {
+          label = s.airportEndorsements[currentAirport].group || s.user.rating || "UNSPEC";
+        } else {
+          label = s.endorsement?.group || s.user.rating || "UNSPEC";
+        }
         if (!out[label]) out[label] = [];
         out[label].push(s);
       }
       return out;
-    }, [displaySignups]);
+    }, [displaySignups, currentAirport]);
 
     const orderedGroups = useMemo(() => {
       const keys = Object.keys(grouped);
@@ -407,11 +413,40 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 
                                 return (
                                   <div className="flex flex-wrap gap-1">
-                                    {signupAirports.map((airport) => (
-                                      <Badge key={airport} variant="outline" className="text-xs">
-                                        {airport}
-                                      </Badge>
-                                    ))}
+                                    {signupAirports.map((airport) => {
+                                      const airportEndorsement = s.airportEndorsements?.[airport];
+                                      const hasEndorsementData = airportEndorsement && airportEndorsement.group;
+                                      
+                                      return hasEndorsementData ? (
+                                        <TooltipProvider key={airport}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge variant="outline" className="text-xs cursor-help">
+                                                {airport}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{airport}</p>
+                                                <p className="text-sm">Gruppe: {airportEndorsement.group}</p>
+                                                {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
+                                                  <div className="text-xs text-muted-foreground">
+                                                    <p className="font-medium">Einschränkungen:</p>
+                                                    {airportEndorsement.restrictions.map((r, i) => (
+                                                      <p key={i}>• {r}</p>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : (
+                                        <Badge key={airport} variant="outline" className="text-xs">
+                                          {airport}
+                                        </Badge>
+                                      );
+                                    })}
                                   </div>
                                 );
 

@@ -21,6 +21,7 @@ import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
 import { getRatingValue } from "@/utils/ratingToValue";
 import AutomaticEndorsement from "./AutomaticEndorsement";
+import { EndorsementResponse } from "@/lib/endorsements/types";
 
 
 interface SignupFormProps {
@@ -62,7 +63,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
-  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, boolean>>({});
+  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>>({});
   const [loadingEndorsements, setLoadingEndorsements] = useState(false);
   
   const userCID = session?.user.id;
@@ -132,18 +133,18 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           });
           
           if (res.ok) {
-            const data = await res.json();
-            console.log("[SignupForm] Endorsement result for", airport, ":", data.group);
-            return { airport, canStaff: !!data.group };
+            const data = await res.json() as EndorsementResponse;
+            console.log("[SignupForm] Endorsement result for", airport, ":", data.group, "restrictions:", data.restrictions);
+            return { airport, canStaff: !!data.group, endorsement: data };
           }
           console.log("[SignupForm] No endorsement for", airport);
-          return { airport, canStaff: false };
+          return { airport, canStaff: false, endorsement: null };
         });
         
         const results = await Promise.all(endorsementChecks);
-        const finalEndorsements: Record<string, boolean> = {};
-        results.forEach(({ airport, canStaff }) => {
-          finalEndorsements[airport] = canStaff;
+        const finalEndorsements: Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }> = {};
+        results.forEach(({ airport, canStaff, endorsement }) => {
+          finalEndorsements[airport] = { canStaff, endorsement };
         });
         
         console.log("[SignupForm] Final endorsement results:", finalEndorsements);
@@ -171,7 +172,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const getSelectedAirports = (): string[] => {
     const optedOut = parseOptOutAirports(remarks);
     const selected = eventAirports.filter(airport => 
-      airportEndorsements[airport] && !optedOut.includes(airport)
+      airportEndorsements[airport]?.canStaff && !optedOut.includes(airport)
     );
     console.log("[SignupForm] getSelectedAirports - eventAirports:", eventAirports);
     console.log("[SignupForm] getSelectedAirports - airportEndorsements:", airportEndorsements);
@@ -403,15 +404,35 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                     // Parse opt-outs once outside the map for performance
                     const optedOut = parseOptOutAirports(remarks);
                     return eventAirports.map((airport) => {
-                      const canStaff = airportEndorsements[airport];
+                      const endorsementData = airportEndorsements[airport];
+                      const canStaff = endorsementData?.canStaff || false;
+                      const endorsement = endorsementData?.endorsement;
                       const isOptedOut = optedOut.includes(airport);
+                      
                       return (
                         <div key={airport} className="flex items-center gap-2 text-sm">
                           {canStaff ? (
                             isOptedOut ? (
-                              <span className="text-orange-600">✗ {airport} (ausgeschlossen mit !{airport})</span>
+                              <span className="text-orange-600">
+                                ✗ {airport} 
+                                {endorsement?.group && ` (${endorsement.group})`}
+                                {endorsement?.restrictions && endorsement.restrictions.length > 0 && (
+                                  <span className="text-xs"> - {endorsement.restrictions.join(", ")}</span>
+                                )}
+                                {" - ausgeschlossen mit !{airport}"}
+                              </span>
                             ) : (
-                              <span className="text-green-600">✓ {airport}</span>
+                              <span className="text-green-600">
+                                ✓ {airport} 
+                                {endorsement?.group && ` (${endorsement.group})`}
+                                {endorsement?.restrictions && endorsement.restrictions.length > 0 && (
+                                  <span className="text-xs block ml-4 text-muted-foreground">
+                                    {endorsement.restrictions.map((r, i) => (
+                                      <span key={i}>• {r}<br/></span>
+                                    ))}
+                                  </span>
+                                )}
+                              </span>
                             )
                           ) : (
                             <span className="text-muted-foreground">○ {airport} (nicht berechtigt)</span>

@@ -45,16 +45,42 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
       try {
+        // Get selected airports for this signup
+        const selectedAirports = normalizeSelectedAirports(s.selectedAirports);
+        const eventAirportsList = (event.airports as string[] | null) || [];
+        const airportsToCheck = selectedAirports.length > 0 ? selectedAirports : eventAirportsList;
+        
+        // Fetch endorsement for first airport (for backward compatibility with single endorsement field)
         const result: EndorsementResponse = await GroupService.getControllerGroup({
           user: {
             userCID: user.cid,
             rating: getRatingValue(user.rating),
           },
           event: {
-            airport: (event.airports as string[] | null)?.[0] ?? "",
+            airport: eventAirportsList[0] ?? "",
             fir: event.fir?.code,
           },
         });
+
+        // Fetch endorsements for all selected airports
+        const airportEndorsements: Record<string, EndorsementResponse> = {};
+        for (const airport of airportsToCheck) {
+          try {
+            const airportResult = await GroupService.getControllerGroup({
+              user: {
+                userCID: user.cid,
+                rating: getRatingValue(user.rating),
+              },
+              event: {
+                airport: airport,
+                fir: event.fir?.code,
+              },
+            });
+            airportEndorsements[airport] = airportResult;
+          } catch (err) {
+            console.error(`[ENDORSEMENT ERROR] ${user.cid} @${airport}:`, err);
+          }
+        }
 
         return {
           id: s.id,
@@ -67,7 +93,8 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: result,
-          selectedAirports: normalizeSelectedAirports(s.selectedAirports),
+          airportEndorsements: airportEndorsements,
+          selectedAirports: selectedAirports,
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
