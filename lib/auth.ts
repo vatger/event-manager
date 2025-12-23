@@ -128,11 +128,11 @@ export const authOptions: NextAuthOptions = {
         }
   
         try {
-          const existingUser = await prisma.user.findUnique({
+          const existingUser = await prisma!.user.findUnique({
             where: { cid },
           });
           if (!existingUser) {
-            await prisma.user.create({
+            await prisma!.user.create({
               data: {
                 cid,
                 name: user.name!,
@@ -140,7 +140,7 @@ export const authOptions: NextAuthOptions = {
               },
             });
           } else if (existingUser.name !== user.name || existingUser.rating !== user.rating) {
-            await prisma.user.update({
+            await prisma!.user.update({
               where: { cid },
               data: {
                 name: user.name!,
@@ -167,7 +167,7 @@ export const authOptions: NextAuthOptions = {
         return token;
       },
       async session({ session, token }) {
-        const dbUser = await prisma.user.findUnique({
+        const dbUser = await prisma!.user.findUnique({
           where: { cid: Number(token.cid) },
         });
 
@@ -187,7 +187,7 @@ export const authOptions: NextAuthOptions = {
 };
 
 export async function getUser(userId: string) {
-  return prisma.user.findUnique({
+  return prisma!.user.findUnique({
     where: { cid: Number(userId) },
     select: { id: true, role: true, name: true, cid: true, rating: true },
   });

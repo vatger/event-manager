@@ -19,7 +19,7 @@ export async function checkUpcomingEventsForReminders() {
     // Find events that:
     // 1. Start in exactly 3 weeks (within the target day)
     // 2. Are not yet in SIGNUP_OPEN, SIGNUP_CLOSED, ROSTER_PUBLISHED, or CANCELLED status
-    const eventsNeedingReminder = await prisma.event.findMany({
+    const eventsNeedingReminder = await prisma!.event.findMany({
       where: {
         startTime: {
           gte: dayStart,

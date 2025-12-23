@@ -39,6 +39,7 @@ function requireEnv(name: string): string {
 }
 
 export async function refreshTrainingCache() {
+  if(!prisma) throw new Error('Prisma not initialized')
   const token = requireEnv('TRAINING_API_TOKEN')
   const solosUrl = requireEnv('TRAINING_API_SOLOS_URL')
   const endoUrl = requireEnv('TRAINING_API_ENDORSEMENTS_URL')
@@ -86,9 +87,9 @@ export async function refreshTrainingCache() {
     prisma.trainingSoloCache.deleteMany({}),
     prisma.trainingEndorsementCache.deleteMany({}),
     prisma.trainingFamiliarizationCache.deleteMany({}),
-    prisma.trainingSoloCache.createMany({ data: soloRows, skipDuplicates: true }),
-    prisma.trainingEndorsementCache.createMany({ data: endoRows, skipDuplicates: true }),
-    prisma.trainingFamiliarizationCache.createMany({ data: famRows, skipDuplicates: true }),
+    prisma.trainingSoloCache.createMany({ data: soloRows }),
+    prisma.trainingEndorsementCache.createMany({ data: endoRows }),
+    prisma.trainingFamiliarizationCache.createMany({ data: famRows }),
     prisma.trainingCacheMetadata.upsert({
       where: { id: 1 },
       create: { id: 1, lastUpdated: now, forceUpdate: false },
@@ -101,7 +102,7 @@ export async function refreshTrainingCache() {
 
 export async function ensureTrainingCacheFreshness(options?: { force?: boolean }) {
   const force = !!options?.force
-  const meta = await prisma.trainingCacheMetadata.findFirst()
+  const meta = await prisma!.trainingCacheMetadata.findFirst()
   const needsUpdate =
     force ||
     !meta ||
@@ -115,12 +116,12 @@ export async function ensureTrainingCacheFreshness(options?: { force?: boolean }
 }
 
 export async function getCachedUserEndorsements(cid: number): Promise<string[]> {
-  const rows = await prisma.trainingEndorsementCache.findMany({ where: { userCID: cid } })
+  const rows = await prisma!.trainingEndorsementCache.findMany({ where: { userCID: cid } })
   return rows.map(r => r.position)
 }
 
 export async function getCachedUserFamiliarizations(cid: number): Promise<{ familiarizations: Record<string, string[]> }> {
-  const rows = await prisma.trainingFamiliarizationCache.findMany({ where: { userCID: cid } })
+  const rows = await prisma!.trainingFamiliarizationCache.findMany({ where: { userCID: cid } })
   const byFir: Record<string, string[]> = {}
   for (const r of rows) {
     if (!byFir[r.sectorFir]) byFir[r.sectorFir] = []
@@ -130,7 +131,7 @@ export async function getCachedUserFamiliarizations(cid: number): Promise<{ fami
 }
 
 export async function getCachedUserSolos(cid: number): Promise<{ position: string; expiry: Date }[]> {
-  const rows = await prisma.trainingSoloCache.findMany({ where: { userCID: cid } })
+  const rows = await prisma!.trainingSoloCache.findMany({ where: { userCID: cid } })
   
   const soloExpiryByPosition = Object.fromEntries(
     rows.map((r) => [r.position, r.expiry])
