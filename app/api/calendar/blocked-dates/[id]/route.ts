@@ -27,6 +27,9 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
@@ -65,6 +68,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!prisma) {
+    return new Response("Service unavailable", { status: 503 });
+  }
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
