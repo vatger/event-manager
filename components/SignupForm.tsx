@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
@@ -59,11 +58,12 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [availability, setAvailability] = useState<Availability>();
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [selectedAirports, setSelectedAirports] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, boolean>>({});
+  const [loadingEndorsements, setLoadingEndorsements] = useState(false);
   
   const userCID = session?.user.id;
 
@@ -86,10 +86,70 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setAvailability(signupData.availability ?? {});
     setDesiredPosition(signupData.preferredStations ?? "");
     setRemarks(signupData.remarks ?? "");
-    setSelectedAirports(signupData.selectedAirports ?? eventAirports);
     setHydrated(true);
     
   }, [signupData, hydrated, eventAirports]);
+
+  // Fetch endorsements for all airports to determine which ones user can staff
+  useEffect(() => {
+    if (!userCID || !session?.user.rating) return;
+    
+    const fetchAirportEndorsements = async () => {
+      setLoadingEndorsements(true);
+      const endorsementResults: Record<string, boolean> = {};
+      
+      try {
+        // Check endorsements for each airport
+        for (const airport of eventAirports) {
+          const res = await fetch("/api/endorsements/group", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              user: {
+                userCID: Number(userCID),
+                rating: getRatingValue(session.user.rating),
+              },
+              event: {
+                airport: airport,
+                fir: event.firCode || "EDMM",
+              },
+            }),
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            // User can staff this airport if they have a group assignment
+            endorsementResults[airport] = !!data.group;
+          } else {
+            endorsementResults[airport] = false;
+          }
+        }
+        
+        setAirportEndorsements(endorsementResults);
+      } catch (error) {
+        console.error("Error fetching airport endorsements:", error);
+      } finally {
+        setLoadingEndorsements(false);
+      }
+    };
+    
+    fetchAirportEndorsements();
+  }, [userCID, session?.user.rating, eventAirports, event.firCode]);
+
+  // Parse opt-out airports from remarks (!ICAO format)
+  const parseOptOutAirports = (remarksText: string): string[] => {
+    const optOutPattern = /!([A-Z]{4})/g;
+    const matches = remarksText.matchAll(optOutPattern);
+    return Array.from(matches, m => m[1]);
+  };
+
+  // Calculate final airport list based on endorsements and opt-outs
+  const getSelectedAirports = (): string[] => {
+    const optedOut = parseOptOutAirports(remarks);
+    return eventAirports.filter(airport => 
+      airportEndorsements[airport] && !optedOut.includes(airport)
+    );
+  };
 
   // Auto-endorsement uses the first airport as a representative
   // This is acceptable as endorsements are typically valid across all airports in an event
@@ -129,9 +189,12 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       return;
     }
 
-    // Validate airport selection for multi-airport events
-    if (eventAirports.length > 1 && selectedAirports.length === 0) {
-      toast.error("Bitte wähle mindestens einen Airport aus");
+    // Calculate airports based on endorsements and opt-outs
+    const selectedAirports = getSelectedAirports();
+    
+    // Validate that user can staff at least one airport
+    if (selectedAirports.length === 0) {
+      toast.error("Du kannst keinen der Airports für dieses Event lotsen oder hast alle Airports mit !ICAO ausgeschlossen");
       return;
     }
 
@@ -154,7 +217,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           endorsement: null,
           preferredStations: desiredPosition,
           remarks,
-          selectedAirports: eventAirports.length > 1 ? selectedAirports : eventAirports,
+          selectedAirports: selectedAirports,
         }),
       });
 
@@ -289,36 +352,42 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             />
           </div>
           
-          {/* Airport Selection for Multi-Airport Events */}
+          {/* Airport Information for Multi-Airport Events */}
           {eventAirports.length > 1 && (
-            <div className="space-y-2">
-              <Label>Airports</Label>
+            <div className="space-y-2 border rounded-md p-3 bg-muted/30">
+              <Label>Airports (automatisch zugewiesen)</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Wähle die Airports aus, die du lotsen kannst
+                Du wirst automatisch für alle Airports angemeldet, die du laut deinen Endorsements lotsen darfst.
               </p>
-              <div className="space-y-2 border rounded-md p-3">
-                {eventAirports.map((airport) => (
-                  <div key={airport} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`airport-${airport}`}
-                      checked={selectedAirports.includes(airport)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedAirports([...selectedAirports, airport]);
-                        } else {
-                          setSelectedAirports(selectedAirports.filter(a => a !== airport));
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor={`airport-${airport}`}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                    >
-                      {airport}
-                    </label>
-                  </div>
-                ))}
-              </div>
+              {loadingEndorsements ? (
+                <div className="flex items-center gap-2 text-sm">
+                  <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                  <span>Prüfe Endorsements...</span>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {eventAirports.map((airport) => {
+                    const canStaff = airportEndorsements[airport];
+                    const isOptedOut = parseOptOutAirports(remarks).includes(airport);
+                    return (
+                      <div key={airport} className="flex items-center gap-2 text-sm">
+                        {canStaff ? (
+                          isOptedOut ? (
+                            <span className="text-orange-600">✗ {airport} (ausgeschlossen mit !{airport})</span>
+                          ) : (
+                            <span className="text-green-600">✓ {airport}</span>
+                          )
+                        ) : (
+                          <span className="text-muted-foreground">○ {airport} (nicht berechtigt)</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                💡 Tipp: Füge <code className="bg-background px-1 py-0.5 rounded">!ICAO</code> in deinen Bemerkungen hinzu, um dich von einem Airport auszuschließen (z.B. "!EDDM").
+              </p>
             </div>
           )}
           
@@ -343,7 +412,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder={"Some space..."}
+              placeholder={eventAirports.length > 1 
+                ? "Bemerkungen (z.B. '!EDDM' um dich von München auszuschließen)..." 
+                : "Some space..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="min-h-[80px]"
