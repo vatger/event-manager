@@ -94,7 +94,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
         color: "#FFFFFF",
         bold: true,
       },
-      prefix: "feat ",
+      prefix: "feat. ",
     },
     
     weekday: {
@@ -149,7 +149,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
         color: "#FFFFFF",
         bold: true,
       },
-      prefix: "feat ",
+      prefix: "feat. ",
     },
     
     weekday: {
@@ -204,7 +204,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
         color: "#FFFFFF",
         bold: true,
       },
-      prefix: "feat ",
+      prefix: "feat. ",
     },
     
     weekday: {
@@ -260,7 +260,7 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
         color: "#000000",
         bold: true,
       },
-      prefix: "feat ",
+      prefix: "feat. ",
     },
     
     weekday: {
