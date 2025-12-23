@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircleIcon, Loader2, ArrowLeft, DeleteIcon, Trash2Icon } from "lucide-react";
+import { AlertCircleIcon, Loader2, Trash2Icon, Plus, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
 import { Event } from "@/types";
@@ -23,7 +24,7 @@ interface FormData {
   bannerUrl: string;
   startTime: string;
   endTime: string;
-  airport: string;
+  airports: string[];
   rosterUrl?: string;
   staffedStations: string[];
   status: Event["status"];
@@ -61,11 +62,12 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     bannerUrl: "",
     startTime: "",
     endTime: "",
-    airport: "",
+    airports: [],
     staffedStations: [],
     status: "DRAFT",
     fir: "",
   });
+  const [airportInput, setAirportInput] = useState("");
 
   const { isVATGERLead } = useUser();
 
@@ -94,18 +96,26 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           bannerUrl: "",
           startTime: defaultStart.toISOString(),
           endTime: defaultEnd.toISOString(),
-          airport: "",
+          airports: [],
           staffedStations: [],
           status: "DRAFT", // Events from calendar start as DRAFT
           rosterUrl: "",
           fir: "",
         });
+        setAirportInput("");
         return;
       }
     
       // Edit mode (wird nur 1x pro Event gesetzt)
       const start = new Date(event.startTime);
       const end = new Date(event.endTime);
+      
+      // Parse airports - could be string or array
+      const airportsArray = Array.isArray(event.airports) 
+        ? event.airports 
+        : typeof event.airports === "string" 
+          ? event.airports.split(",").map(a => a.trim()).filter(Boolean)
+          : [];
     
       setFormData({
         name: event.name || "",
@@ -113,7 +123,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         bannerUrl: event.bannerUrl || "",
         startTime: start.toISOString(),
         endTime: end.toISOString(),
-        airport: event.airports?.toString() || "",
+        airports: airportsArray,
         staffedStations: event.staffedStations || [],
         status: (event.status as Event["status"]) ?? "DRAFT",
         rosterUrl: event.rosterlink || "",
@@ -122,6 +132,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           : "",
         fir: event.firCode || "",
       });
+      setAirportInput("");
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event?.id, initialDate]);
 
@@ -168,7 +179,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         bannerUrl: formData.bannerUrl.trim(),
         startTime: formData.startTime,
         endTime: formData.endTime,
-        airports: [formData.airport.trim().toUpperCase()],
+        airports: formData.airports.map(a => a.trim().toUpperCase()),
         staffedStations: formData.staffedStations,
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
@@ -224,10 +235,19 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
       return false;
     }
     
-    if (!formData.airport.trim() || formData.airport.trim().length !== 4) {
-      setError("Bitte geben Sie einen gültigen ICAO-Code (4 Zeichen) ein");
+    if (formData.airports.length === 0) {
+      setError("Bitte fügen Sie mindestens einen Airport (ICAO-Code) hinzu");
       setActiveTab("basic");
       return false;
+    }
+    
+    // Validate all airports have valid ICAO codes
+    for (const airport of formData.airports) {
+      if (airport.trim().length !== 4) {
+        setError(`Ungültiger ICAO-Code: ${airport}. ICAO-Codes müssen 4 Zeichen haben.`);
+        setActiveTab("basic");
+        return false;
+      }
     }
 
     const startTime = new Date(formData.startTime);
@@ -240,6 +260,25 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     }
 
     return true;
+  };
+
+  const addAirport = () => {
+    const icao = airportInput.trim().toUpperCase();
+    if (icao.length === 4 && !formData.airports.includes(icao)) {
+      setFormData(prev => ({ ...prev, airports: [...prev.airports, icao] }));
+      setAirportInput("");
+    }
+  };
+
+  const removeAirport = (icao: string) => {
+    setFormData(prev => ({ ...prev, airports: prev.airports.filter(a => a !== icao) }));
+  };
+
+  const handleAirportKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addAirport();
+    }
   };
 
   const handleDelete = async () => {
@@ -358,20 +397,52 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="airport">Event-Airport (ICAO) *</Label>
-                  <Input
-                    id="airport"
-                    name="airport"
-                    value={formData.airport}
-                    onChange={handleChange}
-                    placeholder="EDDM"
-                    required
-                    disabled={isSaving}
-                    className="uppercase"
-                    maxLength={4}
-                  />
+                  <Label htmlFor="airports">Event-Airports (ICAO) *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="airports"
+                      value={airportInput}
+                      onChange={(e) => setAirportInput(e.target.value.toUpperCase())}
+                      onKeyPress={handleAirportKeyPress}
+                      placeholder="EDDM"
+                      disabled={isSaving}
+                      className="uppercase flex-1"
+                      maxLength={4}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={addAirport}
+                      disabled={isSaving || airportInput.trim().length !== 4}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {formData.airports.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.airports.map((airport) => (
+                        <Badge
+                          key={airport}
+                          variant="secondary"
+                          className="px-3 py-1 text-sm flex items-center gap-1"
+                        >
+                          {airport}
+                          <button
+                            type="button"
+                            onClick={() => removeAirport(airport)}
+                            disabled={isSaving}
+                            className="hover:bg-muted rounded-full p-0.5 ml-1"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    
+                    {formData.airports.length > 1 
+                      ? "Multi-Airport Event: Nutzer werden automatisch allen Airports zugeordnet, die sie lotsen können."
+                      : "Für Multi-Airport Events mehrere ICAO-Codes hinzufügen (z.B. EDDM, EDDN, EDDP)"}
                   </p>
                 </div>
 
@@ -467,16 +538,16 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {formData.airport ? (
+                {formData.airports.length > 0 ? (
                   <StationSelector
-                    airport={formData.airport}
+                    airports={formData.airports}
                     selectedStations={formData.staffedStations}
                     onStationsChange={handleStationsChange}
                     disabled={isSaving}
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
-                    Bitte gebe zuerst einen gültigen ICAO-Code im Tab Grunddaten ein.
+                    Bitte fügen Sie zuerst mindestens einen ICAO-Code im Tab Grunddaten hinzu.
                   </div>
                 )}
               </CardContent>

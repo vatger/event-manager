@@ -94,7 +94,7 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
                       rating: getRatingValue(session?.user?.rating || "OBS")
                     }, 
                     event: {
-                      airport: event.airports[0],
+                      airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
                       fir: event.firCode
                     } 
                   }
@@ -114,7 +114,12 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-gray-500" />
-          <span>{event.airports}</span>
+          <div className="flex flex-col">
+            <span>{Array.isArray(event.airports) ? event.airports.join(", ") : event.airports}</span>
+            {Array.isArray(event.airports) && event.airports.length > 1 && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">Multi-Airport</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-500" />

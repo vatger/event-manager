@@ -1,4 +1,4 @@
-import { EndorsementResponse } from "@/lib/endorsements/types";
+import { EndorsementResponse, MultiAirportEndorsementResponse } from "@/lib/endorsements/types";
 import { TimeRange } from "@/types";
 
 export interface SignupTableUser {
@@ -27,6 +27,10 @@ export interface SignupTableEntry {
   remarks: string | null;
   availability: Availability;
   endorsement: EndorsementResponse | null;
+  // Multi-airport endorsement data
+  multiAirportEndorsement?: MultiAirportEndorsementResponse | null;
+  // Optional airport exclusions (airports the user opted out of)
+  excludedAirports?: string[];
   deletedAt?: string | null;
   deletedBy?: number | null;
   modifiedAfterDeadline?: boolean;
