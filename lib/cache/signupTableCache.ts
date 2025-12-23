@@ -27,7 +27,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
   console.log(`[CACHE MISS] Recalculate SignupTable für Event ${eventId}`);
 
   // 2️⃣ Falls kein Cache vorhanden → Eventdaten laden
-  const event = await prisma.event.findUnique({
+  const event = await prisma!.event.findUnique({
     where: { id: eventId },
     include: { fir: true },
   });
@@ -35,7 +35,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
   if (!event) throw new Error(`Event ${eventId} not found`);
 
   // 3️⃣ Alle Signups abrufen
-  const signups = await prisma.eventSignup.findMany({
+  const signups = await prisma!.eventSignup.findMany({
     where: { eventId },
     include: { user: true },
   });
