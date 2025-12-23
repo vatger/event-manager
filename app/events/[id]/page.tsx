@@ -48,7 +48,6 @@ export default function EventPage() {
     if (typeof event.airports === 'string') return [event.airports];
     return [];
   }, [event?.airports]);
-
   
   // Event laden
   useEffect(() => {
@@ -79,7 +78,7 @@ export default function EventPage() {
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
-  
+  console.log("event airports", event?.airports);
 
   const dateLabel = useMemo(() => 
     event ? new Date(event.startTime).toLocaleDateString("de-DE") : "", 
@@ -104,11 +103,12 @@ export default function EventPage() {
     const airports = Array.isArray(event.airports) ? event.airports : [event.airports];
     return airports.join(", ");
   }, [event?.airports]);
+  
 
   const normalizedEventForSignup = useMemo(() => 
     event ? {
       ...event,
-      airports: Array.isArray(event.airports) ? event.airports[0] : event.airports,
+      airports: Array.isArray(event.airports) ? event.airports : event.airports[0],
     } : null,
     [event]
   );

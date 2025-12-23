@@ -74,6 +74,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   // Get event airports as array
   const eventAirports = useMemo(() => {
     let airports: string[] = [];
+    console.log("airport:", event.airports);
     if (Array.isArray(event.airports)) {
       airports = event.airports;
     } else if (typeof event.airports === 'string') {

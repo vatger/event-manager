@@ -1,7 +1,3 @@
-// This file is identical to schema.prisma but with SQLite provider
-// Use with: npx prisma db push --schema=prisma/schema.sqlite.prisma
-// Note: Keep this file in sync with schema.prisma when making schema changes
-
 datasource db {
   provider = "sqlite"
 }
@@ -110,6 +106,7 @@ model EventSignup {
   breakrequests         String?
   preferredStations     String?
   remarks               String?
+  selectedAirports      Json? // Array of ICAO codes the user can staff
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   deletedAt             DateTime? // Soft delete timestamp
