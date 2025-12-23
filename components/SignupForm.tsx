@@ -99,8 +99,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       const endorsementResults: Record<string, boolean> = {};
       
       try {
-        // Check endorsements for each airport
-        for (const airport of eventAirports) {
+        // Check endorsements for each airport in parallel for better performance
+        const endorsementChecks = eventAirports.map(async (airport) => {
           const res = await fetch("/api/endorsements/group", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -118,12 +118,16 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           
           if (res.ok) {
             const data = await res.json();
-            // User can staff this airport if they have a group assignment
-            endorsementResults[airport] = !!data.group;
-          } else {
-            endorsementResults[airport] = false;
+            return { airport, canStaff: !!data.group };
           }
-        }
+          return { airport, canStaff: false };
+        });
+        
+        const results = await Promise.all(endorsementChecks);
+        const endorsementResults: Record<string, boolean> = {};
+        results.forEach(({ airport, canStaff }) => {
+          endorsementResults[airport] = canStaff;
+        });
         
         setAirportEndorsements(endorsementResults);
       } catch (error) {
@@ -366,23 +370,27 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {eventAirports.map((airport) => {
-                    const canStaff = airportEndorsements[airport];
-                    const isOptedOut = parseOptOutAirports(remarks).includes(airport);
-                    return (
-                      <div key={airport} className="flex items-center gap-2 text-sm">
-                        {canStaff ? (
-                          isOptedOut ? (
-                            <span className="text-orange-600">✗ {airport} (ausgeschlossen mit !{airport})</span>
+                  {(() => {
+                    // Parse opt-outs once outside the map for performance
+                    const optedOut = parseOptOutAirports(remarks);
+                    return eventAirports.map((airport) => {
+                      const canStaff = airportEndorsements[airport];
+                      const isOptedOut = optedOut.includes(airport);
+                      return (
+                        <div key={airport} className="flex items-center gap-2 text-sm">
+                          {canStaff ? (
+                            isOptedOut ? (
+                              <span className="text-orange-600">✗ {airport} (ausgeschlossen mit !{airport})</span>
+                            ) : (
+                              <span className="text-green-600">✓ {airport}</span>
+                            )
                           ) : (
-                            <span className="text-green-600">✓ {airport}</span>
-                          )
-                        ) : (
-                          <span className="text-muted-foreground">○ {airport} (nicht berechtigt)</span>
-                        )}
-                      </div>
-                    );
-                  })}
+                            <span className="text-muted-foreground">○ {airport} (nicht berechtigt)</span>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               )}
               <p className="text-xs text-muted-foreground mt-2">
@@ -393,11 +401,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           
           {/* Automatische Gruppenzuweisung */}
           {!loading && userCID && (
-          <div>
-            {!loading && userCID && (
-              <AutomaticEndorsement {...autoEndorsementProps} />
-            )}
-          </div>
+            <AutomaticEndorsement {...autoEndorsementProps} />
           )}
 
           <div>
