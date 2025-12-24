@@ -32,12 +32,49 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Helper function to parse opted-out airports from remarks
+const parseOptOutAirports = (remarksText: string | null): string[] => {
+  if (!remarksText) return [];
+  const optOutPattern = /!([A-Z]{4})/g;
+  const matches = remarksText.matchAll(optOutPattern);
+  return Array.from(matches, m => m[1]);
+};
+
+// Helper function to get highest endorsement group
+const getHighestEndorsementGroup = (airportEndorsements?: Record<string, any>): string | null => {
+  if (!airportEndorsements) return null;
+  
+  const groupPriority: Record<string, number> = {
+    'CTR': 4,
+    'APP': 3,
+    'TWR': 2,
+    'GND': 1,
+    'DEL': 0,
+  };
+  
+  let highestGroup: string | null = null;
+  let highestPriority = -1;
+  
+  Object.values(airportEndorsements).forEach((endorsement: any) => {
+    if (endorsement?.group) {
+      const priority = groupPriority[endorsement.group] ?? -1;
+      if (priority > highestPriority) {
+        highestPriority = priority;
+        highestGroup = endorsement.group;
+      }
+    }
+  });
+  
+  return highestGroup;
+};
+
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 
 type SignupTableColumn =
   | "cid"
   | "name"
   | "group"
+  | "airports"
   | "availability"
   | "preferredStations"
   | "remarks";
@@ -53,12 +90,15 @@ interface SignupsTableProps {
   emptyMessage?: string;
   event?: EventRef;
   onRefresh?: () => void;
+  filteredSignups?: SignupTableEntry[]; // Optional pre-filtered signups
+  currentAirport?: string; // Current airport context
 }
 
 const HEAD_LABELS: Record<SignupTableColumn, string> = {
   cid: "CID",
   name: "Name",
   group: "Group",
+  airports: "Airports",
   availability: "Availability",
   preferredStations: "Desired Position",
   remarks: "RMK",
@@ -110,6 +150,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       emptyMessage = "Keine Anmeldungen",
       event,
       onRefresh,
+      filteredSignups,
+      currentAirport,
     },
     ref
   ) => {
@@ -119,25 +161,37 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     const [signups, setSignups] = useState<SignupTableEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastUpdate, setLastUpdate] = useState<number>(0);
 
     // Dialog state
     const [editOpen, setEditOpen] = useState(false);
     const [editSignup, setEditSignup] = useState<SignupTableEntry | null>(null);
+    
+    // Use filtered signups if provided, otherwise fetch from API
+    const displaySignups = filteredSignups || signups;
 
     // --------------------------------------------------------------------
     // 🔹 1️⃣ Load signups from API (cached)
     // --------------------------------------------------------------------
-    const loadSignups = useCallback(async () => {
+    const loadSignups = useCallback(async (forceRefresh = false) => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        const url = forceRefresh 
+          ? `/api/events/${eventId}/signup/full?refresh=true`
+          : `/api/events/${eventId}/signup/full`;
+        
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Fehler beim Laden der Signups");
 
         const data = await res.json();
         if (!Array.isArray(data.signups)) throw new Error("Invalid response format");
+        
         setSignups(data.signups);
+        if (data.lastUpdate) {
+          setLastUpdate(data.lastUpdate);
+        }
       } catch (err) {
         console.error("SignupTable load error:", err);
         setSignups([]);
@@ -146,6 +200,30 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         setLoading(false);
       }
     }, [eventId]);
+
+    // --------------------------------------------------------------------
+    // 🔹 1.5️⃣ Check for updates (lightweight polling)
+    // --------------------------------------------------------------------
+    const checkForUpdates = useCallback(async () => {
+      try {
+        // Only check if we have a lastUpdate timestamp
+        if (lastUpdate === 0) return;
+        
+        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        
+        // If server has a newer timestamp, reload
+        if (data.lastUpdate && data.lastUpdate > lastUpdate) {
+          console.log(`[SignupsTable] Detected update, reloading... (${data.lastUpdate} > ${lastUpdate})`);
+          await loadSignups(true); // Force refresh
+        }
+      } catch (err) {
+        console.error("Update check error:", err);
+        // Silently fail - don't disrupt the UI
+      }
+    }, [eventId, lastUpdate, loadSignups]);
 
     // --------------------------------------------------------------------
     // 🔹 Acknowledge changes
@@ -173,27 +251,58 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
     // 👇 Ref erlaubt Parent-Komponente reload() auszulösen
     useImperativeHandle(ref, () => ({
-      reload: loadSignups,
+      reload: () => loadSignups(true), // Force refresh when explicitly called
     }));
-    // Initial Load
+    
+    // Initial Load - either from API or use provided filtered signups
     useEffect(() => {
-      loadSignups();
-    }, [loadSignups]);
+      if (filteredSignups !== undefined) {
+        // Using pre-filtered signups from parent component
+        setLoading(false);
+      } else {
+        // Load from API when no filtered signups provided
+        loadSignups();
+      }
+    }, [loadSignups, filteredSignups]);
+
+    // Polling for updates (every 10 seconds when table is visible)
+    useEffect(() => {
+      // Don't poll if using filtered signups from parent
+      if (filteredSignups !== undefined) return;
+      
+      // Don't poll if still loading initial data
+      if (loading) return;
+      
+      // Set up polling interval
+      const pollInterval = setInterval(() => {
+        checkForUpdates();
+      }, 10000); // Check every 10 seconds
+      
+      return () => clearInterval(pollInterval);
+    }, [filteredSignups, loading, checkForUpdates]);
 
     // --------------------------------------------------------------------
     // 🔹 2️⃣ Group signups by endorsement level
     // --------------------------------------------------------------------
     const grouped = useMemo(() => {
       const out: Record<string, SignupTableEntry[]> = {};
-      if (!Array.isArray(signups)) return out;
+      if (!Array.isArray(displaySignups)) return out;
 
-      for (const s of signups) {
-        const label = s.endorsement?.group || s.user.rating || "UNSPEC";
+      for (const s of displaySignups) {
+        // If viewing a specific airport, use that airport's endorsement for grouping
+        let label: string;
+        if (currentAirport && s.airportEndorsements?.[currentAirport]) {
+          label = s.airportEndorsements[currentAirport].group || s.user.rating || "UNSPEC";
+        } else {
+          // For "All Airports" view, use the highest endorsement level
+          const highestGroup = getHighestEndorsementGroup(s.airportEndorsements);
+          label = highestGroup || s.endorsement?.group || s.user.rating || "UNSPEC";
+        }
         if (!out[label]) out[label] = [];
         out[label].push(s);
       }
       return out;
-    }, [signups]);
+    }, [displaySignups, currentAirport]);
 
     const orderedGroups = useMemo(() => {
       const keys = Object.keys(grouped);
@@ -238,7 +347,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
           </div>
         )}
 
-         {signups.length === 0 ? (
+         {displaySignups.length === 0 ? (
           <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
           <UserSearch className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-foreground mb-2">
@@ -271,7 +380,9 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                   {grouped[group].map((s) => {
                     const isDeleted = !!s.deletedAt;
-                    const rowClassName = isDeleted ? "opacity-50" : "";
+                    const optedOutAirports = parseOptOutAirports(s.remarks);
+                    const isOptedOutOfCurrentAirport = currentAirport && optedOutAirports.includes(currentAirport);
+                    const rowClassName = isDeleted ? "opacity-50" : isOptedOutOfCurrentAirport ? "opacity-40 bg-muted/30" : "";
                     
                     return (
                       <TableRow key={s.id} className={rowClassName}>
@@ -282,6 +393,9 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 return (
                                   <span className={isDeleted ? "line-through" : ""}>
                                     {s.user.cid}
+                                    {isOptedOutOfCurrentAirport && (
+                                      <span className="ml-2 text-xs text-orange-600">(ausgeschlossen)</span>
+                                    )}
                                   </span>
                                 );
 
@@ -359,20 +473,149 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "group":
+                                // Determine which endorsement to display
+                                let displayEndorsement;
+                                if (currentAirport && s.airportEndorsements?.[currentAirport]) {
+                                  // Show airport-specific endorsement when filtering by airport
+                                  displayEndorsement = s.airportEndorsements[currentAirport];
+                                } else if (!currentAirport && s.airportEndorsements) {
+                                  // Show highest endorsement for "All Airports" view
+                                  const highestGroup = getHighestEndorsementGroup(s.airportEndorsements);
+                                  if (highestGroup) {
+                                    // Find the endorsement with this group
+                                    const endorsementEntry = Object.entries(s.airportEndorsements).find(
+                                      ([_, e]: [string, any]) => e.group === highestGroup
+                                    );
+                                    displayEndorsement = endorsementEntry ? endorsementEntry[1] : s.endorsement;
+                                  } else {
+                                    displayEndorsement = s.endorsement;
+                                  }
+                                } else {
+                                  displayEndorsement = s.endorsement;
+                                }
+                                
+                                const groupLabel = displayEndorsement?.group || s.user.rating;
+                                
                                 return (
                                   <div className="flex flex-col">
-                                    <Badge className={getBadgeClassForEndorsement(s.endorsement?.group || s.user.rating)}>
-                                      {s.endorsement?.group || s.user.rating}
+                                    <Badge className={getBadgeClassForEndorsement(groupLabel)}>
+                                      {groupLabel}
                                     </Badge>
-                                    {s.endorsement?.restrictions?.length ? (
+                                    {displayEndorsement?.restrictions?.length ? (
                                       <div className="mt-1">
-                                        {s.endorsement.restrictions.map((r, idx) => (
+                                        {displayEndorsement.restrictions.map((r, idx) => (
                                           <div key={idx} className="text-xs text-muted-foreground">
                                             • {r}
                                           </div>
                                         ))}
                                       </div>
                                     ) : null}
+                                  </div>
+                                );
+
+                              case "airports":
+                                // Get event airports for comparison
+                                const eventAirports = event?.airports 
+                                  ? (Array.isArray(event.airports) ? event.airports : [event.airports])
+                                  : [];
+                                const signupAirports = s.selectedAirports && s.selectedAirports.length > 0
+                                  ? s.selectedAirports
+                                  : eventAirports;
+                                
+                                // Parse opted-out airports from remarks
+                                const optedOutAirports = parseOptOutAirports(s.remarks);
+                                
+                                // Determine which airports user can theoretically staff
+                                const canStaffAirports = s.airportEndorsements 
+                                  ? Object.keys(s.airportEndorsements).filter(airport => s.airportEndorsements![airport]?.group)
+                                  : [];
+                                  
+                                // Only show if multiple airports in event
+                                if (eventAirports.length <= 1) {
+                                  return <span className="text-muted-foreground">-</span>;
+                                }
+                                
+                                return (
+                                  <div className="flex flex-wrap gap-1">
+                                    {/* Show selected (not opted-out) airports */}
+                                    {signupAirports.map((airport) => {
+                                      const airportEndorsement = s.airportEndorsements?.[airport];
+                                      const hasEndorsementData = airportEndorsement && airportEndorsement.group;
+                                      const isOptedOut = optedOutAirports.includes(airport);
+                                      
+                                      // Skip if opted out (will be shown separately)
+                                      if (isOptedOut) return null;
+                                      
+                                      return hasEndorsementData ? (
+                                        <TooltipProvider key={airport}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge variant="outline" className="text-xs cursor-help">
+                                                {airport}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{airport}</p>
+                                                <p className="text-sm">Gruppe: {airportEndorsement.group}</p>
+                                                {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
+                                                  <div className="text-xs text-muted-foreground">
+                                                    <p className="font-medium">Einschränkungen:</p>
+                                                    {airportEndorsement.restrictions.map((r, i) => (
+                                                      <p key={i}>• {r}</p>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : (
+                                        <Badge key={airport} variant="outline" className="text-xs">
+                                          {airport}
+                                        </Badge>
+                                      );
+                                    })}
+                                    
+                                    {/* Show opted-out airports with different styling */}
+                                    {optedOutAirports.map((airport) => {
+                                      // Only show if they can staff this airport
+                                      if (!canStaffAirports.includes(airport)) return null;
+                                      
+                                      const airportEndorsement = s.airportEndorsements?.[airport];
+                                      const hasEndorsementData = airportEndorsement && airportEndorsement.group;
+                                      
+                                      return hasEndorsementData ? (
+                                        <TooltipProvider key={airport}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Badge variant="destructive" className="text-xs cursor-help opacity-60">
+                                                {airport}
+                                              </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <div className="space-y-1">
+                                                <p className="font-semibold">{airport} (Ausgeschlossen)</p>
+                                                <p className="text-sm">Gruppe: {airportEndorsement.group}</p>
+                                                <p className="text-xs text-orange-500">Via !{airport} in Bemerkungen ausgeschlossen</p>
+                                                {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
+                                                  <div className="text-xs text-muted-foreground">
+                                                    <p className="font-medium">Einschränkungen:</p>
+                                                    {airportEndorsement.restrictions.map((r, i) => (
+                                                      <p key={i}>• {r}</p>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ) : (
+                                        <Badge key={airport} variant="destructive" className="text-xs opacity-60">
+                                          {airport}
+                                        </Badge>
+                                      );
+                                    })}
                                   </div>
                                 );
 

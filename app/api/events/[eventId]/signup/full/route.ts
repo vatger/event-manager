@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
+import { getCachedSignupTable, getLastUpdateTimestamp } from "@/lib/cache/signupTableCache";
 import { SignupTableResponse } from "@/lib/cache/types";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   const { eventId: id } = await params;
@@ -14,12 +14,18 @@ export async function GET(
   }
 
   try {
-    const data = await getCachedSignupTable(eventId);
+    // Check if force refresh is requested
+    const url = new URL(req.url);
+    const forceRefresh = url.searchParams.get('refresh') === 'true';
+    
+    const data = await getCachedSignupTable(eventId, forceRefresh);
+    const lastUpdate = getLastUpdateTimestamp(eventId);
 
     const response: SignupTableResponse = {
       eventId,
       signups: data,
-      cached: true,
+      cached: !forceRefresh,
+      lastUpdate, // Include timestamp for client-side cache busting
     };
 
     return NextResponse.json(response);
