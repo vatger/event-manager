@@ -78,8 +78,6 @@ export default function EventPage() {
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
-  console.log("event airports", event?.airports);
-
   const dateLabel = useMemo(() => 
     event ? new Date(event.startTime).toLocaleDateString("de-DE") : "", 
     [event?.startTime]

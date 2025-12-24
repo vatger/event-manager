@@ -15,6 +15,7 @@ const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 // 🔹 Hauptfunktion: getCachedSignupTable
 // ===================================================================
 export async function getCachedSignupTable(eventId: number): Promise<SignupTableEntry[]> {
+  if(!prisma) return [];
   const key = `event:${eventId}`;
 
   // 1️⃣ Versuch, aus Cache zu lesen

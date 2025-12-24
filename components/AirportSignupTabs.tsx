@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SignupTableEntry } from "@/lib/cache/types";
 import { Plane } from "lucide-react";
@@ -46,32 +45,42 @@ export default function AirportSignupTabs({
     loadSignups();
   }, [loadSignups]);
 
-  // Calculate statistics per airport
   const airportStats = useMemo(() => {
-    const stats: Record<string, { total: number; groups: Record<string, number> }> = {};
-    
+    const stats: Record<
+      string,
+      { total: number; groups: Record<string, number> }
+    > = {};
+  
+    // Initialisieren
     airports.forEach(airport => {
       stats[airport] = { total: 0, groups: {} };
     });
-
+  
     signups.forEach(signup => {
-      // Skip deleted signups
       if (signup.deletedAt) return;
-
-      const selectedAirports = signup.selectedAirports || airports;
-      const group = signup.endorsement?.group || "UNSPEC";
-
-      selectedAirports.forEach(airport => {
-        if (stats[airport]) {
-          stats[airport].total++;
-          stats[airport].groups[group] = (stats[airport].groups[group] || 0) + 1;
+  
+      const airportEndorsements = signup.airportEndorsements;
+      if (!airportEndorsements) return;
+  
+      Object.entries(airportEndorsements).forEach(
+        ([airport, endorsement]) => {
+          if (!stats[airport]) return;
+  
+          const group = endorsement.group || "UNSPEC";
+  
+          stats[airport].total += 1;
+          stats[airport].groups[group] =
+            (stats[airport].groups[group] || 0) + 1;
         }
-      });
+      );
     });
-
+  
     return stats;
   }, [signups, airports]);
+  
 
+  console.log("Signup", signups)
+  console.log("Airport Stats:", airportStats);
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
     return signups.filter(signup => {
