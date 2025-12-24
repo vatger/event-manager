@@ -22,17 +22,26 @@ export default function AirportSignupTabs({
   );
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<number>(0);
 
   // Load signups
-  const loadSignups = useCallback(async () => {
+  const loadSignups = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/events/${eventId}/signup/full`);
+      const url = forceRefresh 
+        ? `/api/events/${eventId}/signup/full?refresh=true`
+        : `/api/events/${eventId}/signup/full`;
+      
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Fehler beim Laden der Signups");
 
       const data = await res.json();
       if (!Array.isArray(data.signups)) throw new Error("Invalid response format");
       setSignups(data.signups);
+      
+      if (data.lastUpdate) {
+        setLastUpdate(data.lastUpdate);
+      }
     } catch (err) {
       console.error("SignupTable load error:", err);
       setSignups([]);
@@ -41,9 +50,39 @@ export default function AirportSignupTabs({
     }
   }, [eventId]);
 
+  // Check for updates
+  const checkForUpdates = useCallback(async () => {
+    try {
+      if (lastUpdate === 0) return;
+      
+      const res = await fetch(`/api/events/${eventId}/signup/full`);
+      if (!res.ok) return;
+
+      const data = await res.json();
+      
+      if (data.lastUpdate && data.lastUpdate > lastUpdate) {
+        console.log(`[AirportSignupTabs] Detected update, reloading...`);
+        await loadSignups(true);
+      }
+    } catch (err) {
+      console.error("Update check error:", err);
+    }
+  }, [eventId, lastUpdate, loadSignups]);
+
   useEffect(() => {
     loadSignups();
   }, [loadSignups]);
+
+  // Polling for updates
+  useEffect(() => {
+    if (loading) return;
+    
+    const pollInterval = setInterval(() => {
+      checkForUpdates();
+    }, 10000);
+    
+    return () => clearInterval(pollInterval);
+  }, [loading, checkForUpdates]);
 
   const airportStats = useMemo(() => {
     const stats: Record<

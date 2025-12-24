@@ -10,19 +10,41 @@ import { normalizeSelectedAirports } from "@/utils/airportUtils";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
+// Track last update timestamps per event for cache busting
+const lastUpdateTimestamps = new Map<number, number>();
+
+// ===================================================================
+// 🔹 Get last update timestamp for an event
+// ===================================================================
+export function getLastUpdateTimestamp(eventId: number): number {
+  return lastUpdateTimestamps.get(eventId) || 0;
+}
+
+// ===================================================================
+// 🔹 Set last update timestamp for an event
+// ===================================================================
+export function setLastUpdateTimestamp(eventId: number): void {
+  const timestamp = Date.now();
+  lastUpdateTimestamps.set(eventId, timestamp);
+  console.log(`[CACHE] Updated timestamp for event ${eventId}: ${timestamp}`);
+}
 
 // ===================================================================
 // 🔹 Hauptfunktion: getCachedSignupTable
 // ===================================================================
-export async function getCachedSignupTable(eventId: number): Promise<SignupTableEntry[]> {
+export async function getCachedSignupTable(eventId: number, forceRefresh = false): Promise<SignupTableEntry[]> {
   if(!prisma) return [];
   const key = `event:${eventId}`;
 
-  // 1️⃣ Versuch, aus Cache zu lesen
-  const cached = await getCache<SignupTableEntry[]>(key);
-  if (cached) {
-    console.log(`[CACHE HIT] SignupTableCache für Event ${eventId}`);
-    return cached;
+  // 1️⃣ Check if force refresh is requested or skip cache check
+  if (!forceRefresh) {
+    const cached = await getCache<SignupTableEntry[]>(key);
+    if (cached) {
+      console.log(`[CACHE HIT] SignupTableCache für Event ${eventId}`);
+      return cached;
+    }
+  } else {
+    console.log(`[CACHE SKIP] Force refresh for Event ${eventId}`);
   }
 
   console.log(`[CACHE MISS] Recalculate SignupTable für Event ${eventId}`);
@@ -141,6 +163,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
 export async function invalidateSignupTable(eventId: number): Promise<void> {
   const key = `event:${eventId}`;
   await invalidateCache(key);
+  setLastUpdateTimestamp(eventId); // Update timestamp for cache busting
   console.log(`[CACHE INVALIDATED] SignupTableCache für Event ${eventId}`);
 }
 

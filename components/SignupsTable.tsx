@@ -161,6 +161,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     const [signups, setSignups] = useState<SignupTableEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastUpdate, setLastUpdate] = useState<number>(0);
 
     // Dialog state
     const [editOpen, setEditOpen] = useState(false);
@@ -172,17 +173,25 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     // --------------------------------------------------------------------
     // 🔹 1️⃣ Load signups from API (cached)
     // --------------------------------------------------------------------
-    const loadSignups = useCallback(async () => {
+    const loadSignups = useCallback(async (forceRefresh = false) => {
       try {
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        const url = forceRefresh 
+          ? `/api/events/${eventId}/signup/full?refresh=true`
+          : `/api/events/${eventId}/signup/full`;
+        
+        const res = await fetch(url);
         if (!res.ok) throw new Error("Fehler beim Laden der Signups");
 
         const data = await res.json();
         if (!Array.isArray(data.signups)) throw new Error("Invalid response format");
+        
         setSignups(data.signups);
+        if (data.lastUpdate) {
+          setLastUpdate(data.lastUpdate);
+        }
       } catch (err) {
         console.error("SignupTable load error:", err);
         setSignups([]);
@@ -191,6 +200,30 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         setLoading(false);
       }
     }, [eventId]);
+
+    // --------------------------------------------------------------------
+    // 🔹 1.5️⃣ Check for updates (lightweight polling)
+    // --------------------------------------------------------------------
+    const checkForUpdates = useCallback(async () => {
+      try {
+        // Only check if we have a lastUpdate timestamp
+        if (lastUpdate === 0) return;
+        
+        const res = await fetch(`/api/events/${eventId}/signup/full`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        
+        // If server has a newer timestamp, reload
+        if (data.lastUpdate && data.lastUpdate > lastUpdate) {
+          console.log(`[SignupsTable] Detected update, reloading... (${data.lastUpdate} > ${lastUpdate})`);
+          await loadSignups(true); // Force refresh
+        }
+      } catch (err) {
+        console.error("Update check error:", err);
+        // Silently fail - don't disrupt the UI
+      }
+    }, [eventId, lastUpdate, loadSignups]);
 
     // --------------------------------------------------------------------
     // 🔹 Acknowledge changes
@@ -218,8 +251,9 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
     // 👇 Ref erlaubt Parent-Komponente reload() auszulösen
     useImperativeHandle(ref, () => ({
-      reload: loadSignups,
+      reload: () => loadSignups(true), // Force refresh when explicitly called
     }));
+    
     // Initial Load - either from API or use provided filtered signups
     useEffect(() => {
       if (filteredSignups !== undefined) {
@@ -230,6 +264,22 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         loadSignups();
       }
     }, [loadSignups, filteredSignups]);
+
+    // Polling for updates (every 10 seconds when table is visible)
+    useEffect(() => {
+      // Don't poll if using filtered signups from parent
+      if (filteredSignups !== undefined) return;
+      
+      // Don't poll if still loading initial data
+      if (loading) return;
+      
+      // Set up polling interval
+      const pollInterval = setInterval(() => {
+        checkForUpdates();
+      }, 10000); // Check every 10 seconds
+      
+      return () => clearInterval(pollInterval);
+    }, [filteredSignups, loading, checkForUpdates]);
 
     // --------------------------------------------------------------------
     // 🔹 2️⃣ Group signups by endorsement level

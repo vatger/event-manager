@@ -41,4 +41,5 @@ export interface SignupTableResponse {
   eventId: number;
   signups: SignupTableEntry[];
   cached: boolean;
+  lastUpdate?: number; // Timestamp of last update for cache busting
 }
