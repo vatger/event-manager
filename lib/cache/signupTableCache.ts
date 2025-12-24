@@ -6,7 +6,7 @@ import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
-import { normalizeSelectedAirports } from "@/utils/airportUtils";
+import { computeSelectedAirportsSync } from "@/lib/selectedAirports";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
@@ -68,10 +68,8 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
       try {
-        // Get selected airports for this signup
-        const selectedAirports = normalizeSelectedAirports(s.selectedAirports);
+        // Parse event airports
         const eventAirportsList = (event.airports as string[] | null) || [];
-        const airportsToCheck = selectedAirports.length > 0 ? selectedAirports : eventAirportsList;
         
         // Fetch endorsement for first airport (for backward compatibility with single endorsement field)
         const result: EndorsementResponse = await GroupService.getControllerGroup({
@@ -85,9 +83,9 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           },
         });
 
-        // Fetch endorsements for all selected airports
+        // Fetch endorsements for all event airports
         const airportEndorsements: Record<string, EndorsementResponse> = {};
-        for (const airport of airportsToCheck) {
+        for (const airport of eventAirportsList) {
           try {
             const airportResult = await GroupService.getControllerGroup({
               user: {
@@ -104,6 +102,13 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
             console.error(`[ENDORSEMENT ERROR] ${user.cid} @${airport}:`, err);
           }
         }
+
+        // Compute selected airports from endorsements and remarks
+        const selectedAirports = computeSelectedAirportsSync(
+          eventAirportsList,
+          airportEndorsements,
+          s.remarks
+        );
 
         return {
           id: s.id,
@@ -127,6 +132,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         };
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
+        const eventAirportsList = (event.airports as string[] | null) || [];
         return {
           id: s.id,
           user: {
@@ -138,7 +144,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: null,
-          selectedAirports: normalizeSelectedAirports(s.selectedAirports),
+          selectedAirports: [], // Empty on error - user should fix their endorsements
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,

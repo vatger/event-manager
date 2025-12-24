@@ -68,7 +68,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
         breakrequests: body.breakrequests ?? null,
         preferredStations: body.preferredStations ?? null,
         remarks: body.remarks ?? null,
-        selectedAirports: body.selectedAirports ?? null,
         signedUpAfterDeadline: !!(isAfterDeadline && !isAdmin),
       },
     });

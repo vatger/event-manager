@@ -219,10 +219,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       return;
     }
 
-    // Calculate airports based on endorsements and opt-outs
+    // Calculate airports based on endorsements and opt-outs for validation
     const selectedAirports = getSelectedAirports();
     
-    console.log("[SignupForm] Submitting with selectedAirports:", selectedAirports);
+    console.log("[SignupForm] Calculated selectedAirports for validation:", selectedAirports);
     console.log("[SignupForm] Current airportEndorsements:", airportEndorsements);
     console.log("[SignupForm] Current remarks:", remarks);
     
@@ -251,7 +251,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           endorsement: null,
           preferredStations: desiredPosition,
           remarks,
-          selectedAirports: selectedAirports,
+          // selectedAirports is now computed on server from endorsements + remarks
         }),
       });
 
