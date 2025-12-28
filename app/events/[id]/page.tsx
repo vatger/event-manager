@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { useEventSignup } from "@/hooks/useEventSignup";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
-import AirportSignupTabs from "@/components/AirportSignupTabs";
+import AirportSignupTabs, { AirportSignupTabsRef } from "@/components/AirportSignupTabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Calendar, Clock, MapPin, RotateCcw, Tags, Users } from "lucide-react";
@@ -40,6 +40,7 @@ export default function EventPage() {
   const {canInFIR} = useUser();
 
   const tableRef = useRef<SignupsTableRef>(null);
+  const tabsRef = useRef<AirportSignupTabsRef>(null);
 
   // Get airports as array
   const eventAirports = useMemo(() => {
@@ -72,7 +73,11 @@ export default function EventPage() {
       .finally(() => setEventLoading(false));
   }, [id]);
   const handleSignupChanged = () => {
-    tableRef.current?.reload();
+    if (eventAirports.length > 1) {
+      tabsRef.current?.reload();
+    } else {
+      tableRef.current?.reload();
+    }
   };
 
   const eventId = event?.id ?? id;
@@ -305,6 +310,7 @@ export default function EventPage() {
         <CardContent>
           {eventAirports.length > 1 ? (
             <AirportSignupTabs
+              ref={tabsRef}
               airports={eventAirports}
               eventId={Number(event.id)}
               renderSignupsTable={(filteredSignups, airport) => (

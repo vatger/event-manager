@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { SignupTableEntry } from "@/lib/cache/types";
 import { Plane } from "lucide-react";
+
+export interface AirportSignupTabsRef {
+  reload: () => void;
+}
 
 interface AirportSignupTabsProps {
   airports: string[];
@@ -12,11 +16,14 @@ interface AirportSignupTabsProps {
   renderSignupsTable: (filteredSignups: SignupTableEntry[], airport?: string) => React.ReactNode;
 }
 
-export default function AirportSignupTabs({ 
-  airports, 
-  eventId,
-  renderSignupsTable 
-}: AirportSignupTabsProps) {
+const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProps>(function AirportSignupTabs(
+  { 
+    airports, 
+    eventId,
+    renderSignupsTable 
+  }: AirportSignupTabsProps,
+  ref
+) {
   const [activeTab, setActiveTab] = useState<string>(
     airports.length > 1 ? "all" : airports[0]
   );
@@ -49,6 +56,13 @@ export default function AirportSignupTabs({
       setLoading(false);
     }
   }, [eventId]);
+
+  // Expose reload to parent
+  useImperativeHandle(ref, () => ({
+    reload: () => {
+      void loadSignups(true);
+    },
+  }), [loadSignups]);
 
   // Check for updates
   const checkForUpdates = useCallback(async () => {
@@ -200,4 +214,6 @@ export default function AirportSignupTabs({
       ))}
     </Tabs>
   );
-}
+});
+
+export default AirportSignupTabs;

@@ -26,6 +26,7 @@ import {
   parseEventAirports,
   fetchAirportEndorsements,
   getSelectedAirportsForDisplay,
+  parseOptOutAirports,
 } from "@/lib/multiAirport";
 
 
@@ -98,7 +99,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   // Fetch endorsements for all airports to determine which ones user can staff
   useEffect(() => {
-    if (!userCID || !session?.user.rating || eventAirports.length === 0) return;
+    if (!userCID || !session?.user.rating || eventAirports.length === 0 || !event.firCode) return;
     
     const loadEndorsements = async () => {
       setLoadingEndorsements(true);
@@ -110,7 +111,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           eventAirports,
           Number(userCID),
           session.user.rating,
-          event.firCode || "EDMM"
+          event.firCode
         );
         
         console.log("[SignupForm] Endorsements loaded:", endorsements);

@@ -37,14 +37,14 @@ export function hasValidEndorsement(endorsement: { group?: string | null } | und
  * @param airports - Array of airport ICAO codes
  * @param userCID - User's CID
  * @param rating - User's VATSIM rating
- * @param firCode - FIR code (default: EDMM)
+ * @param firCode - FIR code
  * @returns Map of airport to endorsement data
  */
 export async function fetchAirportEndorsements(
   airports: string[],
   userCID: number,
   rating: string,
-  firCode: string = "EDMM"
+  firCode: string
 ): Promise<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>> {
   const endorsementChecks = airports.map(async (airport) => {
     try {
