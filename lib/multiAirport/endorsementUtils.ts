@@ -71,7 +71,7 @@ export async function fetchAirportEndorsements(
  * @returns Highest endorsement group string or null
  */
 export function getHighestEndorsementGroup(
-  airportEndorsements?: Record<string, any>
+  airportEndorsements?: Record<string, { group?: string | null }>
 ): string | null {
   if (!airportEndorsements) return null;
   
@@ -86,7 +86,7 @@ export function getHighestEndorsementGroup(
   let highestGroup: string | null = null;
   let highestPriority = -1;
   
-  Object.values(airportEndorsements).forEach((endorsement: any) => {
+  Object.values(airportEndorsements).forEach((endorsement) => {
     if (endorsement?.group) {
       const priority = groupPriority[endorsement.group] ?? -1;
       if (priority > highestPriority) {
@@ -107,7 +107,7 @@ export function getHighestEndorsementGroup(
  */
 export function getAirportEndorsementGroup(
   airport: string,
-  airportEndorsements?: Record<string, any>
+  airportEndorsements?: Record<string, { group?: string | null }>
 ): string | null {
   if (!airportEndorsements || !airportEndorsements[airport]) return null;
   return airportEndorsements[airport]?.group ?? null;
@@ -121,7 +121,7 @@ export function getAirportEndorsementGroup(
  */
 export function getAirportRestrictions(
   airport: string,
-  airportEndorsements?: Record<string, any>
+  airportEndorsements?: Record<string, { restrictions?: string[] }>
 ): string[] {
   if (!airportEndorsements || !airportEndorsements[airport]) return [];
   return airportEndorsements[airport]?.restrictions ?? [];

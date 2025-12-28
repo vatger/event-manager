@@ -71,7 +71,7 @@ export function computeSelectedAirportsSync(
 export function getSelectedAirportsForDisplay(
   eventAirports: string[],
   airportEndorsements: Record<string, { canStaff: boolean }>,
-  remarks: string
+  remarks: string | null
 ): string[] {
   const optedOut = parseOptOutAirports(remarks);
   
