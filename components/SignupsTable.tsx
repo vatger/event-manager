@@ -213,13 +213,18 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
           throw new Error(data.error || 'Fehler beim Bestätigen');
         }
         
-        // Reload signups after acknowledging
-        await loadSignups();
+        // Prefer parent refresh (important when using filteredSignups in multi-airport view)
+        if (onRefresh) {
+          onRefresh();
+        } else {
+          // Fallback to local reload
+          await loadSignups();
+        }
       } catch (err) {
         console.error('Error acknowledging changes:', err);
         alert('Fehler beim Bestätigen der Änderungen');
       }
-    }, [eventId, loadSignups]);
+    }, [eventId, loadSignups, onRefresh]);
 
     // 👇 Ref erlaubt Parent-Komponente reload() auszulösen
     useImperativeHandle(ref, () => ({
