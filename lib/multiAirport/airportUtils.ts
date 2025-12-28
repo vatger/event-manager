@@ -3,6 +3,11 @@
  */
 
 /**
+ * Regular expression pattern for matching opted-out airports (!ICAO)
+ */
+const OPT_OUT_PATTERN = /!([A-Z]{4})/g;
+
+/**
  * Parse event airports from various formats into a string array
  * @param airports - Can be string, string[], or JSON string
  * @returns Array of airport ICAO codes
@@ -32,8 +37,7 @@ export function parseEventAirports(airports: any): string[] {
 export function parseOptOutAirports(remarks: string | null): string[] {
   if (!remarks) return [];
   
-  const optOutPattern = /!([A-Z]{4})/g;
-  const matches = remarks.matchAll(optOutPattern);
+  const matches = remarks.matchAll(OPT_OUT_PATTERN);
   return Array.from(matches, m => m[1]);
 }
 

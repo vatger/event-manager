@@ -125,13 +125,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     loadEndorsements();
   }, [userCID, session?.user.rating, eventAirports, event.firCode]);
 
-  // Calculate final airport list based on endorsements and opt-outs
-  const getSelectedAirports = (): string[] => {
-    const selected = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, remarks);
-    console.log("[SignupForm] Selected airports:", selected);
-    return selected;
-  };
-
   // Auto-endorsement uses the first airport as a representative
   // This is acceptable as endorsements are typically valid across all airports in an event
   const autoEndorsementProps = useMemo(() => ({
@@ -171,11 +164,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     }
 
     // Calculate airports based on endorsements and opt-outs for validation
-    const selectedAirports = getSelectedAirports();
+    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, remarks);
     
-    console.log("[SignupForm] Calculated selectedAirports for validation:", selectedAirports);
-    console.log("[SignupForm] Current airportEndorsements:", airportEndorsements);
-    console.log("[SignupForm] Current remarks:", remarks);
+    console.log("[SignupForm] Selected airports for validation:", selectedAirports);
     
     // Validate that user can staff at least one airport
     if (selectedAirports.length === 0) {

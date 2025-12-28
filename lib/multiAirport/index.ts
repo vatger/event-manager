@@ -16,6 +16,8 @@ export {
   getHighestEndorsementGroup,
   getAirportEndorsementGroup,
   getAirportRestrictions,
+  hasValidEndorsement,
+  ENDORSEMENT_GROUP_PRIORITY,
 } from './endorsementUtils';
 
 export type { AirportEndorsementResult } from './endorsementUtils';

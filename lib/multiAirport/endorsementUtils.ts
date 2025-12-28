@@ -12,6 +12,27 @@ export interface AirportEndorsementResult {
 }
 
 /**
+ * Endorsement group priority mapping
+ * Higher number = higher priority
+ */
+export const ENDORSEMENT_GROUP_PRIORITY: Record<string, number> = {
+  'CTR': 4,
+  'APP': 3,
+  'TWR': 2,
+  'GND': 1,
+  'DEL': 0,
+};
+
+/**
+ * Check if an endorsement has a valid group
+ * @param endorsement - Endorsement data
+ * @returns true if endorsement has a valid group
+ */
+export function hasValidEndorsement(endorsement: { group?: string | null } | undefined): boolean {
+  return endorsement?.group != null;
+}
+
+/**
  * Fetch endorsements for multiple airports in parallel
  * @param airports - Array of airport ICAO codes
  * @param userCID - User's CID
@@ -75,20 +96,12 @@ export function getHighestEndorsementGroup(
 ): string | null {
   if (!airportEndorsements) return null;
   
-  const groupPriority: Record<string, number> = {
-    'CTR': 4,
-    'APP': 3,
-    'TWR': 2,
-    'GND': 1,
-    'DEL': 0,
-  };
-  
   let highestGroup: string | null = null;
   let highestPriority = -1;
   
   Object.values(airportEndorsements).forEach((endorsement) => {
     if (endorsement?.group) {
-      const priority = groupPriority[endorsement.group] ?? -1;
+      const priority = ENDORSEMENT_GROUP_PRIORITY[endorsement.group] ?? -1;
       if (priority > highestPriority) {
         highestPriority = priority;
         highestGroup = endorsement.group;

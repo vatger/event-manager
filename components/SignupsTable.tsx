@@ -36,9 +36,11 @@ import {
   getHighestEndorsementGroup,
   getAirportEndorsementGroup,
   getAirportRestrictions,
+  ENDORSEMENT_GROUP_PRIORITY,
 } from "@/lib/multiAirport";
 
-const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
+// Use the shared constant for sorting priority
+const PRIORITY = ENDORSEMENT_GROUP_PRIORITY;
 
 type SignupTableColumn =
   | "cid"

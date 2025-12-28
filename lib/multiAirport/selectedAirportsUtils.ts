@@ -5,6 +5,7 @@
 
 import { GroupService } from "@/lib/endorsements/groupService";
 import { parseOptOutAirports } from "./airportUtils";
+import { hasValidEndorsement } from "./endorsementUtils";
 
 /**
  * Compute selected airports for a user based on their endorsements and remarks (async)
@@ -25,7 +26,7 @@ export async function computeSelectedAirports(
   const endorsementChecks = await Promise.all(
     eventAirports.map(async (airport) => {
       const endorsement = await GroupService.getEndorsement(userCID, airport);
-      const hasEndorsement = endorsement?.group !== null && endorsement?.group !== undefined;
+      const hasEndorsement = hasValidEndorsement(endorsement);
       return { airport, hasEndorsement };
     })
   );
@@ -54,8 +55,7 @@ export function computeSelectedAirportsSync(
   const optedOut = parseOptOutAirports(remarks);
   
   return eventAirports.filter((airport) => {
-    const hasEndorsement = airportEndorsements[airport]?.group !== null && 
-                          airportEndorsements[airport]?.group !== undefined;
+    const hasEndorsement = hasValidEndorsement(airportEndorsements[airport]);
     return hasEndorsement && !optedOut.includes(airport);
   });
 }
