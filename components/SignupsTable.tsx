@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Edit, AlertCircle, PlusCircle, UserSearch, AlertTriangle, CheckCircle2, Clock, UserX } from "lucide-react";
+import { Edit, AlertCircle, PlusCircle, UserSearch, AlertTriangle, CheckCircle2, Clock, UserX, CheckCircle } from "lucide-react";
 import SignupEditDialog, { EventRef } from "@/app/admin/events/[id]/_components/SignupEditDialog";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { useUser } from "@/hooks/useUser";
@@ -55,12 +55,16 @@ export interface SignupsTableRef {
   reload: () => void;
 }
 
+interface NormalizedEventRef extends EventRef {
+  airports?: string | string[];
+}
+
 interface SignupsTableProps {
   eventId: number;
   editable?: boolean;
   columns?: SignupTableColumn[];
   emptyMessage?: string;
-  event?: EventRef;
+  event?: NormalizedEventRef;
   onRefresh?: () => void;
   filteredSignups?: SignupTableEntry[]; // Optional pre-filtered signups
   currentAirport?: string; // Current airport context
@@ -461,7 +465,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                   if (highestGroup) {
                                     // Find the endorsement with this group
                                     const endorsementEntry = Object.entries(s.airportEndorsements).find(
-                                      ([_, e]: [string, any]) => e.group === highestGroup
+                                      ([_, e]) => e && (e as { group?: string }).group === highestGroup
                                     );
                                     displayEndorsement = endorsementEntry ? endorsementEntry[1] : s.endorsement;
                                   } else {
@@ -491,10 +495,12 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 );
 
                               case "airports":
-                                // Get event airports for comparison
-                                const eventAirports = event?.airports 
-                                  ? (Array.isArray(event.airports) ? event.airports : [event.airports])
-                                  : [];
+                                // Get event airports for comparison with safe normalization
+                                const eventAirports: string[] = (() => {
+                                  const ea = event?.airports;
+                                  if (!ea) return [];
+                                  return Array.isArray(ea) ? ea : [ea];
+                                })();
                                 const signupAirports = s.selectedAirports && s.selectedAirports.length > 0
                                   ? s.selectedAirports
                                   : eventAirports;
@@ -525,28 +531,55 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       
                                       return hasEndorsementData ? (
                                         <TooltipProvider key={airport}>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Badge variant="outline" className="text-xs cursor-help">
-                                                {airport}
-                                              </Badge>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <div className="space-y-1">
-                                                <p className="font-semibold">{airport}</p>
-                                                <p className="text-sm">Gruppe: {airportEndorsement.group}</p>
-                                                {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
-                                                  <div className="text-xs text-muted-foreground">
-                                                    <p className="font-medium">Einschränkungen:</p>
-                                                    {airportEndorsement.restrictions.map((r, i) => (
-                                                      <p key={i}>• {r}</p>
-                                                    ))}
-                                                  </div>
-                                                )}
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge 
+                                              variant="outline" 
+                                              className="text-xs cursor-help border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 transition-colors duration-200 px-2 py-0.5"
+                                            >
+                                              <CheckCircle className="w-3 h-3 mr-1" />
+                                              {airport}
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent 
+                                            side="top" 
+                                            align="center"
+                                            className="w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg rounded-lg p-3"
+                                          >
+                                            <div className="space-y-2">
+                                              {/* Header */}
+                                              <div className="space-y-0.5">
+                                                <div className="flex items-center gap-1.5">
+                                                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                                  <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                                    {airport}
+                                                  </p>
+                                                </div>
+                                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                  Gruppe: {airportEndorsement.group}
+                                                </p>
                                               </div>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
+
+                                              {/* Restrictions */}
+                                              {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
+                                                <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
+                                                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                    Einschränkungen:
+                                                  </p>
+                                                  <ul className="space-y-1">
+                                                    {airportEndorsement.restrictions.map((r, i) => (
+                                                      <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                                        <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-500 mt-1.5 flex-shrink-0" />
+                                                        <span>{r}</span>
+                                                      </li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                       ) : (
                                         <Badge key={airport} variant="outline" className="text-xs">
                                           {airport}
@@ -566,21 +599,52 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider key={airport}>
                                           <Tooltip>
                                             <TooltipTrigger asChild>
-                                              <Badge variant="destructive" className="text-xs cursor-help opacity-60">
+                                              <Badge 
+                                                variant="outline" 
+                                                className="text-xs cursor-help border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 transition-colors duration-200 px-2 py-0.5"
+                                              >
+                                                <AlertCircle className="w-3 h-3 mr-1" />
                                                 {airport}
                                               </Badge>
                                             </TooltipTrigger>
-                                            <TooltipContent>
-                                              <div className="space-y-1">
-                                                <p className="font-semibold">{airport} (Ausgeschlossen)</p>
-                                                <p className="text-sm">Gruppe: {airportEndorsement.group}</p>
-                                                <p className="text-xs text-orange-500">Via !{airport} in Bemerkungen ausgeschlossen</p>
+                                            <TooltipContent 
+                                              side="top" 
+                                              align="center"
+                                              className="w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg rounded-lg p-3"
+                                            >
+                                              <div className="space-y-2">
+                                                {/* Header */}
+                                                <div className="space-y-0.5">
+                                                  <div className="flex items-center gap-1.5">
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                    <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                                      {airport} <span className="text-red-600 dark:text-red-400">(Ausgeschlossen)</span>
+                                                    </p>
+                                                  </div>
+                                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                    Gruppe: {airportEndorsement.group}
+                                                  </p>
+                                                </div>
+
+                                                {/* Exclusion Warning */}
+                                                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1.5 rounded border border-red-100 dark:border-red-800">
+                                                  Via <code className="font-mono bg-red-100 dark:bg-red-900/40 px-1 rounded">!{airport}</code> in RMKs ausgeschlossen
+                                                </div>
+
+                                                {/* Restrictions */}
                                                 {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
-                                                  <div className="text-xs text-muted-foreground">
-                                                    <p className="font-medium">Einschränkungen:</p>
-                                                    {airportEndorsement.restrictions.map((r, i) => (
-                                                      <p key={i}>• {r}</p>
-                                                    ))}
+                                                  <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
+                                                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                      Einschränkungen:
+                                                    </p>
+                                                    <ul className="space-y-1">
+                                                      {airportEndorsement.restrictions.map((r, i) => (
+                                                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                                                          <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-500 mt-1.5 flex-shrink-0" />
+                                                          <span>{r}</span>
+                                                        </li>
+                                                      ))}
+                                                    </ul>
                                                   </div>
                                                 )}
                                               </div>
