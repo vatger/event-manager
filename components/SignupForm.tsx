@@ -22,6 +22,11 @@ import { Event, TimeRange } from "@/types";
 import { getRatingValue } from "@/utils/ratingToValue";
 import AutomaticEndorsement from "./AutomaticEndorsement";
 import { EndorsementResponse } from "@/lib/endorsements/types";
+import {
+  parseEventAirports,
+  fetchAirportEndorsements,
+  getSelectedAirportsForDisplay,
+} from "@/lib/multiAirport";
 
 
 interface SignupFormProps {
@@ -72,23 +77,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
 
-  // Get event airports as array
+  // Get event airports as array using utility function
   const eventAirports = useMemo(() => {
-    let airports: string[] = [];
-    console.log("airport:", event.airports);
-    if (Array.isArray(event.airports)) {
-      airports = event.airports;
-    } else if (typeof event.airports === 'string') {
-      try {
-        // Try to parse if it's a JSON string
-        const parsed = JSON.parse(event.airports);
-        airports = Array.isArray(parsed) ? parsed : [event.airports];
-      } catch {
-        // Not JSON, treat as single airport
-        airports = [event.airports];
-      }
-    }
-    console.log("[SignupForm] Event airports parsed:", airports, "from:", event.airports);
+    const airports = parseEventAirports(event.airports);
+    console.log("[SignupForm] Event airports parsed:", airports);
     return airports;
   }, [event.airports]);
 
@@ -108,47 +100,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   useEffect(() => {
     if (!userCID || !session?.user.rating || eventAirports.length === 0) return;
     
-    const fetchAirportEndorsements = async () => {
+    const loadEndorsements = async () => {
       setLoadingEndorsements(true);
       
       try {
-        console.log("[SignupForm] Checking endorsements for airports:", eventAirports);
+        console.log("[SignupForm] Fetching endorsements for airports:", eventAirports);
         
-        // Check endorsements for each airport in parallel for better performance
-        const endorsementChecks = eventAirports.map(async (airport) => {
-          console.log("[SignupForm] Checking endorsement for airport:", airport);
-          const res = await fetch("/api/endorsements/group", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              user: {
-                userCID: Number(userCID),
-                rating: getRatingValue(session.user.rating),
-              },
-              event: {
-                airport: airport,
-                fir: event.firCode || "EDMM",
-              },
-            }),
-          });
-          
-          if (res.ok) {
-            const data = await res.json() as EndorsementResponse;
-            console.log("[SignupForm] Endorsement result for", airport, ":", data.group, "restrictions:", data.restrictions);
-            return { airport, canStaff: !!data.group, endorsement: data };
-          }
-          console.log("[SignupForm] No endorsement for", airport);
-          return { airport, canStaff: false, endorsement: null };
-        });
+        const endorsements = await fetchAirportEndorsements(
+          eventAirports,
+          Number(userCID),
+          session.user.rating,
+          event.firCode || "EDMM"
+        );
         
-        const results = await Promise.all(endorsementChecks);
-        const finalEndorsements: Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }> = {};
-        results.forEach(({ airport, canStaff, endorsement }) => {
-          finalEndorsements[airport] = { canStaff, endorsement };
-        });
-        
-        console.log("[SignupForm] Final endorsement results:", finalEndorsements);
-        setAirportEndorsements(finalEndorsements);
+        console.log("[SignupForm] Endorsements loaded:", endorsements);
+        setAirportEndorsements(endorsements);
       } catch (error) {
         console.error("Error fetching airport endorsements:", error);
       } finally {
@@ -156,28 +122,13 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       }
     };
     
-    fetchAirportEndorsements();
+    loadEndorsements();
   }, [userCID, session?.user.rating, eventAirports, event.firCode]);
-
-  // Parse opt-out airports from remarks (!ICAO format)
-  const parseOptOutAirports = (remarksText: string): string[] => {
-    const optOutPattern = /!([A-Z]{4})/g;
-    const matches = remarksText.matchAll(optOutPattern);
-    const optedOut = Array.from(matches, m => m[1]);
-    console.log("[SignupForm] Parsed opt-outs from remarks:", optedOut, "from:", remarksText);
-    return optedOut;
-  };
 
   // Calculate final airport list based on endorsements and opt-outs
   const getSelectedAirports = (): string[] => {
-    const optedOut = parseOptOutAirports(remarks);
-    const selected = eventAirports.filter(airport => 
-      airportEndorsements[airport]?.canStaff && !optedOut.includes(airport)
-    );
-    console.log("[SignupForm] getSelectedAirports - eventAirports:", eventAirports);
-    console.log("[SignupForm] getSelectedAirports - airportEndorsements:", airportEndorsements);
-    console.log("[SignupForm] getSelectedAirports - optedOut:", optedOut);
-    console.log("[SignupForm] getSelectedAirports - result:", selected);
+    const selected = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, remarks);
+    console.log("[SignupForm] Selected airports:", selected);
     return selected;
   };
 

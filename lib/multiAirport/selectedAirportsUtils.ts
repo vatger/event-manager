@@ -4,19 +4,11 @@
  */
 
 import { GroupService } from "@/lib/endorsements/groupService";
+import { parseOptOutAirports } from "./airportUtils";
 
 /**
- * Parse opted-out airports from remarks using !ICAO syntax
- */
-export function parseOptOutAirports(remarks: string | null): string[] {
-  if (!remarks) return [];
-  const optOutPattern = /!([A-Z]{4})/g;
-  const matches = remarks.matchAll(optOutPattern);
-  return Array.from(matches, m => m[1]);
-}
-
-/**
- * Compute selected airports for a user based on their endorsements and remarks
+ * Compute selected airports for a user based on their endorsements and remarks (async)
+ * Used on server-side when endorsements need to be fetched
  * @param userCID - User's CID
  * @param eventAirports - Array of airports in the event
  * @param remarks - User's remarks (may contain !ICAO opt-outs)
@@ -27,7 +19,6 @@ export async function computeSelectedAirports(
   eventAirports: string[],
   remarks: string | null
 ): Promise<string[]> {
-  // Parse opt-outs from remarks
   const optedOut = parseOptOutAirports(remarks);
   
   // Check endorsements for all event airports in parallel
@@ -49,6 +40,7 @@ export async function computeSelectedAirports(
 
 /**
  * Compute selected airports synchronously when endorsements are already known
+ * Used on server-side in cache layer when endorsements are pre-fetched
  * @param eventAirports - Array of airports in the event
  * @param airportEndorsements - Map of airport to endorsement data
  * @param remarks - User's remarks (may contain !ICAO opt-outs)
@@ -66,4 +58,24 @@ export function computeSelectedAirportsSync(
                           airportEndorsements[airport]?.group !== undefined;
     return hasEndorsement && !optedOut.includes(airport);
   });
+}
+
+/**
+ * Get selected airports for display purposes on client-side
+ * Used in SignupForm to show which airports user will be registered for
+ * @param eventAirports - Array of airports in the event
+ * @param airportEndorsements - Map of airport to endorsement/canStaff status
+ * @param remarks - User's remarks (may contain !ICAO opt-outs)
+ * @returns Array of airport ICAO codes the user can/will staff
+ */
+export function getSelectedAirportsForDisplay(
+  eventAirports: string[],
+  airportEndorsements: Record<string, { canStaff: boolean }>,
+  remarks: string
+): string[] {
+  const optedOut = parseOptOutAirports(remarks);
+  
+  return eventAirports.filter(airport => 
+    airportEndorsements[airport]?.canStaff && !optedOut.includes(airport)
+  );
 }

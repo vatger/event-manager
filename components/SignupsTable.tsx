@@ -31,42 +31,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-// Helper function to parse opted-out airports from remarks
-const parseOptOutAirports = (remarksText: string | null): string[] => {
-  if (!remarksText) return [];
-  const optOutPattern = /!([A-Z]{4})/g;
-  const matches = remarksText.matchAll(optOutPattern);
-  return Array.from(matches, m => m[1]);
-};
-
-// Helper function to get highest endorsement group
-const getHighestEndorsementGroup = (airportEndorsements?: Record<string, any>): string | null => {
-  if (!airportEndorsements) return null;
-  
-  const groupPriority: Record<string, number> = {
-    'CTR': 4,
-    'APP': 3,
-    'TWR': 2,
-    'GND': 1,
-    'DEL': 0,
-  };
-  
-  let highestGroup: string | null = null;
-  let highestPriority = -1;
-  
-  Object.values(airportEndorsements).forEach((endorsement: any) => {
-    if (endorsement?.group) {
-      const priority = groupPriority[endorsement.group] ?? -1;
-      if (priority > highestPriority) {
-        highestPriority = priority;
-        highestGroup = endorsement.group;
-      }
-    }
-  });
-  
-  return highestGroup;
-};
+import {
+  parseOptOutAirports,
+  getHighestEndorsementGroup,
+  getAirportEndorsementGroup,
+  getAirportRestrictions,
+} from "@/lib/multiAirport";
 
 const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4 };
 

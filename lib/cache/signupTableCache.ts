@@ -6,7 +6,7 @@ import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
-import { computeSelectedAirportsSync } from "@/lib/selectedAirports";
+import { computeSelectedAirportsSync, parseEventAirports } from "@/lib/multiAirport";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
@@ -68,8 +68,8 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
       try {
-        // Parse event airports
-        const eventAirportsList = (event.airports as string[] | null) || [];
+        // Parse event airports using utility function
+        const eventAirportsList = parseEventAirports(event.airports);
         
         // Fetch endorsement for first airport (for backward compatibility with single endorsement field)
         const result: EndorsementResponse = await GroupService.getControllerGroup({
