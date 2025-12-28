@@ -186,42 +186,104 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
       </div>
 
       <TabsContent value="all" className="space-y-4 mt-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          {airports.map(airport => (
-            <div key={airport} className="p-3 border rounded-lg">
-              <div className="text-sm font-medium text-muted-foreground">{airport}</div>
-              <div className="text-2xl font-bold">{airportStats[airport]?.total || 0}</div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {Object.entries(airportStats[airport]?.groups || {})
-                  .map(([group, count]) => `${group}: ${count}`)
-                  .join(" • ")}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {airports.map(airport => {
+            const stats = airportStats[airport] || { total: 0, groups: {} };
+            const groups = Object.entries(stats.groups);
+            const maxCount = Math.max(...airports.map(a => airportStats[a]?.total || 0), 1);
+            const percentage = (stats.total / maxCount) * 100;
+            
+            return (
+              <div 
+                key={airport} 
+                className="p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:shadow-sm transition-all duration-200"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                    {airport}
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900 dark:text-blue-400">
+                    {stats.total}
+                  </div>
+                </div>
+                
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+                
+                {/* Group Details */}
+                {groups.length > 0 && (
+                  <div className="space-y-1.5">
+                    {groups.map(([group, count]) => (
+                      <div key={group} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 dark:text-gray-400">{group}</span>
+                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                          {count}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
         {renderSignupsTable(signups)}
       </TabsContent>
 
-      {airports.map(airport => (
-        <TabsContent key={airport} value={airport} className="space-y-4 mt-4">
-          <div className="mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {Object.entries(airportStats[airport]?.groups || {})
-                .sort((a, b) => {
-                  const order = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4, UNSPEC: 999 };
-                  return (order[a[0] as keyof typeof order] || 999) - (order[b[0] as keyof typeof order] || 999);
-                })
-                .map(([group, count]) => (
-                  <div key={group} className="flex items-center justify-between p-2 border rounded">
-                    <span className="text-sm font-medium">{group}</span>
-                    <Badge variant="outline">{count}</Badge>
-                  </div>
-                ))}
+      {airports.map(airport => {
+        const stats = airportStats[airport];
+        const groups = Object.entries(stats?.groups || {})
+          .sort((a, b) => {
+            const order = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 4, UNSPEC: 999 };
+            return (order[a[0] as keyof typeof order] || 999) - (order[b[0] as keyof typeof order] || 999);
+          });
+        
+        const total = stats?.total || 0;
+        
+        return (
+          <TabsContent key={airport} value={airport} className="space-y-6 mt-6">
+            {/* Stats Cards Grid */}
+            <div className="mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {groups.map(([group, count]) => {
+                  const percentage = total > 0 ? (count / total) * 100 : 0;
+                  
+                  return (
+                    <div 
+                      key={group} 
+                      className="p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:shadow-sm transition-all duration-200"
+                    >
+                      {/* Group Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {group}
+                          </span>
+                        </div>
+                        <div className="text-lg font-bold text-blue-900 dark:text-blue-400">
+                          {count}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          {renderSignupsTable(getSignupsForAirport(airport), airport)}
-        </TabsContent>
-      ))}
+            
+            {/* Signups Table */}
+            {renderSignupsTable(getSignupsForAirport(airport), airport)}
+          </TabsContent>
+        );
+      })}
     </Tabs>
   );
 });
