@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { SignupTableEntry } from "@/lib/cache/types";
 import { Plane } from "lucide-react";
+import { parseOptOutAirports } from "@/lib/multiAirport";
 
 export interface AirportSignupTabsRef {
   reload: () => void;
@@ -103,31 +104,29 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
       string,
       { total: number; groups: Record<string, number> }
     > = {};
-  
-    // Initialisieren
+
+    // Init
     airports.forEach(airport => {
       stats[airport] = { total: 0, groups: {} };
     });
-  
+
     signups.forEach(signup => {
       if (signup.deletedAt) return;
-  
-      const airportEndorsements = signup.airportEndorsements;
-      if (!airportEndorsements) return;
-  
-      Object.entries(airportEndorsements).forEach(
-        ([airport, endorsement]) => {
-          if (!stats[airport]) return;
-  
-          const group = endorsement.group || "UNSPEC";
-  
-          stats[airport].total += 1;
-          stats[airport].groups[group] =
-            (stats[airport].groups[group] || 0) + 1;
-        }
-      );
+
+      const optedOut = parseOptOutAirports(signup.remarks || "");
+      const endorsements = signup.airportEndorsements || {};
+
+      Object.entries(endorsements).forEach(([airport, endorsement]) => {
+        if (!stats[airport]) return;
+        if (!endorsement || !endorsement.group) return; // only count if can staff
+        if (optedOut.includes(airport)) return; // skip opted-out for counts
+
+        const group = endorsement.group || "UNSPEC";
+        stats[airport].total += 1;
+        stats[airport].groups[group] = (stats[airport].groups[group] || 0) + 1;
+      });
     });
-  
+
     return stats;
   }, [signups, airports]);
   
@@ -136,9 +135,20 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   console.log("Airport Stats:", airportStats);
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
-    return signups.filter(signup => {
-      const selectedAirports = signup.selectedAirports || airports;
-      return selectedAirports.includes(airport);
+    // Include users who can theoretically staff the airport (have endorsement),
+    // even if they opted out via !ICAO; sort opted-out to the end
+    const list = signups.filter(signup => {
+      const endorsement = signup.airportEndorsements?.[airport];
+      return !!endorsement?.group; // can staff this airport
+    });
+
+    return list.sort((a, b) => {
+      const aOpted = parseOptOutAirports(a.remarks || "").includes(airport) ? 1 : 0;
+      const bOpted = parseOptOutAirports(b.remarks || "").includes(airport) ? 1 : 0;
+      if (aOpted !== bOpted) return aOpted - bOpted; // non-opted first
+      const an = a.user?.name || "";
+      const bn = b.user?.name || "";
+      return an.localeCompare(bn);
     });
   };
 
