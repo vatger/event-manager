@@ -1,6 +1,6 @@
 import axios from 'axios'
 import prisma from '@/lib/prisma'
-import { EndoTrainingResponse, SoloTrainingResponse } from '../endorsements/types'
+import { EndoTrainingResponse, SoloTrainingResponse, FamiliarizationResponse } from '../endorsements/types'
 import { invalidateAllCaches } from '../cache/cacheManager'
 
 type SoloApiItem = {
@@ -27,9 +27,9 @@ type EndorsementApiItem = {
 }
 
 type FamiliarizationApiItem = {
-  user__username: string
-  sector__name: string
-  sector__fir: string
+  vatsim_id: string
+  sector: string
+  fir: string
 }
 
 function requireEnv(name: string): string {
@@ -45,19 +45,19 @@ export async function refreshTrainingCache() {
   const endoUrl = requireEnv('TRAINING_API_ENDORSEMENTS_URL')
   const famsUrl = requireEnv('TRAINING_API_FAMILIARIZATIONS_URL')
 
-  const headers = { Authorization: `Token ${token}` }
+  const headers = { Authorization: `Bearer ${token}` }
 
   const [solosResp, endoResp, famsResp] = await Promise.all([
     axios.get<{ success?: boolean; data: SoloApiItem[] }>(solosUrl, { headers }),
     axios.get<{ success?: boolean; data: EndorsementApiItem[] }>(endoUrl, { headers }),
-    axios.get<FamiliarizationApiItem[]>(famsUrl, { headers })
+    axios.get<{success?: boolean; data: FamiliarizationApiItem[]}>(famsUrl, { headers })
   ])
 
   const now = new Date()
 
   const solosData = (solosResp.data as SoloTrainingResponse).data as SoloApiItem[]
   const endoData = (endoResp.data as EndoTrainingResponse).data as EndorsementApiItem[]
-  const famsData = famsResp.data as FamiliarizationApiItem[]
+  const famsData = (famsResp.data as FamiliarizationResponse).data as FamiliarizationApiItem[]
 
   const soloRows = solosData.map(s => ({
     userCID: s.user_cid,
@@ -77,9 +77,9 @@ export async function refreshTrainingCache() {
   }))
 
   const famRows = famsData.map(f => ({
-    userCID: parseInt(f.user__username, 10),
-    sectorName: f.sector__name,
-    sectorFir: f.sector__fir,
+    userCID: parseInt(f.vatsim_id, 10),
+    sectorName: f.sector,
+    sectorFir: f.fir,
     fetchedAt: now
   }))
 

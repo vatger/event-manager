@@ -30,6 +30,16 @@ type Solo = {
   updated_at: string; // ISO timestamp
   position_days: number;
 };
+export type FamiliarizationResponse = {
+  success: boolean;
+  data: Familiarization[];
+}
+
+type Familiarization = {
+  vatsim_id: string;
+  sector: string;
+  fir: string;
+};
 
   export interface FamiliarizationData {
     cid: number;
