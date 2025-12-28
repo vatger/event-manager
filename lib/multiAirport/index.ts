@@ -1,6 +1,9 @@
 /**
  * Central export point for multi-airport event utilities
- * Makes it easy to import utilities with a single import statement
+ * CLIENT-SAFE: These utilities can be safely imported by client components
+ * 
+ * For server-only utilities (database access), import from:
+ * - selectedAirportsUtils.server.ts
  */
 
 // Airport utilities
@@ -22,9 +25,7 @@ export {
 
 export type { AirportEndorsementResult } from './endorsementUtils';
 
-// Selected airports utilities
+// Selected airports utilities (CLIENT-SAFE ONLY)
 export {
-  computeSelectedAirports,
-  computeSelectedAirportsSync,
   getSelectedAirportsForDisplay,
 } from './selectedAirportsUtils';

@@ -6,7 +6,8 @@ import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
-import { computeSelectedAirportsSync, parseEventAirports } from "@/lib/multiAirport";
+import { parseEventAirports } from "@/lib/multiAirport";
+import { computeSelectedAirportsSync } from "@/lib/multiAirport/selectedAirportsUtils.server";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
