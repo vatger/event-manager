@@ -63,7 +63,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     bannerUrl: "",
     startTime: "",
     endTime: "",
-    airports: [], // Changed to empty array
+    airports: [],
     staffedStations: [],
     status: "DRAFT",
     fir: "",
@@ -96,7 +96,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           bannerUrl: "",
           startTime: defaultStart.toISOString(),
           endTime: defaultEnd.toISOString(),
-          airports: [], // Changed to empty array
+          airports: [],
           staffedStations: [],
           status: "DRAFT", // Events from calendar start as DRAFT
           rosterUrl: "",

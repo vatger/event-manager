@@ -83,7 +83,7 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
             <>
               <span className="mx-1">•</span>
               <MapPin className="w-4 h-4" />
-              <span>{event.airports}</span>
+              <span>{Array.isArray(event.airports) ? event.airports.join(", ") : event.airports}</span>
             </>
           )}
         </CardDescription>
