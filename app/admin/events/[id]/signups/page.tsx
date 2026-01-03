@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { Event, Signup } from "@/types";
+import { Event } from "@/types";
 import EventHeader from "../_components/EventHeader";
 import { StatsCard, StatsCardHandle } from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
@@ -10,8 +10,19 @@ import { useUser } from "@/hooks/useUser";
 import { AvailabilityTimeline, AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
-import { Users, RotateCcw } from "lucide-react";
+import AirportSignupTabs from "@/components/AirportSignupTabs";
+import { Users, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { parseEventAirports } from "@/lib/multiAirport";
+import { SignupTableEntry } from "@/lib/cache/types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function AdminEventSignupsPage() {
   const params = useParams();
@@ -20,6 +31,7 @@ export default function AdminEventSignupsPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [eventLoading, setEventLoading] = useState<boolean>(true);
   const [eventError, setEventError] = useState<string>("");
+  const [selectedAirport, setSelectedAirport] = useState<string | undefined>(undefined);
 
   const tableRef = useRef<SignupsTableRef>(null);
   const timelineRef = useRef<AvailabilityTimelineHandle>(null);
@@ -48,10 +60,17 @@ export default function AdminEventSignupsPage() {
   // Slots für Timeline generieren
   const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
 
+  // Parse airports from event
+  const eventAirports = useMemo(() => {
+    if (!event?.airports) return [];
+    return parseEventAirports(event.airports);
+  }, [event?.airports]);
+
+  const isMultiAirport = eventAirports.length > 1;
+
   if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
   if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
 
-  
   const handleSignupChanged = async () => {
     await Promise.all([
       timelineRef.current?.reload(),
@@ -59,6 +78,53 @@ export default function AdminEventSignupsPage() {
       tableRef.current?.reload(),
     ]);
   };
+
+  const handleExport = (airport?: string) => {
+    const url = airport
+      ? `/api/events/${eventId}/export?airport=${airport}`
+      : `/api/events/${eventId}/export`;
+    window.open(url, "_blank");
+  };
+
+  const handleAirportChange = (airport: string | undefined) => {
+    setSelectedAirport(airport === "all" ? undefined : airport);
+  };
+
+  // Render table with or without tabs
+  const renderContent = () => {
+    if (isMultiAirport) {
+      return (
+        <AirportSignupTabs
+          airports={eventAirports}
+          eventId={Number(eventId)}
+          onAirportChange={handleAirportChange}
+          renderSignupsTable={(filteredSignups: SignupTableEntry[], airport?: string) => (
+            <SignupsTable
+              ref={tableRef}
+              eventId={Number(event.id)}
+              editable={canInFIR(event.firCode, "signups.manage")}
+              event={event}
+              onRefresh={handleSignupChanged}
+              selectedAirport={airport}
+              preloadedSignups={filteredSignups}
+            />
+          )}
+        />
+      );
+    } else {
+      // Single airport - no tabs
+      return (
+        <SignupsTable
+          ref={tableRef}
+          eventId={Number(event.id)}
+          editable={canInFIR(event.firCode, "signups.manage")}
+          event={event}
+          onRefresh={handleSignupChanged}
+        />
+      );
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <EventHeader 
@@ -73,6 +139,7 @@ export default function AdminEventSignupsPage() {
         ref={timelineRef}
         eventId={Number(eventId)}
         slots={slots}
+        selectedAirport={selectedAirport}
       />
       
 
@@ -83,19 +150,40 @@ export default function AdminEventSignupsPage() {
           <Users className="w-5 h-5" />
             Angemeldete Teilnehmer
           </div>
-          <Button onClick={handleSignupChanged} variant="outline" size="sm">
-            <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
-          </Button>
+          <div className="flex gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Export wählen</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleExport()}>
+                  Alle Airports
+                </DropdownMenuItem>
+                {isMultiAirport && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {eventAirports.map(airport => (
+                      <DropdownMenuItem key={airport} onClick={() => handleExport(airport)}>
+                        {airport}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={handleSignupChanged} variant="outline" size="sm">
+              <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+            </Button>
+          </div>
         </CardTitle>
         </CardHeader>
         <CardContent>
-          <SignupsTable
-            ref={tableRef}
-            eventId={Number(event.id)}
-            editable={canInFIR(event.firCode, "signups.manage")}
-            event={event}
-            onRefresh={handleSignupChanged}
-          />
+          {renderContent()}
         </CardContent>
       </Card>
       

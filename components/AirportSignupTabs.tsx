@@ -15,13 +15,15 @@ interface AirportSignupTabsProps {
   airports: string[];
   eventId: number;
   renderSignupsTable: (filteredSignups: SignupTableEntry[], airport?: string) => React.ReactNode;
+  onAirportChange?: (airport: string | undefined) => void;
 }
 
 const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProps>(function AirportSignupTabs(
   { 
     airports, 
     eventId,
-    renderSignupsTable 
+    renderSignupsTable,
+    onAirportChange
   }: AirportSignupTabsProps,
   ref
 ) {
@@ -31,6 +33,14 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<number>(0);
+
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (onAirportChange) {
+      onAirportChange(value === "all" ? undefined : value);
+    }
+  };
 
   // Load signups
   const loadSignups = useCallback(async (forceRefresh = false) => {
@@ -164,7 +174,7 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   }
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
       <div className="w-full overflow-x-auto">
         <TabsList className="inline-grid w-full min-w-max auto-cols-fr gap-1" style={{ gridTemplateColumns: `repeat(${airports.length + 1}, minmax(120px, 1fr))` }}>
           <TabsTrigger value="all" className="gap-2">

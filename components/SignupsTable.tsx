@@ -68,6 +68,8 @@ interface SignupsTableProps {
   onRefresh?: () => void;
   filteredSignups?: SignupTableEntry[]; // Optional pre-filtered signups
   currentAirport?: string; // Current airport context
+  selectedAirport?: string; // Filter by specific airport
+  preloadedSignups?: SignupTableEntry[]; // Preloaded signups (from parent)
 }
 
 const HEAD_LABELS: Record<SignupTableColumn, string> = {
@@ -128,6 +130,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       onRefresh,
       filteredSignups,
       currentAirport,
+      selectedAirport,
+      preloadedSignups,
     },
     ref
   ) => {
@@ -143,8 +147,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     const [editOpen, setEditOpen] = useState(false);
     const [editSignup, setEditSignup] = useState<SignupTableEntry | null>(null);
     
-    // Use filtered signups if provided, otherwise fetch from API
-    const displaySignups = filteredSignups || signups;
+    // Use preloaded signups if provided, otherwise use filtered or fetched signups
+    const displaySignups = preloadedSignups || filteredSignups || signups;
 
     // --------------------------------------------------------------------
     // 🔹 1️⃣ Load signups from API (cached)
@@ -272,8 +276,10 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       for (const s of displaySignups) {
         // If viewing a specific airport, use that airport's endorsement for grouping
         let label: string;
-        if (currentAirport && s.airportEndorsements?.[currentAirport]) {
-          label = s.airportEndorsements[currentAirport].group || s.user.rating || "UNSPEC";
+        const airportForGrouping = selectedAirport || currentAirport;
+        
+        if (airportForGrouping && s.airportEndorsements?.[airportForGrouping]) {
+          label = s.airportEndorsements[airportForGrouping].group || s.user.rating || "UNSPEC";
         } else {
           // For "All Airports" view, use the highest endorsement level
           const highestGroup = getHighestEndorsementGroup(s.airportEndorsements);
@@ -283,7 +289,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
         out[label].push(s);
       }
       return out;
-    }, [displaySignups, currentAirport]);
+    }, [displaySignups, selectedAirport, currentAirport]);
 
     const orderedGroups = useMemo(() => {
       const keys = Object.keys(grouped);
@@ -456,10 +462,12 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                               case "group":
                                 // Determine which endorsement to display
                                 let displayEndorsement;
-                                if (currentAirport && s.airportEndorsements?.[currentAirport]) {
+                                const airportForDisplay = selectedAirport || currentAirport;
+                                
+                                if (airportForDisplay && s.airportEndorsements?.[airportForDisplay]) {
                                   // Show airport-specific endorsement when filtering by airport
-                                  displayEndorsement = s.airportEndorsements[currentAirport];
-                                } else if (!currentAirport && s.airportEndorsements) {
+                                  displayEndorsement = s.airportEndorsements[airportForDisplay];
+                                } else if (!airportForDisplay && s.airportEndorsements) {
                                   // Show highest endorsement for "All Airports" view
                                   const highestGroup = getHighestEndorsementGroup(s.airportEndorsements);
                                   if (highestGroup) {

@@ -17,6 +17,7 @@ import type { SignupTableEntry } from "@/lib/cache/types";
 interface AvailabilityTimelineProps {
   eventId: number;
   slots: { slotStart: string; slotEnd: string }[];
+  selectedAirport?: string; // Filter by specific airport
 }
 
 // 🔹 Externe Steuerung: Parent kann per ref reload auslösen
@@ -29,7 +30,7 @@ const PRIORITY: Record<string, number> = { DEL: 0, GND: 1, TWR: 2, APP: 3, CTR: 
 export const AvailabilityTimeline = forwardRef<
   AvailabilityTimelineHandle,
   AvailabilityTimelineProps
->(({ eventId, slots }, ref) => {
+>(({ eventId, slots, selectedAirport }, ref) => {
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [cached, setCached] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,10 +59,10 @@ export const AvailabilityTimeline = forwardRef<
     }
   };
 
-  // 🔁 Bei Mount laden
+  // 🔁 Bei Mount laden oder Airport-Wechsel
   useEffect(() => {
     loadSignups();
-  }, [eventId]);
+  }, [eventId, loadSignups]);
 
   // 🔁 Zugriff auf reload() von außen
   useImperativeHandle(ref, () => ({
@@ -69,17 +70,30 @@ export const AvailabilityTimeline = forwardRef<
   }));
 
   // =============================================================
-  // 🔹 Gruppierung nach Endorsement-Level
+  // 🔹 Gruppierung nach Endorsement-Level (airport-aware)
   // =============================================================
   const grouped = useMemo(() => {
     const groups: Record<string, SignupTableEntry[]> = {};
-    for (const s of signups) {
-      const key = s.endorsement?.group || s.user.rating || "UNSPEC";
+    
+    // Filter signups by selected airport if specified
+    const filteredSignups = selectedAirport
+      ? signups.filter(s => {
+          const endorsement = s.airportEndorsements?.[selectedAirport];
+          return !!endorsement?.group; // Only include if can staff this airport
+        })
+      : signups;
+    
+    for (const s of filteredSignups) {
+      // Use airport-specific group if filtering by airport
+      const key = selectedAirport
+        ? (s.airportEndorsements?.[selectedAirport]?.group || "UNSPEC")
+        : (s.endorsement?.group || s.user.rating || "UNSPEC");
+      
       if (!groups[key]) groups[key] = [];
       groups[key].push(s);
     }
     return groups;
-  }, [signups]);
+  }, [signups, selectedAirport]);
 
   const orderedAreas = useMemo(() => {
     const keys = Object.keys(grouped);
@@ -108,7 +122,7 @@ export const AvailabilityTimeline = forwardRef<
     <Card className="w-full overflow-hidden">
       <CardHeader>
         <CardTitle>
-          Availability Übersicht (alle Zeiten UTC)
+          Availability Übersicht{selectedAirport ? ` - ${selectedAirport}` : ""} (alle Zeiten UTC)
         </CardTitle>
       </CardHeader>
 
