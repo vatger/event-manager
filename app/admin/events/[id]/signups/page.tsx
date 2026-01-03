@@ -87,7 +87,10 @@ export default function AdminEventSignupsPage() {
   };
 
   const handleAirportChange = (airport: string | undefined) => {
-    setSelectedAirport(airport === "all" ? undefined : airport);
+    const newAirport = airport === "all" ? undefined : airport;
+    if (newAirport !== selectedAirport) {
+      setSelectedAirport(newAirport);
+    }
   };
 
   // Render table with or without tabs

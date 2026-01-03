@@ -66,7 +66,7 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId]); // eventId is stable from props
 
   // Expose reload to parent
   useImperativeHandle(ref, () => ({
@@ -94,9 +94,11 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     }
   }, [eventId, lastUpdate, loadSignups]);
 
+  // Initial load only once
   useEffect(() => {
     loadSignups();
-  }, [loadSignups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   // Polling for updates
   useEffect(() => {
