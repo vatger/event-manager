@@ -241,19 +241,19 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
     
     // Initial Load - either from API or use provided filtered signups
     useEffect(() => {
-      if (filteredSignups !== undefined) {
-        // Using pre-filtered signups from parent component
+      if (filteredSignups !== undefined || preloadedSignups !== undefined) {
+        // Using pre-filtered or preloaded signups from parent component
         setLoading(false);
-      } else {
-        // Load from API when no filtered signups provided
-        loadSignups();
+        return;
       }
-    }, [loadSignups, filteredSignups]);
+      // Load from API when no filtered signups provided
+      loadSignups();
+    }, [loadSignups, filteredSignups, preloadedSignups]);
 
     // Polling for updates (every 10 seconds when table is visible)
     useEffect(() => {
-      // Don't poll if using filtered signups from parent
-      if (filteredSignups !== undefined) return;
+      // Don't poll if using filtered signups or preloaded signups from parent
+      if (filteredSignups !== undefined || preloadedSignups !== undefined) return;
       
       // Don't poll if still loading initial data
       if (loading) return;
@@ -264,7 +264,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       }, 10000); // Check every 10 seconds
       
       return () => clearInterval(pollInterval);
-    }, [filteredSignups, loading, checkForUpdates]);
+    }, [filteredSignups, preloadedSignups, loading, checkForUpdates]);
 
     // --------------------------------------------------------------------
     // 🔹 2️⃣ Group signups by endorsement level

@@ -140,9 +140,6 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     return stats;
   }, [signups, airports]);
   
-
-  console.log("Signup", signups)
-  console.log("Airport Stats:", airportStats);
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
     // Include users who can theoretically staff the airport (have endorsement),
