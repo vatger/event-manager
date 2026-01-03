@@ -87,12 +87,29 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
       
       if (data.lastUpdate && data.lastUpdate > lastUpdate) {
         console.log(`[AirportSignupTabs] Detected update, reloading...`);
-        await loadSignups(true);
+        // Reload data inline to avoid dependency on loadSignups
+        try {
+          setLoading(true);
+          const refreshRes = await fetch(`/api/events/${eventId}/signup/full?refresh=true`);
+          if (!refreshRes.ok) throw new Error("Fehler beim Laden der Signups");
+
+          const refreshData = await refreshRes.json();
+          if (!Array.isArray(refreshData.signups)) throw new Error("Invalid response format");
+          setSignups(refreshData.signups);
+          
+          if (refreshData.lastUpdate) {
+            setLastUpdate(refreshData.lastUpdate);
+          }
+        } catch (err) {
+          console.error("SignupTable load error:", err);
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (err) {
       console.error("Update check error:", err);
     }
-  }, [eventId, lastUpdate, loadSignups]);
+  }, [eventId, lastUpdate]); // Remove loadSignups from deps
 
   // Initial load only once
   useEffect(() => {

@@ -87,9 +87,9 @@ export default function AdminEventSignupsPage() {
   };
 
   const handleAirportChange = (airport: string | undefined) => {
-    const newAirport = airport === "all" ? undefined : airport;
-    if (newAirport !== selectedAirport) {
-      setSelectedAirport(newAirport);
+    // airport is already undefined for "all", no need to convert
+    if (airport !== selectedAirport) {
+      setSelectedAirport(airport);
     }
   };
 
