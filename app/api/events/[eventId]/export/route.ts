@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import { generateSignupCSV, generateExportFilename } from "@/lib/exportUtils";
-import { db } from "@/lib/db";
+import prisma from "@/lib/prisma";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { eventId: string } }
+  { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const eventId = parseInt(params.eventId);
+    if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 500 });
+    const { eventId: id } = await params;
+    const eventId = parseInt(id);
+    console.log(`[Export API] Generating export for event ID: ${id}`);
     if (isNaN(eventId)) {
       return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
     }
@@ -18,7 +21,7 @@ export async function GET(
     const selectedAirport = searchParams.get("airport") || undefined;
 
     // Fetch event details
-    const event = await db.event.findUnique({
+    const event = await prisma.event.findUnique({
       where: { id: eventId },
       select: { name: true },
     });

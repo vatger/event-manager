@@ -107,6 +107,7 @@ export default function AdminEventSignupsPage() {
               eventId={Number(event.id)}
               editable={canInFIR(event.firCode, "signups.manage")}
               event={event}
+              columns={["cid", "name", "group", "airports", "availability", "preferredStations", "remarks"]}
               onRefresh={handleSignupChanged}
               selectedAirport={airport}
               preloadedSignups={filteredSignups}
