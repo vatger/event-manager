@@ -4,6 +4,7 @@ import React, {
   useState,
   useEffect,
   useMemo,
+  useCallback,
   forwardRef,
   useImperativeHandle,
 } from "react";
@@ -39,7 +40,7 @@ export const AvailabilityTimeline = forwardRef<
   // =============================================================
   // 🔹 API-Aufruf
   // =============================================================
-  const loadSignups = async () => {
+  const loadSignups = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -57,12 +58,12 @@ export const AvailabilityTimeline = forwardRef<
     } finally {
       setLoading(false);
     }
-  };
+  }, [eventId]);
 
   // 🔁 Bei Mount laden oder Airport-Wechsel
   useEffect(() => {
     loadSignups();
-  }, [eventId, loadSignups]);
+  }, [loadSignups]);
 
   // 🔁 Zugriff auf reload() von außen
   useImperativeHandle(ref, () => ({
