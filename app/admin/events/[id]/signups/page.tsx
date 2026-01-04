@@ -75,15 +75,14 @@ export default function AdminEventSignupsPage() {
   if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
   if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
 
-  const handleSignupChanged = async () => {
-    await Promise.all([
-      timelineRef.current?.reload(),
-      statsRef.current?.reload(),
-      tableRef.current?.reload(),
-    ]);
-    if(isMultiAirport) {
+  const handleSignupChanged = () => {
+    if (eventAirports.length > 1) {
       tabsRef.current?.reload();
+    } else {
+      tableRef.current?.reload();
     }
+    timelineRef.current?.reload()
+    statsRef.current?.reload()
   };
 
   const handleExport = (airport?: string) => {

@@ -253,7 +253,7 @@ function ControllerInfo({ name, cid, group }: { name: string; cid: string; group
     }
   };
   return (
-    <div className="flex items-center gap-2 px-2 py-1 border-r bg-background/50">
+    <div className="flex items-center gap-2 px-2 py-1 border-r">
       <div className="flex flex-col min-w-0">
         <span className="text-sm font-medium leading-tight truncate">{name}</span>
         <span className="text-xs text-muted-foreground leading-tight">CID {cid}</span>
