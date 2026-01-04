@@ -10,7 +10,7 @@ import { useUser } from "@/hooks/useUser";
 import { AvailabilityTimeline, AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
-import AirportSignupTabs from "@/components/AirportSignupTabs";
+import AirportSignupTabs, { AirportSignupTabsRef } from "@/components/AirportSignupTabs";
 import { Users, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { parseEventAirports } from "@/lib/multiAirport";
@@ -34,6 +34,8 @@ export default function AdminEventSignupsPage() {
   const [selectedAirport, setSelectedAirport] = useState<string | undefined>(undefined);
 
   const tableRef = useRef<SignupsTableRef>(null);
+  const tabsRef = useRef<AirportSignupTabsRef>(null);
+  
   const timelineRef = useRef<AvailabilityTimelineHandle>(null);
   const statsRef = useRef<StatsCardHandle>(null);
   const { canInFIR } = useUser();
@@ -57,6 +59,8 @@ export default function AdminEventSignupsPage() {
       .finally(() => setEventLoading(false));
   }, [eventId]);
 
+  
+
   // Slots für Timeline generieren
   const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
 
@@ -77,6 +81,9 @@ export default function AdminEventSignupsPage() {
       statsRef.current?.reload(),
       tableRef.current?.reload(),
     ]);
+    if(isMultiAirport) {
+      tabsRef.current?.reload();
+    }
   };
 
   const handleExport = (airport?: string) => {
@@ -98,6 +105,7 @@ export default function AdminEventSignupsPage() {
     if (isMultiAirport) {
       return (
         <AirportSignupTabs
+          ref={tabsRef}
           airports={eventAirports}
           eventId={Number(eventId)}
           onAirportChange={handleAirportChange}
