@@ -58,6 +58,7 @@ export interface ComputedUserData {
   cid: number;
   group: string;
   restrictions: string[];
+  airportEndorsements?: Record<string, { group?: string; restrictions: string[] }>;
 }
 
 /**

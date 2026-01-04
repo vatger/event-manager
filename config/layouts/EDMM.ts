@@ -46,6 +46,7 @@ export const EDMMLayout: ExportLayoutConfig = {
     computedData: Record<number, ComputedUserData>
   ) => {
     const controllerBlocks: string[][] = [];
+    const hasAirportsColumn = userDetailColumns.includes("Airports");
     
     for (const endorsement of endorsementOrder) {
       const users = signupsByEndorsement[endorsement];
@@ -56,7 +57,12 @@ export const EDMMLayout: ExportLayoutConfig = {
           const userName = user.user.name;
           const pref = user.preferredStations || "";
           const rmk = user.remarks || "";
-          const restr = (computedData[user.userCID]?.restrictions || []).join("; ");
+          
+          // Get restrictions
+          const userData = computedData[user.userCID];
+          const restr = (userData?.restrictions || []).join("; ");
+          
+          // Build base row
           const userRow = [
             userName,
             ...timeslots.map((timeslot) => (isUserAvailable(user, timeslot) ? "" : "")),
@@ -64,6 +70,20 @@ export const EDMMLayout: ExportLayoutConfig = {
             rmk,
             restr
           ];
+          
+          // Add Airports column if present
+          if (hasAirportsColumn && userData?.airportEndorsements) {
+            const staffedAirports: string[] = [];
+            const optedOut = rmk.match(/!([A-Z]{4})/g)?.map(m => m.substring(1)) || [];
+            
+            Object.entries(userData.airportEndorsements).forEach(([airport, endorsement]) => {
+              if (endorsement?.group && !optedOut.includes(airport)) {
+                staffedAirports.push(airport);
+              }
+            });
+            
+            userRow.push(staffedAirports.join("|"));
+          }
           
           controllerBlocks.push(userRow);
         }
