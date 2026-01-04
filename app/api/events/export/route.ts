@@ -254,7 +254,7 @@ export async function POST(req: Request) {
               user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
               event: { airport: apt, fir: firCode}
             });
-            airportEndorsements[apt] = res;
+            airportEndorsements[apt] = { ...res, group: res.group ?? undefined };
             
             const priority = groupPriority[res.group || ""] || -1;
             if (priority > highestPriority) {
@@ -281,7 +281,11 @@ export async function POST(req: Request) {
         return { cid: s.userCID, group: "UNKNOWN", restrictions: [] as string[] };
       }
     }));
-    const byCid: Record<number, ComputedUserData> = Object.fromEntries(computed.map(r => [r.cid, r]));
+    const byCid: Record<number, ComputedUserData> = Object.fromEntries(
+      computed.map(r => [r.cid, { ...r, airportEndorsements: Object.fromEntries(
+        Object.entries(r.airportEndorsements ?? {}).map(([key, value]) => [String(key), value])
+      ) }])
+    );
 
     // Controller nach ermittelter Group gruppieren
     const signupsByEndorsement: Record<string, ConvertedSignup[]> = {};
