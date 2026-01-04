@@ -160,9 +160,6 @@ export default function Header() {
 
               {/* Mobile Version */}
               <div className="flex md:hidden items-center gap-2">
-                {/* Theme Toggle */}
-                <ModeToggle />
-                
                 {/* Notifications */}
                 <div className="relative">
                   <NotificationsWidget />

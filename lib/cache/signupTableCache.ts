@@ -1,4 +1,3 @@
-// lib/cache/signupTableCache.ts
 import prisma from "@/lib/prisma";
 import { getCache, setCache, invalidateCache } from "./cacheManager";
 import { GroupService } from "@/lib/endorsements/groupService";
@@ -7,21 +6,46 @@ import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry } from "./types";
+import { parseEventAirports } from "@/lib/multiAirport";
+import { computeSelectedAirportsSync } from "@/lib/multiAirport/selectedAirportsUtils.server";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
 
+// Track last update timestamps per event for cache busting
+const lastUpdateTimestamps = new Map<number, number>();
+
+// ===================================================================
+// 🔹 Get last update timestamp for an event
+// ===================================================================
+export function getLastUpdateTimestamp(eventId: number): number {
+  return lastUpdateTimestamps.get(eventId) || 0;
+}
+
+// ===================================================================
+// 🔹 Set last update timestamp for an event
+// ===================================================================
+export function setLastUpdateTimestamp(eventId: number): void {
+  const timestamp = Date.now();
+  lastUpdateTimestamps.set(eventId, timestamp);
+  console.log(`[CACHE] Updated timestamp for event ${eventId}: ${timestamp}`);
+}
 
 // ===================================================================
 // 🔹 Hauptfunktion: getCachedSignupTable
 // ===================================================================
-export async function getCachedSignupTable(eventId: number): Promise<SignupTableEntry[]> {
+export async function getCachedSignupTable(eventId: number, forceRefresh = false): Promise<SignupTableEntry[]> {
+  if(!prisma) return [];
   const key = `event:${eventId}`;
 
-  // 1️⃣ Versuch, aus Cache zu lesen
-  const cached = await getCache<SignupTableEntry[]>(key);
-  if (cached) {
-    console.log(`[CACHE HIT] SignupTableCache für Event ${eventId}`);
-    return cached;
+  // 1️⃣ Check if force refresh is requested or skip cache check
+  if (!forceRefresh) {
+    const cached = await getCache<SignupTableEntry[]>(key);
+    if (cached) {
+      console.log(`[CACHE HIT] SignupTableCache für Event ${eventId}`);
+      return cached;
+    }
+  } else {
+    console.log(`[CACHE SKIP] Force refresh for Event ${eventId}`);
   }
 
   console.log(`[CACHE MISS] Recalculate SignupTable für Event ${eventId}`);
@@ -45,16 +69,47 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
       try {
+        // Parse event airports using utility function
+        const eventAirportsList = parseEventAirports(event.airports);
+        
+        // Fetch endorsement for first airport (for backward compatibility with single endorsement field)
         const result: EndorsementResponse = await GroupService.getControllerGroup({
           user: {
             userCID: user.cid,
             rating: getRatingValue(user.rating),
           },
           event: {
-            airport: (event.airports as string[] | null)?.[0] ?? "",
+            airport: eventAirportsList[0] ?? "",
             fir: event.fir?.code,
           },
         });
+
+        // Fetch endorsements for all event airports
+        const airportEndorsements: Record<string, EndorsementResponse> = {};
+        for (const airport of eventAirportsList) {
+          try {
+            const airportResult = await GroupService.getControllerGroup({
+              user: {
+                userCID: user.cid,
+                rating: getRatingValue(user.rating),
+              },
+              event: {
+                airport: airport,
+                fir: event.fir?.code,
+              },
+            });
+            airportEndorsements[airport] = airportResult;
+          } catch (err) {
+            console.error(`[ENDORSEMENT ERROR] ${user.cid} @${airport}:`, err);
+          }
+        }
+
+        // Compute selected airports from endorsements and remarks
+        const selectedAirports = computeSelectedAirportsSync(
+          eventAirportsList,
+          airportEndorsements,
+          s.remarks
+        );
 
         return {
           id: s.id,
@@ -67,6 +122,8 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: result,
+          airportEndorsements: airportEndorsements,
+          selectedAirports: selectedAirports,
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -76,6 +133,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
         };
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
+        const eventAirportsList = (event.airports as string[] | null) || [];
         return {
           id: s.id,
           user: {
@@ -87,6 +145,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
           endorsement: null,
+          selectedAirports: [], // Empty on error - user should fix their endorsements
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -111,6 +170,7 @@ export async function getCachedSignupTable(eventId: number): Promise<SignupTable
 export async function invalidateSignupTable(eventId: number): Promise<void> {
   const key = `event:${eventId}`;
   await invalidateCache(key);
+  setLastUpdateTimestamp(eventId); // Update timestamp for cache busting
   console.log(`[CACHE INVALIDATED] SignupTableCache für Event ${eventId}`);
 }
 

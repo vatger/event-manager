@@ -42,11 +42,6 @@ export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL) {
   const eventId = Number(key.replace("event:", ""));
   const expiresAt = new Date(Date.now() + ttlMs);
 
-  await prisma!.eventSignupCache.upsert({
-    where: { eventId },
-    update: { data: data as unknown as Prisma.InputJsonValue, expiresAt },
-    create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
-  });
 
   memoryCache.set(key, { data, expires: Date.now() + ttlMs });
 }

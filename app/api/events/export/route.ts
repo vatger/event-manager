@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     const sheets = google.sheets({ version: "v4", auth });
 
     // ===== EVENT DATEN =====
-    const { eventId } = await req.json();
+    const { eventId, airport: selectedAirport } = await req.json();
 
     const rawEvent = await prisma.event.findUnique({
       where: { id: parseInt(eventId) },
@@ -207,22 +207,88 @@ export async function POST(req: Request) {
     const event = convertEvent(rawEvent);
     const timeslots = generateTimeslots(event.startTime!, event.endTime!, layout.timeslotInterval);
     const currentDate = formatDateGerman(new Date());
-    const userDetailColumns = layout.userDetailColumns;
+    
+    // Determine user detail columns based on whether we're filtering by airport
+    const isMultiAirport = Array.isArray(event.airports) && event.airports.length > 1;
+    let userDetailColumns = [...layout.userDetailColumns];
+    
+    if (selectedAirport) {
+      // For single airport export, add airport-specific label to Restrictions
+      userDetailColumns = userDetailColumns.map(col => 
+        col === "Restrictions" ? `Restrictions (${selectedAirport})` : col
+      );
+      // Remove "Airports" column if present
+      userDetailColumns = userDetailColumns.filter(col => col !== "Airports");
+    } else if (isMultiAirport) {
+      // For multi-airport event "all airports" export, ensure "Airports" column is present
+      if (!userDetailColumns.includes("Airports")) {
+        userDetailColumns.push("Airports");
+      }
+    }
 
     // Compute live group + restrictions via GroupService
-    const airport = Array.isArray(event.airports) ? (event.airports[0] || "") : "";
+    const airport = selectedAirport || (Array.isArray(event.airports) ? (event.airports[0] || "") : "");
+    const eventAirports = Array.isArray(event.airports) ? event.airports : [];
+    
+    // Compute endorsements for all airports if multi-airport and no filter
     const computed = await Promise.all(event.signups.map(async (s) => {
       try {
-        const res = await GroupService.getControllerGroup({
-          user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
-          event: { airport, fir: firCode}
-        });
-        return { cid: s.userCID, group: res.group || "UNKNOWN", restrictions: res.restrictions };
+        if (selectedAirport) {
+          // Single airport - get endorsement for that airport only
+          const res = await GroupService.getControllerGroup({
+            user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
+            event: { airport: selectedAirport, fir: firCode}
+          });
+          return { 
+            cid: s.userCID, 
+            group: res.group || "UNKNOWN", 
+            restrictions: res.restrictions,
+            airportEndorsements: { [selectedAirport]: res }
+          };
+        } else if (isMultiAirport) {
+          // Multi-airport - get endorsements for all airports
+          const airportEndorsements: Record<string, { group?: string; restrictions: string[] }> = {};
+          let highestGroup = "UNKNOWN";
+          let highestPriority = -1;
+          const groupPriority: Record<string, number> = { "DEL": 0, "GND": 1, "TWR": 2, "APP": 3, "CTR": 4 };
+          
+          for (const apt of eventAirports) {
+            const res = await GroupService.getControllerGroup({
+              user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
+              event: { airport: apt, fir: firCode}
+            });
+            airportEndorsements[apt] = { ...res, group: res.group ?? undefined };
+            
+            const priority = groupPriority[res.group || ""] || -1;
+            if (priority > highestPriority) {
+              highestPriority = priority;
+              highestGroup = res.group || "UNKNOWN";
+            }
+          }
+          
+          return { 
+            cid: s.userCID, 
+            group: highestGroup,
+            restrictions: [],
+            airportEndorsements
+          };
+        } else {
+          // Single airport event
+          const res = await GroupService.getControllerGroup({
+            user: { userCID: s.userCID, rating: getRatingValue(s.user.rating) },
+            event: { airport, fir: firCode}
+          });
+          return { cid: s.userCID, group: res.group || "UNKNOWN", restrictions: res.restrictions };
+        }
       } catch {
         return { cid: s.userCID, group: "UNKNOWN", restrictions: [] as string[] };
       }
     }));
-    const byCid: Record<number, ComputedUserData> = Object.fromEntries(computed.map(r => [r.cid, r]));
+    const byCid: Record<number, ComputedUserData> = Object.fromEntries(
+      computed.map(r => [r.cid, { ...r, airportEndorsements: Object.fromEntries(
+        Object.entries(r.airportEndorsements ?? {}).map(([key, value]) => [String(key), value])
+      ) }])
+    );
 
     // Controller nach ermittelter Group gruppieren
     const signupsByEndorsement: Record<string, ConvertedSignup[]> = {};

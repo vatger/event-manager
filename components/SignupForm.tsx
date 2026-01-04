@@ -21,6 +21,14 @@ import { useSession } from "next-auth/react";
 import { Event, TimeRange } from "@/types";
 import { getRatingValue } from "@/utils/ratingToValue";
 import AutomaticEndorsement from "./AutomaticEndorsement";
+import { EndorsementResponse } from "@/lib/endorsements/types";
+import {
+  parseEventAirports,
+  fetchAirportEndorsements,
+  getSelectedAirportsForDisplay,
+  parseOptOutAirports,
+} from "@/lib/multiAirport";
+import { Badge } from "./ui/badge";
 
 
 interface SignupFormProps {
@@ -62,12 +70,21 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>>({});
+  const [loadingEndorsements, setLoadingEndorsements] = useState(false);
   
   const userCID = session?.user.id;
 
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
 
   const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
+
+  // Get event airports as array using utility function
+  const eventAirports = useMemo(() => {
+    const airports = parseEventAirports(event.airports);
+    console.log("[SignupForm] Event airports parsed:", airports);
+    return airports;
+  }, [event.airports]);
 
   useEffect(() => {
     if (!signupData || hydrated) return;
@@ -79,15 +96,46 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setRemarks(signupData.remarks ?? "");
     setHydrated(true);
     
-  }, [signupData, hydrated]);
+  }, [signupData, hydrated, eventAirports]);
 
+  // Fetch endorsements for all airports to determine which ones user can staff
+  useEffect(() => {
+    if (!userCID || !session?.user.rating || eventAirports.length === 0 || !event.firCode) return;
+    
+    const loadEndorsements = async () => {
+      setLoadingEndorsements(true);
+      
+      try {
+        console.log("[SignupForm] Fetching endorsements for airports:", eventAirports);
+        
+        const endorsements = await fetchAirportEndorsements(
+          eventAirports,
+          Number(userCID),
+          session.user.rating,
+          event.firCode
+        );
+        
+        console.log("[SignupForm] Endorsements loaded:", endorsements);
+        setAirportEndorsements(endorsements);
+      } catch (error) {
+        console.error("Error fetching airport endorsements:", error);
+      } finally {
+        setLoadingEndorsements(false);
+      }
+    };
+    
+    loadEndorsements();
+  }, [userCID, session?.user.rating, eventAirports, event.firCode]);
+
+  // Auto-endorsement uses the first airport as a representative
+  // This is acceptable as endorsements are typically valid across all airports in an event
   const autoEndorsementProps = useMemo(() => ({
     user: {
       userCID: Number(userCID),
       rating: getRatingValue(session?.user.rating || "OBS"),
     },
     event: {
-      airport: event.airports,
+      airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
       fir: "EDMM",
     },
   }), [userCID, session?.user.rating, event.airports]);
@@ -117,6 +165,17 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       return;
     }
 
+    // Calculate airports based on endorsements and opt-outs for validation
+    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, remarks);
+    
+    console.log("[SignupForm] Selected airports for validation:", selectedAirports);
+    
+    // Validate that user can staff at least one airport
+    if (selectedAirports.length === 0) {
+      toast.error("Du kannst keinen der Airports für dieses Event lotsen oder hast alle Airports mit !ICAO ausgeschlossen");
+      return;
+    }
+
     setSaving(true)
     setError("")
 
@@ -136,6 +195,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           endorsement: null,
           preferredStations: desiredPosition,
           remarks,
+          // selectedAirports is now computed on server from endorsements + remarks
         }),
       });
 
@@ -270,13 +330,144 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             />
           </div>
           
-          {/* Automatische Gruppenzuweisung */}
-          {!loading && userCID && (
-          <div>
-            {!loading && userCID && (
-              <AutomaticEndorsement {...autoEndorsementProps} />
+          {/* Airport Information for Multi-Airport Events */}
+          {eventAirports.length > 1 && (
+            <div className="space-y-4 border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-card dark:from-gray-900 dark:to-gray-800">
+            {loadingEndorsements ? (
+              <div className="flex items-center justify-center gap-3 py-6 bg-white dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
+                <div className="h-5 w-5 border-2 border-gray-300 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Prüfe Endorsements...
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {eventAirports.map((airport) => {
+                  const optedOut = parseOptOutAirports(remarks);
+                  const endorsementData = airportEndorsements[airport];
+                  const canStaff = endorsementData?.canStaff || false;
+                  const endorsement = endorsementData?.endorsement;
+                  const isOptedOut = optedOut.includes(airport);
+                  
+                  return (
+                    <div 
+                      key={airport} 
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 ${
+                        canStaff 
+                          ? isOptedOut 
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                          : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800'
+                      }`}
+                    >
+                      {/* Status Icon */}
+                      <div className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        canStaff 
+                          ? isOptedOut 
+                            ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300'
+                            : 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
+                      }`}>
+                        {canStaff ? (
+                          isOptedOut ? (
+                            <span className="text-xs font-bold">✗</span>
+                          ) : (
+                            <span className="text-xs font-bold">✓</span>
+                          )
+                        ) : (
+                          <span className="text-xs">○</span>
+                        )}
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 space-y-1.5">
+                        {/* Airport Header */}
+                        <div className="flex items-baseline gap-2">
+                          <span className={`font-medium ${
+                            canStaff 
+                              ? isOptedOut 
+                                ? 'text-orange-800 dark:text-orange-300'
+                                : 'text-green-800 dark:text-green-300'
+                              : 'text-gray-700 dark:text-gray-400'
+                          }`}>
+                            {airport}
+                          </span>
+                          
+                          {endorsement?.group && (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                canStaff 
+                                  ? isOptedOut 
+                                    ? 'border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400'
+                                    : 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
+                                  : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-500'
+                              }`}
+                            >
+                              {endorsement.group}
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {/* Restrictions */}
+                        {endorsement?.restrictions && endorsement.restrictions.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-400">
+                              Einschränkungen:
+                            </div>
+                            <ul className="space-y-0.5">
+                              {endorsement.restrictions.map((r, i) => (
+                                <li 
+                                  key={i} 
+                                  className="text-xs text-gray-600 dark:text-gray-500 flex items-start gap-1.5"
+                                >
+                                  <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-600 mt-1.5 flex-shrink-0" />
+                                  {r}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Quick Status */}
+                      <div className={`text-xs font-medium px-2 py-1 rounded ${
+                        canStaff 
+                          ? isOptedOut 
+                            ? 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300'
+                            : 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {canStaff ? (isOptedOut ? 'Ausgeschlossen' : 'Verfügbar') : 'Nicht berechtigt'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
+            
+            {/* Tip */}
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <div className="flex items-start gap-2">
+                <div className="h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs text-blue-600 dark:text-blue-400">💡</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-0.5">
+                    Tipp zur Airport-Auswahl
+                  </p>
+                  <p className="text-xs text-blue-700 dark:text-blue-400">
+                    Füge <code className="font-mono bg-white dark:bg-blue-900/40 px-1.5 py-0.5 rounded">!ICAO</code> in deine RMKs ein, um dich von einem Airport auszuschließen (z.B. "!EDDM" für München).
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
+          )}
+          
+          {/* Automatische Gruppenzuweisung */}
+          {!loading && userCID && eventAirports.length === 1 && (
+            <AutomaticEndorsement {...autoEndorsementProps} />
           )}
 
           <div>
@@ -291,7 +482,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder={"Some space..."}
+              placeholder={eventAirports.length > 1 
+                ? "Bemerkungen (z.B. '!EDDM' um dich von München auszuschließen)..." 
+                : "Some space..."}
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="min-h-[80px]"
