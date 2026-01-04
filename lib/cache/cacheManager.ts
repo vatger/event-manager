@@ -42,11 +42,29 @@ export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL) {
   const eventId = Number(key.replace("event:", ""));
   const expiresAt = new Date(Date.now() + ttlMs);
 
-  await prisma!.eventSignupCache.upsert({
-    where: { eventId },
-    update: { data: data as unknown as Prisma.InputJsonValue, expiresAt },
-    create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
-  });
+  // Retry logic for handling race conditions with unique constraint
+  let retries = 3;
+  while (retries > 0) {
+    try {
+      await prisma!.eventSignupCache.upsert({
+        where: { eventId },
+        update: { data: data as unknown as Prisma.InputJsonValue, expiresAt },
+        create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
+      });
+      break; // Success, exit loop
+    } catch (error: any) {
+      // Handle unique constraint violation (P2002) - race condition
+      if (error?.code === 'P2002' && retries > 1) {
+        retries--;
+        // Wait a bit before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 50 * (4 - retries)));
+        continue;
+      }
+      // Other errors or last retry - just log and continue
+      console.error('[CACHE ERROR] Failed to upsert cache:', error?.message || error);
+      break;
+    }
+  }
 
   memoryCache.set(key, { data, expires: Date.now() + ttlMs });
 }
