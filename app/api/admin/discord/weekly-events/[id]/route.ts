@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { weeklyEventConfigService } from "@/lib/discord/weeklyEventConfigService";
 import { z } from "zod";
+import { prisma } from "@/lib/prisma";
 
 const updateWeeklyEventSchema = z.object({
   firId: z.number().optional(),
@@ -17,6 +18,24 @@ const updateWeeklyEventSchema = z.object({
   requiredStaffing: z.record(z.string(), z.number()).optional(),
   enabled: z.boolean().optional(),
 });
+
+/**
+ * Check if user has permission to manage Discord bot configuration
+ * Only MAIN_ADMIN or VATGERLeitung can manage Discord bot settings
+ */
+async function hasDiscordBotPermission(userCid: number): Promise<boolean> {
+  const user = await prisma!.user.findUnique({
+    where: { cid: userCid },
+    include: {
+      vatgerLeitung: true,
+    },
+  });
+
+  if (!user) return false;
+  
+  // MAIN_ADMIN and VATGERLeitung can manage Discord bot configuration
+  return user.role === "MAIN_ADMIN" || !!user.vatgerLeitung;
+}
 
 /**
  * GET /api/admin/discord/weekly-events/[id]
@@ -63,7 +82,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add permission check for discord configuration management
+    // Check permission
+    const hasPermission = await hasDiscordBotPermission(session.user.cid);
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Insufficient permissions. Only MAIN_ADMIN or VATGER Leitung can manage Discord bot configuration." },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
     const body = await request.json();
@@ -104,7 +130,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add permission check for discord configuration management
+    // Check permission
+    const hasPermission = await hasDiscordBotPermission(session.user.cid);
+    if (!hasPermission) {
+      return NextResponse.json(
+        { error: "Insufficient permissions. Only MAIN_ADMIN or VATGER Leitung can manage Discord bot configuration." },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
     await weeklyEventConfigService.delete(parseInt(id));

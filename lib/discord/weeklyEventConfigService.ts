@@ -218,11 +218,11 @@ export class WeeklyEventConfigurationService {
     let weekInCycle = 0;
     const cycleLength = weeksOn + weeksOff;
 
-    while (isBefore(currentDate, endDate) || currentDate.getTime() === endDate.getTime()) {
+    while (!isAfter(currentDate, endDate)) {
       // Check if we're in an "on" week of the cycle
       if (weekInCycle < weeksOn) {
         // Only add if it's on or after the start date
-        if (isAfter(currentDate, startDate) || currentDate.getTime() === startDate.getTime()) {
+        if (!isBefore(currentDate, startDate)) {
           occurrences.push(new Date(currentDate));
         }
       }

@@ -29,6 +29,8 @@ export class MyVatsimEventCheckerService {
       },
     });
 
+    // Fetch events once for all checks
+    const events = await vatsimService.getEvents();
     const results = [];
 
     for (const config of configs) {
@@ -39,9 +41,10 @@ export class MyVatsimEventCheckerService {
 
         // Check if we should verify this event (based on checkDaysAhead)
         if (daysUntilEvent <= config.checkDaysAhead && daysUntilEvent >= 0) {
-          const isRegistered = await this.isEventRegisteredInMyVatsim(
+          const isRegistered = this.isEventRegisteredInMyVatsim(
             config.name,
-            occurrence.date
+            occurrence.date,
+            events
           );
 
           // Update occurrence record
@@ -86,6 +89,8 @@ export class MyVatsimEventCheckerService {
       },
     });
 
+    // Fetch events once for all checks
+    const vatsimEvents = await vatsimService.getEvents();
     const results = [];
 
     for (const event of futureEvents) {
@@ -95,9 +100,10 @@ export class MyVatsimEventCheckerService {
 
       // Check events that start within 14 days
       if (daysUntilEvent <= 14 && daysUntilEvent >= 0) {
-        const isRegistered = await this.isEventRegisteredInMyVatsim(
+        const isRegistered = this.isEventRegisteredInMyVatsim(
           event.name,
-          event.startTime
+          event.startTime,
+          vatsimEvents
         );
 
         results.push({
@@ -117,34 +123,28 @@ export class MyVatsimEventCheckerService {
 
   /**
    * Check if an event with the given name exists in myVATSIM for the specified date
+   * Now accepts pre-fetched events to avoid redundant API calls
    */
-  private async isEventRegisteredInMyVatsim(
+  private isEventRegisteredInMyVatsim(
     eventName: string,
-    eventDate: Date
-  ): Promise<boolean> {
-    try {
-      const events = await vatsimService.getEvents();
+    eventDate: Date,
+    events: Awaited<ReturnType<typeof vatsimService.getEvents>>
+  ): boolean {
+    // Check if any event matches the name and date
+    const matchingEvent = events.find((e) => {
+      const eventStartDate = new Date(e.start_time);
       
-      // Check if any event matches the name and date
-      const matchingEvent = events.find((e) => {
-        const eventStartDate = new Date(e.start_time);
-        
-        // Check if name contains our event name (case insensitive)
-        const nameMatch = e.name.toLowerCase().includes(eventName.toLowerCase()) ||
-                         eventName.toLowerCase().includes(e.name.toLowerCase());
-        
-        // Check if dates match (same day)
-        const dateMatch = isSameDay(eventStartDate, eventDate);
-        
-        return nameMatch && dateMatch;
-      });
+      // Check if name contains our event name (case insensitive)
+      const nameMatch = e.name.toLowerCase().includes(eventName.toLowerCase()) ||
+                       eventName.toLowerCase().includes(e.name.toLowerCase());
+      
+      // Check if dates match (same day)
+      const dateMatch = isSameDay(eventStartDate, eventDate);
+      
+      return nameMatch && dateMatch;
+    });
 
-      return !!matchingEvent;
-    } catch (error) {
-      console.error("Error checking myVATSIM events:", error);
-      // Return null to indicate check failed (different from false = not registered)
-      throw error;
-    }
+    return !!matchingEvent;
   }
 
   /**
