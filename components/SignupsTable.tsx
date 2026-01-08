@@ -348,11 +348,14 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
           <Table>
             <TableHeader>
               <TableRow>
-                {finalColumns.map((c) => (
-                  <TableHead key={c}>
-                    {c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}
-                  </TableHead>
-                ))}
+                {finalColumns.map((c) => {
+                  if (currentAirport && c === "airports") return null;
+                  return (
+                    <TableHead key={c}>
+                      {c === "__actions__" ? "" : HEAD_LABELS[c as SignupTableColumn]}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             </TableHeader>
 
@@ -374,6 +377,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                     return (
                       <TableRow key={s.id} className={rowClassName}>
                         {finalColumns.map((col) => {
+                          if(currentAirport && col === "airports") return null;
                           const cellContent = (() => {
                             switch (col) {
                               case "cid":
