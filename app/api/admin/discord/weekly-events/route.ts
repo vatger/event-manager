@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check permission
-    const hasPermission = await hasDiscordBotPermission(session.user.cid);
+    const hasPermission = await hasDiscordBotPermission(Number(session.user.cid));
     if (!hasPermission) {
       return NextResponse.json(
         { error: "Insufficient permissions. Only MAIN_ADMIN or VATGER Leitung can manage Discord bot configuration." },
