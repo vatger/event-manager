@@ -94,7 +94,7 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
                       rating: getRatingValue(session?.user?.rating || "OBS")
                     }, 
                     event: {
-                      airport: event.airports,
+                      airport: Array.isArray(event.airports) ? event.airports : [event.airports],
                       fir: event.firCode
                     } 
                   }
