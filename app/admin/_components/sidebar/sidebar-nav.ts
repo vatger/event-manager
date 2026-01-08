@@ -7,6 +7,7 @@ import {
     PlusCircle,
     CheckCheckIcon,
     Image,
+    Bot,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -78,6 +79,11 @@ import {
           href: "/admin/edmm/cpt-banner", 
           label: "CPT Banner Generator", 
           icon: Image,
+        },
+        { 
+          href: "/admin/edmm/discord-bot", 
+          label: "Discord Bot", 
+          icon: Bot,
         },
       ]
     },

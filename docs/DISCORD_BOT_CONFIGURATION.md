@@ -1,16 +1,18 @@
-# Discord Bot - Event Reminder System
+# Discord Bot - Event Reminder System (EDMM)
 
 ## Übersicht
 
-Das Discord Bot Event Reminder System ermöglicht automatische Benachrichtigungen für:
+Das Discord Bot Event Reminder System ermöglicht automatische Benachrichtigungen für FIR EDMM:
 - **Fehlende myVATSIM-Einträge**: Erinnerungen, wenn wöchentliche oder unregelmäßige Events nicht in myVATSIM eingetragen sind
 - **Staffing-Probleme**: Warnungen, wenn die Mindestbesetzung für Events nicht erreicht wird
+
+**Hinweis:** Diese Funktion ist aktuell speziell für FIR EDMM konfiguriert und im EDMM Intern-Bereich verfügbar.
 
 ## Features
 
 ### 1. Konfigurierbare wöchentliche Events
 
-Über das Admin-Panel (`/admin/discord-bot`) können wöchentliche Events mit flexiblen Mustern konfiguriert werden:
+Über das Admin-Panel (`/admin/edmm/discord-bot`) können wöchentliche Events mit flexiblen Mustern konfiguriert werden:
 
 - **Einfache Wiederholung**: Jeden Mittwoch, jeden Freitag, etc.
 - **Komplexe Muster**: z.B. "München Mittwoch" - 2 Wochen aktiv, 1 Woche Pause, 2 Wochen aktiv, 1 Woche Pause...
@@ -71,7 +73,7 @@ Termine werden in der Datenbank gespeichert und können im Admin-Panel eingesehe
 
 ### Zugriff
 
-Navigate zu `/admin/discord-bot` im Event Manager.
+Navigate zu `/admin/edmm/discord-bot` im Event Manager (EDMM Intern Bereich).
 
 ### Funktionen
 
@@ -90,6 +92,14 @@ Navigate zu `/admin/discord-bot` im Event Manager.
 3. **Events aktivieren/deaktivieren**
    - Temporär deaktivieren ohne zu löschen
    - Nützlich für Pausen oder Änderungen
+
+4. **Test-Trigger (Entwicklungsphase)**
+   - Manuelle Auslösung der Discord Bot Checks zum Testen
+   - **MyVATSIM Check**: Prüft sofort, ob Events in myVATSIM eingetragen sind
+   - **Staffing Check**: Prüft sofort die Staffing-Anforderungen
+   - **Beide ausführen**: Führt beide Checks gleichzeitig aus
+   - Zeigt detaillierte Ergebnisse der Prüfungen an
+   - Aktualisiert automatisch die Event-Status nach der Prüfung
 
 ## Technische Details
 

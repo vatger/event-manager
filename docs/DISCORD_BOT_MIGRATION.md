@@ -44,7 +44,7 @@ export const weeklyEvents: IWeeklyEvent[] = [
 
 ### Schritt 2: Admin Panel öffnen
 
-1. Navigiere zu `/admin/discord-bot` im Event Manager
+1. Navigiere zu `/admin/edmm/discord-bot` im Event Manager (EDMM Intern Bereich)
 2. Klicke auf "Neues Event"
 
 ### Schritt 3: Konfiguration übertragen

@@ -86,6 +86,8 @@ export default function DiscordBotWeeklyEvents() {
   );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [testTriggerBusy, setTestTriggerBusy] = useState(false);
+  const [testTriggerResult, setTestTriggerResult] = useState<string>("");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -238,6 +240,36 @@ export default function DiscordBotWeeklyEvents() {
     } ${config.weeksOff === 1 ? "Woche" : "Wochen"} Pause`;
   };
 
+  const handleTestTrigger = async (action: "myVatsim" | "staffing" | "both") => {
+    setTestTriggerBusy(true);
+    setTestTriggerResult("");
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/discord/test-triggers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setTestTriggerResult(
+          `✅ Test erfolgreich ausgeführt!\n\nAktion(en): ${data.triggered.join(", ")}\n\nErgebnisse:\n${JSON.stringify(data.results, null, 2)}`
+        );
+        // Refresh configs to see updated check status
+        fetchConfigs();
+      } else {
+        setError(data.error || "Fehler beim Triggern des Tests");
+      }
+    } catch (err) {
+      setError("Netzwerkfehler beim Triggern");
+    } finally {
+      setTestTriggerBusy(false);
+    }
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -259,6 +291,50 @@ export default function DiscordBotWeeklyEvents() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      {/* Test Trigger Section - Development/Testing Phase */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Test-Trigger (Entwicklungsphase)</CardTitle>
+          <CardDescription>
+            Manuelle Auslösung der Discord Bot Checks zum Testen der Funktionalität
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleTestTrigger("myVatsim")}
+              disabled={testTriggerBusy}
+              variant="outline"
+            >
+              MyVATSIM Check
+            </Button>
+            <Button
+              onClick={() => handleTestTrigger("staffing")}
+              disabled={testTriggerBusy}
+              variant="outline"
+            >
+              Staffing Check
+            </Button>
+            <Button
+              onClick={() => handleTestTrigger("both")}
+              disabled={testTriggerBusy}
+            >
+              Beide ausführen
+            </Button>
+          </div>
+          {testTriggerResult && (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <AlertDescription>
+                <pre className="whitespace-pre-wrap text-xs">
+                  {testTriggerResult}
+                </pre>
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {loading ? (
