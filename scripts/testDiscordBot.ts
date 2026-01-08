@@ -20,6 +20,9 @@
  *   npx tsx scripts/testDiscordBot.ts both
  */
 
+// Load environment variables first
+import "dotenv/config";
+
 import { runMyVatsimEventCheck } from "../discord-bot/jobs/myVatsimCheck.job";
 import { runStaffingCheck } from "../discord-bot/jobs/staffingCheck.job";
 

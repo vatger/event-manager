@@ -110,6 +110,9 @@ npx tsx scripts/testDiscordBot.ts staffing
 
 Das Script führt die Discord Bot Checks manuell aus und zeigt detaillierte Ergebnisse in der Konsole an.
 
+**Wichtig:** Das Script benötigt eine `.env`-Datei mit Datenbank- und Discord-Konfiguration. 
+Siehe `scripts/README.md` für Details zur Konfiguration.
+
 ## Technische Details
 
 ### Datenbank-Modelle
