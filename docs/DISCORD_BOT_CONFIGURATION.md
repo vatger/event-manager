@@ -93,13 +93,22 @@ Navigate zu `/admin/edmm/discord-bot` im Event Manager (EDMM Intern Bereich).
    - Temporär deaktivieren ohne zu löschen
    - Nützlich für Pausen oder Änderungen
 
-4. **Test-Trigger (Entwicklungsphase)**
-   - Manuelle Auslösung der Discord Bot Checks zum Testen
-   - **MyVATSIM Check**: Prüft sofort, ob Events in myVATSIM eingetragen sind
-   - **Staffing Check**: Prüft sofort die Staffing-Anforderungen
-   - **Beide ausführen**: Führt beide Checks gleichzeitig aus
-   - Zeigt detaillierte Ergebnisse der Prüfungen an
-   - Aktualisiert automatisch die Event-Status nach der Prüfung
+### Test-Script (Entwicklungsphase)
+
+Für Tests während der Entwicklung steht ein Konsolen-Script zur Verfügung:
+
+```bash
+# Beide Checks ausführen
+npx tsx scripts/testDiscordBot.ts
+
+# Nur myVATSIM Check
+npx tsx scripts/testDiscordBot.ts myvatsim
+
+# Nur Staffing Check
+npx tsx scripts/testDiscordBot.ts staffing
+```
+
+Das Script führt die Discord Bot Checks manuell aus und zeigt detaillierte Ergebnisse in der Konsole an.
 
 ## Technische Details
 
