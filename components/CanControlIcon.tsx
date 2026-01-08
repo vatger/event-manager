@@ -13,7 +13,7 @@ interface CanControlIconProps {
         rating: number;
     },
     event: {
-        airport: string;
+        airport: Array<string>;
         fir: string;
     }
   };
@@ -36,32 +36,52 @@ export function CanControlIcon({ params }: CanControlIconProps) {
 
     const checkEndorsement = async () => {
       try {
-        setLoading(true);
-        setError(null);
+      setLoading(true);
+      setError(null);
 
-        const res = await fetch("/api/endorsements/group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
+      const fetchEndorsement = async (airport: string | null = null) => {
+        const body = airport
+        ? { ...params, event: { ...params.event, airport } }
+        : params;
+
+        const res = await fetch(`/api/endorsements/group`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
         });
 
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || "Request failed");
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Request failed");
         }
 
         const j = await res.json();
-        const can = !!j.group;
+        return !!j.group;
+      };
 
-        // Im Cache speichern
-        endorsementCache.set(key, can);
-        setCanControl(can);
-      } catch (err) {
-        console.error("Fehler beim Laden der Endorsements:", err);
-        setError("Fehler bei der Gruppenbestimmung");
+      if (params.event.airport.length > 1) {
+        for (const airport of params.event.airport) {
+          console.log("Prüfe Endorsement für Flughafen:", airport);
+          const canControl = await fetchEndorsement(airport);
+          if (canControl) {
+            endorsementCache.set(key, true);
+            setCanControl(true);
+            return;
+          }
+        }
+        endorsementCache.set(key, false);
         setCanControl(false);
+      } else {
+        const canControl = await fetchEndorsement();
+        endorsementCache.set(key, canControl);
+        setCanControl(canControl);
+      }
+      } catch (err) {
+      console.error("Fehler beim Laden der Endorsements:", err);
+      setError("Fehler bei der Gruppenbestimmung");
+      setCanControl(false);
       } finally {
-        setLoading(false);
+      setLoading(false);
       }
     };
 
