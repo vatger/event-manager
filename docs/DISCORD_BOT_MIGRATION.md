@@ -122,21 +122,17 @@ Falls du einen "München Mittwoch" mit dem Muster "2 Wochen aktiv, 1 Woche Pause
    - Warte auf die erste automatische Prüfung (9:00 Uhr für myVATSIM, 10:00 Uhr für Staffing)
    - Verifiziere die Discord-Benachrichtigungen
 
-### Schritt 6: Alte Konfiguration deaktivieren
+### Schritt 6: Alte Konfiguration entfernen
 
 Sobald die neue Konfiguration erfolgreich getestet wurde:
 
-1. Die alte `runWeeklyStaffingCheck()` Funktion läuft noch parallel zur neuen
-2. Du kannst sie deaktivieren, indem du diese Zeile aus `discord-bot/scheduler.ts` entfernst:
-   ```typescript
-   const ONE_DAY = 1000 * 60 * 60 * 24;
-   setInterval(runWeeklyStaffingCheck, ONE_DAY);
-   ```
-
-3. Optional: Entferne die alte Konfigurationsdatei:
+1. Entferne die alten Konfigurationsdateien (falls noch vorhanden):
    - `discord-bot/events/weeklyEvents.ts`
    - `discord-bot/events/event.types.ts`
-   - `discord-bot/jobs/weeklyStaffing.job.ts`
+
+2. Die neue Implementierung nutzt ausschließlich:
+   - Datenbank-Konfiguration über `/admin/edmm/weeklys`
+   - File-basierte Discord-Einstellungen in `discord-bot/config/weeklyEvents.config.ts`
 
 ## Fehlerbehebung
 

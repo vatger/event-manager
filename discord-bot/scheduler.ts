@@ -1,4 +1,3 @@
-import { runWeeklyStaffingCheck } from "./jobs/weeklyStaffing.job";
 import { runMyVatsimEventCheck } from "./jobs/myVatsimCheck.job";
 import { runStaffingCheck } from "./jobs/staffingCheck.job";
 import * as cron from "node-cron";
@@ -27,11 +26,6 @@ export function startScheduler() {
       console.error("[Scheduler] Staffing check failed:", error);
     }
   });
-
-  // Keep old weekly staffing check for backward compatibility
-  // This will be removed once the new system is fully tested
-  const ONE_DAY = 1000 * 60 * 60 * 24;
-  setInterval(runWeeklyStaffingCheck, ONE_DAY);
 
   console.log("✅ Discord bot scheduler started");
   console.log("  - myVATSIM check: Daily at 9:00 AM");
