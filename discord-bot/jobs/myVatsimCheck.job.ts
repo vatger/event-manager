@@ -4,6 +4,7 @@ import { myVatsimEventChecker } from "@/lib/discord/myVatsimEventChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { getDiscordChannelId, getDiscordRoleId, getEmbedConfig, replaceEmbedVariables } from "../config/weeklyEvents.config";
+import prisma from "@/lib/prisma";
 
 /**
  * Job to check if weekly and irregular events are registered in myVATSIM

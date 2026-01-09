@@ -85,8 +85,8 @@ export const discordBotConfig: DiscordBotConfig = {
   events: {
     // Beispiel: München Mittwoch
     "München Mittwoch": {
-      channelId: "1200342520731807786", // Dein Discord Channel
-      roleId: "1416563224286990429", // Role für @mentions
+      channelId: "1458860977234772120", // Dein Discord Channel
+      roleId: "1458870693323083960", // Role für @mentions
       checkDaysAhead: 14,
       requiredStaffing: {
         "EDDM_._TWR": 2,
