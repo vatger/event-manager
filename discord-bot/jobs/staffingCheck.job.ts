@@ -3,7 +3,7 @@ import { client } from "../client";
 import { staffingChecker } from "@/lib/discord/staffingChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { getDiscordChannelId, getDiscordRoleId } from "../config/weeklyEvents.config";
+import { getDiscordChannelId, getDiscordRoleId, getEmbedConfig, replaceEmbedVariables } from "../config/weeklyEvents.config";
 
 /**
  * Job to check staffing requirements for today's weekly events
@@ -42,23 +42,30 @@ export async function runStaffingCheck() {
         })
         .join("\n");
 
+      // Get embed configuration based on staffing status
+      const embedType = issue.overallSufficient ? 'staffingSufficient' : 'staffingInsufficient';
+      const embedConfig = getEmbedConfig(issue.configName, embedType);
+      const formattedDate = format(issue.date, "EEEE, dd.MM.yyyy", { locale: de });
+
       const embed = new EmbedBuilder()
-        .setColor(issue.overallSufficient ? 0x00ff00 : 0xff9900)
-        .setTitle(
-          issue.overallSufficient
-            ? "✅ Staffing ausreichend"
-            : "⚠️ Mindestbesetzung nicht erreicht"
-        )
-        .setDescription(
-          `**${issue.configName}** – ${format(issue.date, "EEEE, dd.MM.yyyy", {
-            locale: de,
-          })}`
-        )
+        .setColor(embedConfig.color ?? (issue.overallSufficient ? 0x00ff00 : 0xff9900))
+        .setTitle(replaceEmbedVariables(embedConfig.title, {
+          eventName: issue.configName,
+          date: formattedDate,
+        }))
+        .setDescription(replaceEmbedVariables(embedConfig.description, {
+          eventName: issue.configName,
+          date: formattedDate,
+        }))
         .addFields({
           name: "Besetzung",
           value: staffingDetails || "Keine Anforderungen definiert",
         })
         .setTimestamp();
+      
+      if (embedConfig.footer) {
+        embed.setFooter({ text: embedConfig.footer });
+      }
 
       // Only send notification if staffing is insufficient
       if (!issue.overallSufficient) {

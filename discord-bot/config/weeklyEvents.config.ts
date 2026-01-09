@@ -6,10 +6,24 @@
  * Einstellungen für Weekly Events konfiguriert werden.
  */
 
+export interface EmbedConfig {
+  color?: number; // Hex-Farbe (z.B. 0xff0000 für Rot)
+  title?: string; // Titel des Embeds (Variablen: {eventName}, {date}, {daysUntil})
+  description?: string; // Beschreibung (Variablen: {eventName}, {date}, {daysUntil})
+  footer?: string; // Footer-Text
+}
+
 export interface DiscordBotConfig {
   // Standard-Einstellungen
   defaultCheckDaysAhead: number; // Wie viele Tage vor dem Event soll geprüft werden?
   defaultChannelId?: string; // Standard Discord Channel für Benachrichtigungen
+  
+  // Embed-Konfiguration
+  embeds?: {
+    myVatsimMissing?: EmbedConfig; // Embed für fehlende myVATSIM-Einträge
+    staffingInsufficient?: EmbedConfig; // Embed für unzureichende Besetzung
+    staffingSufficient?: EmbedConfig; // Embed für ausreichende Besetzung (optional)
+  };
   
   // Event-spezifische Konfiguration
   events: {
@@ -25,6 +39,13 @@ export interface DiscordBotConfig {
       // Regex-Muster als Schlüssel, benötigte Anzahl als Wert
       // Beispiel: { "EDDM_._TWR": 2, "EDDM_._GND": 2 }
       requiredStaffing?: Record<string, number>;
+      
+      // Event-spezifische Embed-Überschreibungen
+      embeds?: {
+        myVatsimMissing?: EmbedConfig;
+        staffingInsufficient?: EmbedConfig;
+        staffingSufficient?: EmbedConfig;
+      };
     };
   };
 }
@@ -41,6 +62,25 @@ export const discordBotConfig: DiscordBotConfig = {
   // Optional: Standard-Channel für alle Events
   // defaultChannelId: "1200342520731807786",
   
+  // Standard-Embeds für alle Events
+  embeds: {
+    myVatsimMissing: {
+      color: 0xff0000, // Rot
+      title: "❌ Event nicht in myVATSIM eingetragen",
+      description: "**{eventName}** ist noch nicht für den {date} in myVATSIM eingetragen.",
+    },
+    staffingInsufficient: {
+      color: 0xff9900, // Orange
+      title: "⚠️ Mindestbesetzung nicht erreicht",
+      description: "**{eventName}** – {date}",
+    },
+    staffingSufficient: {
+      color: 0x00ff00, // Grün
+      title: "✅ Staffing ausreichend",
+      description: "**{eventName}** – {date}",
+    },
+  },
+  
   // Event-spezifische Konfiguration
   events: {
     // Beispiel: München Mittwoch
@@ -54,6 +94,14 @@ export const discordBotConfig: DiscordBotConfig = {
         "EDDM_[AB]_APP": 1,
         "EDUU_.+_CTR": 1,
       },
+      // Optional: Überschreibe Standard-Embeds für dieses Event
+      // embeds: {
+      //   myVatsimMissing: {
+      //     color: 0xff0000,
+      //     title: "🔔 München Mittwoch: myVATSIM-Eintrag fehlt!",
+      //     description: "Der **München Mittwoch** am {date} ist noch nicht in myVATSIM eingetragen.",
+      //   },
+      // },
     },
     
     // Beispiel: Frankfurt Friday
@@ -112,3 +160,43 @@ export function getRequiredStaffing(eventName: string): Record<string, number> {
   const eventConfig = getEventConfig(eventName);
   return eventConfig.requiredStaffing ?? {};
 }
+
+/**
+ * Hilfsfunktion: Hole Embed-Konfiguration für ein Event und Typ
+ */
+export function getEmbedConfig(
+  eventName: string,
+  embedType: 'myVatsimMissing' | 'staffingInsufficient' | 'staffingSufficient'
+): EmbedConfig {
+  const eventConfig = getEventConfig(eventName);
+  const eventEmbed = eventConfig.embeds?.[embedType];
+  const globalEmbed = discordBotConfig.embeds?.[embedType];
+  
+  // Event-spezifisches Embed überschreibt globales Embed
+  return {
+    color: eventEmbed?.color ?? globalEmbed?.color,
+    title: eventEmbed?.title ?? globalEmbed?.title,
+    description: eventEmbed?.description ?? globalEmbed?.description,
+    footer: eventEmbed?.footer ?? globalEmbed?.footer,
+  };
+}
+
+/**
+ * Hilfsfunktion: Ersetze Variablen in Embed-Texten
+ */
+export function replaceEmbedVariables(
+  text: string | undefined,
+  variables: {
+    eventName?: string;
+    date?: string;
+    daysUntil?: number;
+  }
+): string {
+  if (!text) return '';
+  
+  return text
+    .replace(/{eventName}/g, variables.eventName || '')
+    .replace(/{date}/g, variables.date || '')
+    .replace(/{daysUntil}/g, variables.daysUntil?.toString() || '');
+}
+

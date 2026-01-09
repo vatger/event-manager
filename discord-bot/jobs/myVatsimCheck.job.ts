@@ -3,7 +3,7 @@ import { client } from "../client";
 import { myVatsimEventChecker } from "@/lib/discord/myVatsimEventChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { getDiscordChannelId, getDiscordRoleId } from "../config/weeklyEvents.config";
+import { getDiscordChannelId, getDiscordRoleId, getEmbedConfig, replaceEmbedVariables } from "../config/weeklyEvents.config";
 
 /**
  * Job to check if weekly and irregular events are registered in myVATSIM
@@ -39,16 +39,22 @@ export async function runMyVatsimEventCheck() {
         continue;
       }
 
+      // Get embed configuration
+      const embedConfig = getEmbedConfig(issue.configName, 'myVatsimMissing');
+      const formattedDate = format(issue.date, "dd.MM.yyyy", { locale: de });
+
       const embed = new EmbedBuilder()
-        .setColor(0xff0000)
-        .setTitle("❌ Event nicht in myVATSIM eingetragen")
-        .setDescription(
-          `**${issue.configName}** ist noch nicht für den ${format(
-            issue.date,
-            "dd.MM.yyyy",
-            { locale: de }
-          )} in myVATSIM eingetragen.`
-        )
+        .setColor(embedConfig.color ?? 0xff0000)
+        .setTitle(replaceEmbedVariables(embedConfig.title, {
+          eventName: issue.configName,
+          date: formattedDate,
+          daysUntil: issue.daysUntilEvent,
+        }))
+        .setDescription(replaceEmbedVariables(embedConfig.description, {
+          eventName: issue.configName,
+          date: formattedDate,
+          daysUntil: issue.daysUntilEvent,
+        }))
         .addFields(
           {
             name: "Event",
@@ -67,6 +73,10 @@ export async function runMyVatsimEventCheck() {
           }
         )
         .setTimestamp();
+      
+      if (embedConfig.footer) {
+        embed.setFooter({ text: embedConfig.footer });
+      }
 
       // Get Discord role from config file instead of database
       const roleId = getDiscordRoleId(issue.configName);

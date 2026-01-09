@@ -3,7 +3,21 @@
 ## Übersicht
 
 Die Discord Bot Konfiguration erfolgt über die Datei `weeklyEvents.config.ts`.
-Hier werden Discord Channel IDs, Role IDs und Staffing-Anforderungen für die Weekly Events konfiguriert.
+Hier werden Discord Channel IDs, Role IDs, Staffing-Anforderungen und **Embed-Designs** für die Weekly Events konfiguriert.
+
+## Bot starten
+
+Der Discord Bot muss separat vom Next.js Server gestartet werden:
+
+```bash
+# Terminal 1: Next.js Server
+npm run dev
+
+# Terminal 2: Discord Bot
+npm run discord-bot
+```
+
+**Wichtig:** Der Bot benötigt die `.env`-Datei mit `DISCORD_BOT_TOKEN`.
 
 ## Konfigurationsdatei
 
@@ -17,6 +31,20 @@ export const discordBotConfig = {
   defaultCheckDaysAhead: 14, // Wie viele Tage vor dem Event prüfen?
   defaultChannelId: "...",    // Optional: Standard-Channel für alle Events
   
+  // Standard-Embeds für alle Events
+  embeds: {
+    myVatsimMissing: {
+      color: 0xff0000,
+      title: "❌ Event nicht in myVATSIM eingetragen",
+      description: "**{eventName}** ist noch nicht für den {date} in myVATSIM eingetragen.",
+    },
+    staffingInsufficient: {
+      color: 0xff9900,
+      title: "⚠️ Mindestbesetzung nicht erreicht",
+      description: "**{eventName}** – {date}",
+    },
+  },
+  
   // Event-spezifische Konfiguration
   events: {
     "Event Name": {
@@ -25,20 +53,70 @@ export const discordBotConfig = {
       checkDaysAhead: 14,        // Überschreibt defaultCheckDaysAhead
       requiredStaffing: {        // Staffing-Anforderungen
         "REGEX_PATTERN": Anzahl
+      },
+      embeds: {                  // Optional: Event-spezifische Embeds
+        myVatsimMissing: { ... }
       }
     }
   }
 }
 ```
 
-### Beispiel-Konfiguration
+## Embed-Konfiguration
+
+### Verfügbare Embed-Typen
+
+1. **myVatsimMissing** - Wenn Event nicht in myVATSIM eingetragen
+2. **staffingInsufficient** - Wenn Mindestbesetzung nicht erreicht
+3. **staffingSufficient** - Wenn Besetzung ausreichend (optional)
+
+### Embed-Eigenschaften
+
+```typescript
+{
+  color: 0xff0000,        // Hex-Farbe (z.B. 0xff0000 = Rot)
+  title: "Titel",         // Titel des Embeds (mit Variablen)
+  description: "Text",    // Beschreibung (mit Variablen)
+  footer: "Footer-Text",  // Optional: Footer
+}
+```
+
+### Variablen in Embeds
+
+Du kannst folgende Variablen in `title` und `description` verwenden:
+
+- `{eventName}` - Name des Events (z.B. "München Mittwoch")
+- `{date}` - Formatiertes Datum (z.B. "15.01.2026")
+- `{daysUntil}` - Tage bis zum Event (nur bei myVatsimMissing)
+
+**Beispiel:**
+```typescript
+title: "🔔 {eventName}: myVATSIM-Eintrag fehlt!"
+description: "Der **{eventName}** am {date} ist noch nicht eingetragen (in {daysUntil} Tagen)."
+```
+
+### Beispiel-Konfiguration mit Embeds
 
 ```typescript
 export const discordBotConfig: DiscordBotConfig = {
   defaultCheckDaysAhead: 14,
   
+  // Standard-Embeds für alle Events
+  embeds: {
+    myVatsimMissing: {
+      color: 0xff0000,
+      title: "❌ Event nicht in myVATSIM eingetragen",
+      description: "**{eventName}** ist noch nicht für den {date} in myVATSIM eingetragen.",
+    },
+    staffingInsufficient: {
+      color: 0xff9900,
+      title: "⚠️ Mindestbesetzung nicht erreicht",
+      description: "**{eventName}** – {date}",
+    },
+  },
+  
   events: {
-    // München Mittwoch
+    // München Mittwoch mit custom Embed
     "München Mittwoch": {
       channelId: "1200342520731807786",
       roleId: "1416563224286990429",
@@ -49,9 +127,18 @@ export const discordBotConfig: DiscordBotConfig = {
         "EDDM_[AB]_APP": 1,     // 1x APP (A oder B)
         "EDUU_.+_CTR": 1,       // 1x CTR (beliebig)
       },
+      // Event-spezifisches Embed (überschreibt Standard)
+      embeds: {
+        myVatsimMissing: {
+          color: 0x0099ff,
+          title: "🔔 München Mittwoch: myVATSIM-Eintrag fehlt!",
+          description: "Der **München Mittwoch** am {date} ist noch nicht in myVATSIM eingetragen. Bitte baldmöglichst nachtragen!",
+          footer: "EDMM Event Team",
+        },
+      },
     },
     
-    // Frankfurt Friday
+    // Frankfurt Friday mit Standard-Embeds
     "Frankfurt Friday": {
       channelId: "1200342520731807786",
       roleId: "1416563224286990429",

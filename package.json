@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start -p 8000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "discord-bot": "tsx discord-bot/index.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

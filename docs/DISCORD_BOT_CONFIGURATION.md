@@ -93,6 +93,23 @@ Das System generiert automatisch Termine für die nächsten 6 Monate basierend a
 
 Termine werden in der Datenbank gespeichert und können in beiden Interfaces eingesehen werden.
 
+## Bot starten
+
+Der Discord Bot muss separat vom Next.js Server gestartet werden:
+
+```bash
+# Terminal 1: Next.js Server
+npm run dev
+
+# Terminal 2: Discord Bot
+npm run discord-bot
+```
+
+**Wichtig:** 
+- Der Bot benötigt die `.env`-Datei mit `DISCORD_BOT_TOKEN`
+- Der Bot muss laufen, damit die automatischen Checks (9:00 und 10:00 Uhr) funktionieren
+- In Production sollte der Bot mit einem Process Manager (z.B. PM2) laufen
+
 ## Verwendung
 
 ### Schritt 1: Weekly Event erstellen
@@ -124,9 +141,56 @@ Das System generiert automatisch alle Termine für die nächsten 6 Monate.
     "EDDM_._GND": 2,
     "EDDM_[AB]_APP": 1,
     "EDUU_.+_CTR": 1
+  },
+  // Optional: Eigene Embed-Designs
+  embeds: {
+    myVatsimMissing: {
+      color: 0x0099ff,  // Hex-Farbe
+      title: "🔔 {eventName}: myVATSIM fehlt!",
+      description: "**{eventName}** am {date} ist nicht eingetragen.",
+      footer: "EDMM Event Team"
+    }
   }
 }
 ```
+
+3. Speichere die Datei
+4. Committe sie ins Git-Repository (optional, aber empfohlen)
+
+### Schritt 2b: Embed-Designs anpassen (Optional)
+
+Du kannst die Embed-Designs (Farbe, Titel, Beschreibung) pro Event individuell anpassen.
+
+**Standard-Embeds** (gelten für alle Events):
+```typescript
+embeds: {
+  myVatsimMissing: {
+    color: 0xff0000,  // Rot
+    title: "❌ Event nicht in myVATSIM eingetragen",
+    description: "**{eventName}** ist noch nicht für den {date} in myVATSIM eingetragen.",
+  },
+  staffingInsufficient: {
+    color: 0xff9900,  // Orange
+    title: "⚠️ Mindestbesetzung nicht erreicht",
+    description: "**{eventName}** – {date}",
+  },
+}
+```
+
+**Verfügbare Variablen:**
+- `{eventName}` - Name des Events
+- `{date}` - Formatiertes Datum
+- `{daysUntil}` - Tage bis zum Event (nur bei myVatsimMissing)
+
+**Farben:**
+- Rot: `0xff0000`
+- Orange: `0xff9900`
+- Gelb: `0xffff00`
+- Grün: `0x00ff00`
+- Blau: `0x0099ff`
+- Lila: `0x9900ff`
+
+Siehe `discord-bot/config/README.md` für mehr Details.
 
 3. Speichere die Datei
 4. Committe sie ins Git-Repository (optional, aber empfohlen)
