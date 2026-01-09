@@ -7,7 +7,6 @@ import {
     PlusCircle,
     CheckCheckIcon,
     Image,
-    Bot,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -81,9 +80,9 @@ import {
           icon: Image,
         },
         { 
-          href: "/admin/edmm/discord-bot", 
-          label: "Discord Bot", 
-          icon: Bot,
+          href: "/admin/edmm/weeklys", 
+          label: "Weekly Events", 
+          icon: Calendar,
         },
       ]
     },

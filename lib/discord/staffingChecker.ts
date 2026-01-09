@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { vatsimService } from "@/discord-bot/services/vatsim.service";
 import { startOfDay, isSameDay } from "date-fns";
+import { getRequiredStaffing } from "@/discord-bot/config/weeklyEvents.config";
 
 export interface StaffingCheckResult {
   configId: number;
@@ -42,7 +43,15 @@ export class StaffingCheckerService {
     const results: StaffingCheckResult[] = [];
 
     for (const occurrence of occurrences) {
-      if (!occurrence.config.enabled || !occurrence.config.requiredStaffing) {
+      if (!occurrence.config.enabled) {
+        continue;
+      }
+
+      // Get required staffing from config file instead of database
+      const requiredStaffing = getRequiredStaffing(occurrence.config.name);
+      
+      // Skip if no staffing requirements defined
+      if (Object.keys(requiredStaffing).length === 0) {
         continue;
       }
 
@@ -50,7 +59,7 @@ export class StaffingCheckerService {
         occurrence.config.id,
         occurrence.config.name,
         occurrence.date,
-        occurrence.config.requiredStaffing as Record<string, number>,
+        requiredStaffing,
         events,
         bookings
       );

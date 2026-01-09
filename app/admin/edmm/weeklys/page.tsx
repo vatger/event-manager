@@ -29,16 +29,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
   Pencil,
   Trash2,
   Calendar,
   AlertCircle,
-  MessageSquare,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -52,18 +48,10 @@ interface WeeklyEventConfig {
   weeksOn: number;
   weeksOff: number;
   startDate: string;
-  checkDaysAhead: number;
-  discordChannelId?: string;
-  discordRoleId?: string;
-  requiredStaffing?: Record<string, number>;
   enabled: boolean;
   occurrences?: Array<{
     id: number;
     date: string;
-    myVatsimChecked: boolean;
-    myVatsimRegistered: boolean | null;
-    staffingChecked: boolean;
-    staffingSufficient: boolean | null;
   }>;
 }
 
@@ -77,7 +65,7 @@ const WEEKDAYS = [
   { value: 6, label: "Samstag" },
 ];
 
-export default function DiscordBotWeeklyEvents() {
+export default function WeeklyEventsPage() {
   const [configs, setConfigs] = useState<WeeklyEventConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
@@ -94,10 +82,6 @@ export default function DiscordBotWeeklyEvents() {
     weeksOn: 1,
     weeksOff: 0,
     startDate: "",
-    checkDaysAhead: 14,
-    discordChannelId: "",
-    discordRoleId: "",
-    requiredStaffing: "{}",
     enabled: true,
   });
 
@@ -113,7 +97,7 @@ export default function DiscordBotWeeklyEvents() {
         const data = await res.json();
         setConfigs(data);
       } else {
-        setError("Fehler beim Laden der Konfigurationen");
+        setError("Fehler beim Laden der wöchentlichen Events");
       }
     } catch (err) {
       setError("Netzwerkfehler beim Laden");
@@ -131,10 +115,6 @@ export default function DiscordBotWeeklyEvents() {
         weeksOn: config.weeksOn,
         weeksOff: config.weeksOff,
         startDate: config.startDate.split("T")[0],
-        checkDaysAhead: config.checkDaysAhead,
-        discordChannelId: config.discordChannelId || "",
-        discordRoleId: config.discordRoleId || "",
-        requiredStaffing: JSON.stringify(config.requiredStaffing || {}, null, 2),
         enabled: config.enabled,
       });
     } else {
@@ -145,10 +125,6 @@ export default function DiscordBotWeeklyEvents() {
         weeksOn: 1,
         weeksOff: 0,
         startDate: new Date().toISOString().split("T")[0],
-        checkDaysAhead: 14,
-        discordChannelId: "",
-        discordRoleId: "",
-        requiredStaffing: "{}",
         enabled: true,
       });
     }
@@ -161,26 +137,12 @@ export default function DiscordBotWeeklyEvents() {
     setError("");
 
     try {
-      // Validate and parse required staffing JSON
-      let requiredStaffing;
-      try {
-        requiredStaffing = JSON.parse(formData.requiredStaffing);
-      } catch (e) {
-        setError("Ungültiges JSON-Format für Staffing-Anforderungen");
-        setBusy(false);
-        return;
-      }
-
       const payload = {
         name: formData.name,
         weekday: formData.weekday,
         weeksOn: formData.weeksOn,
         weeksOff: formData.weeksOff,
         startDate: new Date(formData.startDate).toISOString(),
-        checkDaysAhead: formData.checkDaysAhead,
-        discordChannelId: formData.discordChannelId || undefined,
-        discordRoleId: formData.discordRoleId || undefined,
-        requiredStaffing,
         enabled: formData.enabled,
       };
 
@@ -211,7 +173,7 @@ export default function DiscordBotWeeklyEvents() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Möchtest du diese Konfiguration wirklich löschen?")) return;
+    if (!confirm("Möchtest du dieses wöchentliche Event wirklich löschen?")) return;
 
     try {
       const res = await fetch(`/api/admin/discord/weekly-events/${id}`, {
@@ -242,14 +204,14 @@ export default function DiscordBotWeeklyEvents() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Discord Bot - Wöchentliche Events</h1>
+          <h1 className="text-3xl font-bold">Wöchentliche Events</h1>
           <p className="text-muted-foreground mt-1">
-            Konfiguriere wiederkehrende Events für automatische Erinnerungen
+            Verwalte wiederkehrende Weekly Events mit flexiblen Rhythmen
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()}>
           <Plus className="mr-2 h-4 w-4" />
-          Neues Event
+          Neues Weekly Event
         </Button>
       </div>
 
@@ -320,16 +282,6 @@ export default function DiscordBotWeeklyEvents() {
                       })}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Prüfung:</span>
-                    <span>{config.checkDaysAhead} Tage vorher</span>
-                  </div>
-                  {config.discordChannelId && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Discord:</span>
-                      <MessageSquare className="h-4 w-4 text-green-500" />
-                    </div>
-                  )}
                 </div>
 
                 {config.occurrences && config.occurrences.length > 0 && (
@@ -338,7 +290,7 @@ export default function DiscordBotWeeklyEvents() {
                       Nächste Termine:
                     </p>
                     <div className="space-y-1">
-                      {config.occurrences.slice(0, 3).map((occ) => (
+                      {config.occurrences.slice(0, 5).map((occ) => (
                         <div
                           key={occ.id}
                           className="flex justify-between items-center text-sm"
@@ -348,17 +300,6 @@ export default function DiscordBotWeeklyEvents() {
                               locale: de,
                             })}
                           </span>
-                          <div className="flex gap-1">
-                            {occ.myVatsimChecked && (
-                              <span title="myVATSIM Status">
-                                {occ.myVatsimRegistered ? (
-                                  <CheckCircle className="h-4 w-4 text-green-500" />
-                                ) : (
-                                  <XCircle className="h-4 w-4 text-red-500" />
-                                )}
-                              </span>
-                            )}
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -375,11 +316,10 @@ export default function DiscordBotWeeklyEvents() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingConfig ? "Event bearbeiten" : "Neues Event erstellen"}
+              {editingConfig ? "Event bearbeiten" : "Neues Weekly Event erstellen"}
             </DialogTitle>
             <DialogDescription>
-              Konfiguriere ein wiederkehrendes Event mit automatischen
-              Erinnerungen
+              Konfiguriere ein wiederkehrendes wöchentliches Event mit flexiblem Rhythmus
             </DialogDescription>
           </DialogHeader>
 
@@ -392,7 +332,7 @@ export default function DiscordBotWeeklyEvents() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="z.B. München Mittwoch"
+                placeholder="z.B. München Mittwoch, Frankfurt Friday"
               />
             </div>
 
@@ -469,74 +409,6 @@ export default function DiscordBotWeeklyEvents() {
                   0 = jede Woche, 1 = eine Woche Pause, etc.
                 </p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="checkDaysAhead">Prüfung Tage vorher</Label>
-              <Input
-                id="checkDaysAhead"
-                type="number"
-                min="1"
-                value={formData.checkDaysAhead}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    checkDaysAhead: parseInt(e.target.value),
-                  })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Wie viele Tage vor dem Event soll geprüft werden?
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="discordChannelId">Discord Channel ID</Label>
-              <Input
-                id="discordChannelId"
-                value={formData.discordChannelId}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    discordChannelId: e.target.value,
-                  })
-                }
-                placeholder="1200342520731807786"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="discordRoleId">Discord Role ID (Ping)</Label>
-              <Input
-                id="discordRoleId"
-                value={formData.discordRoleId}
-                onChange={(e) =>
-                  setFormData({ ...formData, discordRoleId: e.target.value })
-                }
-                placeholder="1416563224286990429"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="requiredStaffing">
-                Staffing-Anforderungen (JSON)
-              </Label>
-              <Textarea
-                id="requiredStaffing"
-                value={formData.requiredStaffing}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    requiredStaffing: e.target.value,
-                  })
-                }
-                rows={6}
-                placeholder='{"EDDF_._TWR": 2, "EDDF_._GND": 2}'
-                className="font-mono text-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                Regex-Muster als Schlüssel, benötigte Anzahl als Wert
-              </p>
             </div>
 
             <div className="flex items-center space-x-2">

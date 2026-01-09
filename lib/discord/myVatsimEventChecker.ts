@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { vatsimService } from "@/discord-bot/services/vatsim.service";
 import { addDays, format, startOfDay, isSameDay } from "date-fns";
+import { getCheckDaysAhead } from "@/discord-bot/config/weeklyEvents.config";
 
 /**
  * Service for checking if weekly events and irregular events are registered in myVATSIM
@@ -34,13 +35,16 @@ export class MyVatsimEventCheckerService {
     const results = [];
 
     for (const config of configs) {
+      // Get checkDaysAhead from config file instead of database
+      const checkDaysAhead = getCheckDaysAhead(config.name);
+      
       for (const occurrence of config.occurrences) {
         const daysUntilEvent = Math.floor(
           (occurrence.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
         );
 
         // Check if we should verify this event (based on checkDaysAhead)
-        if (daysUntilEvent <= config.checkDaysAhead && daysUntilEvent >= 0) {
+        if (daysUntilEvent <= checkDaysAhead && daysUntilEvent >= 0) {
           const isRegistered = this.isEventRegisteredInMyVatsim(
             config.name,
             occurrence.date,
@@ -62,7 +66,7 @@ export class MyVatsimEventCheckerService {
             date: occurrence.date,
             isRegistered,
             daysUntilEvent,
-            shouldNotify: !isRegistered && daysUntilEvent === config.checkDaysAhead,
+            shouldNotify: !isRegistered && daysUntilEvent === checkDaysAhead,
           });
         }
       }

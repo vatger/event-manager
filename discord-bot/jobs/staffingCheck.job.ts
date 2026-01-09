@@ -3,7 +3,7 @@ import { client } from "../client";
 import { staffingChecker } from "@/lib/discord/staffingChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { prisma } from "@/lib/prisma";
+import { getDiscordChannelId, getDiscordRoleId } from "../config/weeklyEvents.config";
 
 /**
  * Job to check staffing requirements for today's weekly events
@@ -16,19 +16,17 @@ export async function runStaffingCheck() {
     const staffingIssues = await staffingChecker.getStaffingIssuesForNotification();
 
     for (const issue of staffingIssues) {
-      const config = await prisma!.weeklyEventConfiguration.findUnique({
-        where: { id: issue.configId },
-        include: { fir: true },
-      });
-
-      if (!config || !config.discordChannelId) {
+      // Get Discord channel from config file instead of database
+      const channelId = getDiscordChannelId(issue.configName);
+      
+      if (!channelId) {
         console.log(
           `[Staffing Check] No Discord channel configured for ${issue.configName}`
         );
         continue;
       }
 
-      const channel = await client.channels.fetch(config.discordChannelId);
+      const channel = await client.channels.fetch(channelId);
       if (!channel || channel.type !== ChannelType.GuildText) {
         console.log(
           `[Staffing Check] Invalid channel for ${issue.configName}`
@@ -64,7 +62,8 @@ export async function runStaffingCheck() {
 
       // Only send notification if staffing is insufficient
       if (!issue.overallSufficient) {
-        const roleId = config.discordRoleId;
+        // Get Discord role from config file instead of database
+        const roleId = getDiscordRoleId(issue.configName);
         const mention = roleId ? `<@&${roleId}>` : "";
 
         await channel.send({

@@ -3,7 +3,7 @@ import { client } from "../client";
 import { myVatsimEventChecker } from "@/lib/discord/myVatsimEventChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { prisma } from "@/lib/prisma";
+import { getDiscordChannelId, getDiscordRoleId } from "../config/weeklyEvents.config";
 
 /**
  * Job to check if weekly and irregular events are registered in myVATSIM
@@ -21,19 +21,17 @@ export async function runMyVatsimEventCheck() {
 
     // Send notifications for weekly events
     for (const issue of weeklyIssues) {
-      const config = await prisma!.weeklyEventConfiguration.findUnique({
-        where: { id: issue.configId },
-        include: { fir: true },
-      });
-
-      if (!config || !config.discordChannelId) {
+      // Get Discord channel from config file instead of database
+      const channelId = getDiscordChannelId(issue.configName);
+      
+      if (!channelId) {
         console.log(
           `[myVATSIM Check] No Discord channel configured for ${issue.configName}`
         );
         continue;
       }
 
-      const channel = await client.channels.fetch(config.discordChannelId);
+      const channel = await client.channels.fetch(channelId);
       if (!channel || channel.type !== ChannelType.GuildText) {
         console.log(
           `[myVATSIM Check] Invalid channel for ${issue.configName}`
@@ -70,7 +68,8 @@ export async function runMyVatsimEventCheck() {
         )
         .setTimestamp();
 
-      const roleId = config.discordRoleId;
+      // Get Discord role from config file instead of database
+      const roleId = getDiscordRoleId(issue.configName);
       const mention = roleId ? `<@&${roleId}>` : "";
 
       await channel.send({
