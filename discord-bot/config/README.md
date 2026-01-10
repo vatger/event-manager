@@ -3,7 +3,7 @@
 ## Übersicht
 
 Die Discord Bot Konfiguration erfolgt über die Datei `weeklyEvents.config.ts`.
-Hier werden Discord Channel IDs, Role IDs, Staffing-Anforderungen, **CPT-Benachrichtigungen** und **Embed-Designs** konfiguriert.
+Hier werden Discord Channel IDs, Role IDs, Staffing-Anforderungen, **CPT-Benachrichtigungen**, **Embed-Designs** und **Command-Aliase** konfiguriert.
 
 ## Bot starten
 
@@ -21,17 +21,35 @@ npm run discord-bot
 
 ## Funktionen
 
-Der Discord Bot bietet folgende automatische Checks:
+Der Discord Bot bietet folgende Features:
 
-### 1. MyVATSIM Event Check (9:00 AM)
-Prüft, ob Weekly und Event Manager Events in myVATSIM eingetragen sind.
+### Automatische Checks
 
-### 2. Staffing Check (10:00 AM)
-Prüft, ob die Mindestbesetzung für heutige Events gegeben ist.
+1. **MyVATSIM Event Check (9:00 AM)**: Prüft, ob Weekly und Event Manager Events in myVATSIM eingetragen sind
+2. **Staffing Check (10:00 AM)**: Prüft, ob die Mindestbesetzung für heutige Events gegeben ist
+3. **CPT Reminders (8:00 AM & 9:30 AM)**: Benachrichtigungen für CPTs heute und Vorwarnungen
 
-### 3. CPT Reminders (8:00 AM & 9:30 AM) - NEU! 🎓
-- **8:00 AM**: Benachrichtigung bei CPTs heute
-- **9:30 AM**: Optionale Vorwarnung X Tage vorher
+### Interactive Commands 🎮
+
+Benutzer können den Bot im Discord-Channel befragen:
+
+- **`!MüMi`** - Zeigt alle kommenden Termine des München Mittwoch
+- **`!weeklys`** - Zeigt alle verfügbaren Weekly Events
+- **`!weeklys <EventName>`** - Zeigt Termine eines bestimmten Events
+
+**Aliase:** Du kannst eigene Shortcuts konfigurieren (siehe `commandAliases` in der Config)
+
+Beispiel:
+```
+User: !MüMi
+Bot: 📅 EDDM - München Mittwoch
+     Rhythmus: 2 Woche(n) aktiv, 1 Woche(n) Pause
+     
+     1. 📆 Mittwoch, 15. Januar 2026
+     2. 📆 Mittwoch, 22. Januar 2026
+     3. 📆 Mittwoch, 05. Februar 2026
+     ...
+```
 
 ## Konfigurationsdatei
 
