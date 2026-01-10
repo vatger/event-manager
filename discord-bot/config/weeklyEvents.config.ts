@@ -31,6 +31,9 @@ export interface DiscordBotConfig {
     roleId?: string; // Optional: Discord Role für Pings
   };
   
+  // Command Aliase für Quick-Access (z.B. !MüMi statt !weeklys München Mittwoch)
+  commandAliases?: Record<string, string>;
+  
   // Embed-Konfiguration
   embeds?: {
     myVatsimMissing?: EmbedConfig; // Embed für fehlende myVATSIM-Einträge
@@ -101,6 +104,15 @@ export const discordBotConfig: DiscordBotConfig = {
   defaultIrregularEventConfig: {
     channelId: "1200342520731807786", // EDMM Events Channel
     roleId: "1416563224286990429", // Optional: EDMM Eventleiter Role
+  },
+  
+  // Command Aliase für schnellen Zugriff
+  // Verwende z.B. !MüMi statt !weeklys EDDM - München Mittwoch
+  commandAliases: {
+    mümi: "EDDM - München Mittwoch",
+    mumi: "EDDM - München Mittwoch",
+    "münchen mittwoch": "EDDM - München Mittwoch",
+    "muenchen mittwoch": "EDDM - München Mittwoch",
   },
   
   // Standard-Embeds für alle Events
