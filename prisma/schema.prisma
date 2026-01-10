@@ -65,14 +65,15 @@ model User {
 }
 
 model FIR {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name      String
-  events    Event[]
-  members   User[]
-  groups    Group[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int                        @id @default(autoincrement())
+  code               String                     @unique
+  name               String
+  events             Event[]
+  members            User[]
+  groups             Group[]
+  weeklyEventConfigs WeeklyEventConfiguration[]
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 }
 
 model Event {
@@ -263,3 +264,42 @@ model CalendarBlockedDate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Discord Bot Configuration
+model WeeklyEventConfiguration {
+  id      Int    @id @default(autoincrement())
+  firId   Int?
+  fir     FIR?   @relation(fields: [firId], references: [id])
+  name    String // e.g., "München Mittwoch", "Frankfurt Friday"
+  weekday Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  // Pattern configuration for recurring events
+  // e.g., for "2 weeks on, 1 week off": weeksOn=2, weeksOff=1
+  weeksOn   Int      @default(1) // How many consecutive weeks the event occurs
+  weeksOff  Int      @default(0) // How many weeks off after the "on" period
+  startDate DateTime // When the pattern starts
+
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  occurrences WeeklyEventOccurrence[]
+}
+
+// Generated occurrences for weekly events (for easier querying and display)
+model WeeklyEventOccurrence {
+  id                 Int                      @id @default(autoincrement())
+  configId           Int
+  config             WeeklyEventConfiguration @relation(fields: [configId], references: [id], onDelete: Cascade)
+  date               DateTime // The specific date this event occurs
+  myVatsimChecked    Boolean                  @default(false) // Was the myVATSIM check performed?
+  myVatsimRegistered Boolean? // Is the event registered in myVATSIM?
+  staffingChecked    Boolean                  @default(false) // Was staffing checked?
+  staffingSufficient Boolean? // Does the event have sufficient staffing?
+  createdAt          DateTime                 @default(now())
+
+  @@unique([configId, date])
+  @@index([date])
+}
+
+
