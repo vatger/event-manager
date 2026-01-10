@@ -3,8 +3,7 @@ import { client } from "../client";
 import { myVatsimEventChecker } from "@/lib/discord/myVatsimEventChecker";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { getDiscordChannelId, getDiscordRoleId, getEmbedConfig, replaceEmbedVariables } from "../config/weeklyEvents.config";
-import prisma from "@/lib/prisma";
+import { discordBotConfig, getDiscordChannelId, getDiscordRoleId, getEmbedConfig, replaceEmbedVariables } from "../config/weeklyEvents.config";
 
 /**
  * Job to check if weekly and irregular events are registered in myVATSIM
@@ -95,43 +94,47 @@ export async function runMyVatsimEventCheck() {
 
     // Send notifications for irregular events
     for (const issue of irregularIssues) {
-      // Get the FIR's Discord configuration
-      if (!issue.firCode) continue;
-
-      const firConfig = await prisma!.discordBotConfiguration.findFirst({
-        where: {
-          fir: {
-            code: issue.firCode,
-          },
-        },
-        include: { fir: true },
-      });
-
-      if (!firConfig || !firConfig.defaultChannelId) {
+      // Use default irregular event configuration from config file
+      if (!discordBotConfig.defaultIrregularEventConfig) {
         console.log(
-          `[myVATSIM Check] No Discord channel configured for FIR ${issue.firCode}`
+          `[myVATSIM Check] No default irregular event configuration found in config file`
         );
         continue;
       }
 
-      const channel = await client.channels.fetch(firConfig.defaultChannelId);
+      const channelId = discordBotConfig.defaultIrregularEventConfig.channelId;
+      
+      if (!channelId) {
+        console.log(
+          `[myVATSIM Check] No Discord channel configured for irregular events`
+        );
+        continue;
+      }
+
+      const channel = await client.channels.fetch(channelId);
       if (!channel || channel.type !== ChannelType.GuildText) {
         console.log(
-          `[myVATSIM Check] Invalid channel for FIR ${issue.firCode}`
+          `[myVATSIM Check] Invalid channel for irregular events`
         );
         continue;
       }
 
+      // Get embed configuration
+      const embedConfig = getEmbedConfig(issue.eventName, 'myVatsimMissing');
+      const formattedDate = format(issue.date, "dd.MM.yyyy", { locale: de });
+
       const embed = new EmbedBuilder()
-        .setColor(0xff0000)
-        .setTitle("❌ Event nicht in myVATSIM eingetragen")
-        .setDescription(
-          `**${issue.eventName}** ist noch nicht für den ${format(
-            issue.date,
-            "dd.MM.yyyy",
-            { locale: de }
-          )} in myVATSIM eingetragen.`
-        )
+        .setColor(embedConfig.color ?? 0xff0000)
+        .setTitle(replaceEmbedVariables(embedConfig.title, {
+          eventName: issue.eventName,
+          date: formattedDate,
+          daysUntil: issue.daysUntilEvent,
+        }))
+        .setDescription(replaceEmbedVariables(embedConfig.description, {
+          eventName: issue.eventName,
+          date: formattedDate,
+          daysUntil: issue.daysUntilEvent,
+        }))
         .addFields(
           {
             name: "Event",
@@ -140,7 +143,7 @@ export async function runMyVatsimEventCheck() {
           },
           {
             name: "FIR",
-            value: issue.firCode,
+            value: issue.firCode || "N/A",
             inline: true,
           },
           {
@@ -155,8 +158,17 @@ export async function runMyVatsimEventCheck() {
           }
         )
         .setTimestamp();
+      
+      if (embedConfig.footer) {
+        embed.setFooter({ text: embedConfig.footer });
+      }
+
+      // Get Discord role from config file
+      const roleId = discordBotConfig.defaultIrregularEventConfig.roleId;
+      const mention = roleId ? `<@&${roleId}>` : "";
 
       await channel.send({
+        content: mention,
         embeds: [embed],
       });
 

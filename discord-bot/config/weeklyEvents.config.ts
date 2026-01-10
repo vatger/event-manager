@@ -25,6 +25,12 @@ export interface DiscordBotConfig {
   defaultCheckDaysAhead: number; // Wie viele Tage vor dem Event soll geprüft werden?
   defaultChannelId?: string; // Standard Discord Channel für Benachrichtigungen
   
+  // Konfiguration für irregular events (aus Event Manager)
+  defaultIrregularEventConfig?: {
+    channelId: string; // Discord Channel für Event Manager Events
+    roleId?: string; // Optional: Discord Role für Pings
+  };
+  
   // Embed-Konfiguration
   embeds?: {
     myVatsimMissing?: EmbedConfig; // Embed für fehlende myVATSIM-Einträge
@@ -90,8 +96,12 @@ export const discordBotConfig: DiscordBotConfig = {
   // Standard: 14 Tage vor dem Event prüfen
   defaultCheckDaysAhead: 7,
   defaultChannelId: "1458860977234772120",
-  // Optional: Standard-Channel für alle Events
-  // defaultChannelId: "1200342520731807786",
+  
+  // Konfiguration für irregular events (Events aus dem Event Manager)
+  defaultIrregularEventConfig: {
+    channelId: "1200342520731807786", // EDMM Events Channel
+    roleId: "1416563224286990429", // Optional: EDMM Eventleiter Role
+  },
   
   // Standard-Embeds für alle Events
   embeds: {

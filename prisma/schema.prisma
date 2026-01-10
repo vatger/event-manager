@@ -72,7 +72,6 @@ model FIR {
   members            User[]
   groups             Group[]
   weeklyEventConfigs WeeklyEventConfiguration[]
-  discordBotConfig   DiscordBotConfiguration?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 }
@@ -280,16 +279,6 @@ model WeeklyEventConfiguration {
   weeksOff  Int      @default(0) // How many weeks off after the "on" period
   startDate DateTime // When the pattern starts
 
-  // myVATSIM check configuration
-  checkDaysAhead Int @default(14) // Check if event is registered X days ahead
-
-  // Discord notification settings
-  discordChannelId String?
-  discordRoleId    String?
-
-  // Staffing requirements (JSON object with callsign regex -> required count)
-  requiredStaffing Json? // { "EDDF_._TWR": 2, "EDDF_._GND": 2, etc. }
-
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -313,20 +302,4 @@ model WeeklyEventOccurrence {
   @@index([date])
 }
 
-// General Discord bot configuration
-model DiscordBotConfiguration {
-  id    Int  @id @default(autoincrement())
-  firId Int? @unique
-  fir   FIR? @relation(fields: [firId], references: [id])
 
-  // Default notification channel for this FIR
-  defaultChannelId String?
-
-  // Deadlines for checks
-  eventRegistrationDeadlineDays Int    @default(14) // Event must be in myVATSIM X days before
-  staffingCheckTime             String @default("10:00") // Time of day to check staffing (HH:mm)
-
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
