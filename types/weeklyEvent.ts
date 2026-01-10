@@ -5,10 +5,6 @@ export interface WeeklyEventConfigurationCreate {
   weeksOn: number;
   weeksOff: number;
   startDate: Date | string;
-  checkDaysAhead?: number;
-  discordChannelId?: string;
-  discordRoleId?: string;
-  requiredStaffing?: Record<string, number>; // callsign regex -> count
   enabled?: boolean;
 }
 
@@ -18,10 +14,6 @@ export interface WeeklyEventConfigurationUpdate {
   weeksOn?: number;
   weeksOff?: number;
   startDate?: Date | string;
-  checkDaysAhead?: number;
-  discordChannelId?: string;
-  discordRoleId?: string;
-  requiredStaffing?: Record<string, number>;
   enabled?: boolean;
 }
 

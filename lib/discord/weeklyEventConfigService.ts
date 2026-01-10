@@ -21,10 +21,6 @@ export class WeeklyEventConfigurationService {
         weeksOn: data.weeksOn,
         weeksOff: data.weeksOff,
         startDate: new Date(data.startDate),
-        checkDaysAhead: data.checkDaysAhead ?? 14,
-        discordChannelId: data.discordChannelId,
-        discordRoleId: data.discordRoleId,
-        requiredStaffing: data.requiredStaffing ?? {},
         enabled: data.enabled ?? true,
       },
       include: {
@@ -98,10 +94,6 @@ export class WeeklyEventConfigurationService {
         weeksOn: data.weeksOn,
         weeksOff: data.weeksOff,
         startDate: data.startDate ? new Date(data.startDate) : undefined,
-        checkDaysAhead: data.checkDaysAhead,
-        discordChannelId: data.discordChannelId,
-        discordRoleId: data.discordRoleId,
-        requiredStaffing: data.requiredStaffing,
         enabled: data.enabled,
       },
       include: {

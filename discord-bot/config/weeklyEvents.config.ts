@@ -94,13 +94,13 @@ export interface DiscordBotConfig {
  */
 export const discordBotConfig: DiscordBotConfig = {
   // Standard: 14 Tage vor dem Event prüfen
-  defaultCheckDaysAhead: 7,
-  defaultChannelId: "1458860977234772120",
+  defaultCheckDaysAhead: 14,
+  defaultChannelId: "1459577819871842354",
   
   // Konfiguration für irregular events (Events aus dem Event Manager)
   defaultIrregularEventConfig: {
-    channelId: "1200342520731807786", // EDMM Events Channel
-    roleId: "1416563224286990429", // Optional: EDMM Eventleiter Role
+    channelId: "1459577819871842354", // EDMM Events Channel
+    roleId: "1459578289478959115", // Optional: EDMM Eventleiter Role
   },
   
   // Standard-Embeds für alle Events
@@ -125,7 +125,7 @@ export const discordBotConfig: DiscordBotConfig = {
   // CPT Benachrichtigungen (optional)
   // Kommentiere diesen Block ein und passe ihn an, um CPT-Benachrichtigungen zu aktivieren
   cptNotifications: {
-    channelId: "1458860977234772120", // Discord Channel für CPT-Benachrichtigungen
+    channelId: "1459577819871842354", // Discord Channel für CPT-Benachrichtigungen
     roleId: "1459566928648736952", // Role für @mentions bei CPTs heute
     
     // Nur CPTs für diese Positionen werden gemeldet (Regex-Muster)
@@ -162,14 +162,16 @@ export const discordBotConfig: DiscordBotConfig = {
   events: {
     // Beispiel: München Mittwoch
     "EDDM - München Mittwoch": {
-      channelId: "1458860977234772120", // Dein Discord Channel
-      roleId: "1458870693323083960", // Role für @mentions //1459567190897594562
-      checkDaysAhead: 10,
+      channelId: "1459577819871842354", // Dein Discord Channel
+      roleId: "1459567190897594562", // Role für @mentions //1459567190897594562
+      checkDaysAhead: 14,
       requiredStaffing: {
+        "EDDM_DEL": 1,
         "EDDM_._TWR": 2,
-        "EDDM_._GND": 2,
-        "EDDM_[AB]_APP": 1,
-        "EDUU_.+_CTR": 1,
+        "EDDM_[123]_GND": 2,
+        "EDDM_[NS]_GND": 1,
+        "EDDM_._APP": 3,
+        "EDMM_.+_CTR": 2,
       },
       // Optional: Überschreibe Standard-Embeds für dieses Event
       // embeds: {
@@ -182,16 +184,15 @@ export const discordBotConfig: DiscordBotConfig = {
     },
     
     // Beispiel: Frankfurt Friday
-    "Frankfurt Friday": {
-      channelId: "1200342520731807786",
-      roleId: "1416563224286990429",
+    "EDDN – Nürnberg Montag": {
+      channelId: "1459577819871842354",
+      roleId: "1459567321809948672",
       checkDaysAhead: 14,
       requiredStaffing: {
-        "ED(?:GG_[GRHDB]|UU_[FSW]).._CTR": 2,
-        "EDDF_._APP": 2,
-        "EDDF_._TWR": 2,
-        "EDDF_._GND": 2,
-        "EDDF_DEL": 1,
+        "EDDN_GND": 1,
+        "EDDN_TWR": 1,
+        "EDDN_._APP": 1,
+        "EDMM_.+_CTR": 1,
       },
     },
     
