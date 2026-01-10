@@ -43,7 +43,6 @@ export async function handleWeeklyEventsCommand(
       where: {
         name: {
           equals: eventName,
-          mode: "insensitive",
         },
         enabled: true,
       },
