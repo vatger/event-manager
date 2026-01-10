@@ -49,7 +49,7 @@ export class StaffingCheckerService {
 
       // Get required staffing from config file instead of database
       const requiredStaffing = getRequiredStaffing(occurrence.config.name);
-      
+      console.log("Required Staffing for", occurrence.config.name, requiredStaffing);
       // Skip if no staffing requirements defined
       if (Object.keys(requiredStaffing).length === 0) {
         continue;
@@ -63,6 +63,7 @@ export class StaffingCheckerService {
         events,
         bookings
       );
+      console.log("Staffing Result for", occurrence.config.name, staffingResult);
 
       // Update occurrence record
       await prisma!.weeklyEventOccurrence.update({

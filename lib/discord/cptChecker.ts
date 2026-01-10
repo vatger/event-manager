@@ -1,5 +1,5 @@
 import axios from "axios";
-import { startOfDay, addDays, parseISO, format } from "date-fns";
+import { startOfDay, addDays, parseISO, format, getTime } from "date-fns";
 
 export interface CPTData {
   id: number;
@@ -111,12 +111,16 @@ class CPTChecker {
 
     return filteredCPTs.map((cpt) => {
       const cptDate = parseISO(cpt.date);
-      const time = format(cptDate, "HH:mm");
-
+      const date = new Date(cpt.date);
+      const time = date.toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC' // Entfernen Sie dies, wenn Sie die lokale Zeit des Nutzers wollen
+      });
       return {
         id: cpt.id,
         trainee_name: cpt.trainee_name,
-        examiner_name: cpt.examiner_name,
+        examiner_name: cpt.local_name,
         position: cpt.position,
         date: cptDate,
         time,

@@ -88,8 +88,8 @@ export interface DiscordBotConfig {
  */
 export const discordBotConfig: DiscordBotConfig = {
   // Standard: 14 Tage vor dem Event prüfen
-  defaultCheckDaysAhead: 14,
-  
+  defaultCheckDaysAhead: 7,
+  defaultChannelId: "1458860977234772120",
   // Optional: Standard-Channel für alle Events
   // defaultChannelId: "1200342520731807786",
   
@@ -116,34 +116,34 @@ export const discordBotConfig: DiscordBotConfig = {
   // Kommentiere diesen Block ein und passe ihn an, um CPT-Benachrichtigungen zu aktivieren
   cptNotifications: {
     channelId: "1458860977234772120", // Discord Channel für CPT-Benachrichtigungen
-    roleId: "1458870693323083960", // Role für @mentions bei CPTs heute
+    roleId: "1459566928648736952", // Role für @mentions bei CPTs heute
     
     // Nur CPTs für diese Positionen werden gemeldet (Regex-Muster)
     positionFilters: [
       "EDDM_.*", // Alle München Positionen
-      "EDUU_.*", // Alle Upper Positionen
+      "EDDN_.*", // Alle Nürnberg Positionen
+      "EDDP_.*", // Alle Leipzig Positionen
+      "EDMM_.*", // Alle München Radar Positionen
     ],
     
-    // Vorwarnung 3 Tage vorher
+    // Vorwarnung 2 Tage vorher
     advanceWarning: {
       enabled: true,
-      daysAhead: 3,
-      // roleId: "1458870693323083960", // Optional: andere Role für Vorwarnung
+      daysAhead: 2,
+      roleId: "1459566928648736952", // Optional: andere Role für Vorwarnung
     },
     
     // Embeds für CPT-Benachrichtigungen
     embeds: {
       today: {
         color: 0xff0000, // Rot für heute
-        title: "🎓 CPT Heute!",
-        description: "**{examiner}** prüft heute **{trainee}** auf **{position}** um {time} Uhr.",
-        footer: "EDMM Training Team",
+        title: "{trainee} CPT - Heute!",
+        description: "**{trainee}** hat heute um {time} Uhr sein CPT auf **{position}**.",
       },
       upcoming: {
         color: 0x0099ff, // Blau für Vorwarnung
-        title: "ℹ️ CPT in {daysUntil} Tagen",
-        description: "**{examiner}** prüft **{trainee}** auf **{position}** am {date} um {time} Uhr.",
-        footer: "EDMM Training Team",
+        title: "CPT in {daysUntil} Tagen",
+        description: "**{trainee}** hat am {date} um {time} Uhr sein CPT auf **{position}**.",
       },
     },
   },
@@ -151,10 +151,10 @@ export const discordBotConfig: DiscordBotConfig = {
   // Event-spezifische Konfiguration
   events: {
     // Beispiel: München Mittwoch
-    "München Mittwoch": {
+    "EDDM - München Mittwoch": {
       channelId: "1458860977234772120", // Dein Discord Channel
-      roleId: "1458870693323083960", // Role für @mentions
-      checkDaysAhead: 14,
+      roleId: "1458870693323083960", // Role für @mentions //1459567190897594562
+      checkDaysAhead: 10,
       requiredStaffing: {
         "EDDM_._TWR": 2,
         "EDDM_._GND": 2,

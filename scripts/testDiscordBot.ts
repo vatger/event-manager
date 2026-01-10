@@ -29,6 +29,7 @@ import "dotenv/config";
 import { runMyVatsimEventCheck } from "../discord-bot/jobs/myVatsimCheck.job";
 import { runStaffingCheck } from "../discord-bot/jobs/staffingCheck.job";
 import { runCPTTodayCheck, runCPTAdvanceWarning } from "../discord-bot/jobs/cptCheck.job";
+import { startDiscordBot } from "@/discord-bot/client";
 
 async function main() {
   const action = process.argv[2] || "both";
@@ -45,6 +46,7 @@ async function main() {
   }
 
   try {
+    await startDiscordBot();
     // MyVATSIM Check
     if (action === "myvatsim" || action === "both" || action === "all") {
       console.log("🔍 Führe myVATSIM Event Check aus...\n");

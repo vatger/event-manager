@@ -80,7 +80,7 @@ export async function runCPTTodayCheck() {
         }))
         .addFields(
           {
-            name: "Prüfer",
+            name: "Prüfer (lokal)",
             value: cpt.examiner_name,
             inline: true,
           },
@@ -184,7 +184,7 @@ export async function runCPTAdvanceWarning() {
         }))
         .addFields(
           {
-            name: "Prüfer",
+            name: "Prüfer (lokal)",
             value: cpt.examiner_name,
             inline: true,
           },

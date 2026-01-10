@@ -47,6 +47,7 @@ export async function runStaffingCheck() {
       const embedConfig = getEmbedConfig(issue.configName, embedType);
       const formattedDate = format(issue.date, "EEEE, dd.MM.yyyy", { locale: de });
 
+      console.log("Staffing", staffingDetails, staffingChecker, staffingIssues)
       const embed = new EmbedBuilder()
         .setColor(embedConfig.color ?? (issue.overallSufficient ? 0x00ff00 : 0xff9900))
         .setTitle(replaceEmbedVariables(embedConfig.title, {
