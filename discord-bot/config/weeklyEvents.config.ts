@@ -13,6 +13,13 @@ export interface EmbedConfig {
   footer?: string; // Footer-Text
 }
 
+export interface CPTEmbedConfig {
+  color?: number;
+  title?: string; // Variablen: {examiner}, {trainee}, {position}, {time}, {date}, {daysUntil}
+  description?: string;
+  footer?: string;
+}
+
 export interface DiscordBotConfig {
   // Standard-Einstellungen
   defaultCheckDaysAhead: number; // Wie viele Tage vor dem Event soll geprüft werden?
@@ -23,6 +30,30 @@ export interface DiscordBotConfig {
     myVatsimMissing?: EmbedConfig; // Embed für fehlende myVATSIM-Einträge
     staffingInsufficient?: EmbedConfig; // Embed für unzureichende Besetzung
     staffingSufficient?: EmbedConfig; // Embed für ausreichende Besetzung (optional)
+  };
+  
+  // CPT Benachrichtigungen (NEU!)
+  cptNotifications?: {
+    channelId: string; // Discord Channel für CPT-Benachrichtigungen
+    roleId?: string; // Discord Role für Pings bei CPTs heute
+    
+    // Position-Filter (Regex-Muster)
+    // Nur CPTs für diese Positionen werden gemeldet
+    // Beispiel: ["EDDM_.*", "EDUU_.*"]
+    positionFilters?: string[];
+    
+    // Vorwarnung (Info-Ping X Tage vorher)
+    advanceWarning?: {
+      enabled: boolean;
+      daysAhead: number; // Standard: 3 Tage vorher
+      roleId?: string; // Optional: andere Role für Vorwarnung
+    };
+    
+    // Embed-Konfiguration für CPTs
+    embeds?: {
+      today?: CPTEmbedConfig; // CPT ist heute
+      upcoming?: CPTEmbedConfig; // CPT in X Tagen (Vorwarnung)
+    };
   };
   
   // Event-spezifische Konfiguration
@@ -78,6 +109,42 @@ export const discordBotConfig: DiscordBotConfig = {
       color: 0x00ff00, // Grün
       title: "✅ Staffing ausreichend",
       description: "**{eventName}** – {date}",
+    },
+  },
+  
+  // CPT Benachrichtigungen (optional)
+  // Kommentiere diesen Block ein und passe ihn an, um CPT-Benachrichtigungen zu aktivieren
+  cptNotifications: {
+    channelId: "1458860977234772120", // Discord Channel für CPT-Benachrichtigungen
+    roleId: "1458870693323083960", // Role für @mentions bei CPTs heute
+    
+    // Nur CPTs für diese Positionen werden gemeldet (Regex-Muster)
+    positionFilters: [
+      "EDDM_.*", // Alle München Positionen
+      "EDUU_.*", // Alle Upper Positionen
+    ],
+    
+    // Vorwarnung 3 Tage vorher
+    advanceWarning: {
+      enabled: true,
+      daysAhead: 3,
+      // roleId: "1458870693323083960", // Optional: andere Role für Vorwarnung
+    },
+    
+    // Embeds für CPT-Benachrichtigungen
+    embeds: {
+      today: {
+        color: 0xff0000, // Rot für heute
+        title: "🎓 CPT Heute!",
+        description: "**{examiner}** prüft heute **{trainee}** auf **{position}** um {time} Uhr.",
+        footer: "EDMM Training Team",
+      },
+      upcoming: {
+        color: 0x0099ff, // Blau für Vorwarnung
+        title: "ℹ️ CPT in {daysUntil} Tagen",
+        description: "**{examiner}** prüft **{trainee}** auf **{position}** am {date} um {time} Uhr.",
+        footer: "EDMM Training Team",
+      },
     },
   },
   
