@@ -1,8 +1,8 @@
 import { Message, EmbedBuilder } from "discord.js";
 import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
-import prisma from "@/lib/db";
 import { discordBotConfig } from "../config/weeklyEvents.config";
+import prisma from "@/lib/prisma";
 
 /**
  * Discord Bot Command: Weekly Events
@@ -39,7 +39,7 @@ export async function handleWeeklyEventsCommand(
     }
 
     // Suche Event in Datenbank (case-insensitive)
-    const weeklyEvent = await prisma.weeklyEventConfiguration.findFirst({
+    const weeklyEvent = await prisma!.weeklyEventConfiguration.findFirst({
       where: {
         name: {
           equals: eventName,
@@ -164,7 +164,7 @@ export async function handleWeeklyEventsCommand(
  */
 async function showAllWeeklyEvents(message: Message): Promise<void> {
   try {
-    const weeklyEvents = await prisma.weeklyEventConfiguration.findMany({
+    const weeklyEvents = await prisma!.weeklyEventConfiguration.findMany({
       where: {
         enabled: true,
       },
