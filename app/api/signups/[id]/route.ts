@@ -2,8 +2,13 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }

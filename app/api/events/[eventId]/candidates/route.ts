@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAirportTier1 } from '@/utils/configUtils';
+import { getSessionUser } from '@/lib/getSessionUser';
 
 export async function GET(
   request: NextRequest,
@@ -10,6 +11,10 @@ export async function GET(
     return new Response("Service unavailable", { status: 503 });
   }
   try {
+    const user = await getSessionUser();
+      if (!user) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }
     const { eventId: id } = await params;
     const eventId = parseInt(id);
 

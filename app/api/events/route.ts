@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -31,6 +32,10 @@ const eventSchema = z.object({
 export async function GET(req: Request) {
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
+  }
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   const { searchParams } = new URL(req.url);
   const firCode = searchParams.get("fir");

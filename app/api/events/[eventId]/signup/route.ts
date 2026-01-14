@@ -5,9 +5,14 @@ import prisma from "@/lib/prisma";
 import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { invalidateCache } from "@/lib/cache/cacheManager";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 // GET: alle Signups für ein Event
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }

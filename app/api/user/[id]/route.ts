@@ -1,7 +1,12 @@
+import { getSessionUser } from "@/lib/getSessionUser";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const u = await getSessionUser();
+  if (!u) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
@@ -12,6 +17,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const u = await getSessionUser();
+    if (!u) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
@@ -25,6 +34,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser();
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }

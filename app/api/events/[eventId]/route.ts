@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -33,6 +34,10 @@ const eventSchema = z.object({
 export async function GET(request: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }

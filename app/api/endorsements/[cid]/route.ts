@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 const POSITION_ORDER = ["GNDDEL", "GND", "TWR", "APP", "CTR"];
 
@@ -20,7 +21,11 @@ export async function GET(
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
-    const { cid: cidParam } = await params;
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  const { cid: cidParam } = await params;
   const cid = Number(cidParam);
   if (isNaN(cid)) {
     return NextResponse.json({ error: "Invalid CID" }, { status: 400 });

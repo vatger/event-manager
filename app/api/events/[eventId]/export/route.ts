@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import { generateSignupCSV, generateExportFilename } from "@/lib/exportUtils";
 import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
     if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 500 });
+    
     const { eventId: id } = await params;
     const eventId = parseInt(id);
     console.log(`[Export API] Generating export for event ID: ${id}`);

@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getCachedSignupTable, getLastUpdateTimestamp } from "@/lib/cache/signupTableCache";
 import { SignupTableResponse } from "@/lib/cache/types";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ eventId: string }> }
 ) {
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   const { eventId: id } = await params;
   const eventId = Number(id);
   if (isNaN(eventId)) {

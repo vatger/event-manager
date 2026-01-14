@@ -4,11 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
+import { getSessionUser } from "@/lib/getSessionUser";
 
 
 
 // GET: einzelnes Signup holen
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string, userId: string }> }) {
+  const user = await getSessionUser();
+  if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
