@@ -2,6 +2,7 @@
 import { User, type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
+import { getUserWithPermissions, userhasAdminAcess } from "./acl/permissions";
 
 interface VatsimProfile {
   id: number,
@@ -195,8 +196,4 @@ export async function getUser(userId: string) {
 
 export function isMainAdmin(user: { role: string }) {
   return user.role === "MAIN_ADMIN";
-}
-
-export function isAdmin(user: { role: string }) {
-  return user.role === "ADMIN" || user.role === "MAIN_ADMIN";
 }
