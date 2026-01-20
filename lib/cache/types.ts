@@ -1,4 +1,5 @@
 import { TimeRange } from "@/types";
+import type { EndorsementResponse } from "@/lib/endorsements/types";
 
 export interface SignupTableUser {
   cid: number;
@@ -31,13 +32,29 @@ export interface EventEndorsementData {
   restrictions: string[];
 }
 
+/**
+ * Helper function to extract minimal endorsement data from full response
+ * Reduces PII exposure by discarding complete endorsement/solo/fam lists
+ */
+export function extractMinimalEndorsementData(
+  response: EndorsementResponse
+): EventEndorsementData {
+  return {
+    group: response.group,
+    restrictions: response.restrictions
+  };
+}
+
 export interface SignupTableEntry {
   id: number;
   user: SignupTableUser;
   preferredStations?: string;
   remarks: string | null;
   availability: Availability;
-  /** Primary endorsement (for backward compatibility, uses first event airport) */
+  /** 
+   * Primary endorsement for backward compatibility
+   * Based on first event airport, or null if event has no airports
+   */
   endorsement: EventEndorsementData | null;
   /** Per-airport endorsements (only for event airports) */
   airportEndorsements?: Record<string, EventEndorsementData>;
