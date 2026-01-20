@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { isAdmin } from "@/lib/auth";
 
 const POSITION_ORDER = ["GNDDEL", "GND", "TWR", "APP", "CTR"];
 
@@ -24,6 +25,11 @@ export async function GET(
   const user = await getSessionUser();
   if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  
+  // Only admins can access this endpoint
+  if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
   }
   const { cid: cidParam } = await params;
   const cid = Number(cidParam);
