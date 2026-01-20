@@ -10,7 +10,7 @@ import Link from "next/link";
 export default function SignInPage() {
   const { data: session, status } = useSession();
   const isDevMode = process.env.NEXT_PUBLIC_DEV_MODE === "true";
-
+  console.log("Dev mode:", isDevMode);
 
   if (status === "loading") {
     return (
