@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { getCachedSignupTable, getLastUpdateTimestamp } from "@/lib/cache/signupTableCache";
 import { SignupTableResponse } from "@/lib/cache/types";
 import { getSessionUser } from "@/lib/getSessionUser";
