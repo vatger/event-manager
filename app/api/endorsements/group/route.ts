@@ -21,8 +21,10 @@ export async function POST(req: Request) {
     const requestedCID = Number(body.user.userCID);
     const sessionCID = Number(session.user.cid);
     
-    // Reject if either conversion resulted in NaN
-    if (isNaN(requestedCID) || isNaN(sessionCID)) {
+    // Reject if either conversion resulted in NaN or not a positive integer
+    if (isNaN(requestedCID) || isNaN(sessionCID) || 
+        !Number.isInteger(requestedCID) || !Number.isInteger(sessionCID) ||
+        requestedCID <= 0 || sessionCID <= 0) {
       return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
     }
     
