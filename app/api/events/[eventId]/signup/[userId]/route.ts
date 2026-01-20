@@ -19,6 +19,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
   }
   const { eventId, userId } = await params;
 
+  const hasManagePermission = await userhasPermissiononEvent(Number(user.cid), Number(eventId), "signups.manage");
+  const isOwnSignup = Number(user.cid) === Number(userId);
+  if (!isOwnSignup && !hasManagePermission) {
+    return NextResponse.json({ error: "Keine Berechtigung für dieses Signup" }, { status: 403 });
+  }
+
   try {
     const signup = await prisma.eventSignup.findUnique({
       where: {
@@ -55,7 +61,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
   const hasManagePermission = await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage");
-  
+  const isOwnSignup = Number(session.user.cid) === Number(userId);
+  if (!isOwnSignup && !hasManagePermission) {
+    return NextResponse.json({ 
+      error: "Keine Berechtigung: Du kannst nur dein eigenes Signup bearbeiten" 
+    }, { status: 403 });
+  }
+
   // Allow changes even when SIGNUP_CLOSED (will be tracked if after deadline)
   // Only block if event is in certain states AND user is not event team
   if(!hasManagePermission && !["SIGNUP_OPEN", "SIGNUP_CLOSED"].includes(eventdata.status))
@@ -228,6 +240,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
   const hasManagePermission = await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage");
+  
+  const isOwnSignup = Number(session.user.cid) === Number(userId);
+  
+  if (!isOwnSignup && !hasManagePermission) {
+    return NextResponse.json({ 
+      error: "Keine Berechtigung: Du kannst nur dein eigenes Signup löschen" 
+    }, { status: 403 });
+  }
   
   // Check if requesting hard delete (query parameter)
   const url = new URL(req.url);
