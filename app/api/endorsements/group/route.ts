@@ -17,7 +17,8 @@ export async function POST(req: Request) {
     }
 
     // Security check: Users can only query their own data, unless they are admins
-    const requestedCID = body.user.userCID;
+    // Ensure both values are numbers for proper comparison
+    const requestedCID = Number(body.user.userCID);
     const sessionCID = Number(session.user.cid);
     
     if (requestedCID !== sessionCID && !isAdmin(session.user)) {
