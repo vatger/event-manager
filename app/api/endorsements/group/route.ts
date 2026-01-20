@@ -17,9 +17,14 @@ export async function POST(req: Request) {
     }
 
     // Security check: Users can only query their own data, unless they are admins
-    // Ensure both values are numbers for proper comparison
+    // Convert both to numbers and validate to prevent NaN bypass
     const requestedCID = Number(body.user.userCID);
     const sessionCID = Number(session.user.cid);
+    
+    // Reject if either conversion resulted in NaN
+    if (isNaN(requestedCID) || isNaN(sessionCID)) {
+      return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
+    }
     
     if (requestedCID !== sessionCID && !isAdmin(session.user)) {
       return NextResponse.json({ 

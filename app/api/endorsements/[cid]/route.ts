@@ -27,10 +27,11 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
   
-  // Only admins can access this endpoint
+  // Only admins can access this endpoint - check early before processing
   if (!isAdmin(user)) {
       return NextResponse.json({ error: "Forbidden - Admin access required" }, { status: 403 });
   }
+  
   const { cid: cidParam } = await params;
   const cid = Number(cidParam);
   if (isNaN(cid)) {
