@@ -112,7 +112,7 @@ interface VatsimProfile {
 // Deine gesamte authOptions Konfiguration hier...
 export const authOptions: NextAuthOptions = {
     providers: [
-      ...(process.env.NEXT_PUBLIC_DEV_MODE === "true" 
+      ...(process.env.DEV_MODE === "true" 
         ? [VatsimSandboxProvider, VatgerProvider] 
         : [VatgerProvider]
       ),
@@ -121,7 +121,11 @@ export const authOptions: NextAuthOptions = {
       signIn: "/auth/signin",
     },
     callbacks: {
-      async signIn({ user }) {
+      async signIn({ user, account }) {
+        if (account?.provider === "vatsim-sandbox" && process.env.DEV_MODE !== "true") {
+          console.error("Sandbox login attempted in production");
+          return false; // Login verweigern
+        }
         const cid = Number(user.cid);
         if (!Number.isFinite(cid)) {
           console.error("Ungültige CID erhalten:", user.cid);
