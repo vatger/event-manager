@@ -1,5 +1,5 @@
 import { TimeRange } from "@/types";
-import type { EndorsementResponse } from "@/lib/endorsements/types";
+import { EndorsementResponse } from "@/lib/endorsements/types";
 
 export interface SignupTableUser {
   cid: number;

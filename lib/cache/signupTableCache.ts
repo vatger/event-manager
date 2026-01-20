@@ -5,7 +5,7 @@ import { getRatingValue } from "@/utils/ratingToValue";
 import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
-import { Availability, SignupTableEntry, extractMinimalEndorsementData } from "./types";
+import { Availability, SignupTableEntry, EventEndorsementData, extractMinimalEndorsementData } from "./types";
 import { parseEventAirports } from "@/lib/multiAirport";
 import { computeSelectedAirportsSync } from "@/lib/multiAirport/selectedAirportsUtils.server";
 
@@ -85,7 +85,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         });
 
         // Fetch endorsements for all event airports
-        const airportEndorsements: Record<string, import("./types").EventEndorsementData> = {};
+        const airportEndorsements: Record<string, EventEndorsementData> = {};
         for (const airport of eventAirportsList) {
           try {
             const airportResult = await GroupService.getControllerGroup({
