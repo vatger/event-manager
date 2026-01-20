@@ -5,7 +5,7 @@ import { getRatingValue } from "@/utils/ratingToValue";
 import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { Prisma } from "@prisma/client";
 import { TimeRange } from "@/types";
-import { Availability, SignupTableEntry } from "./types";
+import { Availability, SignupTableEntry, EventEndorsementData } from "./types";
 import { parseEventAirports } from "@/lib/multiAirport";
 import { computeSelectedAirportsSync } from "@/lib/multiAirport/selectedAirportsUtils.server";
 
@@ -85,7 +85,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         });
 
         // Fetch endorsements for all event airports
-        const airportEndorsements: Record<string, EndorsementResponse> = {};
+        const airportEndorsements: Record<string, EventEndorsementData> = {};
         for (const airport of eventAirportsList) {
           try {
             const airportResult = await GroupService.getControllerGroup({
@@ -98,7 +98,11 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
                 fir: event.fir?.code,
               },
             });
-            airportEndorsements[airport] = airportResult;
+            // Store only minimal data (group + restrictions), not full endorsement lists
+            airportEndorsements[airport] = {
+              group: airportResult.group,
+              restrictions: airportResult.restrictions
+            };
           } catch (err) {
             console.error(`[ENDORSEMENT ERROR] ${user.cid} @${airport}:`, err);
           }
@@ -121,7 +125,11 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           preferredStations: s.preferredStations || "",
           remarks: s.remarks,
           availability: parseAvailability(s.availability),
-          endorsement: result,
+          // Store only minimal data (group + restrictions)
+          endorsement: {
+            group: result.group,
+            restrictions: result.restrictions
+          },
           airportEndorsements: airportEndorsements,
           selectedAirports: selectedAirports,
           deletedAt: s.deletedAt?.toISOString() || null,
