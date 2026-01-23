@@ -3,31 +3,7 @@
  * These functions can be safely imported by client components
  */
 
-import { parseOptOutAirports } from "./airportUtils";
-
-/**
- * Get excluded airports from both excludedAirports field and legacy !ICAO remarks
- * @param excludedAirports - Array of excluded airports from the field
- * @param remarks - User's remarks (may contain legacy !ICAO opt-outs)
- * @returns Combined array of excluded airport ICAO codes
- */
-export function getExcludedAirports(
-  excludedAirports: string[] | null | undefined,
-  remarks: string | null
-): string[] {
-  const excluded = new Set<string>();
-  
-  // Add from excludedAirports field (primary method)
-  if (excludedAirports && Array.isArray(excludedAirports)) {
-    excludedAirports.forEach(airport => excluded.add(airport));
-  }
-  
-  // Add from legacy !ICAO remarks (backward compatibility)
-  const legacyOptedOut = parseOptOutAirports(remarks);
-  legacyOptedOut.forEach(airport => excluded.add(airport));
-  
-  return Array.from(excluded);
-}
+import { getExcludedAirports } from "./airportUtils";
 
 /**
  * Get selected airports for display purposes on client-side
