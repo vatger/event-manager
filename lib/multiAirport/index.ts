@@ -28,4 +28,5 @@ export type { AirportEndorsementResult } from './endorsementUtils';
 // Selected airports utilities (CLIENT-SAFE ONLY)
 export {
   getSelectedAirportsForDisplay,
+  getExcludedAirports,
 } from './selectedAirportsUtils';

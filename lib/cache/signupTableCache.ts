@@ -104,10 +104,14 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           }
         }
 
-        // Compute selected airports from endorsements and remarks
+        // Compute selected airports from endorsements and excluded airports
+        const excludedAirports = Array.isArray(s.excludedAirports) 
+          ? s.excludedAirports as string[]
+          : null;
         const selectedAirports = computeSelectedAirportsSync(
           eventAirportsList,
           airportEndorsements,
+          excludedAirports,
           s.remarks
         );
 
@@ -120,6 +124,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           },
           preferredStations: s.preferredStations || "",
           remarks: s.remarks,
+          excludedAirports: excludedAirports,
           availability: parseAvailability(s.availability),
           endorsement: result,
           airportEndorsements: airportEndorsements,
@@ -134,6 +139,9 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
         const eventAirportsList = (event.airports as string[] | null) || [];
+        const excludedAirports = Array.isArray(s.excludedAirports) 
+          ? s.excludedAirports as string[]
+          : null;
         return {
           id: s.id,
           user: {
@@ -143,6 +151,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           },
           preferredStations: s.preferredStations || "",
           remarks: s.remarks,
+          excludedAirports: excludedAirports,
           availability: parseAvailability(s.availability),
           endorsement: null,
           selectedAirports: [], // Empty on error - user should fix their endorsements

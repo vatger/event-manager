@@ -27,6 +27,7 @@ import {
   fetchAirportEndorsements,
   getSelectedAirportsForDisplay,
   parseOptOutAirports,
+  getExcludedAirports,
 } from "@/lib/multiAirport";
 import { Badge } from "./ui/badge";
 
@@ -66,6 +67,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   const [availability, setAvailability] = useState<Availability>();
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [excludedAirports, setExcludedAirports] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -94,6 +96,10 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     setAvailability(signupData.availability ?? {});
     setDesiredPosition(signupData.preferredStations ?? "");
     setRemarks(signupData.remarks ?? "");
+    // Load excludedAirports from signup data
+    setExcludedAirports(
+      Array.isArray(signupData.excludedAirports) ? signupData.excludedAirports : []
+    );
     setHydrated(true);
     
   }, [signupData, hydrated, eventAirports]);
@@ -140,6 +146,18 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     },
   }), [userCID, session?.user.rating, event.airports]);
   
+  // Toggle airport exclusion
+  const toggleAirportExclusion = (airport: string) => {
+    setExcludedAirports((prev) => {
+      if (prev.includes(airport)) {
+        // Remove from excluded list
+        return prev.filter((a) => a !== airport);
+      } else {
+        // Add to excluded list
+        return [...prev, airport];
+      }
+    });
+  };
 
   if (!session) {
     return (
@@ -165,14 +183,14 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       return;
     }
 
-    // Calculate airports based on endorsements and opt-outs for validation
-    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, remarks);
+    // Calculate airports based on endorsements and exclusions for validation
+    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, excludedAirports, remarks);
     
     console.log("[SignupForm] Selected airports for validation:", selectedAirports);
     
     // Validate that user can staff at least one airport
     if (selectedAirports.length === 0) {
-      toast.error("Du kannst keinen der Airports für dieses Event lotsen oder hast alle Airports mit !ICAO ausgeschlossen");
+      toast.error("Du kannst keinen der Airports für dieses Event lotsen oder hast alle Airports ausgeschlossen");
       return;
     }
 
@@ -195,7 +213,8 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           endorsement: null,
           preferredStations: desiredPosition,
           remarks,
-          // selectedAirports is now computed on server from endorsements + remarks
+          excludedAirports, // Send excluded airports to API
+          // selectedAirports is now computed on server from endorsements + excludedAirports + remarks
         }),
       });
 
@@ -264,6 +283,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           availability: signupData?.availability,
           preferredStations: signupData?.preferredStations,
           remarks: signupData?.remarks,
+          excludedAirports: signupData?.excludedAirports,
         }),
       });
 
@@ -343,33 +363,40 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             ) : (
               <div className="space-y-3">
                 {eventAirports.map((airport) => {
-                  const optedOut = parseOptOutAirports(remarks);
+                  const allExcluded = getExcludedAirports(excludedAirports, remarks);
                   const endorsementData = airportEndorsements[airport];
                   const canStaff = endorsementData?.canStaff || false;
                   const endorsement = endorsementData?.endorsement;
-                  const isOptedOut = optedOut.includes(airport);
+                  const isExcluded = allExcluded.includes(airport);
                   
                   return (
-                    <div 
-                      key={airport} 
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 ${
+                    <button
+                      key={airport}
+                      type="button"
+                      onClick={() => {
+                        if (canStaff) {
+                          toggleAirportExclusion(airport);
+                        }
+                      }}
+                      disabled={!canStaff}
+                      className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 text-left ${
                         canStaff 
-                          ? isOptedOut 
-                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-                            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                          : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800'
+                          ? isExcluded 
+                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer'
+                            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
+                          : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 cursor-not-allowed'
                       }`}
                     >
                       {/* Status Icon */}
                       <div className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${
                         canStaff 
-                          ? isOptedOut 
+                          ? isExcluded 
                             ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300'
                             : 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                       }`}>
                         {canStaff ? (
-                          isOptedOut ? (
+                          isExcluded ? (
                             <span className="text-xs font-bold">✗</span>
                           ) : (
                             <span className="text-xs font-bold">✓</span>
@@ -385,7 +412,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                         <div className="flex items-baseline gap-2">
                           <span className={`font-medium ${
                             canStaff 
-                              ? isOptedOut 
+                              ? isExcluded 
                                 ? 'text-orange-800 dark:text-orange-300'
                                 : 'text-green-800 dark:text-green-300'
                               : 'text-gray-700 dark:text-gray-400'
@@ -398,7 +425,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                               variant="outline" 
                               className={`text-xs ${
                                 canStaff 
-                                  ? isOptedOut 
+                                  ? isExcluded 
                                     ? 'border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400'
                                     : 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
                                   : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-500'
@@ -433,14 +460,14 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                       {/* Quick Status */}
                       <div className={`text-xs font-medium px-2 py-1 rounded ${
                         canStaff 
-                          ? isOptedOut 
+                          ? isExcluded 
                             ? 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300'
                             : 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                       }`}>
-                        {canStaff ? (isOptedOut ? 'Ausgeschlossen' : 'Verfügbar') : 'Nicht berechtigt'}
+                        {canStaff ? (isExcluded ? 'Ausgeschlossen' : 'Verfügbar') : 'Nicht berechtigt'}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -457,7 +484,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                     Tipp zur Airport-Auswahl
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-400">
-                    Füge <code className="font-mono bg-white dark:bg-blue-900/40 px-1.5 py-0.5 rounded">!ICAO</code> in deine RMKs ein, um dich von einem Airport auszuschließen (z.B. "!EDDM" für München).
+                    Klicke auf einen Airport, um ihn ein- oder auszuschließen. Ausgeschlossene Airports werden orange markiert.
                   </p>
                 </div>
               </div>

@@ -176,6 +176,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         });
       }
       
+      // Track excludedAirports changes
+      if (JSON.stringify(currentSignup.excludedAirports) !== JSON.stringify(body.excludedAirports)) {
+        changes.push({
+          field: 'excludedAirports',
+          oldValue: currentSignup.excludedAirports,
+          newValue: body.excludedAirports,
+          changedAt: new Date().toISOString(),
+          changedBy: Number(session.user.cid)
+        });
+      }
+      
       if (changes.length > 0) {
         changeLog = [...(changeLog as unknown[]), ...changes] as typeof changeLog;
         
@@ -202,6 +213,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         breakrequests: body.breakrequests,
         preferredStations: body.preferredStations,
         remarks: body.remarks,
+        excludedAirports: body.excludedAirports,
         modifiedAfterDeadline: isAfterDeadline || currentSignup.modifiedAfterDeadline,
         changeLog: changeLog.length > 0 ? JSON.parse(JSON.stringify(changeLog)) : currentSignup.changeLog,
         // Reset acknowledged flag if new changes were made after deadline
@@ -343,6 +355,8 @@ async function sendChangeNotificationToEventTeam(
         return `Gewünschte Position: ${c.oldValue || '-'} → ${c.newValue || '-'}`;
       } else if (c.field === 'remarks') {
         return 'Bemerkungen geändert';
+      } else if (c.field === 'excludedAirports') {
+        return 'Ausgeschlossene Airports geändert';
       } else if (c.field === 'signup') {
         return `Anmeldung ${c.newValue}`;
       }

@@ -25,6 +25,7 @@ export interface SignupTableEntry {
   user: SignupTableUser;
   preferredStations?: string;
   remarks: string | null;
+  excludedAirports?: string[] | null; // Airports explicitly excluded by user
   availability: Availability;
   endorsement: EndorsementResponse | null;
   airportEndorsements?: Record<string, EndorsementResponse>; // Per-airport endorsements

@@ -142,13 +142,17 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     signups.forEach(signup => {
       if (signup.deletedAt) return;
 
-      const optedOut = parseOptOutAirports(signup.remarks || "");
+      // Get excluded airports from both excludedAirports field and legacy remarks
+      const excludedFromField = signup.excludedAirports || [];
+      const optedOutFromRemarks = parseOptOutAirports(signup.remarks || "");
+      const allExcluded = [...new Set([...excludedFromField, ...optedOutFromRemarks])];
+      
       const endorsements = signup.airportEndorsements || {};
 
       Object.entries(endorsements).forEach(([airport, endorsement]) => {
         if (!stats[airport]) return;
         if (!endorsement || !endorsement.group) return; // only count if can staff
-        if (optedOut.includes(airport)) return; // skip opted-out for counts
+        if (allExcluded.includes(airport)) return; // skip opted-out for counts
 
         const group = endorsement.group || "UNSPEC";
         stats[airport].total += 1;
@@ -162,15 +166,24 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
     // Include users who can theoretically staff the airport (have endorsement),
-    // even if they opted out via !ICAO; sort opted-out to the end
+    // even if they opted out via !ICAO or excludedAirports; sort opted-out to the end
     const list = signups.filter(signup => {
       const endorsement = signup.airportEndorsements?.[airport];
       return !!endorsement?.group; // can staff this airport
     });
 
     return list.sort((a, b) => {
-      const aOpted = parseOptOutAirports(a.remarks || "").includes(airport) ? 1 : 0;
-      const bOpted = parseOptOutAirports(b.remarks || "").includes(airport) ? 1 : 0;
+      // Get excluded airports from both sources
+      const aExcludedFromField = a.excludedAirports || [];
+      const aOptedOutFromRemarks = parseOptOutAirports(a.remarks || "");
+      const aAllExcluded = [...new Set([...aExcludedFromField, ...aOptedOutFromRemarks])];
+      
+      const bExcludedFromField = b.excludedAirports || [];
+      const bOptedOutFromRemarks = parseOptOutAirports(b.remarks || "");
+      const bAllExcluded = [...new Set([...bExcludedFromField, ...bOptedOutFromRemarks])];
+      
+      const aOpted = aAllExcluded.includes(airport) ? 1 : 0;
+      const bOpted = bAllExcluded.includes(airport) ? 1 : 0;
       if (aOpted !== bOpted) return aOpted - bOpted; // non-opted first
       const an = a.user?.name || "";
       const bn = b.user?.name || "";
