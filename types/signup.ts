@@ -14,6 +14,7 @@ export interface Signup {
     user?: { cid?: string | number; name?: string; rating?: string };
     availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
     remarks?: string | null;
+    excludedAirports?: string[] | null; // Airports explicitly excluded by user
     preferredStations?: string;
     selectedAirports?: string[]; // Airports this signup can staff
     deletedAt?: string | null;
