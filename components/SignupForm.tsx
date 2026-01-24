@@ -26,7 +26,6 @@ import {
   parseEventAirports,
   fetchAirportEndorsements,
   getSelectedAirportsForDisplay,
-  parseOptOutAirports,
   getExcludedAirports,
 } from "@/lib/multiAirport";
 import { Badge } from "./ui/badge";

@@ -56,6 +56,7 @@ export interface SignupsTableRef {
 
 interface NormalizedEventRef extends EventRef {
   airports?: string | string[];
+  firCode?: string; // FIR code needed for admin edit
 }
 
 interface SignupsTableProps {
@@ -369,8 +370,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                   {grouped[group].map((s) => {
                     const isDeleted = !!s.deletedAt;
-                    const optedOutAirports = parseOptOutAirports(s.remarks);
-                    const isOptedOutOfCurrentAirport = currentAirport && optedOutAirports.includes(currentAirport);
+                    const excludedAirports = s.excludedAirports || [];
+                    const isOptedOutOfCurrentAirport = currentAirport && excludedAirports.includes(currentAirport);
                     const rowClassName = isDeleted ? "opacity-50" : isOptedOutOfCurrentAirport ? "opacity-40 bg-muted/30" : "";
                     
                     return (

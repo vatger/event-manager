@@ -9,8 +9,6 @@
 // Airport utilities
 export {
   parseEventAirports,
-  parseOptOutAirports,
-  isAirportOptedOut,
   getExcludedAirports,
 } from './airportUtils';
 
