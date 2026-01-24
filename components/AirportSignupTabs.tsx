@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { SignupTableEntry } from "@/lib/cache/types";
 import { Plane } from "lucide-react";
-import { parseOptOutAirports } from "@/lib/multiAirport";
 
 export interface AirportSignupTabsRef {
   reload: () => void;
@@ -142,13 +141,15 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     signups.forEach(signup => {
       if (signup.deletedAt) return;
 
-      const optedOut = parseOptOutAirports(signup.remarks || "");
+      // Get excluded airports from excludedAirports field
+      const allExcluded = signup.excludedAirports || [];
+      
       const endorsements = signup.airportEndorsements || {};
 
       Object.entries(endorsements).forEach(([airport, endorsement]) => {
         if (!stats[airport]) return;
         if (!endorsement || !endorsement.group) return; // only count if can staff
-        if (optedOut.includes(airport)) return; // skip opted-out for counts
+        if (allExcluded.includes(airport)) return; // skip opted-out for counts
 
         const group = endorsement.group || "UNSPEC";
         stats[airport].total += 1;
@@ -162,15 +163,19 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
     // Include users who can theoretically staff the airport (have endorsement),
-    // even if they opted out via !ICAO; sort opted-out to the end
+    // even if they opted out via excludedAirports; sort opted-out to the end
     const list = signups.filter(signup => {
       const endorsement = signup.airportEndorsements?.[airport];
       return !!endorsement?.group; // can staff this airport
     });
 
     return list.sort((a, b) => {
-      const aOpted = parseOptOutAirports(a.remarks || "").includes(airport) ? 1 : 0;
-      const bOpted = parseOptOutAirports(b.remarks || "").includes(airport) ? 1 : 0;
+      // Get excluded airports
+      const aAllExcluded = a.excludedAirports || [];
+      const bAllExcluded = b.excludedAirports || [];
+      
+      const aOpted = aAllExcluded.includes(airport) ? 1 : 0;
+      const bOpted = bAllExcluded.includes(airport) ? 1 : 0;
       if (aOpted !== bOpted) return aOpted - bOpted; // non-opted first
       const an = a.user?.name || "";
       const bn = b.user?.name || "";

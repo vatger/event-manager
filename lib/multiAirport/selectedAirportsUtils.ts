@@ -3,24 +3,24 @@
  * These functions can be safely imported by client components
  */
 
-import { parseOptOutAirports } from "./airportUtils";
+import { getExcludedAirports } from "./airportUtils";
 
 /**
  * Get selected airports for display purposes on client-side
  * Used in SignupForm to show which airports user will be registered for
  * @param eventAirports - Array of airports in the event
  * @param airportEndorsements - Map of airport to endorsement/canStaff status
- * @param remarks - User's remarks (may contain !ICAO opt-outs)
+ * @param excludedAirports - Array of airports explicitly excluded by user
  * @returns Array of airport ICAO codes the user can/will staff
  */
 export function getSelectedAirportsForDisplay(
   eventAirports: string[],
   airportEndorsements: Record<string, { canStaff: boolean }>,
-  remarks: string | null
+  excludedAirports: string[] | null | undefined
 ): string[] {
-  const optedOut = parseOptOutAirports(remarks);
+  const excluded = getExcludedAirports(excludedAirports);
   
   return eventAirports.filter(airport => 
-    airportEndorsements[airport]?.canStaff && !optedOut.includes(airport)
+    airportEndorsements[airport]?.canStaff && !excluded.includes(airport)
   );
 }

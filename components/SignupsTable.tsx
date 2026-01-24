@@ -32,7 +32,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  parseOptOutAirports,
   getHighestEndorsementGroup,
   getAirportEndorsementGroup,
   getAirportRestrictions,
@@ -57,6 +56,7 @@ export interface SignupsTableRef {
 
 interface NormalizedEventRef extends EventRef {
   airports?: string | string[];
+  firCode?: string; // FIR code needed for admin edit
 }
 
 interface SignupsTableProps {
@@ -370,8 +370,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                   {grouped[group].map((s) => {
                     const isDeleted = !!s.deletedAt;
-                    const optedOutAirports = parseOptOutAirports(s.remarks);
-                    const isOptedOutOfCurrentAirport = currentAirport && optedOutAirports.includes(currentAirport);
+                    const excludedAirports = s.excludedAirports || [];
+                    const isOptedOutOfCurrentAirport = currentAirport && excludedAirports.includes(currentAirport);
                     const rowClassName = isDeleted ? "opacity-50" : isOptedOutOfCurrentAirport ? "opacity-40 bg-muted/30" : "";
                     
                     return (
@@ -517,8 +517,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                   ? s.selectedAirports
                                   : eventAirports;
                                 
-                                // Parse opted-out airports from remarks
-                                const optedOutAirports = parseOptOutAirports(s.remarks);
+                                // Get excluded airports
+                                const allExcludedAirports = s.excludedAirports || [];
                                 
                                 // Determine which airports user can theoretically staff
                                 const canStaffAirports = s.airportEndorsements 
@@ -532,14 +532,14 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                 
                                 return (
                                   <div className="flex flex-wrap gap-1">
-                                    {/* Show selected (not opted-out) airports */}
+                                    {/* Show selected (not excluded) airports */}
                                     {signupAirports.map((airport) => {
                                       const airportEndorsement = s.airportEndorsements?.[airport];
                                       const hasEndorsementData = airportEndorsement && airportEndorsement.group;
-                                      const isOptedOut = optedOutAirports.includes(airport);
+                                      const isExcluded = allExcludedAirports.includes(airport);
                                       
-                                      // Skip if opted out (will be shown separately)
-                                      if (isOptedOut) return null;
+                                      // Skip if excluded (will be shown separately)
+                                      if (isExcluded) return null;
                                       
                                       return hasEndorsementData ? (
                                         <TooltipProvider key={airport}>
@@ -599,8 +599,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       );
                                     })}
                                     
-                                    {/* Show opted-out airports with different styling */}
-                                    {optedOutAirports.map((airport) => {
+                                    {/* Show excluded airports with different styling */}
+                                    {allExcludedAirports.map((airport) => {
                                       // Only show if they can staff this airport
                                       if (!canStaffAirports.includes(airport)) return null;
                                       
@@ -640,7 +640,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                                                 {/* Exclusion Warning */}
                                                 <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1.5 rounded border border-red-100 dark:border-red-800">
-                                                  Via <code className="font-mono bg-red-100 dark:bg-red-900/40 px-1 rounded">!{airport}</code> in RMKs ausgeschlossen
+                                                  Vom Lotsen ausgeschlossen
                                                 </div>
 
                                                 {/* Restrictions */}

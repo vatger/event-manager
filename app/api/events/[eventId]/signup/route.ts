@@ -68,6 +68,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
       usercreated = true
     }
 
+    // Validate excludedAirports
+    if (body.excludedAirports !== null && body.excludedAirports !== undefined) {
+      if (!Array.isArray(body.excludedAirports)) {
+        return NextResponse.json({ error: "excludedAirports must be an array or null" }, { status: 400 });
+      }
+      // Validate all items are strings with 4 characters (ICAO codes)
+      for (const airport of body.excludedAirports) {
+        if (typeof airport !== 'string' || airport.length !== 4) {
+          return NextResponse.json({ 
+            error: "excludedAirports must contain only valid 4-character ICAO codes" 
+          }, { status: 400 });
+        }
+      }
+    }
+
     // Check if signup is after deadline
     const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
 
@@ -79,6 +94,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
         breakrequests: body.breakrequests ?? null,
         preferredStations: body.preferredStations ?? null,
         remarks: body.remarks ?? null,
+        excludedAirports: body.excludedAirports ?? null,
         signedUpAfterDeadline: !!(isAfterDeadline && !isAdmin),
       },
     });

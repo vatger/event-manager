@@ -1,5 +1,4 @@
 import { SignupTableEntry } from "./cache/types";
-import { parseOptOutAirports } from "./multiAirport";
 
 /**
  * Generate CSV content from signup data
@@ -21,8 +20,8 @@ export function generateSignupCSV(
     : ["Name", "CID", "Group", "Email", "Preferred Stations", "Remarks", "Airports", "Status"];
 
   const rows = signups.map((signup) => {
-    const optedOut = parseOptOutAirports(signup.remarks || "");
-    const isOptedOut = selectedAirport && optedOut.includes(selectedAirport);
+    const excludedAirports = signup.excludedAirports || [];
+    const isOptedOut = selectedAirport && excludedAirports.includes(selectedAirport);
 
     let group = "UNSPEC";
     let airports = "";
@@ -39,7 +38,7 @@ export function generateSignupCSV(
       const staffedAirports: string[] = [];
       if (signup.airportEndorsements) {
         Object.entries(signup.airportEndorsements).forEach(([airport, endorsement]) => {
-          if (endorsement?.group && !optedOut.includes(airport)) {
+          if (endorsement?.group && !excludedAirports.includes(airport)) {
             staffedAirports.push(airport);
           }
         });

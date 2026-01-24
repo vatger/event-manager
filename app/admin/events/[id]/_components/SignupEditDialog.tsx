@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import AvailabilityEditor, { AvailabilitySelectorHandle } from "@/components/AvailabilitySelector";
 import { Signup, TimeRange } from "@/types";
 import { useUser } from "@/hooks/useUser";
@@ -14,6 +15,9 @@ import { AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Tooltip } from "@radix-ui/react-tooltip";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { parseEventAirports, fetchAirportEndorsements, getExcludedAirports } from "@/lib/multiAirport";
+import { EndorsementResponse } from "@/lib/endorsements/types";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 export type SignupRow = Signup;
 
@@ -22,6 +26,8 @@ export type EventRef = {
   name?: string;
   startTime: string;
   endTime: string;
+  airports?: string | string[]; // Multi-airport support
+  firCode?: string; // FIR code for endorsement checking
 };
 
 function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
@@ -50,6 +56,7 @@ type SignupPayload = {
   };
   preferredStations?: string;
   remarks?: string;
+  excludedAirports?: string[]; // Excluded airports
   userCID?: number; // optional für Admins
 };
 
@@ -68,22 +75,73 @@ export default function SignupEditDialog({
   onSaved?: () => void;
   onDeleted?: () => void;
 }) {
-  const { canInOwnFIR } = useUser();
+  const { canInOwnFIR, user } = useUser();
 
   const avRef = useRef<AvailabilitySelectorHandle>(null);
   const [preferredStations, setPreferredStations] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [excludedAirports, setExcludedAirports] = useState<string[]>([]);
   const [cidInput, setCidInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>>({});
+  const [loadingEndorsements, setLoadingEndorsements] = useState(false);
+  
+  // Get event airports as array
+  const eventAirports = useMemo(() => {
+    return parseEventAirports(event.airports);
+  }, [event.airports]);
 
   // Hydration für bestehende Signups
   useEffect(() => {
     if (!signup) return;
     setPreferredStations(signup.preferredStations || "");
     setRemarks(signup.remarks || "");
+    setExcludedAirports(
+      Array.isArray(signup.excludedAirports) ? signup.excludedAirports : []
+    );
   }, [signup]);
+  
+  // Fetch endorsements for all airports to determine which ones user can staff
+  useEffect(() => {
+    const userCID = signup?.user?.cid || signup?.userCID;
+    const userRating = signup?.user?.rating;
+    
+    if (!userCID || !userRating || eventAirports.length === 0 || !event.firCode) return;
+    
+    const loadEndorsements = async () => {
+      setLoadingEndorsements(true);
+      
+      try {
+        const endorsements = await fetchAirportEndorsements(
+          eventAirports,
+          Number(userCID),
+          userRating,
+          event.firCode
+        );
+        
+        setAirportEndorsements(endorsements);
+      } catch (error) {
+        console.error("Error fetching airport endorsements:", error);
+      } finally {
+        setLoadingEndorsements(false);
+      }
+    };
+    
+    loadEndorsements();
+  }, [signup, eventAirports, event.firCode]);
+  
+  // Toggle airport exclusion
+  const toggleAirportExclusion = (airport: string) => {
+    setExcludedAirports((prev) => {
+      if (prev.includes(airport)) {
+        return prev.filter((a) => a !== airport);
+      } else {
+        return [...prev, airport];
+      }
+    });
+  };
 
   // 🧩 SAVE / CREATE
   async function saveChanges() {
@@ -97,6 +155,7 @@ export default function SignupEditDialog({
         },
         preferredStations,
         remarks,
+        excludedAirports,
       };
 
       // Admin darf userCID mitgeben (neuer Signup)
@@ -215,6 +274,7 @@ export default function SignupEditDialog({
             availability: signup.availability,
             preferredStations: signup.preferredStations,
             remarks: signup.remarks,
+            excludedAirports: signup.excludedAirports,
             restore: true, // Special flag to restore
           }),
         }
@@ -313,6 +373,97 @@ export default function SignupEditDialog({
               innerRef={avRef}
             />
           </div>
+          
+          {/* 🔹 Airport Selection for Multi-Airport Events */}
+          {eventAirports.length > 1 && signup && (
+            <div className="flex flex-col gap-2">
+              <Label>Airport-Auswahl</Label>
+              <div className="space-y-3 border border-gray-200 dark:border-gray-800 rounded-lg p-3 bg-card">
+                {loadingEndorsements ? (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Lade Endorsements...
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {eventAirports.map((airport) => {
+                      const allExcluded = getExcludedAirports(excludedAirports);
+                      const endorsementData = airportEndorsements[airport];
+                      const canStaff = endorsementData?.canStaff || false;
+                      const endorsement = endorsementData?.endorsement;
+                      const isExcluded = allExcluded.includes(airport);
+                      
+                      return (
+                        <button
+                          key={airport}
+                          type="button"
+                          onClick={() => {
+                            if (canStaff) {
+                              toggleAirportExclusion(airport);
+                            }
+                          }}
+                          disabled={!canStaff}
+                          className={`w-full flex items-center gap-2 p-2 rounded border transition-colors text-left text-sm ${
+                            canStaff 
+                              ? isExcluded 
+                                ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 cursor-pointer'
+                                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 cursor-pointer'
+                              : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 cursor-not-allowed opacity-60'
+                          }`}
+                        >
+                          <div className={`h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            canStaff 
+                              ? isExcluded 
+                                ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300'
+                                : 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+                          }`}>
+                            {canStaff ? (isExcluded ? '✗' : '✓') : '○'}
+                          </div>
+                          
+                          <div className="flex-1">
+                            <span className={`font-medium ${
+                              canStaff 
+                                ? isExcluded 
+                                  ? 'text-orange-800 dark:text-orange-300'
+                                  : 'text-green-800 dark:text-green-300'
+                                : 'text-gray-600 dark:text-gray-500'
+                            }`}>
+                              {airport}
+                            </span>
+                            {endorsement?.group && (
+                              <Badge 
+                                variant="outline" 
+                                className="ml-2 text-xs"
+                              >
+                                {endorsement.group}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className={`text-xs px-2 py-0.5 rounded ${
+                            canStaff 
+                              ? isExcluded 
+                                ? 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300'
+                                : 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                          }`}>
+                            {canStaff ? (isExcluded ? 'Ausgeschlossen' : 'Aktiv') : 'Keine Berechtigung'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  Klicke auf einen Airport, um ihn ein- oder auszuschließen.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* 🔹 Desired Position */}
           <div className="flex flex-col gap-2">
