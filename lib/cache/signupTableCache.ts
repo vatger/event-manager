@@ -111,8 +111,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         const selectedAirports = computeSelectedAirportsSync(
           eventAirportsList,
           airportEndorsements,
-          excludedAirports,
-          s.remarks
+          excludedAirports
         );
 
         return {

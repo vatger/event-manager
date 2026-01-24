@@ -32,7 +32,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  parseOptOutAirports,
   getHighestEndorsementGroup,
   getAirportEndorsementGroup,
   getAirportRestrictions,
@@ -517,10 +516,8 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                   ? s.selectedAirports
                                   : eventAirports;
                                 
-                                // Get excluded airports from both excludedAirports field and legacy remarks
-                                const excludedFromField = s.excludedAirports || [];
-                                const optedOutFromRemarks = parseOptOutAirports(s.remarks);
-                                const allExcludedAirports = [...new Set([...excludedFromField, ...optedOutFromRemarks])];
+                                // Get excluded airports
+                                const allExcludedAirports = s.excludedAirports || [];
                                 
                                 // Determine which airports user can theoretically staff
                                 const canStaffAirports = s.airportEndorsements 
@@ -608,7 +605,6 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       
                                       const airportEndorsement = s.airportEndorsements?.[airport];
                                       const hasEndorsementData = airportEndorsement && airportEndorsement.group;
-                                      const wasExcludedViaRemarks = optedOutFromRemarks.includes(airport);
                                       
                                       return hasEndorsementData ? (
                                         <TooltipProvider key={airport}>
@@ -643,10 +639,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
 
                                                 {/* Exclusion Warning */}
                                                 <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1.5 rounded border border-red-100 dark:border-red-800">
-                                                  {wasExcludedViaRemarks 
-                                                    ? <>Via <code className="font-mono bg-red-100 dark:bg-red-900/40 px-1 rounded">!{airport}</code> in RMKs ausgeschlossen</>
-                                                    : 'Vom Lotsen ausgeschlossen'
-                                                  }
+                                                  Vom Lotsen ausgeschlossen
                                                 </div>
 
                                                 {/* Restrictions */}

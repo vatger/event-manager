@@ -184,7 +184,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     }
 
     // Calculate airports based on endorsements and exclusions for validation
-    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, excludedAirports, remarks);
+    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, excludedAirports);
     
     console.log("[SignupForm] Selected airports for validation:", selectedAirports);
     
@@ -363,7 +363,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             ) : (
               <div className="space-y-3">
                 {eventAirports.map((airport) => {
-                  const allExcluded = getExcludedAirports(excludedAirports, remarks);
+                  const allExcluded = getExcludedAirports(excludedAirports);
                   const endorsementData = airportEndorsements[airport];
                   const canStaff = endorsementData?.canStaff || false;
                   const endorsement = endorsementData?.endorsement;

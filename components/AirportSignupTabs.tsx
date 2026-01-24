@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { SignupTableEntry } from "@/lib/cache/types";
 import { Plane } from "lucide-react";
-import { parseOptOutAirports } from "@/lib/multiAirport";
 
 export interface AirportSignupTabsRef {
   reload: () => void;
@@ -142,10 +141,8 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
     signups.forEach(signup => {
       if (signup.deletedAt) return;
 
-      // Get excluded airports from both excludedAirports field and legacy remarks
-      const excludedFromField = signup.excludedAirports || [];
-      const optedOutFromRemarks = parseOptOutAirports(signup.remarks || "");
-      const allExcluded = [...new Set([...excludedFromField, ...optedOutFromRemarks])];
+      // Get excluded airports from excludedAirports field
+      const allExcluded = signup.excludedAirports || [];
       
       const endorsements = signup.airportEndorsements || {};
 
@@ -166,21 +163,16 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
   // Filter signups by airport
   const getSignupsForAirport = (airport: string) => {
     // Include users who can theoretically staff the airport (have endorsement),
-    // even if they opted out via !ICAO or excludedAirports; sort opted-out to the end
+    // even if they opted out via excludedAirports; sort opted-out to the end
     const list = signups.filter(signup => {
       const endorsement = signup.airportEndorsements?.[airport];
       return !!endorsement?.group; // can staff this airport
     });
 
     return list.sort((a, b) => {
-      // Get excluded airports from both sources
-      const aExcludedFromField = a.excludedAirports || [];
-      const aOptedOutFromRemarks = parseOptOutAirports(a.remarks || "");
-      const aAllExcluded = [...new Set([...aExcludedFromField, ...aOptedOutFromRemarks])];
-      
-      const bExcludedFromField = b.excludedAirports || [];
-      const bOptedOutFromRemarks = parseOptOutAirports(b.remarks || "");
-      const bAllExcluded = [...new Set([...bExcludedFromField, ...bOptedOutFromRemarks])];
+      // Get excluded airports
+      const aAllExcluded = a.excludedAirports || [];
+      const bAllExcluded = b.excludedAirports || [];
       
       const aOpted = aAllExcluded.includes(airport) ? 1 : 0;
       const bOpted = bAllExcluded.includes(airport) ? 1 : 0;
