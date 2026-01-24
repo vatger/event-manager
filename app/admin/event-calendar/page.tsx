@@ -19,9 +19,10 @@ import {
   Ban,
   Clock,
   Pencil,
+  Trash2,
   TrashIcon,
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO, getISODay, getDate } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 
@@ -44,6 +45,31 @@ interface BlockedDate {
   description?: string;
 }
 
+// FIR Farben
+const FIR_COLORS = {
+  EDMM: {
+    bg: "bg-blue-100 dark:bg-blue-800",
+    text: "text-blue-700 dark:text-blue-300",
+    hover: "hover:bg-blue-200 dark:hover:bg-blue-700",
+    border: "border-blue-200 dark:border-blue-700",
+    badge: "bg-blue-600 text-white",
+  },
+  EDGG: {
+    bg: "bg-emerald-50 dark:bg-emerald-950",
+    text: "text-emerald-700 dark:text-emerald-300",
+    hover: "hover:bg-emerald-100 dark:hover:bg-emerald-900",
+    border: "border-emerald-200 dark:border-emerald-800",
+    badge: "bg-emerald-600 text-white",
+  },
+  EDWW: {
+    bg: "bg-amber-50 dark:bg-amber-950",
+    text: "text-amber-700 dark:text-amber-300",
+    hover: "hover:bg-amber-100 dark:hover:bg-amber-900",
+    border: "border-amber-200 dark:border-amber-800",
+    badge: "bg-amber-600 text-white",
+  },
+};
+
 export default function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
@@ -54,6 +80,9 @@ export default function EventCalendar() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<number | null>(null);
+  
+  // FIR Filter State
+  const [visibleFIRs, setVisibleFIRs] = useState<Set<string>>(new Set(["EDMM", "EDGG", "EDWW"]));
   
   const { isVATGERLead } = useUser();
   const router = useRouter();
@@ -67,6 +96,19 @@ export default function EventCalendar() {
     reason: "",
     description: "",
   });
+
+  // Toggle FIR visibility
+  const toggleFIR = (fir: string) => {
+    setVisibleFIRs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(fir)) {
+        newSet.delete(fir);
+      } else {
+        newSet.add(fir);
+      }
+      return newSet;
+    });
+  };
 
   // Fetch events and blocked dates
   const fetchCalendarData = useCallback(async () => {
@@ -124,7 +166,9 @@ export default function EventCalendar() {
     return events.filter(event => {
       const eventStart = parseISO(event.startTime);
       const eventEnd = parseISO(event.endTime);
-      return day >= new Date(eventStart.toDateString()) && day <= new Date(eventEnd.toDateString());
+      const isInRange = day >= new Date(eventStart.toDateString()) && day <= new Date(eventEnd.toDateString());
+      const isVisible = visibleFIRs.has(event.firCode);
+      return isInRange && isVisible;
     });
   };
 
@@ -275,6 +319,8 @@ export default function EventCalendar() {
         </Alert>
       )}
 
+      
+
       {/* Calendar Navigation */}
       <Card>
         <CardHeader>
@@ -334,32 +380,35 @@ export default function EventCalendar() {
                         
                         <div className="flex-1 space-y-1 overflow-hidden">
                           {dayBlocked.map((blocked) => (
-                          <div
-                            key={blocked.id}
-                            className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate flex items-center"
-                            title={`Blockiert: ${blocked.reason}`}
-                          >
-                            <Ban className="h-3 w-3 mr-1" />
-                            {blocked.reason}
-                          </div>
-                          ))}
-                          
-                          {dayEvents.slice(0, 2).map((event) => (
                             <div
-                              key={event.id}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/admin/events/${event.id}`);
-                              }}
-                              className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 rounded truncate hover:bg-blue-200 dark:hover:bg-blue-800"
-                              title={event.name}
+                              key={blocked.id}
+                              className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate flex items-center"
+                              title={`Blockiert: ${blocked.reason}`}
                             >
-                              <Badge variant="outline" className="mr-1 px-1 py-0 text-[10px] h-4">
-                                {event.firCode}
-                              </Badge>
-                              {event.name}
+                              <Ban className="h-3 w-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">{blocked.reason}</span>
                             </div>
                           ))}
+                          
+                          {dayEvents.slice(0, 2).map((event) => {
+                            const colors = FIR_COLORS[event.firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                            return (
+                              <div
+                                key={event.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/admin/events/${event.id}`);
+                                }}
+                                className={`text-xs px-1.5 py-0.5 rounded truncate ${colors.bg} ${colors.text} ${colors.hover} flex items-center gap-1`}
+                                title={event.name}
+                              >
+                                <Badge variant="outline" className={`px-1 py-0 text-[10px] h-4 ${colors.badge} border-0`}>
+                                  {event.firCode}
+                                </Badge>
+                                <span className="truncate">{event.name}</span>
+                              </div>
+                            );
+                          })}
                           
                           {dayEvents.length > 2 && (
                             <div className="text-xs text-muted-foreground px-1.5">
@@ -377,6 +426,27 @@ export default function EventCalendar() {
         </CardContent>
       </Card>
 
+      {/* FIR Filter */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">FIR Filter</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(FIR_COLORS).map(([fir, colors]) => (
+              <Button
+                key={fir}
+                variant={visibleFIRs.has(fir) ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleFIR(fir)}
+                className={visibleFIRs.has(fir) ? colors.badge : ""}
+              >
+                {fir}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
       {/* Selected Date Dialog */}
       {selectedDate && (
         <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
@@ -394,24 +464,27 @@ export default function EventCalendar() {
                 <div>
                   <h4 className="font-medium mb-2">Events an diesem Tag:</h4>
                   <div className="space-y-2">
-                    {getEventsForDay(selectedDate).map((event) => (
-                      <div
-                        key={event.id}
-                        onClick={() => router.push(`/admin/events/${event.id}`)}
-                        className="p-3 border rounded-lg hover:bg-accent cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium">{event.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {(new Date(event.startTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z - 
-                              {(new Date(event.endTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z
+                    {getEventsForDay(selectedDate).map((event) => {
+                      const colors = FIR_COLORS[event.firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                      return (
+                        <div
+                          key={event.id}
+                          onClick={() => router.push(`/admin/events/${event.id}`)}
+                          className={`p-3 border rounded-lg cursor-pointer ${colors.border} ${colors.bg} ${colors.hover}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className={`font-medium ${colors.text}`}>{event.name}</div>
+                              <div className="text-sm opacity-80">
+                                {(new Date(event.startTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z - 
+                                {(new Date(event.endTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z
+                              </div>
                             </div>
+                            <Badge className={colors.badge}>{event.firCode}</Badge>
                           </div>
-                          <Badge>{event.firCode}</Badge>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -455,7 +528,7 @@ export default function EventCalendar() {
                                 onClick={() => handleDeleteBlockedDate(blocked.id)}
                                 aria-label="Blockierung löschen"
                               >
-                                <TrashIcon />
+                                <TrashIcon className="h-4 w-4" />
                               </Button>
                             </div>
                           )}
