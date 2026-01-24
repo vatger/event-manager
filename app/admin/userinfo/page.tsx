@@ -292,9 +292,9 @@ export default function UserInfoPage() {
                           {sectors.map((sector) => (
                             <div
                               key={sector}
-                              className="flex items-center p-2 rounded bg-blue-50 border border-blue-200 text-sm"
+                              className="flex items-center p-2 rounded bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-900 text-sm"
                             >
-                              <CheckCircle2 className="w-4 h-4 text-blue-600 mr-2" />
+                              <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-200 mr-2" />
                               <span>{sector}</span>
                             </div>
                           ))}
