@@ -499,7 +499,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Desired Position</Label>
             <Input
-              placeholder="e.g. TWR"
+              placeholder="z.B. DEL ;-)"
               value={desiredPosition}
               onChange={(e) => setDesiredPosition(e.target.value)}
             />
@@ -508,9 +508,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Remarks</Label>
             <Textarea
-              placeholder={eventAirports.length > 1 
-                ? "Bemerkungen (z.B. '!EDDM' um dich von München auszuschließen)..." 
-                : "Some space..."}
+              placeholder="Sonstiges..."
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
               className="min-h-[80px]"
