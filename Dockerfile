@@ -24,8 +24,8 @@ FROM node:20-bookworm-slim AS runner
   
 WORKDIR /app
 
-# Install Prisma CLI and dotenv for running migrations
-RUN npm install -g prisma dotenv
+# Install Prisma CLI for running migrations
+RUN npm install -g prisma
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -36,9 +36,6 @@ COPY docker-entrypoint.sh ./
 
 ENV PORT=8000
 ENV HOSTNAME=0.0.0.0
-
-# Make entrypoint script executable
-RUN chmod +x docker-entrypoint.sh
 
 # Port and start command
 EXPOSE 8000
