@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { de } from "date-fns/locale";
 import { discordBotConfig } from "../config/weeklyEvents.config";
 import prisma from "@/lib/prisma";
+import { formatWeeklyEventsWithPauses } from "@/lib/weeklyEventsFormatter";
 
 /**
  * Discord Bot Command: Weekly Events
@@ -56,7 +57,7 @@ export async function handleWeeklyEventsCommand(
           orderBy: {
             date: "asc",
           },
-          take: 10, // Zeige nächste 10 Termine
+          take: 15, // Zeige nächste 15 Termine
         },
       },
     });
@@ -77,38 +78,60 @@ export async function handleWeeklyEventsCommand(
       return;
     }
 
+    // Formatiere Termine mit PAUSE-Indikatoren
+    const occurrencesWithConfig = weeklyEvent.occurrences.map((occ) => ({
+      id: occ.id,
+      date: occ.date.toISOString(),
+      config: {
+        id: weeklyEvent.id,
+        name: weeklyEvent.name,
+        weekday: weeklyEvent.weekday,
+        weeksOn: weeklyEvent.weeksOn,
+        weeksOff: weeklyEvent.weeksOff,
+        startDate: weeklyEvent.startDate.toISOString(),
+      },
+    }));
+
+    const formattedDates = formatWeeklyEventsWithPauses(occurrencesWithConfig);
+
     // Erstelle Embed mit kommenden Terminen
     const embed = new EmbedBuilder()
       .setColor(0x0099ff)
       .setTitle(`📅 ${weeklyEvent.name}`)
       .setDescription(
-        `Rhythmus: ${weeklyEvent.weeksOn} Woche(n) aktiv, ${weeklyEvent.weeksOff} Woche(n) Pause`
+        `Rhythmus: ${weeklyEvent.weeksOn} Woche(n) Event, ${weeklyEvent.weeksOff} Woche(n) Pause`
       )
       .setTimestamp();
 
-    // Füge Termine als Fields hinzu
-    weeklyEvent.occurrences.forEach((occurrence, index) => {
-      const dateStr = format(parseISO(occurrence.date.toISOString()), "EEEE, dd. MMMM yyyy", {
-        locale: de,
-      });
-      
-      let statusIcon = "📆";
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const occurrenceDate = new Date(occurrence.date);
-      occurrenceDate.setHours(0, 0, 0, 0);
+    // Erstelle formatierte Terminliste
+    let datesList = "";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      if (occurrenceDate.getTime() === today.getTime()) {
-        statusIcon = "🔴 **Heute!**";
-      } else if (occurrenceDate < today) {
-        statusIcon = "✅";
+    formattedDates.forEach((entry, index) => {
+      if (entry.type === "pause") {
+        datesList += `\n*${entry.label}*\n`;
+      } else {
+        const occurrenceDate = new Date(entry.date!);
+        occurrenceDate.setHours(0, 0, 0, 0);
+
+        let prefix = "📆";
+        if (occurrenceDate.getTime() === today.getTime()) {
+          prefix = "🔴";
+          datesList += `**${prefix} ${entry.label} (Heute!)**\n`;
+        } else if (occurrenceDate < today) {
+          prefix = "✅";
+          datesList += `~~${prefix} ${entry.label}~~\n`;
+        } else {
+          datesList += `${prefix} ${entry.label}\n`;
+        }
       }
+    });
 
-      embed.addFields({
-        name: `${index + 1}. ${statusIcon}`,
-        value: dateStr,
-        inline: true,
-      });
+    embed.addFields({
+      name: "Kommende Termine",
+      value: datesList || "Keine kommenden Termine",
+      inline: false,
     });
 
     // Informationen über MyVATSIM und Staffing Status hinzufügen (falls vorhanden)

@@ -6,11 +6,13 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Loader2 } from "lucide-react";
 import { format, isFuture, isPast, isToday } from "date-fns";
 import { de } from "date-fns/locale";
+import { formatWeeklyEventsWithPauses } from "@/lib/weeklyEventsFormatter";
 
 interface WeeklyEventOccurrence {
   id: number;
@@ -19,6 +21,9 @@ interface WeeklyEventOccurrence {
     id: number;
     name: string;
     weekday: number;
+    weeksOn: number;
+    weeksOff: number;
+    startDate: string;
   };
 }
 
@@ -106,43 +111,65 @@ export default function PublicWeeklyEventsPage() {
         </Card>
       ) : (
         <div className="space-y-6">
-          {Object.entries(groupedByEvent).map(([eventName, eventOccurrences]) => (
-            <Card key={eventName}>
-              <CardHeader>
-                <CardTitle>{eventName}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {eventOccurrences.map((occ) => {
-                    const status = getDateStatus(occ.date);
-                    const date = new Date(occ.date);
-                    const weekday = WEEKDAYS[date.getDay()];
+          {Object.entries(groupedByEvent).map(([eventName, eventOccurrences]) => {
+            const config = eventOccurrences[0].config;
+            const formattedDates = formatWeeklyEventsWithPauses(eventOccurrences);
 
-                    return (
-                      <div
-                        key={occ.id}
-                        className="flex items-center justify-between p-3 border rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">
-                            {format(date, "dd.MM.yyyy", { locale: de })}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {weekday}
-                          </p>
+            return (
+              <Card key={eventName}>
+                <CardHeader>
+                  <CardTitle>{eventName}</CardTitle>
+                  <CardDescription>
+                    Rhythmus: {config.weeksOn} Woche(n) Event, {config.weeksOff} Woche(n) Pause
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {formattedDates.map((entry, index) => {
+                      if (entry.type === "pause") {
+                        return (
+                          <div
+                            key={`pause-${index}`}
+                            className="flex items-center justify-center p-3 border-2 border-dashed rounded-lg bg-muted/50"
+                          >
+                            <p className="font-medium text-muted-foreground italic">
+                              {entry.label}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      const status = getDateStatus(entry.date!.toISOString());
+                      const weekday = WEEKDAYS[entry.date!.getDay()];
+
+                      return (
+                        <div
+                          key={`event-${index}`}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div>
+                              <p className="font-medium text-lg">
+                                {entry.formattedDate}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {weekday}
+                              </p>
+                            </div>
+                          </div>
+                          {status.label && (
+                            <Badge variant={status.variant}>
+                              {status.label}
+                            </Badge>
+                          )}
                         </div>
-                        {status.label && (
-                          <Badge variant={status.variant}>
-                            {status.label}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
