@@ -1,57 +1,82 @@
+# ============================================
+# Build Stage
+# ============================================
 FROM node:20-bookworm AS builder
 
 WORKDIR /app
 
+# Native build deps for canvas / node-gyp
+RUN apt-get update && apt-get install -y \
+  python3 \
+  make \
+  g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
 COPY package.json package-lock.json ./
+
+# Install ALL dependencies (needed for build)
 RUN npm ci
 
+# Copy application source
 COPY . .
 
-# Copy Prisma schema and generate client
-COPY prisma ./prisma
-# Dummy DATABASE_URL for Prisma Client generation
+# Generate Prisma client (dummy DB)
 ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
 RUN npx prisma generate
 
-# Next.js Build
+# Build Next.js (standalone output)
 RUN npm run build
 
-# Build artefacts are located in .next/standalone
-# https://nextjs.org/docs/app/api-reference/config/next-config-js/output
 
-# ---- RUNNER ----
+# ============================================
+# Runtime Stage - Slim & Stable
+# ============================================
 FROM node:20-bookworm-slim AS runner
-  
+
+# tini for proper signal handling
+RUN apt-get update && apt-get install -y tini \
+  && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Install Prisma CLI and tsx globally for running migrations and Discord bot
-# tsx is required to run Discord bot TypeScript files
-RUN npm install -g prisma tsx
-
+# Copy Next.js standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+# Prisma (schema + config)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/public ./public
+
+# Discord bot & shared code
 COPY --from=builder /app/discord-bot ./discord-bot
 COPY --from=builder /app/lib ./lib
 COPY --from=builder /app/types ./types
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+# Entrypoint
 COPY docker-entrypoint.sh ./
+RUN chmod +x ./docker-entrypoint.sh
 
-# Install dotenv locally AFTER copying standalone build
-# This ensures dotenv is available for prisma.config.ts
-# Global packages can't share dependencies, so we need dotenv in local node_modules
-RUN npm install --no-save dotenv
+# Install ONLY runtime deps (single layer)
+RUN npm install --omit=dev --no-save \
+  prisma@7.2.0 \
+  tsx@4.20.6 \
+  dotenv@17.2.3 \
+  node-cron@4.2.1 \
+  discord.js@14.25.1 \
+  axios@1.12.2 \
+  date-fns@4.1.0 \
+  && npm cache clean --force \
+  && rm -rf /root/.npm /tmp/*
 
-# Install Discord bot dependencies locally
-# Next.js standalone build only includes deps used by Next.js app
-# Discord bot needs these additional packages
-RUN npm install --no-save node-cron discord.js axios date-fns
+# Runtime ENV
+ENV NODE_ENV=production \
+    PORT=8000 \
+    HOSTNAME=0.0.0.0
 
-ENV PORT=8000
-ENV HOSTNAME=0.0.0.0
-
-# Port and start command
 EXPOSE 8000
-ENTRYPOINT ["./docker-entrypoint.sh"]
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["./docker-entrypoint.sh"]
