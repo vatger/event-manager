@@ -44,6 +44,11 @@ COPY docker-entrypoint.sh ./
 # Global packages can't share dependencies, so we need dotenv in local node_modules
 RUN npm install --no-save dotenv
 
+# Install Discord bot dependencies locally
+# Next.js standalone build only includes deps used by Next.js app
+# Discord bot needs these additional packages
+RUN npm install --no-save node-cron discord.js axios date-fns
+
 ENV PORT=8000
 ENV HOSTNAME=0.0.0.0
 
