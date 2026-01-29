@@ -118,7 +118,7 @@ export default function SignupEditDialog({
           eventAirports,
           Number(userCID),
           userRating,
-          event.firCode
+          event.firCode!
         );
         
         setAirportEndorsements(endorsements);
