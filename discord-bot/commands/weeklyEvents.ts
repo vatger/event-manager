@@ -97,7 +97,7 @@ export async function handleWeeklyEventsCommand(
     // Erstelle Embed mit kommenden Terminen
     const embed = new EmbedBuilder()
       .setColor(0x0099ff)
-      .setTitle(`📅 ${weeklyEvent.name}`)
+      .setTitle(`${weeklyEvent.name}`)
       .setDescription(
         `Rhythmus: ${weeklyEvent.weeksOn} Woche(n) Event, ${weeklyEvent.weeksOff} Woche(n) Pause`
       )
