@@ -24,12 +24,13 @@ FROM node:20-bookworm-slim AS runner
   
 WORKDIR /app
 
-# Install Prisma CLI for running migrations
-RUN npm install -g prisma
+# Install Prisma CLI and dotenv for running migrations
+RUN npm install -g prisma dotenv
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/public ./public
 COPY docker-entrypoint.sh ./
 
