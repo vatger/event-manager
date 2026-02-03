@@ -1,57 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createCanvas, loadImage, registerFont } from 'canvas';
+import satori from 'satori';
+import sharp from 'sharp';
 import { getTemplateConfig, type TemplateType } from '@/app/admin/edmm/cpt-banner/templateConfig';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
-import { existsSync } from 'fs';
-
-// Register fonts once when the module loads
-let fontsRegistered = false;
-
-function ensureFontsRegistered() {
-  if (fontsRegistered) return;
-  
-  try {
-    const publicDir = join(process.cwd(), 'public');
-    const boldPath = join(publicDir, 'fonts', 'Montserrat-Bold.ttf');
-    const extraBoldPath = join(publicDir, 'fonts', 'Montserrat-ExtraBold.ttf');
-
-    console.log('🔍 Checking fonts at:', { publicDir, boldPath, extraBoldPath });
-
-    // Check if fonts exist
-    if (!existsSync(boldPath)) {
-      console.error('❌ Font not found:', boldPath);
-      console.error('📁 Current working directory:', process.cwd());
-      return;
-    }
-    if (!existsSync(extraBoldPath)) {
-      console.error('❌ Font not found:', extraBoldPath);
-      console.error('📁 Current working directory:', process.cwd());
-      return;
-    }
-
-    // Register fonts with the EXACT same names as in the frontend
-    registerFont(boldPath, {
-      family: 'MontserratBold'
-    });
-    
-    registerFont(extraBoldPath, {
-      family: 'MontserratExtraBold'
-    });
-    
-    fontsRegistered = true;
-    console.log('✅ Fonts registered successfully');
-    console.log('📝 Registered font families: MontserratBold, MontserratExtraBold');
-  } catch (error) {
-    console.error('❌ Error registering fonts:', error);
-    console.error('📁 Current working directory:', process.cwd());
-  }
-}
+import React from 'react';
 
 /**
- * API Route: Generate CPT Banner Dynamically
+ * API Route: Generate CPT Banner Dynamically with Satori + Sharp
  * 
- * This endpoint generates a banner image on-the-fly based on URL parameters.
- * No file storage needed - banners are generated on each request.
+ * This endpoint generates a PNG banner image on-the-fly based on URL parameters.
+ * Uses Satori for SVG generation and Sharp for PNG conversion.
  * 
  * Query Parameters:
  * - template: Template type (EDDMTWR, EDDNTWR, APP, CTR)
@@ -64,11 +23,37 @@ function ensureFontsRegistered() {
  * /api/cpt-banner/generate?template=APP&name=Peter%20Zwegat&date=2024-12-15&time=12:34
  */
 
+// Cache fonts in memory
+let fontCache: { bold: ArrayBuffer; extraBold: ArrayBuffer } | null = null;
+
+async function loadFonts() {
+  if (fontCache) return fontCache;
+
+  try {
+    const publicDir = join(process.cwd(), 'public');
+    const boldPath = join(publicDir, 'fonts', 'Montserrat-Bold.ttf');
+    const extraBoldPath = join(publicDir, 'fonts', 'Montserrat-ExtraBold.ttf');
+
+    const [bold, extraBold] = await Promise.all([
+      readFile(boldPath),
+      readFile(extraBoldPath),
+    ]);
+
+    fontCache = {
+      bold: bold.buffer,
+      extraBold: extraBold.buffer,
+    };
+
+    console.log('✅ Fonts loaded successfully');
+    return fontCache;
+  } catch (error) {
+    console.error('❌ Error loading fonts:', error);
+    throw error;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Ensure fonts are registered
-    ensureFontsRegistered();
-
     const searchParams = request.nextUrl.searchParams;
     
     // Extract parameters
@@ -102,128 +87,171 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Create canvas
-    const canvas = createCanvas(1920, 1080);
-    const ctx = canvas.getContext('2d');
+    // Load fonts
+    const fonts = await loadFonts();
 
-    // Try to load and draw template background
-    const templatePath = join(process.cwd(), 'public', config.templatePath);
-    try {
-      const bgImage = await loadImage(templatePath);
-      ctx.drawImage(bgImage, 0, 0, 1920, 1080);
-    } catch {
-      // Fallback: draw a gradient background if template doesn't exist
-      const gradient = ctx.createLinearGradient(0, 0, 1920, 1080);
-      if (config.fallbackGradient) {
-        gradient.addColorStop(0, config.fallbackGradient.start);
-        gradient.addColorStop(1, config.fallbackGradient.end);
-      } else {
-        gradient.addColorStop(0, "#134e4a");
-        gradient.addColorStop(1, "#14b8a6");
-      }
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 1920, 1080);
+    // Prepare weekday text
+    let weekdayText = '';
+    if (date && config.weekday.style.size > 0) {
+      const dateObj = new Date(date);
+      const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      weekdayText = weekdays[dateObj.getDay()];
     }
 
-    // Disable shadows
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-
-    // Helper function to get the correct font family
-    const getFontFamily = (configFont: string, isBold: boolean): string => {
-      // If the config specifies MontserratBold or MontserratExtraBold, use it directly
-      if (configFont === 'MontserratBold' || configFont === 'MontserratExtraBold') {
-        return configFont;
+    // Prepare date/time text
+    let dateTimeText = '';
+    if (date) {
+      const dateObj = new Date(date);
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+      dateTimeText = `${day}.${month}.${year}`;
+    }
+    if (time) {
+      if (dateTimeText && config.time.separator) {
+        dateTimeText += config.time.separator;
       }
-      
-      // Otherwise, map based on bold flag
-      return isBold ? 'MontserratBold' : 'MontserratExtraBold';
+      dateTimeText += `${time.replace(':', '')}z`;
+    }
+
+    // Helper function to get font weight
+    const getFontWeight = (configFont: string, isBold: boolean): number => {
+      if (configFont === 'MontserratExtraBold') return 800;
+      if (configFont === 'MontserratBold') return 700;
+      return isBold ? 700 : 800;
     };
 
-    // Draw controller name
+    // Prepare background style
+    let backgroundStyle: string;
+    if (config.templatePath) {
+      // Use absolute URL for background image
+      const baseUrl = request.nextUrl.origin;
+      backgroundStyle = `url(${baseUrl}/${config.templatePath})`;
+    } else {
+      const startColor = config.fallbackGradient?.start || '#134e4a';
+      const endColor = config.fallbackGradient?.end || '#14b8a6';
+      backgroundStyle = `linear-gradient(to bottom right, ${startColor}, ${endColor})`;
+    }
+
+    // Build children elements
+    const children: React.ReactNode[] = [];
+
+    // Controller Name
     if (name) {
-      const nameConfig = config.name;
-      ctx.fillStyle = nameConfig.style.color;
-      ctx.textAlign = (nameConfig.position.align || "left") as CanvasTextAlign;
-      
-      // Use the font family from config or map it
-      const fontFamily = getFontFamily(nameConfig.style.font, nameConfig.style.bold! || false);
-      ctx.font = `${nameConfig.style.size-4}px ${fontFamily}`;
-      
-      const nameText = (nameConfig.prefix || "") + name;
-      ctx.fillText(nameText, nameConfig.position.x, nameConfig.position.y);
+      children.push(
+        React.createElement('div', {
+          key: 'name',
+          style: {
+            position: 'absolute',
+            left: `${config.name.position.x}px`,
+            top: `${config.name.position.y - config.name.style.size + 4}px`,
+            color: config.name.style.color,
+            fontSize: `${config.name.style.size - 4}px`,
+            fontWeight: getFontWeight(config.name.style.font, config.name.style.bold || false),
+            textAlign: config.name.position.align || 'left',
+            display: 'flex',
+          },
+        }, (config.name.prefix || '') + name)
+      );
     }
 
-    // Draw weekday
-    if (date) {
-      const weekdayConfig = config.weekday;
-      if (weekdayConfig.style.size > 0) {
-        const dateObj = new Date(date);
-        const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const weekday = weekdays[dateObj.getDay()];
-        
-        ctx.fillStyle = weekdayConfig.style.color;
-        ctx.textAlign = (weekdayConfig.position.align || "left") as CanvasTextAlign;
-        
-        const fontFamily = getFontFamily(weekdayConfig.style.font, weekdayConfig.style.bold! ||false);
-        ctx.font = `${weekdayConfig.style.size}px ${fontFamily}`;
-        
-        ctx.fillText(weekday, weekdayConfig.position.x, weekdayConfig.position.y);
-      }
+    // Weekday
+    if (weekdayText) {
+      children.push(
+        React.createElement('div', {
+          key: 'weekday',
+          style: {
+            position: 'absolute',
+            left: `${config.weekday.position.x}px`,
+            top: `${config.weekday.position.y - config.weekday.style.size}px`,
+            color: config.weekday.style.color,
+            fontSize: `${config.weekday.style.size}px`,
+            fontWeight: getFontWeight(config.weekday.style.font, config.weekday.style.bold || false),
+            textAlign: config.weekday.position.align || 'left',
+            display: 'flex',
+          },
+        }, weekdayText)
+      );
     }
 
-    // Draw date and time
-    if (date || time) {
-      const dateConfig = config.date;
-      const timeConfig = config.time;
-      
-      let dateTimeText = "";
-      
-      if (date) {
-        const dateObj = new Date(date);
-        const day = String(dateObj.getDate()).padStart(2, '0');
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const year = dateObj.getFullYear();
-        dateTimeText = `${day}.${month}.${year}`;
-      }
-      
-      // Add time with separator
-      if (time) {
-        if (dateTimeText && timeConfig.separator) {
-          dateTimeText += timeConfig.separator;
-        }
-        dateTimeText += `${time.replace(':', '')}z`;
-      }
-      
-      if (dateTimeText) {
-        ctx.fillStyle = dateConfig.style.color;
-        ctx.textAlign = (dateConfig.position.align || "left") as CanvasTextAlign;
-        
-        const fontFamily = getFontFamily(dateConfig.style.font, dateConfig.style.bold! || false);
-        ctx.font = `${dateConfig.style.size}px ${fontFamily}`;
-        
-        ctx.fillText(dateTimeText, dateConfig.position.x, dateConfig.position.y);
-      }
+    // Date/Time
+    if (dateTimeText) {
+      children.push(
+        React.createElement('div', {
+          key: 'datetime',
+          style: {
+            position: 'absolute',
+            left: `${config.date.position.x}px`,
+            top: `${config.date.position.y - config.date.style.size}px`,
+            color: config.date.style.color,
+            fontSize: `${config.date.style.size}px`,
+            fontWeight: getFontWeight(config.date.style.font, config.date.style.bold || false),
+            textAlign: config.date.position.align || 'left',
+            display: 'flex',
+          },
+        }, dateTimeText)
+      );
     }
 
-    // Draw station if provided and configured
+    // Station
     if (station && config.station) {
-      const stationConfig = config.station;
-      ctx.fillStyle = stationConfig.style.color;
-      ctx.textAlign = (stationConfig.position.align || "left") as CanvasTextAlign;
-      
-      const fontFamily = getFontFamily(stationConfig.style.font, stationConfig.style.bold! || false);
-      ctx.font = `${stationConfig.style.size}px ${fontFamily}`;
-      
-      ctx.fillText(station, stationConfig.position.x, stationConfig.position.y);
+      children.push(
+        React.createElement('div', {
+          key: 'station',
+          style: {
+            position: 'absolute',
+            left: `${config.station.position.x}px`,
+            top: `${config.station.position.y - config.station.style.size}px`,
+            color: config.station.style.color,
+            fontSize: `${config.station.style.size}px`,
+            fontWeight: getFontWeight(config.station.style.font, config.station.style.bold || false),
+            textAlign: config.station.position.align || 'left',
+            display: 'flex',
+          },
+        }, station)
+      );
     }
 
-    // Convert canvas to PNG buffer
-    const buffer = canvas.toBuffer('image/png');
+    // Build the SVG using Satori
+    const svg = await satori(
+      React.createElement('div', {
+        style: {
+          width: '1920px',
+          height: '1080px',
+          display: 'flex',
+          position: 'relative',
+          backgroundImage: backgroundStyle,
+          backgroundSize: 'cover',
+          fontFamily: 'Montserrat',
+        },
+      }, children),
+      {
+        width: 1920,
+        height: 1080,
+        fonts: [
+          {
+            name: 'Montserrat',
+            data: fonts.bold,
+            weight: 700,
+            style: 'normal',
+          },
+          {
+            name: 'Montserrat',
+            data: fonts.extraBold,
+            weight: 800,
+            style: 'normal',
+          },
+        ],
+      }
+    );
 
-    // Return the image
-    return new NextResponse(new Uint8Array(buffer), {
+    // Convert SVG to PNG using sharp
+    const pngBuffer = await sharp(Buffer.from(svg))
+      .png()
+      .toBuffer();
+
+    // Return the PNG image
+    return new NextResponse(new Uint8Array(pngBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',
