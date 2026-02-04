@@ -45,7 +45,7 @@ RUN npm run build
 RUN rm -rf node_modules
 
 # ===============================
-# 3. Runtime (OPTIMIERT)
+# 3. Runtime
 # ===============================
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -59,21 +59,22 @@ RUN apt-get update && apt-get install -y \
 
 RUN groupadd -r nextjs && useradd -r -g nextjs nextjs
 
-# Standalone Output (Next.js kopiert bereits minimale deps!)
+# Standalone
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 
-# Prisma files
+# Prisma
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nextjs /app/prisma.config.ts ./prisma.config.ts
 
-# NUR die nötigen node_modules für Prisma Migrations
+# ALLE Prisma-bezogenen Dependencies
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules/prisma ./node_modules/prisma
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.bin ./node_modules/.bin
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules/dotenv ./node_modules/dotenv
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/valibot ./node_modules/valibot
 
 # Start Script
 COPY --chown=nextjs:nextjs start.sh ./
