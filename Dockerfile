@@ -45,21 +45,22 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd -r nextjs && useradd -r -g nextjs nextjs
-
 # Standalone Output
-COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nextjs /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# Prisma Schema
-COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
+# Prisma Schema + Generated Client
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Prisma Dependencies (aus builder, wo sie generiert wurden!)
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# Prisma CLI global installieren (für Migrationen)
+RUN npm install -g prisma
+
+# User Setup
+RUN groupadd -r nextjs && useradd -r -g nextjs nextjs
+RUN chown -R nextjs:nextjs /app
 
 # Start Script
 COPY --chown=nextjs:nextjs start.sh ./
