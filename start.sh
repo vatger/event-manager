@@ -1,30 +1,9 @@
 #!/bin/sh
 set -e
 
-echo "Starting application..."
+echo "🔄 Running database migrations..."
+node_modules/.bin/prisma migrate deploy
 
-# Check if DATABASE_URL is set
-if [ -z "$DATABASE_URL" ]; then
-  echo "WARNING: DATABASE_URL is not set. Skipping migrations."
-else
-  echo "Running Prisma migrations..."
-  if npx prisma migrate deploy; then
-    echo "✓ Migrations completed successfully. Database is up to date."
-  else
-    echo "✗ ERROR: Failed to run migrations. Please check the DATABASE_URL and database connectivity."
-    exit 1
-  fi
-fi
-
-# Start Discord bot if DISCORD_BOT_TOKEN is set
-if [ -n "$DISCORD_BOT_TOKEN" ]; then
-  echo "Starting Discord bot..."
-  tsx discord-bot/index.ts &
-  echo "✓ Discord bot started (PID: $!)"
-else
-  echo "ℹ DISCORD_BOT_TOKEN not set. Discord bot will not start."
-fi
-
-# Start the Next.js application
-echo "Starting Node.js server..."
+echo "✅ Migrations completed"
+echo "🚀 Starting application..."
 exec node server.js
