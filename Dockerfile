@@ -11,7 +11,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+
+# Production deps (inkl. dotenv!)
+RUN npm ci --omit=dev
+
 
 # ===============================
 # 2. Build
@@ -33,7 +38,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # ===============================
-# 3. Runtime (KLEINSTES Image)
+# 3. Runtime
 # ===============================
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -45,9 +50,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Prisma CLI global installieren (~40MB)
-RUN npm install -g prisma@7.2.0 && npm cache clean --force
-
 RUN groupadd -r nextjs && useradd -r -g nextjs nextjs
 
 # Standalone Output
@@ -55,10 +57,12 @@ COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 
-# Prisma Schema + Generated Client
+# Prisma files
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nextjs /app/prisma.config.ts ./prisma.config.ts
+
+# Production node_modules (mit dotenv, prisma, tsx!)
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules ./node_modules
 
 # Start Script
 COPY --chown=nextjs:nextjs start.sh ./
