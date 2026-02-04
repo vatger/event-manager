@@ -21,7 +21,7 @@ ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
 RUN npx prisma generate
 
 # ===============================
-# 2. Build (mit ALLEN Dependencies!)
+# 2. Build
 # ===============================
 FROM node:20-slim AS builder
 WORKDIR /app
@@ -33,8 +33,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
-
-# ALLE Dependencies für Build (inkl. devDependencies!)
 RUN npm ci
 
 COPY . .
@@ -43,8 +41,11 @@ ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
 RUN npx prisma generate
 RUN npm run build
 
+# Cleanup nach Build
+RUN rm -rf node_modules
+
 # ===============================
-# 3. Runtime
+# 3. Runtime (OPTIMIERT)
 # ===============================
 FROM node:20-slim AS runner
 WORKDIR /app
@@ -58,7 +59,7 @@ RUN apt-get update && apt-get install -y \
 
 RUN groupadd -r nextjs && useradd -r -g nextjs nextjs
 
-# Standalone Output
+# Standalone Output (Next.js kopiert bereits minimale deps!)
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nextjs /app/public ./public
@@ -67,8 +68,12 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nextjs /app/prisma.config.ts ./prisma.config.ts
 
-# Production node_modules (aus deps, nicht builder!)
-COPY --from=deps --chown=nextjs:nextjs /app/node_modules ./node_modules
+# NUR die nötigen node_modules für Prisma Migrations
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.bin ./node_modules/.bin
+COPY --from=deps --chown=nextjs:nextjs /app/node_modules/dotenv ./node_modules/dotenv
 
 # Start Script
 COPY --chown=nextjs:nextjs start.sh ./
