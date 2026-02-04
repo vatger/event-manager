@@ -23,8 +23,9 @@ import React from 'react';
  * /api/cpt-banner/generate?template=APP&name=Peter%20Zwegat&date=2024-12-15&time=12:34
  */
 
-// Cache fonts in memory
+// Cache fonts AND background images in memory
 let fontCache: { bold: ArrayBuffer; extraBold: ArrayBuffer } | null = null;
+let backgroundCache: Map<string, string> = new Map();
 
 async function loadFonts() {
   if (fontCache) return fontCache;
@@ -48,6 +49,41 @@ async function loadFonts() {
     return fontCache;
   } catch (error) {
     console.error('❌ Error loading fonts:', error);
+    throw error;
+  }
+}
+
+async function loadBackgroundAsBase64(templatePath: string): Promise<string> {
+  // Check cache first
+  if (backgroundCache.has(templatePath)) {
+    return backgroundCache.get(templatePath)!;
+  }
+
+  try {
+    const publicDir = join(process.cwd(), 'public');
+    const imagePath = join(publicDir, templatePath);
+    
+    // Read the image file
+    const imageBuffer = await readFile(imagePath);
+    
+    // Convert to base64
+    const base64 = imageBuffer.toString('base64');
+    
+    // Determine MIME type based on file extension
+    const ext = templatePath.toLowerCase().split('.').pop();
+    const mimeType = ext === 'png' ? 'image/png' : 
+                     ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 
+                     'image/png';
+    
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+    
+    // Cache it
+    backgroundCache.set(templatePath, dataUrl);
+    
+    console.log(`✅ Background loaded: ${templatePath}`);
+    return dataUrl;
+  } catch (error) {
+    console.error(`❌ Error loading background ${templatePath}:`, error);
     throw error;
   }
 }
@@ -121,12 +157,20 @@ export async function GET(request: NextRequest) {
       return isBold ? 700 : 800;
     };
 
-    // Prepare background style
+    // Prepare background style - LOAD AS BASE64!
     let backgroundStyle: string;
     if (config.templatePath) {
-      // Use absolute URL for background image
-      const baseUrl = request.nextUrl.origin;
-      backgroundStyle = `url(${baseUrl}/${config.templatePath})`;
+      try {
+        // Load background image as base64 data URL
+        const base64Image = await loadBackgroundAsBase64(config.templatePath);
+        backgroundStyle = `url(${base64Image})`;
+      } catch (error) {
+        console.error('Failed to load background, using gradient fallback:', error);
+        // Fallback to gradient if image loading fails
+        const startColor = config.fallbackGradient?.start || '#134e4a';
+        const endColor = config.fallbackGradient?.end || '#14b8a6';
+        backgroundStyle = `linear-gradient(to bottom right, ${startColor}, ${endColor})`;
+      }
     } else {
       const startColor = config.fallbackGradient?.start || '#134e4a';
       const endColor = config.fallbackGradient?.end || '#14b8a6';
