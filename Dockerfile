@@ -1,5 +1,5 @@
 # ===============================
-# 1. Dependencies
+# 1. Dependencies (Production)
 # ===============================
 FROM node:20-slim AS deps
 WORKDIR /app
@@ -14,12 +14,14 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 
-# Production deps (inkl. dotenv!)
+# NUR Production deps
 RUN npm ci --omit=dev
 
+ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
+RUN npx prisma generate
 
 # ===============================
-# 2. Build
+# 2. Build (mit ALLEN Dependencies!)
 # ===============================
 FROM node:20-slim AS builder
 WORKDIR /app
@@ -30,7 +32,11 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json ./
+
+# ALLE Dependencies für Build (inkl. devDependencies!)
+RUN npm ci
+
 COPY . .
 
 ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
@@ -61,7 +67,7 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nextjs /app/prisma.config.ts ./prisma.config.ts
 
-# Production node_modules (mit dotenv, prisma, tsx!)
+# Production node_modules (aus deps, nicht builder!)
 COPY --from=deps --chown=nextjs:nextjs /app/node_modules ./node_modules
 
 # Start Script
