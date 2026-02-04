@@ -55,12 +55,11 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 # Prisma Schema
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 
-# Prisma aus deps-Stage (komplette node_modules für Prisma)
-COPY --from=deps --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=deps --chown=nextjs:nextjs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=deps --chown=nextjs:nextjs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
-
+# Prisma Dependencies (aus builder, wo sie generiert wurden!)
+COPY --from=builder --chown=nextjs:nextjs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nextjs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nextjs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nextjs /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 # Start Script
 COPY --chown=nextjs:nextjs start.sh ./
