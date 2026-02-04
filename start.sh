@@ -7,8 +7,7 @@ if [ -n "$DATABASE_URL" ]; then
   echo "✅ DATABASE_URL found"
   echo "🔄 Running migrations..."
   
-  # Global installiertes Prisma
-  prisma migrate deploy || echo "⚠️  Migration failed - continuing anyway"
+  npx prisma migrate deploy || echo "⚠️  Migration failed - continuing anyway"
 else
   echo "⚠️  DATABASE_URL not set - skipping migrations"
 fi
