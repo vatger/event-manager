@@ -1,10 +1,15 @@
 "use client";
+
 import React, { useEffect, useState } from 'react';
-import { Calendar, CheckCircle2, Clock, User, MapPin, AlertCircle } from 'lucide-react';
+import { Calendar, CheckCircle2, Clock, User, MapPin, AlertCircle, Bell, BellOff, RefreshCw, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { FIR_STATIONS, getFIRConfig } from '@/config/firStations';
+import { useUser } from '@/hooks/useUser';
 
 interface CPTData {
   id: number;
@@ -23,21 +28,31 @@ interface CPTData {
 interface CPTOverviewProps {
   trainingCPTURL: string;
   bearerToken: string;
-  firCode?: string; // z.B. "EDGG", "EDWW", etc.
+  firCode?: string;
+  userCID?: number;
 }
 
 const CPTOverview: React.FC<CPTOverviewProps> = ({ 
   trainingCPTURL, 
   bearerToken,
-  firCode 
+  firCode,
+  userCID
 }) => {
   const [cptData, setCptData] = useState<CPTData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const { user } = useUser();
 
+  firCode = user?.fir?.code;
+  
   useEffect(() => {
     fetchCPTData();
-  }, []);
+    if (userCID) {
+      fetchNotificationPreference();
+    }
+  }, [firCode]);
 
   const fetchCPTData = async () => {
     try {
@@ -56,14 +71,24 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
       const result = await response.json();
       let filteredData = result.data || [];
 
-      // Filter nach FIR wenn firCode angegeben
+      // Filter by FIR if specified
       if (firCode) {
-        filteredData = filteredData.filter((cpt: CPTData) => 
-          cpt.position.startsWith(firCode)
-        );
+        // Hole die FIR-Konfiguration
+        const firConfig = getFIRConfig(firCode); // z.B. CONFIG['EDMM']
+        
+        if (firConfig && firConfig.stations) {
+          // Extrahiere alle Callsigns aus den Stations
+          const validCallsigns = firConfig.stations.map(station => station.callsign);
+        
+          // Filtere nach Callsigns
+          filteredData = filteredData.filter((cpt: CPTData) => 
+            validCallsigns.includes(cpt.position) || // Exakte Übereinstimmung mit Config
+            cpt.position.startsWith(firCode + '_') // Beginnt mit FIR-Code (z.B. EDMM_WLD_CTR, EDGG_CH_CTR)
+          );
+        }
       }
 
-      // Sortiere nach Datum (nächste zuerst)
+      // Sort by date (upcoming first)
       filteredData.sort((a: CPTData, b: CPTData) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
@@ -77,17 +102,92 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
     }
   };
 
+  const fetchNotificationPreference = async () => {
+    try {
+      const response = await fetch('/api/user/cpt-notifications');
+      if (response.ok) {
+        const data = await response.json();
+        setNotificationsEnabled(data.enabled);
+      }
+    } catch (err) {
+      console.error('Failed to fetch notification preference:', err);
+    }
+  };
+
+  const toggleNotifications = async () => {
+    try {
+      setNotificationsLoading(true);
+      const response = await fetch('/api/user/cpt-notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enabled: !notificationsEnabled }),
+      });
+
+      if (response.ok) {
+        setNotificationsEnabled(!notificationsEnabled);
+        toast.success(
+          !notificationsEnabled 
+            ? 'CPT-Benachrichtigungen aktiviert' 
+            : 'CPT-Benachrichtigungen deaktiviert'
+        );
+      } else {
+        throw new Error('Fehler beim Aktualisieren der Einstellungen');
+      }
+    } catch (err) {
+      toast.error('Fehler beim Aktualisieren der Benachrichtigungseinstellungen');
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('de-DE', {
+    return new Intl.DateTimeFormat('de-GB', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Europe/Berlin',
+      timeZone: 'UTC',
     }).format(date);
+  };
+
+  // Hilfsfunktion um das Template zu bestimmen
+  const getBannerTemplate = (position: string): string | null => {
+    if (position === 'EDDM_TWR') return 'EDDMTWR';
+    if (position === 'EDDM_APP') return 'APP';
+    if (position === 'EDDN_TWR') return 'EDDNTWR';
+    if (position.match(/^EDMM_[A-Z]+_CTR$/)) return 'CTR';
+    return null;
+  };
+
+  const formatDateShort = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+  
+  // Hilfsfunktion um Zeit zu formatieren (HH:MM)
+  const formatTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toTimeString().slice(0, 5); // "HH:MM"
+  };
+  
+  // Banner-URL generieren
+  const generateBannerUrl = (cpt: CPTData): string => {
+    const template = getBannerTemplate(cpt.position);
+    if (!template) return '';
+    
+    const params = new URLSearchParams({
+      template: template,
+      name: cpt.trainee_name,
+      date: formatDateShort(cpt.date),
+      time: formatTime(cpt.date),
+    });
+    
+    return `/api/cpt-banner/generate/?${params.toString()}`;
   };
 
   const isUpcoming = (dateString: string) => {
@@ -104,6 +204,23 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
     if (diffDays === 0) return 'Heute';
     if (diffDays === 1) return 'Morgen';
     return `In ${diffDays} Tagen`;
+  };
+
+  const getStationName = (position: string) => {
+    // Extract FIR code (first 4 characters)
+    if (position.length < 4) return position;
+    
+    const firCode = position.substring(0, 4);
+    const firConfig = getFIRConfig(firCode);
+    if (!firConfig) return position;
+    
+    // Find matching station by checking if position starts with the station's base callsign
+    const station = firConfig.stations.find(s => {
+      const baseCallsign = s.callsign.replace(/_/g, '');
+      return position.startsWith(baseCallsign);
+    });
+    
+    return station ? station.name : position;
   };
 
   if (loading) {
@@ -128,20 +245,72 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
   const upcomingCPTs = cptData.filter(cpt => isUpcoming(cpt.date));
   const pastCPTs = cptData.filter(cpt => !isUpcoming(cpt.date));
 
+  const confirmedCount = upcomingCPTs.filter(cpt => cpt.confirmed).length;
+  const pendingCount = upcomingCPTs.filter(cpt => !cpt.confirmed).length;
+
   return (
     <div className="space-y-6">
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">CPT Übersicht</h2>
-          <p className="text-muted-foreground">
-            Anstehende Checkouts für Event-Marketing
+          <h2 className="text-3xl font-bold tracking-tight">
+            {firCode ? getFIRConfig(firCode)?.fullName : 'Alle FIRs'}
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Anstehende Controller Practical Tests
           </p>
         </div>
-        <Badge variant="outline" className="text-sm">
-          {upcomingCPTs.length} anstehend
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchCPTData}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Aktualisieren
+          </Button>
+          {userCID && (
+            <Button
+              variant={notificationsEnabled ? "default" : "outline"}
+              size="sm"
+              onClick={toggleNotifications}
+              disabled={notificationsLoading}
+            >
+              {notificationsEnabled ? (
+                <Bell className="h-4 w-4 mr-2" />
+              ) : (
+                <BellOff className="h-4 w-4 mr-2" />
+              )}
+              {notificationsEnabled ? 'Benachrichtigungen an' : 'Benachrichtigungen aus'}
+            </Button>
+          )}
+        </div>
       </div>
 
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Anstehende CPTs</CardDescription>
+            <CardTitle className="text-3xl">{upcomingCPTs.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Bestätigt</CardDescription>
+            <CardTitle className="text-3xl text-green-600">{confirmedCount}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Ausstehend</CardDescription>
+            <CardTitle className="text-3xl text-amber-600">{pendingCount}</CardTitle>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* Empty State */}
       {upcomingCPTs.length === 0 && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
@@ -151,114 +320,103 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
         </Alert>
       )}
 
+      {/* CPT List */}
       <div className="space-y-4">
         {upcomingCPTs.map((cpt) => (
           <Card 
             key={cpt.id} 
-            className={`transition-all hover:shadow-lg ${
+            className={`relative transition-all hover:shadow-md ${
               cpt.confirmed 
-                ? 'border-green-500 border-2 bg-green-50/50 dark:bg-green-950/20' 
-                : 'border-amber-500 border-2 bg-amber-50/50 dark:bg-amber-950/20'
+                ? 'border-l-4 border-l-green-500' 
+                : 'border-l-4 border-l-amber-500'
             }`}
           >
-            <CardHeader>
+            <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl flex items-center gap-2">
-                    {cpt.course_name}
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-xl">
+                      {cpt.trainee_name} - {cpt.course_name}
+                    </CardTitle>
                     {cpt.confirmed && (
                       <CheckCircle2 className="h-5 w-5 text-green-600" />
                     )}
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-2">
+                  </div>
+                  <CardDescription className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
-                    {cpt.position}
+                    <span className="font-medium">{cpt.position.split("_")[0]}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span>{getStationName(cpt.position)}</span>
                   </CardDescription>
                 </div>
-                <div className="text-right">
+                <div className="text-right space-y-1">
                   <Badge 
                     variant={cpt.confirmed ? "default" : "secondary"}
-                    className={cpt.confirmed ? "bg-green-600" : "bg-amber-600"}
+                    className={cpt.confirmed ? "bg-green-600 hover:bg-green-700" : "bg-amber-600 hover:bg-amber-700"}
                   >
                     {cpt.confirmed ? 'Bestätigt' : 'Ausstehend'}
                   </Badge>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-xs text-muted-foreground font-medium">
                     {getTimeUntil(cpt.date)}
                   </p>
+                  {getBannerTemplate(cpt.position) && (
+                    <Button asChild className="absolute bottom-5 right-6">
+                      <a 
+                        href={generateBannerUrl(cpt)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ImageIcon className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{formatDate(cpt.date)}</span>
+                {/* Left Column */}
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">{formatDate(cpt.date)}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>Trainee: {cpt.trainee_name}</span>
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <span className="text-muted-foreground">Trainee:</span>
+                      <span className="font-medium ml-1">{cpt.trainee_name}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({cpt.trainee_vatsim_id})</span>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-3">
+                
+                {/* Right Column */}
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>Prüfer: {cpt.examiner_name}</span>
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <span className="text-muted-foreground">ATD:</span>
+                      <span className="font-medium ml-1">{cpt.examiner_name}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({cpt.examiner_vatsim_id})</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span>Lotse: {cpt.local_name}</span>
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div>
+                      <span className="text-muted-foreground">Mentor:</span>
+                      <span className="font-medium ml-1">{cpt.local_name}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({cpt.local_vatsim_id})</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              
-              {cpt.confirmed && (
-                <Alert className="mt-4 border-green-200 bg-green-50 dark:bg-green-950/30">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800 dark:text-green-200">
-                    Dieses CPT ist bestätigt. Bitte Banner vorbereiten und Marketing starten!
-                  </AlertDescription>
-                </Alert>
-              )}
-              {!cpt.confirmed && (
-                <Alert className="mt-4 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
-                  <Clock className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800 dark:text-amber-200">
-                    Dieses CPT wartet noch auf Bestätigung. Banner-Vorbereitung kann beginnen.
-                  </AlertDescription>
-                </Alert>
-              )}
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {pastCPTs.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-xl font-semibold mb-4 text-muted-foreground">
-            Vergangene CPTs
-          </h3>
-          <div className="space-y-2">
-            {pastCPTs.slice(0, 3).map((cpt) => (
-              <Card key={cpt.id} className="opacity-60">
-                <CardHeader className="py-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-sm">{cpt.course_name}</CardTitle>
-                      <CardDescription className="text-xs">
-                        {cpt.position} • {formatDate(cpt.date)}
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      Abgeschlossen
-                    </Badge>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

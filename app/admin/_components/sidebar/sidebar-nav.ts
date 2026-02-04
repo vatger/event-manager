@@ -7,6 +7,7 @@ import {
     PlusCircle,
     CheckCheckIcon,
     Image,
+    TowerControl,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -53,6 +54,11 @@ import {
           label: "Event Calendar", 
           icon: Calendar,
         },
+        {
+          href: "/admin/cpts",
+          label: "CPT Manager",
+          icon: TowerControl,
+        }
       ]
     },
     
