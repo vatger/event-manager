@@ -1,39 +1,39 @@
 #!/bin/sh
-set +e  # Nicht bei Fehlern abbrechen!
+set +e
 
 echo "========================================="
-echo "🔍 Environment Check"
+echo "🔍 FULL ENVIRONMENT DEBUG"
 echo "========================================="
-echo "Node: $(node --version)"
-echo "Working Dir: $(pwd)"
+echo "User: $(whoami)"
+echo "Shell: $SHELL"
+echo "PWD: $(pwd)"
+echo ""
+echo "--- All ENV variables ---"
+env | sort
+echo ""
+echo "--- Prisma specific ---"
+env | grep -i prisma || echo "No PRISMA vars"
+echo ""
+echo "--- Database specific ---"
+env | grep -i database || echo "No DATABASE vars"
+echo ""
+echo "--- URL specific ---"
+env | grep -i url || echo "No URL vars"
+echo "========================================="
 echo ""
 
-# DATABASE_URL Check
-if [ -z "$DATABASE_URL" ]; then
-  echo "⚠️  WARNING: DATABASE_URL is not set!"
-  echo "The app will start, but database operations will fail."
+# Migrations nur wenn DATABASE_URL da ist
+if [ -n "$DATABASE_URL" ]; then
+  echo "✅ Found: DATABASE_URL"
+  echo "Value starts with: $(echo $DATABASE_URL | cut -c1-20)..."
   echo ""
-else
-  echo "✅ DATABASE_URL: ${DATABASE_URL:0:40}..."
-  echo ""
-  
-  echo "🔄 Attempting database migrations..."
+  echo "🔄 Trying migration..."
   npx prisma migrate deploy
-  
-  MIGRATION_EXIT_CODE=$?
-  
-  if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
-    echo "✅ Migrations completed successfully"
-  else
-    echo "⚠️  WARNING: Migration failed (exit code: $MIGRATION_EXIT_CODE)"
-    echo "The app will start anyway, but database schema might be outdated."
-    echo "Please check database connection and run migrations manually:"
-    echo "  docker exec -it <container> npx prisma migrate deploy"
-  fi
+  echo "Migration exit code: $?"
+else
+  echo "❌ DATABASE_URL is empty or not set!"
 fi
 
 echo ""
-echo "========================================="
-echo "🚀 Starting Next.js Application"
-echo "========================================="
+echo "🚀 Starting app anyway..."
 exec node server.js
