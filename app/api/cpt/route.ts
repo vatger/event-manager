@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { userhasAdminAcess } from '@/lib/acl/permissions';
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user) {
+  if (!session?.user || !(await userhasAdminAcess(Number(session.user.id)))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
