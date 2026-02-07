@@ -26,15 +26,7 @@ interface CPTData {
   confirmed: boolean;
 }
 
-interface CPTOverviewProps {
-  trainingCPTURL: string;
-  bearerToken: string;
-}
-
-const CPTOverview: React.FC<CPTOverviewProps> = ({ 
-  trainingCPTURL, 
-  bearerToken
-}) => {
+const CPTOverview: React.FC = () => {
   const [cptData, setCptData] = useState<CPTData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +48,7 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
   const fetchCPTData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(trainingCPTURL, {
-        headers: {
-          'Authorization': `Bearer ${bearerToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(`/api/cpt`);
 
       if (!response.ok) {
         throw new Error('Fehler beim Laden der CPT-Daten');
