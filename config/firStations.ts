@@ -22,7 +22,7 @@ export const FIR_STATIONS: Record<string, FIRConfig> = {
   EDGG: {
     code: 'EDGG',
     name: 'Langen',
-    fullName: 'Langen FIR',
+    fullName: 'FIR Langen',
     stations: [
       // Frankfurt
       { callsign: 'EDDF_TWR', name: 'Frankfurt Tower', type: 'TWR' },
@@ -41,7 +41,7 @@ export const FIR_STATIONS: Record<string, FIRConfig> = {
   EDWW: {
     code: 'EDWW',
     name: 'Bremen',
-    fullName: 'Bremen FIR',
+    fullName: 'FIR Bremen',
     stations: [
       // Hamburg
       { callsign: 'EDDH_TWR', name: 'Hamburg Tower', type: 'TWR' },
@@ -57,7 +57,7 @@ export const FIR_STATIONS: Record<string, FIRConfig> = {
   EDMM: {
     code: 'EDMM',
     name: 'München',
-    fullName: 'München FIR',
+    fullName: 'FIR München',
     stations: [
       // München
       { callsign: 'EDDM_TWR', name: 'München Tower', type: 'TWR' },

@@ -22,7 +22,6 @@ export default async function CPTAdminPage() {
     bearerToken: process.env.TRAINING_API_TOKEN || '',
   };
 
-  const firCodes = getAllFIRCodes();
 
   return (
     <div className="min-h-screen bg-background">
@@ -30,8 +29,6 @@ export default async function CPTAdminPage() {
           <CPTOverview
             trainingCPTURL={API_CONFIG.trainingCPTURL}
             bearerToken={API_CONFIG.bearerToken}
-            firCode={session?.user?.fir || undefined}
-            userCID={session?.user?.id ? Number(session.user.id) : undefined}
           />
       </div>
     </div>

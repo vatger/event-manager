@@ -8,8 +8,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { FIR_STATIONS, getFIRConfig } from '@/config/firStations';
+import { getFIRConfig } from '@/config/firStations';
 import { useUser } from '@/hooks/useUser';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CPTData {
   id: number;
@@ -28,31 +29,29 @@ interface CPTData {
 interface CPTOverviewProps {
   trainingCPTURL: string;
   bearerToken: string;
-  firCode?: string;
-  userCID?: number;
 }
 
 const CPTOverview: React.FC<CPTOverviewProps> = ({ 
   trainingCPTURL, 
-  bearerToken,
-  firCode,
-  userCID
+  bearerToken
 }) => {
   const [cptData, setCptData] = useState<CPTData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const { user } = useUser();
+  const { user, isVATGERLead } = useUser();
+  const [fir, setfir] = useState<string | undefined>(undefined);
 
-  firCode = user?.fir?.code;
-  
   useEffect(() => {
-    fetchCPTData();
-    if (userCID) {
-      fetchNotificationPreference();
+    if (user?.fir?.code && fir === undefined) {
+      setfir(user.fir.code);
     }
-  }, [firCode]);
+  }, [user?.fir?.code]);
+
+  useEffect(() => {
+    if (fir || isVATGERLead()) {
+      fetchCPTData();
+    }
+  }, [fir]);
 
   const fetchCPTData = async () => {
     try {
@@ -72,9 +71,9 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
       let filteredData = result.data || [];
 
       // Filter by FIR if specified
-      if (firCode) {
+      if (fir) {
         // Hole die FIR-Konfiguration
-        const firConfig = getFIRConfig(firCode); // z.B. CONFIG['EDMM']
+        const firConfig = getFIRConfig(fir); // z.B. CONFIG['EDMM']
         
         if (firConfig && firConfig.stations) {
           // Extrahiere alle Callsigns aus den Stations
@@ -83,7 +82,7 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
           // Filtere nach Callsigns
           filteredData = filteredData.filter((cpt: CPTData) => 
             validCallsigns.includes(cpt.position) || // Exakte Übereinstimmung mit Config
-            cpt.position.startsWith(firCode + '_') // Beginnt mit FIR-Code (z.B. EDMM_WLD_CTR, EDGG_CH_CTR)
+            cpt.position.startsWith(fir + '_') // Beginnt mit FIR-Code (z.B. EDMM_WLD_CTR, EDGG_CH_CTR)
           );
         }
       }
@@ -102,45 +101,7 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
     }
   };
 
-  const fetchNotificationPreference = async () => {
-    try {
-      const response = await fetch('/api/user/cpt-notifications');
-      if (response.ok) {
-        const data = await response.json();
-        setNotificationsEnabled(data.enabled);
-      }
-    } catch (err) {
-      console.error('Failed to fetch notification preference:', err);
-    }
-  };
-
-  const toggleNotifications = async () => {
-    try {
-      setNotificationsLoading(true);
-      const response = await fetch('/api/user/cpt-notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ enabled: !notificationsEnabled }),
-      });
-
-      if (response.ok) {
-        setNotificationsEnabled(!notificationsEnabled);
-        toast.success(
-          !notificationsEnabled 
-            ? 'CPT-Benachrichtigungen aktiviert' 
-            : 'CPT-Benachrichtigungen deaktiviert'
-        );
-      } else {
-        throw new Error('Fehler beim Aktualisieren der Einstellungen');
-      }
-    } catch (err) {
-      toast.error('Fehler beim Aktualisieren der Benachrichtigungseinstellungen');
-    } finally {
-      setNotificationsLoading(false);
-    }
-  };
+  
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -210,8 +171,8 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
     // Extract FIR code (first 4 characters)
     if (position.length < 4) return position;
     
-    const firCode = position.substring(0, 4);
-    const firConfig = getFIRConfig(firCode);
+    const fir = position.substring(0, 4);
+    const firConfig = getFIRConfig(fir);
     if (!firConfig) return position;
     
     // Find matching station by checking if position starts with the station's base callsign
@@ -254,7 +215,7 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            {firCode ? getFIRConfig(firCode)?.fullName : 'Alle FIRs'}
+            {fir ? getFIRConfig(fir)?.fullName : 'Alle FIRs'}
           </h2>
           <p className="text-muted-foreground mt-1">
             Anstehende Controller Practical Tests
@@ -270,20 +231,23 @@ const CPTOverview: React.FC<CPTOverviewProps> = ({
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Aktualisieren
           </Button>
-          {userCID && (
-            <Button
-              variant={notificationsEnabled ? "default" : "outline"}
-              size="sm"
-              onClick={toggleNotifications}
-              disabled={notificationsLoading}
+          {/* FIR Switcher */}
+          {isVATGERLead() && (
+            <Select
+              defaultValue={fir}
+              onValueChange={(value) => {
+                setfir(value);
+              }}
             >
-              {notificationsEnabled ? (
-                <Bell className="h-4 w-4 mr-2" />
-              ) : (
-                <BellOff className="h-4 w-4 mr-2" />
-              )}
-              {notificationsEnabled ? 'Benachrichtigungen an' : 'Benachrichtigungen aus'}
-            </Button>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="FIR auswählen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EDMM">EDMM</SelectItem>
+                <SelectItem value="EDGG">EDGG</SelectItem>
+                <SelectItem value="EDWW">EDWW</SelectItem>
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>
