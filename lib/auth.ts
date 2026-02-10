@@ -2,7 +2,7 @@
 import { User, type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
-import { getUserWithPermissions, userhasAdminAcess } from "./acl/permissions";
+import { getUserWithPermissions, hasAdminAccess } from "./acl/permissions";
 
 interface VatsimProfile {
   id: number,

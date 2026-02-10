@@ -3,7 +3,7 @@ import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import { generateSignupCSV, generateExportFilename } from "@/lib/exportUtils";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { userhasAdminAcess } from "@/lib/acl/permissions";
+import { hasAdminAccess } from "@/lib/acl/permissions";
 
 export async function GET(
   request: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const user = await getSessionUser();
-    if (!user || !(await userhasAdminAcess(Number(user.cid)))) {
+    if (!user || !(await hasAdminAccess(Number(user.cid)))) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 500 });

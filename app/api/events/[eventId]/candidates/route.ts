@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAirportTier1 } from '@/utils/configUtils';
 import { getSessionUser } from '@/lib/getSessionUser';
-import { userhasAdminAcess } from '@/lib/acl/permissions';
+import { hasAdminAccess } from '@/lib/acl/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +13,7 @@ export async function GET(
   }
   try {
     const user = await getSessionUser();
-    if (!user || !(await userhasAdminAcess(Number(user.cid)))) {
+    if (!user || !(await hasAdminAccess(Number(user.cid)))) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
     const { eventId: id } = await params;

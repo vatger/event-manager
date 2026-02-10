@@ -115,7 +115,7 @@ export async function userhasPermissiononEvent(cid: number, eventId: number, per
  * Prüft, ob ein Nutzer Admin-Zugriff hat
  * (d. h. in einer Gruppe ist oder MAIN_ADMIN ist)
  */
-export async function userhasAdminAcess(cid: number) {
+export async function hasAdminAccess(cid: number) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
 
