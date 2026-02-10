@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -19,76 +19,112 @@ interface CanControlIconProps {
   };
 }
 
+// Stabiler Cache-Key Generator
+function createCacheKey(params: CanControlIconProps['params']): string {
+  const airports = [...params.event.airport].sort().join(',');
+  return `${params.user.userCID}-${params.user.rating}-${airports}-${params.event.fir}`;
+}
+
 export function CanControlIcon({ params }: CanControlIconProps) {
-  const [loading, setLoading] = useState(true);
-  const [canControl, setCanControl] = useState<boolean | null>(null);
+  // Stabiler Cache-Key mit useMemo
+  const cacheKey = useMemo(() => createCacheKey(params), [
+    params.user.userCID,
+    params.user.rating,
+    params.event.fir,
+    params.event.airport.sort().join(',') // Sortiert für Stabilität
+  ]);
+
+  const [loading, setLoading] = useState(() => {
+    // Initial State basierend auf Cache
+    return !endorsementCache.has(cacheKey);
+  });
+  
+  const [canControl, setCanControl] = useState<boolean | null>(() => {
+    // Initial State aus Cache
+    return endorsementCache.get(cacheKey) ?? null;
+  });
+  
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const key = JSON.stringify(params); // eindeutiger Cache-Key
-
-    const cached = endorsementCache.get(key);
+    // Wenn bereits im Cache, nichts tun
+    const cached = endorsementCache.get(cacheKey);
     if (cached !== undefined) {
-        setCanControl(cached);
-        setLoading(false);
-        return; // direkt aus Cache
+      setCanControl(cached);
+      setLoading(false);
+      return;
     }
+
+    let isCancelled = false;
 
     const checkEndorsement = async () => {
       try {
-      setLoading(true);
-      setError(null);
+        setLoading(true);
+        setError(null);
 
-      const fetchEndorsement = async (airport: string | null = null) => {
-        const body = airport
-        ? { ...params, event: { ...params.event, airport } }
-        : params;
+        const fetchEndorsement = async (airport: string) => {
+          const body = {
+            user: params.user,
+            event: {
+              airport: airport,
+              fir: params.event.fir
+            }
+          };
 
-        const res = await fetch(`/api/endorsements/group`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        });
+          console.log("Checking endorsement with body:", body);
+          const res = await fetch(`/api/endorsements/group`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
 
-        if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || "Request failed");
-        }
+          if (!res.ok) {
+            const j = await res.json().catch(() => ({}));
+            throw new Error(j.error || "Request failed");
+          }
 
-        const j = await res.json();
-        return !!j.group;
-      };
+          const j = await res.json();
+          console.log("Endorsement response:", j);
+          return !!j.group;
+        };
 
-      if (params.event.airport.length > 1) {
+        // Prüfe alle Airports sequenziell
+        let hasPermission = false;
         for (const airport of params.event.airport) {
-          console.log("Prüfe Endorsement für Flughafen:", airport);
-          const canControl = await fetchEndorsement(airport);
-          if (canControl) {
-            endorsementCache.set(key, true);
-            setCanControl(true);
-            return;
+          if (isCancelled) return;
+          
+          const permitted = await fetchEndorsement(airport);
+          
+          if (permitted) {
+            hasPermission = true;
+            break;
           }
         }
-        endorsementCache.set(key, false);
-        setCanControl(false);
-      } else {
-        const canControl = await fetchEndorsement();
-        endorsementCache.set(key, canControl);
-        setCanControl(canControl);
-      }
+
+        if (!isCancelled) {
+          endorsementCache.set(cacheKey, hasPermission);
+          setCanControl(hasPermission);
+        }
       } catch (err) {
-      console.error("Fehler beim Laden der Endorsements:", err);
-      setError("Fehler bei der Gruppenbestimmung");
-      setCanControl(false);
+        console.error("Fehler beim Laden der Endorsements:", err);
+        if (!isCancelled) {
+          setError("Fehler bei der Gruppenbestimmung");
+          setCanControl(false);
+        }
       } finally {
-      setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     checkEndorsement();
-  }, [params]);
 
-  // Tooltip-Text definieren
+    return () => {
+      isCancelled = true;
+    };
+  }, [cacheKey, params]);
+
   const tooltipText = error
     ? error
     : canControl
