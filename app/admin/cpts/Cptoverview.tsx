@@ -144,15 +144,25 @@ const CPTOverview: React.FC = () => {
 
   const getTimeUntil = (dateString: string) => {
     const now = new Date();
-    const cptDate = new Date(dateString);
-    const diffMs = cptDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return 'Vergangen';
-    if (diffDays === 0) return 'Heute';
-    if (diffDays === 1) return 'Morgen';
+    const eventDate = new Date(dateString);
+  
+    // Beide Daten auf 00:00:00 setzen (Uhrzeit ignorieren)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const eventDay = new Date(
+      eventDate.getFullYear(),
+      eventDate.getMonth(),
+      eventDate.getDate()
+    );
+  
+    const diffMs = eventDay.getTime() - today.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  
+    if (diffDays < 0) return "Vergangen";
+    if (diffDays === 0) return "Heute";
+    if (diffDays === 1) return "Morgen";
     return `In ${diffDays} Tagen`;
   };
+  
 
   const getStationName = (position: string) => {
     // Extract FIR code (first 4 characters)
