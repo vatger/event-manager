@@ -6,20 +6,53 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { EventCard } from "../events/_components/EventCard";
+import { WeeklyEventCard } from "../events/_components/WeeklyEventCard";
+import { WeeklyEventDialog } from "../events/_components/WeeklyEventDialog";
 import Protected from "@/components/Protected";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CalendarPlus, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, CalendarPlus, ChevronDown, ChevronUp, CalendarClock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 
 type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
 
+interface FIR {
+  id: number;
+  code: string;
+  name: string;
+}
+
+interface WeeklyEventConfig {
+  id: number;
+  firId: number | null;
+  fir?: { code: string; name: string };
+  name: string;
+  weekday: number;
+  weeksOn: number;
+  weeksOff: number;
+  startDate: string;
+  airports?: string[];
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+  requiresRoster?: boolean;
+  staffedStations?: string[];
+  signupDeadlineHours?: number;
+  enabled: boolean;
+  occurrences?: Array<{
+    id: number;
+    date: string;
+  }>;
+}
+
 export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
+  const [weeklyConfigs, setWeeklyConfigs] = useState<WeeklyEventConfig[]>([]);
+  const [firs, setFirs] = useState<FIR[]>([]);
 
   // Toolbar state
   const [query, setQuery] = useState("");
@@ -37,6 +70,10 @@ export default function AdminEventsPage() {
   const { user, isVATGERLead, can, canInFIR, canInOwnFIR } = useUser();
 
   const [showPastEvents, setShowPastEvents] = useState(false);
+  
+  // Weekly event dialog state
+  const [weeklyDialogOpen, setWeeklyDialogOpen] = useState(false);
+  const [editingWeekly, setEditingWeekly] = useState<WeeklyEventConfig | null>(null);
   
   // Events aus API laden
   const refreshEvents = async (firCode?: string) => {
@@ -67,7 +104,36 @@ export default function AdminEventsPage() {
     }
   };
 
+  // Fetch weekly events
+  const refreshWeeklyEvents = async () => {
+    try {
+      const res = await fetch("/api/admin/discord/weekly-events");
+      if (res.ok) {
+        const data = await res.json();
+        setWeeklyConfigs(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch weekly events", err);
+    }
+  };
+
+  // Fetch FIRs
+  const fetchFirs = async () => {
+    try {
+      const res = await fetch("/api/firs");
+      if (res.ok) {
+        const data = await res.json();
+        setFirs(data);
+      }
+    } catch (err) {
+      console.error("Error fetching FIRs:", err);
+    }
+  };
+
   useEffect(() => {
+    fetchFirs();
+    refreshWeeklyEvents();
+    
     // Wenn User vorhanden → Standard-FIR auswählen
     if (user) {
       if (isVATGERLead()) {
@@ -190,6 +256,64 @@ export default function AdminEventsPage() {
     }
   };
 
+  // Weekly event handlers
+  const handleDeleteWeekly = async (id: number) => {
+    if (!confirm("Weekly Event wirklich löschen?")) return;
+    
+    try {
+      const res = await fetch(`/api/admin/discord/weekly-events/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (res.ok) {
+        refreshWeeklyEvents();
+      } else {
+        setError("Fehler beim Löschen des Weekly Events");
+      }
+    } catch (err) {
+      setError("Fehler beim Löschen des Weekly Events");
+    }
+  };
+
+  const handleEditWeekly = (config: WeeklyEventConfig) => {
+    setEditingWeekly(config);
+    setWeeklyDialogOpen(true);
+  };
+
+  const handleCreateWeekly = () => {
+    setEditingWeekly(null);
+    setWeeklyDialogOpen(true);
+  };
+
+  // Check permissions for weekly events
+  const canEditWeekly = (config: WeeklyEventConfig): boolean => {
+    if (isVATGERLead()) return true;
+    if (!config.fir?.code) return false;
+    return canInFIR(config.fir.code, "event.edit");
+  };
+
+  const canDeleteWeekly = (config: WeeklyEventConfig): boolean => {
+    if (isVATGERLead()) return true;
+    if (!config.fir?.code) return false;
+    return canInFIR(config.fir.code, "event.delete");
+  };
+
+  // Filter weeklys based on selected FIR
+  const filteredWeeklyConfigs = weeklyConfigs.filter((config) => {
+    if (selectedFir === "ALL") return true;
+    return config.fir?.code === selectedFir;
+  });
+
+  // Group weeklys by FIR for display
+  const weeklysByFir = filteredWeeklyConfigs.reduce((acc, config) => {
+    const firCode = config.fir?.code || "global";
+    if (!acc[firCode]) {
+      acc[firCode] = [];
+    }
+    acc[firCode].push(config);
+    return acc;
+  }, {} as Record<string, WeeklyEventConfig[]>);
+
   // Filter & Suche anwenden
   const filteredEvents = events.filter((event) => {
     const matchesQuery = `${event.name} ${event.airports}`
@@ -216,10 +340,18 @@ export default function AdminEventsPage() {
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-3xl font-bold">Event Management</h1>
-          <Button onClick={() => router.push("/admin/events/create")} disabled={!canInOwnFIR("event.create")}>
-            <CalendarPlus />
+          <div className="flex gap-2">
+            <Button onClick={() => router.push("/admin/events/create")} disabled={!canInOwnFIR("event.create")}>
+              <CalendarPlus className="mr-2 h-4 w-4" />
               Neues Event
-          </Button>
+            </Button>
+            {canInOwnFIR("event.create") && (
+              <Button onClick={handleCreateWeekly} variant="outline">
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Weekly erstellen
+              </Button>
+            )}
+          </div>
         </div>
 
         {error && (
@@ -294,64 +426,114 @@ export default function AdminEventsPage() {
           </Card>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center h-32">
-            <p className="text-muted-foreground">Lade Events...</p>
-          </div>
-        ) : upcomingEvents.length === 0 ? (
-          <div className="flex justify-center items-center h-32">
-            <p className="text-muted-foreground">Keine Events gefunden</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
-            {upcomingEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
-                event={event}
-                onDelete={() => handleDelete(event.id)}
-                onOpenSignup={() => openSignup(event)}
-                onCloseSignup={() => closeSignup(event.id)}
-                onpublishRoster={() => publishRoster(event)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Section for past events */}
-        {pastEvents.length != 0 && (
-          
-          <div className="mt-6">
-            <hr className="my-6" />
-            <button
-              className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
-              onClick={() => setShowPastEvents((prev) => !prev)}
-            >
-              {showPastEvents ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {showPastEvents ? "Vergangene Events ausblenden" : "Vergangene Events anzeigen"}
-            </button>
-
-            {showPastEvents && (
-              <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
-                {pastEvents.length === 0 ? (
-                  <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
-                ) : (
-                  pastEvents.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
-                      event={event}
-                      onDelete={() => handleDelete(event.id)}
-                      onOpenSignup={() => openSignup(event)}
-                      onCloseSignup={() => closeSignup(event.id)}
-                      onpublishRoster={() => publishRoster(event)}
-                    />
-                  ))
-                )}
+        {/* Weekly Events Section */}
+        {filteredWeeklyConfigs.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-semibold">Weekly Events</h2>
+              <CalendarClock className="h-5 w-5 text-muted-foreground" />
+            </div>
+            
+            {Object.keys(weeklysByFir).length > 0 ? (
+              <div className="space-y-6">
+                {Object.entries(weeklysByFir).map(([firCode, configs]) => {
+                  const firInfo = configs[0]?.fir;
+                  return (
+                    <div key={firCode} className="space-y-3">
+                      {firInfo && (
+                        <h3 className="text-lg font-medium text-muted-foreground">
+                          {firInfo.name} ({firInfo.code})
+                        </h3>
+                      )}
+                      <div className="grid gap-4 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(350px,1fr))]">
+                        {configs.map((config) => (
+                          <WeeklyEventCard
+                            key={config.id}
+                            config={config}
+                            onEdit={() => handleEditWeekly(config)}
+                            onDelete={() => handleDeleteWeekly(config.id)}
+                            canEdit={canEditWeekly(config)}
+                            canDelete={canDeleteWeekly(config)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              <p className="text-muted-foreground">Keine Weekly Events gefunden</p>
             )}
+            
+            <hr className="my-6" />
           </div>
         )}
+
+        {/* Regular Events Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-semibold">Events</h2>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center items-center h-32">
+              <p className="text-muted-foreground">Lade Events...</p>
+            </div>
+          ) : upcomingEvents.length === 0 ? (
+            <div className="flex justify-center items-center h-32">
+              <p className="text-muted-foreground">Keine Events gefunden</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))]">
+              {upcomingEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
+                  event={event}
+                  onDelete={() => handleDelete(event.id)}
+                  onOpenSignup={() => openSignup(event)}
+                  onCloseSignup={() => closeSignup(event.id)}
+                  onpublishRoster={() => publishRoster(event)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Section for past events */}
+          {pastEvents.length != 0 && (
+            
+            <div className="mt-6">
+              <hr className="my-6" />
+              <button
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground"
+                onClick={() => setShowPastEvents((prev) => !prev)}
+              >
+                {showPastEvents ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {showPastEvents ? "Vergangene Events ausblenden" : "Vergangene Events anzeigen"}
+              </button>
+
+              {showPastEvents && (
+                <div className="grid gap-6 grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
+                  {pastEvents.length === 0 ? (
+                    <p className="text-muted-foreground">Keine vergangenen Events gefunden</p>
+                  ) : (
+                    pastEvents.map((event) => (
+                      <EventCard
+                        key={event.id}
+                        onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
+                        event={event}
+                        onDelete={() => handleDelete(event.id)}
+                        onOpenSignup={() => openSignup(event)}
+                        onCloseSignup={() => closeSignup(event.id)}
+                        onpublishRoster={() => publishRoster(event)}
+                      />
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         
 
         <Dialog open={openDialog} onOpenChange={setOpenDialog}>
@@ -434,6 +616,18 @@ export default function AdminEventsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Weekly Event Dialog */}
+        <WeeklyEventDialog
+          open={weeklyDialogOpen}
+          onOpenChange={setWeeklyDialogOpen}
+          config={editingWeekly}
+          onSave={() => {
+            refreshWeeklyEvents();
+            setEditingWeekly(null);
+          }}
+          firs={firs}
+        />
       </div>
     </Protected>
   );
