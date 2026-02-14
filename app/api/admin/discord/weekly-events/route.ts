@@ -217,7 +217,7 @@ async function generateOccurrences(configId: number) {
 
   // Adjust to the correct weekday if needed
   while (currentDate.getDay() !== config.weekday) {
-    currentDate = addWeeks(currentDate, 1);
+    currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000); // Add one day
   }
 
   let weekCounter = 0;
