@@ -280,6 +280,18 @@ model WeeklyEventConfiguration {
   weeksOff  Int      @default(0) // How many weeks off after the "on" period
   startDate DateTime // When the pattern starts
 
+  // Event details
+  airports        Json? // Array of ICAO codes
+  startTime       String? // Event start time in HH:mm format (UTC)
+  endTime         String? // Event end time in HH:mm format (UTC)
+  description     String? @db.Text
+  
+  // Staffing configuration
+  minStaffing      Int?     @default(0) // Minimum required staff
+  requiresRoster   Boolean  @default(false) // Whether positions need to be assigned
+  staffedStations  Json? // Array of station callsigns that need rostering
+  signupDeadlineHours Int?  @default(24) // Hours before event when signup closes
+
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -297,10 +309,50 @@ model WeeklyEventOccurrence {
   myVatsimRegistered Boolean? // Is the event registered in myVATSIM?
   staffingChecked    Boolean                  @default(false) // Was staffing checked?
   staffingSufficient Boolean? // Does the event have sufficient staffing?
+  
+  // Signup and roster management
+  signupDeadline     DateTime? // Calculated deadline for this occurrence
+  rosterPublishedAt  DateTime? // When roster was published
+  eventId            Int? // Link to created Event if converted
+  
   createdAt          DateTime                 @default(now())
+
+  signups WeeklyEventSignup[]
+  rosters WeeklyEventRoster[]
 
   @@unique([configId, date])
   @@index([date])
+  @@index([eventId])
+}
+
+// User signups for weekly events
+model WeeklyEventSignup {
+  id           Int      @id @default(autoincrement())
+  occurrenceId Int
+  occurrence   WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  userCID      Int
+  remarks      String? @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([occurrenceId, userCID])
+  @@index([userCID])
+  @@index([occurrenceId])
+}
+
+// Roster assignments for weekly events
+model WeeklyEventRoster {
+  id           Int      @id @default(autoincrement())
+  occurrenceId Int
+  occurrence   WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  userCID      Int
+  station      String // Callsign assigned to this user
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([occurrenceId, station])
+  @@index([occurrenceId])
+  @@index([userCID])
 }
 
 

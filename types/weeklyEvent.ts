@@ -5,6 +5,14 @@ export interface WeeklyEventConfigurationCreate {
   weeksOn: number;
   weeksOff: number;
   startDate: Date | string;
+  airports?: string[]; // Array of ICAO codes
+  startTime?: string; // HH:mm format (UTC)
+  endTime?: string; // HH:mm format (UTC)
+  description?: string;
+  minStaffing?: number;
+  requiresRoster?: boolean;
+  staffedStations?: string[]; // Array of station callsigns
+  signupDeadlineHours?: number;
   enabled?: boolean;
 }
 
@@ -14,6 +22,14 @@ export interface WeeklyEventConfigurationUpdate {
   weeksOn?: number;
   weeksOff?: number;
   startDate?: Date | string;
+  airports?: string[];
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+  minStaffing?: number;
+  requiresRoster?: boolean;
+  staffedStations?: string[];
+  signupDeadlineHours?: number;
   enabled?: boolean;
 }
 
@@ -25,7 +41,40 @@ export interface WeeklyEventOccurrenceData {
   myVatsimRegistered: boolean | null;
   staffingChecked: boolean;
   staffingSufficient: boolean | null;
+  signupDeadline: Date | null;
+  rosterPublishedAt: Date | null;
+  eventId: number | null;
   createdAt: Date;
+}
+
+export interface WeeklyEventSignupCreate {
+  occurrenceId: number;
+  userCID: number;
+  remarks?: string;
+}
+
+export interface WeeklyEventSignupData {
+  id: number;
+  occurrenceId: number;
+  userCID: number;
+  remarks: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WeeklyEventRosterAssignment {
+  occurrenceId: number;
+  userCID: number;
+  station: string;
+}
+
+export interface WeeklyEventRosterData {
+  id: number;
+  occurrenceId: number;
+  userCID: number;
+  station: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface DiscordBotConfigurationData {
