@@ -9,14 +9,41 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Loader2, MapPin, Clock } from "lucide-react";
 import { format, isFuture, isPast, isToday } from "date-fns";
 import { de } from "date-fns/locale";
-import { formatWeeklyEventsWithPauses } from "@/lib/weeklyEventsFormatter";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface FIR {
+  code: string;
+  name: string;
+}
+
+interface WeeklyConfig {
+  id: number;
+  firId: number | null;
+  fir?: FIR;
+  name: string;
+  weekday: number;
+  weeksOn: number;
+  weeksOff: number;
+  startDate: string;
+  airports?: string[];
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+  requiresRoster?: boolean;
+  staffedStations?: string[];
+  enabled: boolean;
+}
 
 interface WeeklyEventOccurrence {
   id: number;
   date: string;
+  configId: number;
+  signupDeadline: string | null;
   config: {
     id: number;
     name: string;
@@ -38,23 +65,26 @@ const WEEKDAYS = [
 ];
 
 export default function PublicWeeklyEventsPage() {
-  const [occurrences, setOccurrences] = useState<WeeklyEventOccurrence[]>([]);
+  const [configs, setConfigs] = useState<WeeklyConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
-    fetchOccurrences();
+    fetchWeeklyConfigs();
   }, []);
 
-  const fetchOccurrences = async () => {
+  const fetchWeeklyConfigs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/weeklys/upcoming");
+      const res = await fetch("/api/admin/discord/weekly-events");
       if (res.ok) {
         const data = await res.json();
-        setOccurrences(data);
+        // Filter only enabled configs
+        const enabledConfigs = data.filter((c: WeeklyConfig) => c.enabled);
+        setConfigs(enabledConfigs);
       } else {
-        setError("Fehler beim Laden der Termine");
+        setError("Fehler beim Laden der wöchentlichen Events");
       }
     } catch (err) {
       setError("Netzwerkfehler");
@@ -63,30 +93,38 @@ export default function PublicWeeklyEventsPage() {
     }
   };
 
-  const getDateStatus = (dateString: string) => {
-    const date = new Date(dateString);
-    if (isToday(date)) return { label: "Heute", variant: "default" as const };
-    if (isPast(date)) return { label: "Vergangen", variant: "secondary" as const };
-    if (isFuture(date)) return { label: "Bevorstehend", variant: "outline" as const };
-    return { label: "", variant: "outline" as const };
-  };
-
-  // Group occurrences by event name
-  const groupedByEvent = occurrences.reduce((acc, occ) => {
-    const eventName = occ.config.name;
-    if (!acc[eventName]) {
-      acc[eventName] = [];
+  // Group configs by FIR
+  const configsByFir = configs.reduce((acc, config) => {
+    const firCode = config.fir?.code || "Andere";
+    const firName = config.fir?.name || "Andere";
+    const key = `${firCode}|${firName}`;
+    
+    if (!acc[key]) {
+      acc[key] = [];
     }
-    acc[eventName].push(occ);
+    acc[key].push(config);
     return acc;
-  }, {} as Record<string, WeeklyEventOccurrence[]>);
+  }, {} as Record<string, WeeklyConfig[]>);
+
+  const parseAirports = (airports: string[] | string | null | undefined): string[] => {
+    if (!airports) return [];
+    if (Array.isArray(airports)) return airports;
+    if (typeof airports === "string") {
+      try {
+        return JSON.parse(airports);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Wöchentliche Events</h1>
         <p className="text-muted-foreground mt-1">
-          Übersicht aller geplanten wöchentlichen Events
+          Übersicht aller wiederkehrenden wöchentlichen Events
         </p>
       </div>
 
@@ -100,74 +138,79 @@ export default function PublicWeeklyEventsPage() {
             <p className="text-destructive">{error}</p>
           </CardContent>
         </Card>
-      ) : Object.keys(groupedByEvent).length === 0 ? (
+      ) : configs.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              Keine wöchentlichen Events geplant
+              Keine wöchentlichen Events verfügbar
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedByEvent).map(([eventName, eventOccurrences]) => {
-            const config = eventOccurrences[0].config;
-            const formattedDates = formatWeeklyEventsWithPauses(eventOccurrences);
-
+        <div className="space-y-8">
+          {Object.entries(configsByFir).map(([firKey, firConfigs]) => {
+            const [firCode, firName] = firKey.split("|");
+            
             return (
-              <Card key={eventName}>
-                <CardHeader>
-                  <CardTitle>{eventName}</CardTitle>
-                  <CardDescription>
-                    Rhythmus: {config.weeksOn} Woche(n) Event, {config.weeksOff} Woche(n) Pause
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {formattedDates.map((entry, index) => {
-                      if (entry.type === "pause") {
-                        return (
-                          <div
-                            key={`pause-${index}`}
-                            className="flex items-center justify-center p-3 border-2 border-dashed rounded-lg bg-muted/50"
-                          >
-                            <p className="font-medium text-muted-foreground italic">
-                              {entry.label}
-                            </p>
-                          </div>
-                        );
-                      }
-
-                      const status = getDateStatus(entry.date!.toISOString());
-                      const weekday = WEEKDAYS[entry.date!.getDay()];
-
-                      return (
-                        <div
-                          key={`event-${index}`}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div>
-                              <p className="font-medium text-lg">
-                                {entry.formattedDate}
+              <div key={firKey} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-semibold">
+                    {firName} ({firCode})
+                  </h2>
+                  <Badge variant="outline">{firConfigs.length} Event{firConfigs.length !== 1 ? "s" : ""}</Badge>
+                </div>
+                
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {firConfigs.map((config) => {
+                    const airports = parseAirports(config.airports);
+                    
+                    return (
+                      <Link href={`/weeklys/${config.id}`} key={config.id}>
+                        <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
+                          <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                              <span>{config.name}</span>
+                            </CardTitle>
+                            <CardDescription>
+                              Jeden {WEEKDAYS[config.weekday]}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {config.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {config.description}
                               </p>
-                              <p className="text-sm text-muted-foreground">
-                                {weekday}
-                              </p>
+                            )}
+                            
+                            {airports.length > 0 && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-mono">{airports.join(", ")}</span>
+                              </div>
+                            )}
+                            
+                            {(config.startTime || config.endTime) && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span>
+                                  {config.startTime || "?"} - {config.endTime || "?"} UTC
+                                </span>
+                              </div>
+                            )}
+                            
+                            <div className="pt-2">
+                              <Badge variant="secondary" className="text-xs">
+                                {config.weeksOn} Woche(n) aktiv, {config.weeksOff} Woche(n) Pause
+                              </Badge>
                             </div>
-                          </div>
-                          {status.label && (
-                            <Badge variant={status.variant}>
-                              {status.label}
-                            </Badge>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </div>
