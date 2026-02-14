@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@/hooks/useUser";
-import AdminWeeklyForm from "../../_components/AdminWeeklyForm";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import AdminWeeklyForm from "../_components/AdminWeeklyForm";
 
 interface FIR {
   id: number;
