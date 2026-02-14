@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { EventCard } from "../events/_components/EventCard";
 import { WeeklyEventCard } from "../events/_components/WeeklyEventCard";
-import { WeeklyEventDialog } from "../events/_components/WeeklyEventDialog";
 import Protected from "@/components/Protected";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -18,12 +17,6 @@ import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 
 type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
-
-interface FIR {
-  id: number;
-  code: string;
-  name: string;
-}
 
 interface WeeklyEventConfig {
   id: number;
@@ -52,7 +45,6 @@ export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [weeklyConfigs, setWeeklyConfigs] = useState<WeeklyEventConfig[]>([]);
-  const [firs, setFirs] = useState<FIR[]>([]);
 
   // Toolbar state
   const [query, setQuery] = useState("");
@@ -70,10 +62,6 @@ export default function AdminEventsPage() {
   const { user, isVATGERLead, can, canInFIR, canInOwnFIR } = useUser();
 
   const [showPastEvents, setShowPastEvents] = useState(false);
-  
-  // Weekly event dialog state
-  const [weeklyDialogOpen, setWeeklyDialogOpen] = useState(false);
-  const [editingWeekly, setEditingWeekly] = useState<WeeklyEventConfig | null>(null);
   
   // Events aus API laden
   const refreshEvents = async (firCode?: string) => {
@@ -117,21 +105,7 @@ export default function AdminEventsPage() {
     }
   };
 
-  // Fetch FIRs
-  const fetchFirs = async () => {
-    try {
-      const res = await fetch("/api/firs");
-      if (res.ok) {
-        const data = await res.json();
-        setFirs(data);
-      }
-    } catch (err) {
-      console.error("Error fetching FIRs:", err);
-    }
-  };
-
   useEffect(() => {
-    fetchFirs();
     refreshWeeklyEvents();
     
     // Wenn User vorhanden → Standard-FIR auswählen
@@ -275,16 +249,6 @@ export default function AdminEventsPage() {
     }
   };
 
-  const handleEditWeekly = (config: WeeklyEventConfig) => {
-    setEditingWeekly(config);
-    setWeeklyDialogOpen(true);
-  };
-
-  const handleCreateWeekly = () => {
-    setEditingWeekly(null);
-    setWeeklyDialogOpen(true);
-  };
-
   // Check permissions for weekly events
   const canEditWeekly = (config: WeeklyEventConfig): boolean => {
     if (isVATGERLead()) return true;
@@ -346,7 +310,7 @@ export default function AdminEventsPage() {
               Neues Event
             </Button>
             {canInOwnFIR("event.create") && (
-              <Button onClick={handleCreateWeekly} variant="outline">
+              <Button onClick={() => router.push("/admin/weeklys/create")} variant="outline">
                 <CalendarClock className="mr-2 h-4 w-4" />
                 Weekly erstellen
               </Button>
@@ -450,7 +414,7 @@ export default function AdminEventsPage() {
                           <WeeklyEventCard
                             key={config.id}
                             config={config}
-                            onEdit={() => handleEditWeekly(config)}
+                            onEdit={() => router.push(`/admin/weeklys/${config.id}/edit`)}
                             onDelete={() => handleDeleteWeekly(config.id)}
                             canEdit={canEditWeekly(config)}
                             canDelete={canDeleteWeekly(config)}
@@ -616,18 +580,6 @@ export default function AdminEventsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* Weekly Event Dialog */}
-        <WeeklyEventDialog
-          open={weeklyDialogOpen}
-          onOpenChange={setWeeklyDialogOpen}
-          config={editingWeekly}
-          onSave={() => {
-            refreshWeeklyEvents();
-            setEditingWeekly(null);
-          }}
-          firs={firs}
-        />
       </div>
     </Protected>
   );
