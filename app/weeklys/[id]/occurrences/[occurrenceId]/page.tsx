@@ -25,11 +25,15 @@ import {
   UserPlus,
   UserMinus,
   Users,
+  Edit,
+  Info,
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import AutomaticEndorsement from "@/components/AutomaticEndorsement";
+import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 
 interface FIR {
   code: string;
@@ -73,6 +77,8 @@ interface Signup {
   id: number;
   userCID: string;
   remarks: string | null;
+  endorsementGroup: string | null;
+  restrictions: string | null;
   createdAt: string;
   user: User | null;
 }
@@ -115,6 +121,7 @@ export default function OccurrenceDetailPage() {
   // Signup form state
   const [remarks, setRemarks] = useState("");
   const [isSignedUp, setIsSignedUp] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (params.id && params.occurrenceId) {
@@ -191,10 +198,43 @@ export default function OccurrenceDetailPage() {
       if (res.ok) {
         toast.success("Erfolgreich angemeldet!");
         setIsSignedUp(true);
+        setIsEditing(false);
         fetchSignups();
       } else {
         const data = await res.json();
         toast.error(data.error || "Fehler bei der Anmeldung");
+      }
+    } catch (err) {
+      toast.error("Netzwerkfehler");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUpdateSignup = async () => {
+    if (!session) {
+      toast.error("Bitte melde dich an");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remarks: remarks || null }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Anmeldung aktualisiert!");
+        setIsEditing(false);
+        fetchSignups();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Fehler beim Aktualisieren");
       }
     } catch (err) {
       toast.error("Netzwerkfehler");
@@ -218,6 +258,7 @@ export default function OccurrenceDetailPage() {
       if (res.ok) {
         toast.success("Anmeldung storniert");
         setIsSignedUp(false);
+        setIsEditing(false);
         setRemarks("");
         fetchSignups();
       } else {
@@ -357,8 +398,8 @@ export default function OccurrenceDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Signup Form */}
-      {session && (
+      {/* Signup Form or Info */}
+      {session && occurrence.config.requiresRoster && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -375,6 +416,20 @@ export default function OccurrenceDetailPage() {
           <CardContent className="space-y-4">
             {signupOpen ? (
               <>
+                {/* Show automatic endorsement check */}
+                {occurrence.config.airports && occurrence.config.airports.length > 0 && (
+                  <AutomaticEndorsement
+                    user={{
+                      userCID: Number(session.user.cid),
+                      rating: Number(session.user.rating || 0),
+                    }}
+                    event={{
+                      airport: occurrence.config.airports[0],
+                      fir: occurrence.config.fir?.code,
+                    }}
+                  />
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="remarks">Bemerkungen (optional)</Label>
                   <Textarea
@@ -383,19 +438,53 @@ export default function OccurrenceDetailPage() {
                     onChange={(e) => setRemarks(e.target.value)}
                     placeholder="Optionale Bemerkungen..."
                     rows={3}
-                    disabled={isSignedUp || busy}
+                    disabled={(isSignedUp && !isEditing) || busy}
                   />
                 </div>
 
                 {isSignedUp ? (
-                  <Button
-                    onClick={handleCancelSignup}
-                    variant="destructive"
-                    disabled={busy}
-                  >
-                    <UserMinus className="mr-2 h-4 w-4" />
-                    {busy ? "Wird storniert..." : "Anmeldung stornieren"}
-                  </Button>
+                  <div className="flex gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button onClick={handleUpdateSignup} disabled={busy}>
+                          {busy ? "Speichert..." : "Änderungen speichern"}
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setIsEditing(false);
+                            // Reset remarks to original
+                            const userSignup = signups.find(s => s.userCID === session.user.cid);
+                            if (userSignup) {
+                              setRemarks(userSignup.remarks || "");
+                            }
+                          }}
+                          variant="outline"
+                          disabled={busy}
+                        >
+                          Abbrechen
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() => setIsEditing(true)}
+                          variant="outline"
+                          disabled={busy}
+                        >
+                          <Edit className="mr-2 h-4 w-4" />
+                          Bearbeiten
+                        </Button>
+                        <Button
+                          onClick={handleCancelSignup}
+                          variant="destructive"
+                          disabled={busy}
+                        >
+                          <UserMinus className="mr-2 h-4 w-4" />
+                          {busy ? "Wird storniert..." : "Anmeldung stornieren"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 ) : (
                   <Button onClick={handleSignup} disabled={busy}>
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -415,7 +504,29 @@ export default function OccurrenceDetailPage() {
         </Card>
       )}
 
-      {!session && (
+      {/* Info for non-rostered events */}
+      {session && !occurrence.config.requiresRoster && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Kein Roster vorgesehen</strong>
+            <p className="mt-2">
+              Für dieses Weekly Event ist kein Roster vorgesehen. Bitte buche eine Station direkt über das{" "}
+              <a
+                href="https://vatsim-germany.org/gdp/roster"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline"
+              >
+                VATGER Booking System
+              </a>
+              .
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!session && occurrence.config.requiresRoster && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -443,33 +554,59 @@ export default function OccurrenceDetailPage() {
             </p>
           ) : (
             <div className="space-y-3">
-              {signups.map((signup) => (
-                <div
-                  key={signup.id}
-                  className="flex items-start justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold">
-                        {signup.user?.name || `CID ${signup.userCID}`}
-                      </p>
-                      {signup.user?.rating && (
-                        <Badge variant="outline" className="text-xs">
-                          {RATINGS[signup.user.rating] || `S${signup.user.rating}`}
-                        </Badge>
+              {signups.map((signup) => {
+                // Parse restrictions if available
+                let restrictions: string[] = [];
+                try {
+                  if (signup.restrictions) {
+                    restrictions = JSON.parse(signup.restrictions);
+                  }
+                } catch (e) {
+                  // Ignore parsing errors
+                }
+
+                return (
+                  <div
+                    key={signup.id}
+                    className="flex items-start justify-between p-4 border rounded-lg"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="font-semibold">
+                          {signup.user?.name || `CID ${signup.userCID}`}
+                        </p>
+                        {signup.user?.rating && (
+                          <Badge variant="outline" className="text-xs">
+                            {RATINGS[signup.user.rating] || `S${signup.user.rating}`}
+                          </Badge>
+                        )}
+                        {signup.endorsementGroup && (
+                          <Badge className={getBadgeClassForEndorsement(signup.endorsementGroup)}>
+                            {signup.endorsementGroup}
+                          </Badge>
+                        )}
+                      </div>
+                      {restrictions.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {restrictions.map((restriction, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              {restriction}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {signup.remarks && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          {signup.remarks}
+                        </p>
                       )}
                     </div>
-                    {signup.remarks && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        {signup.remarks}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
