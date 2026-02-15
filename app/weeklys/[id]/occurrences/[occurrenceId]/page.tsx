@@ -34,6 +34,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import AutomaticEndorsement from "@/components/AutomaticEndorsement";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 interface FIR {
   code: string;
@@ -421,7 +422,7 @@ export default function OccurrenceDetailPage() {
                   <AutomaticEndorsement
                     user={{
                       userCID: Number(session.user.cid),
-                      rating: Number(session.user.rating || 0),
+                      rating: getRatingValue(session.user.rating) || 0,
                     }}
                     event={{
                       airport: occurrence.config.airports[0],

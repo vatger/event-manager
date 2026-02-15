@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { userHasFirPermission } from "@/lib/acl/permissions";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getMinimumStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 // Validation schema for weekly event signup
 const weeklySignupSchema = z.object({
@@ -207,7 +208,7 @@ export async function POST(
         const endorsementData = await GroupService.getControllerGroup({
           user: {
             userCID: Number(user.cid),
-            rating: Number(user.rating),
+            rating: getRatingValue(user.rating) || 0,
           },
           event: {
             airport: checkAirport,
