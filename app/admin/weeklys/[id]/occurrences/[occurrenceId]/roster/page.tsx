@@ -25,7 +25,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { extractStationGroup, getBadgeClassForGroup } from "@/lib/weeklys/stationUtils";
+import { extractStationGroup } from "@/lib/weeklys/stationUtils";
+import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 
 interface User {
   firstName: string;
@@ -279,7 +280,7 @@ export default function RosterEditorPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
                           <CardTitle className="text-lg">{station}</CardTitle>
-                          <Badge className={getBadgeClassForGroup(stationGroup)}>
+                          <Badge className={getBadgeClassForEndorsement(stationGroup)}>
                             {stationGroup}
                           </Badge>
                         </div>
@@ -306,7 +307,7 @@ export default function RosterEditorPage() {
                             {getRatingBadge(assigned.user.rating)}
                           </Badge>
                           {assigned.endorsementGroup && (
-                            <Badge className={getBadgeClassForGroup(assigned.endorsementGroup)}>
+                            <Badge className={getBadgeClassForEndorsement(assigned.endorsementGroup)}>
                               {assigned.endorsementGroup}
                             </Badge>
                           )}
@@ -382,7 +383,7 @@ export default function RosterEditorPage() {
                               {getRatingBadge(signup.user.rating)}
                             </Badge>
                             {signup.endorsementGroup && (
-                              <Badge className={getBadgeClassForGroup(signup.endorsementGroup)}>
+                              <Badge className={getBadgeClassForEndorsement(signup.endorsementGroup)}>
                                 {signup.endorsementGroup}
                               </Badge>
                             )}
