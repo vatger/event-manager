@@ -327,13 +327,15 @@ model WeeklyEventOccurrence {
 
 // User signups for weekly events
 model WeeklyEventSignup {
-  id           Int      @id @default(autoincrement())
-  occurrenceId Int
-  occurrence   WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
-  userCID      Int
-  remarks      String? @db.Text
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                Int      @id @default(autoincrement())
+  occurrenceId      Int
+  occurrence        WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  userCID           Int
+  remarks           String? @db.Text
+  endorsementGroup  String? // User's qualified group (GND, TWR, APP, CTR)
+  restrictions      String? @db.Text // JSON array of restrictions (solo, FAM-only, etc.)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   @@unique([occurrenceId, userCID])
   @@index([userCID])

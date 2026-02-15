@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission } from "@/lib/acl/permissions";
+import { GroupService } from "@/lib/endorsements/groupService";
+import { getMinimumStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
 
 // Validation schema for weekly event signup
 const weeklySignupSchema = z.object({
@@ -145,6 +147,99 @@ export async function POST(
       return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
     }
 
+    // Check if this weekly requires roster
+    if (!occurrence.config.requiresRoster) {
+      return NextResponse.json(
+        { error: "This weekly event does not use a roster system. Please book via VATGER Booking." },
+        { status: 400 }
+      );
+    }
+
+    // Get user data for endorsement check
+    const user = await prisma.user.findUnique({
+      where: { cid: Number(session.user.cid) },
+      select: {
+        cid: true,
+        name: true,
+        rating: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Parse staffed stations from JSON
+    let staffedStations: string[] = [];
+    try {
+      staffedStations = occurrence.config.staffedStations 
+        ? (typeof occurrence.config.staffedStations === 'string' 
+            ? JSON.parse(occurrence.config.staffedStations) 
+            : occurrence.config.staffedStations)
+        : [];
+    } catch (e) {
+      console.error("Error parsing staffedStations:", e);
+    }
+
+    // Get user's endorsement group
+    let endorsementGroup: string | null = null;
+    let restrictions: string[] = [];
+
+    if (staffedStations.length > 0) {
+      // Determine which airport to use for endorsement check
+      let airports: string[] = [];
+      try {
+        airports = occurrence.config.airports 
+          ? (typeof occurrence.config.airports === 'string' 
+              ? JSON.parse(occurrence.config.airports) 
+              : occurrence.config.airports)
+          : [];
+      } catch (e) {
+        console.error("Error parsing airports:", e);
+      }
+
+      // Use first airport if available
+      const checkAirport = airports[0] || 'EDDF'; // Fallback
+
+      try {
+        const endorsementData = await GroupService.getControllerGroup({
+          user: {
+            userCID: user.cid,
+            rating: user.rating,
+          },
+          event: {
+            airport: checkAirport,
+            fir: occurrence.config.fir?.code,
+          },
+        });
+
+        endorsementGroup = endorsementData.group;
+        restrictions = endorsementData.restrictions || [];
+
+        // Check if user can staff minimum required station
+        const minRequiredGroup = getMinimumStationGroup(staffedStations);
+        if (minRequiredGroup && !canStaffStation(endorsementGroup, minRequiredGroup)) {
+          return NextResponse.json(
+            { 
+              error: `You are not qualified to staff this event. Minimum required: ${minRequiredGroup}, your qualification: ${endorsementGroup || 'None'}` 
+            },
+            { status: 403 }
+          );
+        }
+
+        // If no endorsement group, user cannot control
+        if (!endorsementGroup) {
+          return NextResponse.json(
+            { error: "You do not have the required endorsements to control at this event" },
+            { status: 403 }
+          );
+        }
+      } catch (error) {
+        console.error("Error checking endorsements:", error);
+        // Continue without endorsement check in case of error
+      }
+    }
+
     // Check if signup deadline has passed
     if (occurrence.signupDeadline && new Date() > new Date(occurrence.signupDeadline)) {
       // Only allow event team to signup after deadline
@@ -181,22 +276,14 @@ export async function POST(
       );
     }
 
-    // Create the signup
+    // Create the signup with endorsement data
     const signup = await prisma.weeklyEventSignup.create({
       data: {
         occurrenceId: Number(occurrenceId),
         userCID: Number(session.user.cid),
         remarks: parsed.data.remarks || null,
-      },
-    });
-
-    // Get user info to return with signup
-    const user = await prisma.user.findUnique({
-      where: { cid: Number(session.user.cid) },
-      select: {
-        cid: true,
-        name: true,
-        rating: true,
+        endorsementGroup: endorsementGroup,
+        restrictions: restrictions.length > 0 ? JSON.stringify(restrictions) : null,
       },
     });
 

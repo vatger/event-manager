@@ -58,6 +58,8 @@ export interface WeeklyEventSignupData {
   occurrenceId: number;
   userCID: number;
   remarks: string | null;
+  endorsementGroup: string | null; // GND, TWR, APP, CTR
+  restrictions: string | null; // JSON array of restrictions
   createdAt: Date;
   updatedAt: Date;
 }
