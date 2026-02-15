@@ -72,8 +72,10 @@ export async function GET(
     // Fetch user details for each signup
     const signupsWithUsers = await Promise.all(
       signups.map(async (signup) => {
+        if (!prisma) return { ...signup, user: null };
+        
         const user = await prisma.user.findUnique({
-          where: { cid: signup.userCID },
+          where: { cid: Number(signup.userCID) },
           select: {
             cid: true,
             name: true,
@@ -204,8 +206,8 @@ export async function POST(
       try {
         const endorsementData = await GroupService.getControllerGroup({
           user: {
-            userCID: user.cid,
-            rating: user.rating,
+            userCID: Number(user.cid),
+            rating: Number(user.rating),
           },
           event: {
             airport: checkAirport,
