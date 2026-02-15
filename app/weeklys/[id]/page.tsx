@@ -262,10 +262,17 @@ export default function WeeklyDetailPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        {signupOpen ? (
-                          <Badge variant="default">Anmeldung offen</Badge>
-                        ) : (
-                          <Badge variant="secondary">Anmeldung geschlossen</Badge>
+                        {config.requiresRoster && (
+                          <>
+                            {signupOpen ? (
+                              <Badge variant="default">Anmeldung offen</Badge>
+                            ) : (
+                              <Badge variant="secondary">Anmeldung geschlossen</Badge>
+                            )}
+                          </>
+                        )}
+                        {!config.requiresRoster && (
+                          <Badge variant="outline">Kein Roster</Badge>
                         )}
                         <Button variant="ghost" size="sm">
                           Details ansehen →

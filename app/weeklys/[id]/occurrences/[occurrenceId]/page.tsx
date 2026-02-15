@@ -76,7 +76,7 @@ interface User {
 
 interface Signup {
   id: number;
-  userCID: string;
+  userCID: number;
   remarks: string | null;
   endorsementGroup: string | null;
   restrictions: string | null;
@@ -162,9 +162,9 @@ export default function OccurrenceDetailPage() {
         setSignups(data);
 
         // Check if current user is signed up
-        if (session?.user?.id) {
+        if (session?.user?.cid) {
           const userSignup = data.find(
-            (s: Signup) => s.userCID === session.user.id
+            (s: Signup) => s.userCID === Number(session.user.cid)
           );
           setIsSignedUp(!!userSignup);
           if (userSignup) {
@@ -454,7 +454,7 @@ export default function OccurrenceDetailPage() {
                           onClick={() => {
                             setIsEditing(false);
                             // Reset remarks to original
-                            const userSignup = signups.find(s => s.userCID === session.user.cid);
+                            const userSignup = signups.find(s => s.userCID === Number(session.user.cid));
                             if (userSignup) {
                               setRemarks(userSignup.remarks || "");
                             }
