@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth/[...nextauth]/auth-options";
-import prisma from "@/lib/db";
-import { hasPermission } from "@/lib/authentication/auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
 
 /**
@@ -11,16 +11,17 @@ import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; occurrenceId: string } }
+  { params }: { params: Promise<{ id: string; occurrenceId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const configId = parseInt(params.id);
-  const occurrenceId = parseInt(params.occurrenceId);
-  if (isNaN(configId) || isNaN(occurrenceId)) {
+  const { id, occurrenceId } = await params;
+  const configId = parseInt(id);
+  const occurrenceIdNum = parseInt(occurrenceId);
+  if (isNaN(configId) || isNaN(occurrenceIdNum)) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
@@ -43,13 +44,18 @@ export async function PATCH(
     }
 
     // Check permissions
-    if (!hasPermission(session.user, "event.edit", config.fir.icao)) {
+    const hasPermission = await userHasFirPermission(
+      Number(session.user.cid),
+      config.fir.code,
+      "event.edit"
+    );
+    if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the occurrence
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
     });
 
     if (!occurrence || occurrence.configId !== configId) {
@@ -67,7 +73,7 @@ export async function PATCH(
 
     // Update the occurrence
     const updatedOccurrence = await prisma.weeklyEventOccurrence.update({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
       data: {
         date: newDate,
         signupDeadline: newSignupDeadline,
@@ -75,7 +81,7 @@ export async function PATCH(
     });
 
     // Invalidate cache
-    invalidateWeeklySignupCache(occurrenceId);
+    invalidateWeeklySignupCache(occurrenceIdNum);
 
     return NextResponse.json({
       message: "Occurrence updated successfully",
@@ -96,16 +102,17 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; occurrenceId: string } }
+  { params }: { params: Promise<{ id: string; occurrenceId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const configId = parseInt(params.id);
-  const occurrenceId = parseInt(params.occurrenceId);
-  if (isNaN(configId) || isNaN(occurrenceId)) {
+  const { id, occurrenceId } = await params;
+  const configId = parseInt(id);
+  const occurrenceIdNum = parseInt(occurrenceId);
+  if (isNaN(configId) || isNaN(occurrenceIdNum)) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
@@ -121,13 +128,18 @@ export async function DELETE(
     }
 
     // Check permissions
-    if (!hasPermission(session.user, "event.delete", config.fir.icao)) {
+    const hasPermission = await userHasFirPermission(
+      Number(session.user.cid),
+      config.fir.code,
+      "event.delete"
+    );
+    if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the occurrence
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
     });
 
     if (!occurrence || occurrence.configId !== configId) {
@@ -136,11 +148,11 @@ export async function DELETE(
 
     // Delete the occurrence (cascades to signups and rosters)
     await prisma.weeklyEventOccurrence.delete({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
     });
 
     // Invalidate cache
-    invalidateWeeklySignupCache(occurrenceId);
+    invalidateWeeklySignupCache(occurrenceIdNum);
 
     return NextResponse.json({
       message: "Occurrence deleted successfully",

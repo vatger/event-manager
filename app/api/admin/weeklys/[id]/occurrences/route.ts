@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { userHasPermission } from "@/lib/acl/permissions";
+import { userHasFirPermission } from "@/lib/acl/permissions";
 
 /**
  * GET /api/admin/weeklys/[id]/occurrences
@@ -10,14 +10,15 @@ import { userHasPermission } from "@/lib/acl/permissions";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const configId = parseInt(params.id);
+  const { id } = await params;
+  const configId = parseInt(id);
   if (isNaN(configId)) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
@@ -34,7 +35,12 @@ export async function GET(
     }
 
     // Check permissions
-    if (!userHasPermission(session.user, "event.edit", config.fir.icao)) {
+    const hasPermission = await userHasFirPermission(
+      Number(session.user.cid),
+      config.fir.code,
+      "event.edit"
+    );
+    if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

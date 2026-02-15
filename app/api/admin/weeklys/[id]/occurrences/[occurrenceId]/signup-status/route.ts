@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth/[...nextauth]/auth-options";
-import prisma from "@/lib/db";
-import { hasPermission } from "@/lib/authentication/auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { userHasFirPermission } from "@/lib/acl/permissions";
 
 /**
  * POST /api/admin/weeklys/[id]/occurrences/[occurrenceId]/signup-status
@@ -10,16 +10,17 @@ import { hasPermission } from "@/lib/authentication/auth";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; occurrenceId: string } }
+  { params }: { params: Promise<{ id: string; occurrenceId: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const configId = parseInt(params.id);
-  const occurrenceId = parseInt(params.occurrenceId);
-  if (isNaN(configId) || isNaN(occurrenceId)) {
+  const { id, occurrenceId } = await params;
+  const configId = parseInt(id);
+  const occurrenceIdNum = parseInt(occurrenceId);
+  if (isNaN(configId) || isNaN(occurrenceIdNum)) {
     return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
   }
 
@@ -45,13 +46,18 @@ export async function POST(
     }
 
     // Check permissions
-    if (!hasPermission(session.user, "event.edit", config.fir.icao)) {
+    const hasPermission = await userHasFirPermission(
+      Number(session.user.cid),
+      config.fir.code,
+      "event.edit"
+    );
+    if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the occurrence
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
     });
 
     if (!occurrence || occurrence.configId !== configId) {
@@ -60,7 +66,7 @@ export async function POST(
 
     // Update the signup status
     const updatedOccurrence = await prisma.weeklyEventOccurrence.update({
-      where: { id: occurrenceId },
+      where: { id: occurrenceIdNum },
       data: { signupStatus: status },
     });
 
