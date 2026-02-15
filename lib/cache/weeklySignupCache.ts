@@ -1,10 +1,16 @@
 import prisma from "@/lib/prisma";
-import { getCache, setCache, invalidateCache } from "./cacheManager";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
 import type { EndorsementResponse } from "@/lib/endorsements/types";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 hours
+
+// In-memory cache for weekly signups
+type CacheEntry<T> = {
+  data: T;
+  expires: number;
+};
+const memoryCache = new Map<string, CacheEntry<unknown>>();
 
 // Track last update timestamps per occurrence for cache busting
 const lastUpdateTimestamps = new Map<number, number>();
@@ -51,12 +57,12 @@ export async function getCachedWeeklySignups(
   
   const key = `weekly-occurrence:${occurrenceId}`;
 
-  // 1️⃣ Check cache unless force refresh
+  // 1️⃣ Check memory cache unless force refresh
   if (!forceRefresh) {
-    const cached = await getCache<WeeklySignupEntry[]>(key);
-    if (cached) {
+    const cached = memoryCache.get(key);
+    if (cached && cached.expires > Date.now()) {
       console.log(`[WEEKLY CACHE HIT] Signups for occurrence ${occurrenceId}`);
-      return cached;
+      return cached.data as WeeklySignupEntry[];
     }
   } else {
     console.log(`[WEEKLY CACHE SKIP] Force refresh for occurrence ${occurrenceId}`);
@@ -180,8 +186,8 @@ export async function getCachedWeeklySignups(
     })
   );
 
-  // 5️⃣ Store in cache
-  await setCache(key, computed, TTL);
+  // 5️⃣ Store in memory cache
+  memoryCache.set(key, { data: computed, expires: Date.now() + TTL });
   console.log(`[WEEKLY CACHE SET] Signups cached for occurrence ${occurrenceId}`);
 
   return computed;
@@ -192,7 +198,7 @@ export async function getCachedWeeklySignups(
  */
 export async function invalidateWeeklySignupCache(occurrenceId: number): Promise<void> {
   const key = `weekly-occurrence:${occurrenceId}`;
-  await invalidateCache(key);
+  memoryCache.delete(key);
   setLastUpdateTimestamp(occurrenceId);
   console.log(`[WEEKLY CACHE INVALIDATED] Signups cache for occurrence ${occurrenceId}`);
 }
