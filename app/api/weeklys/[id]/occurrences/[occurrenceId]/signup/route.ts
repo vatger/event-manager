@@ -7,6 +7,10 @@ import { userHasFirPermission } from "@/lib/acl/permissions";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getMinimumStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { 
+  getCachedWeeklySignups, 
+  invalidateWeeklySignupCache 
+} from "@/lib/cache/weeklySignupCache";
 
 // Validation schema for weekly event signup
 const weeklySignupSchema = z.object({
@@ -15,7 +19,7 @@ const weeklySignupSchema = z.object({
 
 /**
  * GET /api/weeklys/[id]/occurrences/[occurrenceId]/signup
- * Get all signups for a specific weekly event occurrence
+ * Get all signups for a specific weekly event occurrence (with caching)
  */
 export async function GET(
   request: NextRequest,
@@ -52,46 +56,10 @@ export async function GET(
       return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
     }
 
-    // Get all signups with user info
-    const signups = await prisma.weeklyEventSignup.findMany({
-      where: {
-        occurrenceId: Number(occurrenceId),
-      },
-      include: {
-        occurrence: {
-          select: {
-            date: true,
-            signupDeadline: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
+    // Use cached signups with dynamic endorsement calculation
+    const signups = await getCachedWeeklySignups(Number(occurrenceId));
 
-    // Fetch user details for each signup
-    const signupsWithUsers = await Promise.all(
-      signups.map(async (signup) => {
-        if (!prisma) return { ...signup, user: null };
-        
-        const user = await prisma.user.findUnique({
-          where: { cid: Number(signup.userCID) },
-          select: {
-            cid: true,
-            name: true,
-            rating: true,
-          },
-        });
-
-        return {
-          ...signup,
-          user,
-        };
-      })
-    );
-
-    return NextResponse.json(signupsWithUsers);
+    return NextResponse.json(signups);
   } catch (error) {
     console.error("Error fetching weekly event signups:", error);
     return NextResponse.json(
@@ -279,16 +247,17 @@ export async function POST(
       );
     }
 
-    // Create the signup with endorsement data
+    // Create the signup (without storing endorsement - calculated dynamically)
     const signup = await prisma.weeklyEventSignup.create({
       data: {
         occurrenceId: Number(occurrenceId),
         userCID: Number(session.user.cid),
         remarks: parsed.data.remarks || null,
-        endorsementGroup: endorsementGroup,
-        restrictions: restrictions.length > 0 ? JSON.stringify(restrictions) : null,
       },
     });
+
+    // Invalidate cache so new signup with endorsement is calculated
+    await invalidateWeeklySignupCache(Number(occurrenceId));
 
     return NextResponse.json({ ...signup, user }, { status: 201 });
   } catch (error) {
@@ -394,6 +363,9 @@ export async function PUT(
       },
     });
 
+    // Invalidate cache so updated signup is reflected
+    await invalidateWeeklySignupCache(Number(occurrenceId));
+
     // Get user info to return with signup
     const user = await prisma.user.findUnique({
       where: { cid: Number(session.user.cid) },
@@ -494,6 +466,9 @@ export async function DELETE(
         },
       },
     });
+
+    // Invalidate cache so deleted signup is removed
+    await invalidateWeeklySignupCache(Number(occurrenceId));
 
     return NextResponse.json({ success: true });
   } catch (error) {

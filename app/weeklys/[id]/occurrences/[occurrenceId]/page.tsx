@@ -78,10 +78,11 @@ interface Signup {
   id: number;
   userCID: number;
   remarks: string | null;
-  endorsementGroup: string | null;
-  restrictions: string | null;
   createdAt: string;
   user: User | null;
+  // These are calculated dynamically by the API
+  endorsementGroup: string | null;
+  restrictions: string[];
 }
 
 const WEEKDAYS = [
@@ -556,15 +557,8 @@ export default function OccurrenceDetailPage() {
           ) : (
             <div className="space-y-3">
               {signups.map((signup) => {
-                // Parse restrictions if available
-                let restrictions: string[] = [];
-                try {
-                  if (signup.restrictions) {
-                    restrictions = JSON.parse(signup.restrictions);
-                  }
-                } catch (e) {
-                  // Ignore parsing errors
-                }
+                // Restrictions come as array from API now
+                const restrictions = signup.restrictions || [];
 
                 return (
                   <div
