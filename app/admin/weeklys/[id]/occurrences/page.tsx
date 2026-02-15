@@ -383,11 +383,18 @@ export default function OccurrencesPage() {
                             Status ändern
                           </DropdownMenuItem>
                           {config?.requiresRoster && (
-                            <DropdownMenuItem
-                              onClick={() => setRosterDialog({ open: true, occurrence: occ })}
-                            >
-                              {occ.rosterPublished ? "Roster zurückziehen" : "Roster veröffentlichen"}
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/admin/weeklys/${configId}/occurrences/${occ.id}/roster`)}
+                              >
+                                Roster bearbeiten
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setRosterDialog({ open: true, occurrence: occ })}
+                              >
+                                {occ.rosterPublished ? "Roster zurückziehen" : "Roster veröffentlichen"}
+                              </DropdownMenuItem>
+                            </>
                           )}
                           <DropdownMenuItem
                             onClick={() => setDeleteDialog({ open: true, occurrence: occ })}

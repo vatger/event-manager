@@ -125,10 +125,16 @@ export default function OccurrenceDetailPage() {
   const [isSignedUp, setIsSignedUp] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Roster state
+  const [roster, setRoster] = useState<any[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterPublished, setRosterPublished] = useState(false);
+
   useEffect(() => {
     if (params.id && params.occurrenceId) {
       fetchOccurrence();
       fetchSignups();
+      fetchRoster();
     }
   }, [params.id, params.occurrenceId]);
 
@@ -177,6 +183,27 @@ export default function OccurrenceDetailPage() {
       console.error("Error fetching signups:", err);
     } finally {
       setSignupsLoading(false);
+    }
+  };
+
+  const fetchRoster = async () => {
+    setRosterLoading(true);
+    try {
+      const res = await fetch(
+        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/roster`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setRoster(data.roster || []);
+        setRosterPublished(true);
+      } else {
+        setRosterPublished(false);
+      }
+    } catch (err) {
+      console.error("Error fetching roster:", err);
+      setRosterPublished(false);
+    } finally {
+      setRosterLoading(false);
     }
   };
 
@@ -535,6 +562,71 @@ export default function OccurrenceDetailPage() {
             Bitte melde dich an, um dich für diesen Termin anzumelden.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Published Roster */}
+      {rosterPublished && roster.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Roster
+              <Badge className="bg-green-600 ml-2">Veröffentlicht</Badge>
+            </CardTitle>
+            <CardDescription>
+              Zugewiesene Positionen für diesen Termin
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {roster.map((entry: any) => {
+                const stationGroup = entry.station.split("_").pop();
+                return (
+                  <Card key={entry.id} className="border-2 border-blue-500">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center justify-between">
+                        <span>{entry.station}</span>
+                        <Badge variant="secondary">{stationGroup}</Badge>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {entry.user ? (
+                        <>
+                          <div className="font-medium text-lg">
+                            {entry.user.name || `CID ${entry.userCID}`}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {RATINGS[entry.user.rating] || `R${entry.user.rating}`}
+                            </Badge>
+                            {entry.endorsementGroup && (
+                              <Badge className={getBadgeClassForEndorsement(entry.endorsementGroup)}>
+                                {entry.endorsementGroup}
+                              </Badge>
+                            )}
+                          </div>
+                          {entry.restrictions && entry.restrictions.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {entry.restrictions.map((r: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-xs">
+                                  {r}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-muted-foreground">
+                          CID {entry.userCID}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Signups List */}
