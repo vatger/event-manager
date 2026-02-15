@@ -253,6 +253,7 @@ async function generateOccurrences(configId: number) {
         signupDeadline: config.signupDeadlineHours
           ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
           : null,
+        eventId: null,
       },
       update: {
         signupDeadline: config.signupDeadlineHours
