@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth/[...nextauth]/auth-options";
-import prisma from "@/lib/db";
-import { hasPermission } from "@/lib/authentication/auth";
+import { authOptions } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+import { userHasPermission } from "@/lib/acl/permissions";
 
 /**
  * GET /api/admin/weeklys/[id]/occurrences
@@ -34,12 +34,12 @@ export async function GET(
     }
 
     // Check permissions
-    if (!hasPermission(session.user, "event.edit", config.fir.icao)) {
+    if (!userHasPermission(session.user, "event.edit", config.fir.icao)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get all occurrences with signup counts
-    const occurrences = await prisma.weeklyEventOccurrence.findMany({
+    const occurrences = await prisma!.weeklyEventOccurrence.findMany({
       where: { configId },
       include: {
         _count: {
