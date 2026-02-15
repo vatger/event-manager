@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, Calendar } from "lucide-react";
+import { Pencil, Trash2, Calendar, List } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
@@ -61,6 +62,8 @@ export function WeeklyEventCard({
   canEdit,
   canDelete,
 }: WeeklyEventCardProps) {
+  const router = useRouter();
+  
   const getPatternDescription = () => {
     const weekdayName = WEEKDAYS[config.weekday];
     if (config.weeksOff === 0) {
@@ -190,6 +193,17 @@ export function WeeklyEventCard({
                 </p>
               )}
             </div>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3"
+                onClick={() => router.push(`/admin/weeklys/${config.id}/occurrences`)}
+              >
+                <List className="h-4 w-4 mr-2" />
+                Occurrences verwalten
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
