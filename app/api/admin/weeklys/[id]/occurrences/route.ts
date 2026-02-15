@@ -25,7 +25,7 @@ export async function GET(
 
   try {
     // Get the weekly configuration
-    const config = await prisma.weeklyEventConfiguration.findUnique({
+    const config = await prisma!.weeklyEventConfiguration.findUnique({
       where: { id: configId },
       include: { fir: true },
     });
@@ -37,7 +37,7 @@ export async function GET(
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),
-      config.fir.code,
+      config.fir!.code,
       "event.edit"
     );
     if (!hasPermission) {
