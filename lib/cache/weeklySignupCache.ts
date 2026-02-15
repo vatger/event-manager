@@ -153,7 +153,7 @@ export async function getCachedWeeklySignups(
           user: {
             cid: user.cid,
             name: user.name,
-            rating: user.rating,
+            rating: getRatingValue(user.rating),
           },
           endorsementGroup: result.group,
           restrictions: result.restrictions || [],
@@ -171,7 +171,7 @@ export async function getCachedWeeklySignups(
           user: {
             cid: user.cid,
             name: user.name,
-            rating: user.rating,
+            rating: getRatingValue(user.rating),
           },
           endorsementGroup: null,
           restrictions: [],
