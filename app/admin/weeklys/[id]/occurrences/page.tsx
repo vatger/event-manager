@@ -40,7 +40,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
 
 interface WeeklyConfig {
@@ -65,7 +65,6 @@ export default function OccurrencesPage() {
   const router = useRouter();
   const params = useParams();
   const { data: session } = useSession();
-  const { toast } = useToast();
   const configId = parseInt(params.id as string);
 
   const [config, setConfig] = useState<WeeklyConfig | null>(null);
@@ -119,9 +118,7 @@ export default function OccurrencesPage() {
       setOccurrences(occData.occurrences || []);
     } catch (error) {
       console.error("Error fetching data:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
+      toast.error("Fehler", {
         description: "Daten konnten nicht geladen werden.",
       });
     } finally {
@@ -146,8 +143,7 @@ export default function OccurrencesPage() {
 
       if (!res.ok) throw new Error("Failed to update occurrence");
 
-      toast({
-        title: "Erfolg",
+      toast.success("Erfolg", {
         description: "Datum wurde aktualisiert.",
       });
 
@@ -155,9 +151,7 @@ export default function OccurrencesPage() {
       fetchData();
     } catch (error) {
       console.error("Error updating date:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
+      toast.error("Fehler", {
         description: "Datum konnte nicht aktualisiert werden.",
       });
     } finally {
@@ -181,8 +175,7 @@ export default function OccurrencesPage() {
 
       if (!res.ok) throw new Error("Failed to update status");
 
-      toast({
-        title: "Erfolg",
+      toast.success("Erfolg", {
         description: "Status wurde aktualisiert.",
       });
 
@@ -190,9 +183,7 @@ export default function OccurrencesPage() {
       fetchData();
     } catch (error) {
       console.error("Error updating status:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
+      toast.error("Fehler", {
         description: "Status konnte nicht aktualisiert werden.",
       });
     } finally {
@@ -214,8 +205,7 @@ export default function OccurrencesPage() {
 
       if (!res.ok) throw new Error("Failed to delete occurrence");
 
-      toast({
-        title: "Erfolg",
+      toast.success("Erfolg", {
         description: "Occurrence wurde gelöscht.",
       });
 
@@ -223,9 +213,7 @@ export default function OccurrencesPage() {
       fetchData();
     } catch (error) {
       console.error("Error deleting occurrence:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
+      toast.error("Fehler", {
         description: "Occurrence konnte nicht gelöscht werden.",
       });
     } finally {
@@ -250,8 +238,7 @@ export default function OccurrencesPage() {
 
       if (!res.ok) throw new Error("Failed to publish roster");
 
-      toast({
-        title: "Erfolg",
+      toast.success("Erfolg", {
         description: willPublish ? "Roster wurde veröffentlicht." : "Roster wurde zurückgezogen.",
       });
 
@@ -259,9 +246,7 @@ export default function OccurrencesPage() {
       fetchData();
     } catch (error) {
       console.error("Error publishing roster:", error);
-      toast({
-        variant: "destructive",
-        title: "Fehler",
+      toast.error("Fehler", {
         description: "Roster konnte nicht veröffentlicht werden.",
       });
     } finally {
