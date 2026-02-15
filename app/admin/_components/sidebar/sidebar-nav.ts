@@ -85,11 +85,6 @@ import {
           label: "CPT Banner Generator", 
           icon: Image,
         },
-        { 
-          href: "/admin/edmm/weeklys", 
-          label: "Weekly Events", 
-          icon: Calendar,
-        },
       ]
     },
     
