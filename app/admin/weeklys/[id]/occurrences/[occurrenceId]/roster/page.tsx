@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 interface User {
   cid: number;
   name: string;
-  rating_short: string;
+  rating: string;
 }
 
 interface Signup {
@@ -415,24 +415,24 @@ export default function RosterEditorPage() {
                                     {assigned.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
                                   </span>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 truncate">
-                                    {assigned.user?.name || `CID ${assigned.userCID}`}
-                                  </p>
-                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                    <Badge variant="outline" className="text-[10px] h-4">
-                                      {assigned.user?.rating_short || 'UNK'}
-                                    </Badge>
-                                    {assigned.endorsementGroup && (
-                                      <Badge className={cn(
-                                        "text-[10px] h-4",
-                                        getBadgeClassForEndorsement(assigned.endorsementGroup)
-                                      )}>
-                                        {assigned.endorsementGroup}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 truncate">
+                                      {assigned.user?.name || `CID ${assigned.userCID}`}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                      <Badge variant="outline" className="text-[10px] h-4">
+                                        {assigned.user?.rating || 'UNK'}
                                       </Badge>
-                                    )}
+                                      {assigned.endorsementGroup && (
+                                        <Badge className={cn(
+                                          "text-[10px] h-4",
+                                          getBadgeClassForEndorsement(assigned.endorsementGroup)
+                                        )}>
+                                          {assigned.endorsementGroup}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
                               </div>
                               <Button
                                 variant="ghost"

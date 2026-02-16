@@ -81,7 +81,7 @@ export async function GET(
           select: {
             cid: true,
             name: true,
-            rating_short: true,
+            rating: true,
           },
         });
 
