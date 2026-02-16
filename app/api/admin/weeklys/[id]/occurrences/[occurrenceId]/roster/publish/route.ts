@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { userHasFirPermission } from "@/lib/acl/permissions";
+import { sendRosterPublishedNotifications } from "@/lib/weeklys/notificationService";
 
 export async function POST(
   req: NextRequest,
@@ -72,6 +73,14 @@ export async function POST(
         rosterPublished: published,
       },
     });
+
+    // Send notifications if roster is being published (not unpublished)
+    if (published) {
+      // Send notifications asynchronously (don't wait for completion)
+      sendRosterPublishedNotifications(occurrenceIdNum, configId).catch((error) => {
+        console.error("Error sending roster notifications:", error);
+      });
+    }
 
     return NextResponse.json({
       message: published
