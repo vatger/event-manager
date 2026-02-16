@@ -1,10 +1,9 @@
 import prisma from "@/lib/prisma";
-import { sendNotificationEmail, sendNotificationForum } from "@/lib/notifications/notificationService";
 
 /**
  * Send notifications when a roster is published
  * - In-app notifications for all signed-up users
- * - External notifications (email/forum) for users with email enabled
+ * - External notifications (email/forum via VATGER API) for users
  * - Include station assignment info for rostered users
  */
 export async function sendRosterPublishedNotifications(
@@ -63,7 +62,8 @@ export async function sendRosterPublishedNotifications(
     });
 
     const title = `Roster veröffentlicht: ${occurrence.config.name}`;
-    const link = `/weeklys/${configId}/occurrences/${occurrenceId}`;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event-manager.vatger.de";
+    const link = `${baseUrl}/weeklys/${configId}/occurrences/${occurrenceId}`;
 
     // Send notification to each signed-up user
     for (const signup of signups) {
@@ -80,18 +80,24 @@ export async function sendRosterPublishedNotifications(
         try {
           await prisma.notification.create({
             data: {
-              userId: signup.userCID,
+              userCID: signup.userCID,
+              eventId: null,
+              type: "INFO",
               title: title,
               message: message,
-              link: link,
-              type: "INFO",
+              data: {
+                occurrenceId: occurrenceId,
+                configId: configId,
+                link: link,
+                station: station || null,
+              },
             },
           });
         } catch (error) {
           console.error(`[WEEKLY NOTIF] Failed to create in-app notification for user ${signup.userCID}:`, error);
         }
 
-        // Send external notification (email/forum) - only if user has email notifications enabled
+        // Send external notification via VATGER API
         try {
           // Fetch user to check email notification preference
           const user = await prisma.user.findUnique({
@@ -102,23 +108,36 @@ export async function sendRosterPublishedNotifications(
             },
           });
 
-          // Send email notification if user has email notifications enabled
-          if (user?.emailNotificationsEnabled) {
-            await sendNotificationEmail(
-              signup.userCID,
-              title,
-              message,
-              link
-            );
+          if (!user) {
+            console.error(`[WEEKLY NOTIF] User ${signup.userCID} not found`);
+            continue;
           }
 
-          // Always send forum notification
-          await sendNotificationForum(
-            signup.userCID,
-            title,
-            message,
-            link
-          );
+          // Determine notification method based on user preference
+          const isEmailNotifEnabled = user.emailNotificationsEnabled ?? false;
+          
+          const notificationBody = {
+            title: title,
+            message: `[${occurrence.config.name}] ${message}`,
+            source_name: "Weekly Events",
+            link_text: "Jetzt ansehen",
+            link_url: link,
+            ...(isEmailNotifEnabled ? {} : { via: "board.ping" }),
+          };
+
+          // Call VATGER API to send notification
+          const response = await fetch(`${process.env.VATGER_API}/${signup.userCID}/send_notification`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.VATGER_API_TOKEN}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(notificationBody),
+          });
+
+          if (!response.ok) {
+            console.error(`[WEEKLY NOTIF] VATGER API error for user ${signup.userCID}: ${response.status} ${response.statusText}`);
+          }
         } catch (error) {
           console.error(`[WEEKLY NOTIF] Failed to send external notification for user ${signup.userCID}:`, error);
         }
@@ -142,7 +161,6 @@ export async function sendSignupDeadlineDiscordNotification(
   configId: number
 ) {
   try {
-    // Fetch occurrence with config
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
       where: { id: occurrenceId },
       include: {
@@ -159,29 +177,21 @@ export async function sendSignupDeadlineDiscordNotification(
       return;
     }
 
-    // Only send for EDMM (Munich FIR)
     if (occurrence.config.fir.code !== "EDMM") {
       console.log("[WEEKLY DISCORD] Discord notification only for EDMM events");
       return;
     }
 
-    // Check if Discord bot configuration exists
     const discordBotUrl = process.env.DISCORD_BOT_URL;
     const discordBotToken = process.env.DISCORD_BOT_TOKEN;
     const channelId = process.env.DISCORD_EDMM_CHANNEL_ID;
     const roleId = process.env.DISCORD_EDMM_ROLE_ID;
 
     if (!discordBotUrl || !discordBotToken || !channelId || !roleId) {
-      console.error("[WEEKLY DISCORD] Discord bot configuration missing in env variables:", {
-        hasUrl: !!discordBotUrl,
-        hasToken: !!discordBotToken,
-        hasChannelId: !!channelId,
-        hasRoleId: !!roleId,
-      });
+      console.error("[WEEKLY DISCORD] Discord bot configuration missing in env variables");
       return;
     }
 
-    // Format date for message
     const eventDate = occurrence.date.toLocaleDateString("de-DE", {
       day: "2-digit",
       month: "2-digit",
@@ -196,7 +206,6 @@ export async function sendSignupDeadlineDiscordNotification(
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event-manager.vatger.de";
     const rosterEditorLink = `${baseUrl}/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster`;
 
-    // Create Discord message
     const message = `<@&${roleId}>
 
 **Anmeldeschluss für Weekly Event: ${occurrence.config.name}**
@@ -207,7 +216,6 @@ Die Anmeldung ist nun geschlossen. Ihr könnt nun mit der Roster-Planung beginne
 
 🔗 Roster Editor: ${rosterEditorLink}`;
 
-    // Send Discord notification
     const response = await fetch(discordBotUrl, {
       method: "POST",
       headers: {
@@ -222,8 +230,7 @@ Die Anmeldung ist nun geschlossen. Ihr könnt nun mit der Roster-Planung beginne
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unable to read error response");
-      console.error(`[WEEKLY DISCORD] Discord API error: ${response.status} ${response.statusText}`, errorText);
+      console.error(`[WEEKLY DISCORD] Discord API error: ${response.status} ${response.statusText}`);
       return;
     }
 
