@@ -292,6 +292,9 @@ model WeeklyEventConfiguration {
   staffedStations  Json? // Array of station callsigns that need rostering
   signupDeadlineHours Int?  @default(24) // Hours before event when signup closes
 
+  // Display
+  bannerUrl   String?  @db.Text // Optional banner image URL for public display
+
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

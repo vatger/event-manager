@@ -13,6 +13,7 @@ export interface WeeklyEventConfigurationCreate {
   requiresRoster?: boolean;
   staffedStations?: string[]; // Array of station callsigns
   signupDeadlineHours?: number;
+  bannerUrl?: string; // Optional banner image URL
   enabled?: boolean;
 }
 
@@ -30,6 +31,7 @@ export interface WeeklyEventConfigurationUpdate {
   requiresRoster?: boolean;
   staffedStations?: string[];
   signupDeadlineHours?: number;
+  bannerUrl?: string; // Optional banner image URL
   enabled?: boolean;
 }
 

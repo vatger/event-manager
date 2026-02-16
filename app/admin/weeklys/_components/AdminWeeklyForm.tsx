@@ -52,6 +52,7 @@ interface FormData {
   startTime: string;
   endTime: string;
   description: string;
+  bannerUrl: string; // Added for banner image URL
   firId: number | null;
   requiresRoster: boolean;
   staffedStations: string[];
@@ -94,6 +95,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     startTime: "",
     endTime: "",
     description: "",
+    bannerUrl: "", // Added for banner image URL
     firId: null,
     requiresRoster: false,
     staffedStations: [],
@@ -125,6 +127,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         startTime: config.startTime || "",
         endTime: config.endTime || "",
         description: config.description || "",
+        bannerUrl: (config as any).bannerUrl || "", // Added for banner image URL
         firId: config.firId,
         requiresRoster: config.requiresRoster || false,
         staffedStations,
@@ -214,6 +217,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         startTime: formData.startTime || null,
         endTime: formData.endTime || null,
         description: formData.description || null,
+        bannerUrl: formData.bannerUrl || null, // Added for banner image URL
         firId: formData.firId,
         requiresRoster: formData.requiresRoster,
         staffedStations:
@@ -385,6 +389,22 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                   placeholder="Optionale Beschreibung des Weekly Events"
                   rows={4}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bannerUrl">Banner URL (optional)</Label>
+                <Input
+                  id="bannerUrl"
+                  type="url"
+                  value={formData.bannerUrl}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bannerUrl: e.target.value })
+                  }
+                  placeholder="https://example.com/banner.jpg"
+                />
+                <p className="text-sm text-muted-foreground">
+                  URL eines Banner-Bildes, das auf der öffentlichen Weekly-Seite angezeigt wird
+                </p>
               </div>
 
               <div className="flex items-center space-x-2">

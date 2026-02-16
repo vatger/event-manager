@@ -19,6 +19,7 @@ const weeklyEventConfigUpdateSchema = z.object({
   startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format").optional().nullable(),
   endTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format").optional().nullable(),
   description: z.string().max(2000).optional().nullable(),
+  bannerUrl: z.string().url().optional().nullable().or(z.literal("")), // Added for banner image URL
   minStaffing: z.number().min(0).optional().nullable(),
   requiresRoster: z.boolean().optional(),
   staffedStations: z.array(z.string()).optional().nullable(),
@@ -160,6 +161,7 @@ export async function PATCH(
     if (parsed.data.startTime !== undefined) updateData.startTime = parsed.data.startTime;
     if (parsed.data.endTime !== undefined) updateData.endTime = parsed.data.endTime;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+    if (parsed.data.bannerUrl !== undefined) updateData.bannerUrl = parsed.data.bannerUrl || null; // Added for banner image URL
     if (parsed.data.minStaffing !== undefined) updateData.minStaffing = parsed.data.minStaffing;
     if (parsed.data.requiresRoster !== undefined) updateData.requiresRoster = parsed.data.requiresRoster;
     if (parsed.data.staffedStations !== undefined) updateData.staffedStations = parsed.data.staffedStations ? JSON.stringify(parsed.data.staffedStations) : null;

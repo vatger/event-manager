@@ -20,6 +20,7 @@ const weeklyEventConfigSchema = z.object({
   startTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format").optional().nullable(),
   endTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format").optional().nullable(),
   description: z.string().max(2000).optional().nullable(),
+  bannerUrl: z.string().url().optional().nullable().or(z.literal("")), // Added for banner image URL
   minStaffing: z.number().min(0).optional().nullable(),
   requiresRoster: z.boolean().optional(),
   staffedStations: z.array(z.string()).optional().nullable(),
@@ -174,6 +175,7 @@ export async function POST(req: NextRequest) {
         startTime: parsed.data.startTime || null,
         endTime: parsed.data.endTime || null,
         description: parsed.data.description || null,
+        bannerUrl: parsed.data.bannerUrl || null, // Added for banner image URL
         minStaffing: parsed.data.minStaffing ?? 0,
         requiresRoster: parsed.data.requiresRoster ?? false,
         staffedStations: parsed.data.staffedStations ? (JSON.stringify(parsed.data.staffedStations) as any) : null,

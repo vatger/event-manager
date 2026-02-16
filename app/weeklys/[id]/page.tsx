@@ -51,6 +51,7 @@ interface WeeklyConfig {
   startTime?: string;
   endTime?: string;
   description?: string;
+  bannerUrl?: string | null; // Added for banner image URL
   requiresRoster?: boolean;
   staffedStations?: string[];
   signupDeadlineHours?: number;
@@ -143,6 +144,17 @@ export default function WeeklyDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* Banner Image */}
+      {config.bannerUrl && (
+        <div className="relative w-full h-64 overflow-hidden rounded-lg">
+          <img
+            src={config.bannerUrl}
+            alt={`${config.name} Banner`}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Weekly Configuration Details */}
       <Card>

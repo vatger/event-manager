@@ -34,6 +34,7 @@ interface WeeklyConfig {
   startTime?: string;
   endTime?: string;
   description?: string;
+  bannerUrl?: string | null; // Added for banner image URL
   requiresRoster?: boolean;
   staffedStations?: string[];
   enabled: boolean;
@@ -168,6 +169,15 @@ export default function PublicWeeklyEventsPage() {
                     return (
                       <Link href={`/weeklys/${config.id}`} key={config.id}>
                         <Card className="hover:bg-accent/50 transition-colors cursor-pointer h-full">
+                          {config.bannerUrl && (
+                            <div className="relative w-full h-48 overflow-hidden rounded-t-lg">
+                              <img
+                                src={config.bannerUrl}
+                                alt={`${config.name} Banner`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
                           <CardHeader>
                             <CardTitle className="flex items-center justify-between">
                               <span>{config.name}</span>
