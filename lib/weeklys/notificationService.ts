@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { sendExternalNotification } from "@/lib/notifications/notificationService";
+import { sendNotificationEmail, sendNotificationForum } from "@/lib/notifications/notificationService";
 
 /**
  * Send notifications when a roster is published
@@ -102,15 +102,23 @@ export async function sendRosterPublishedNotifications(
             },
           });
 
-          // Only send external notification if user has email notifications enabled
+          // Send email notification if user has email notifications enabled
           if (user?.emailNotificationsEnabled) {
-            await sendExternalNotification({
-              recipient: signup.userCID,
-              subject: title,
-              message: message,
-              link: link,
-            });
+            await sendNotificationEmail(
+              signup.userCID,
+              title,
+              message,
+              link
+            );
           }
+
+          // Always send forum notification
+          await sendNotificationForum(
+            signup.userCID,
+            title,
+            message,
+            link
+          );
         } catch (error) {
           console.error(`[WEEKLY NOTIF] Failed to send external notification for user ${signup.userCID}:`, error);
         }
