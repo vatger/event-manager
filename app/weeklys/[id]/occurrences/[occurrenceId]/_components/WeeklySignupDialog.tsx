@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AutomaticEndorsement } from "@/components/automatic-endorsement";
+import AutomaticEndorsement from "@/components/AutomaticEndorsement";
 
 interface WeeklySignupDialogProps {
   occurrence: {
@@ -26,6 +26,12 @@ interface WeeklySignupDialogProps {
     id: number;
     requiresRoster: boolean;
   };
+  user: {
+    userCID: number;
+    rating: number;
+  };
+  airports: string[];
+  fir?: string;
   userSignup?: {
     id: number;
     remarks: string | null;
@@ -36,6 +42,9 @@ interface WeeklySignupDialogProps {
 export function WeeklySignupDialog({
   occurrence,
   config,
+  user,
+  airports,
+  fir,
   userSignup,
   onSignupChange,
 }: WeeklySignupDialogProps) {
@@ -97,7 +106,16 @@ export function WeeklySignupDialog({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <AutomaticEndorsement />
+            <AutomaticEndorsement
+              user={{
+                userCID: user.userCID,
+                rating: user.rating,
+              }}
+              event={{
+                airport: airports[0] || "",
+                fir: fir,
+              }}
+            />
             <div className="grid gap-2">
               <Label htmlFor="remarks">Bemerkungen (optional)</Label>
               <Textarea

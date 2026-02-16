@@ -444,6 +444,12 @@ export default function OccurrenceDetailPage() {
                       id: occurrence.config.id,
                       requiresRoster: occurrence.config.requiresRoster || false,
                     }}
+                    user={{
+                      userCID: Number(session.user.cid),
+                      rating: Number(session.user.rating),
+                    }}
+                    airports={occurrence.config.airports || []}
+                    fir={occurrence.config.fir?.code}
                     userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
                     onSignupChange={fetchSignups}
                   />
