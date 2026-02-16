@@ -31,6 +31,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
+import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { cn } from "@/lib/utils";
 
@@ -431,6 +432,11 @@ export default function RosterEditorPage() {
                                           {assigned.endorsementGroup}
                                         </Badge>
                                       )}
+                                      {isTrainee(assigned.restrictions) && (
+                                        <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                          Trainee
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                               </div>
@@ -532,6 +538,11 @@ export default function RosterEditorPage() {
                                     getBadgeClassForEndorsement(signup.endorsementGroup)
                                   )}>
                                     {signup.endorsementGroup}
+                                  </Badge>
+                                )}
+                                {isTrainee(signup.restrictions) && (
+                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                    Trainee
                                   </Badge>
                                 )}
                               </div>
