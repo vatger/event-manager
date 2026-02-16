@@ -12,9 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -33,7 +30,6 @@ import {
   UserPlus,
   UserMinus,
   Users,
-  Edit,
   Info,
   Check,
   X,
@@ -45,12 +41,11 @@ import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import AutomaticEndorsement from "@/components/AutomaticEndorsement";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
-import { getRatingValue } from "@/utils/ratingToValue";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { cn } from "@/lib/utils";
 import EventBanner from "@/components/Eventbanner";
+import { WeeklySignupDialog } from "./_components/WeeklySignupDialog";
 
 interface FIR {
   code: string;
@@ -148,10 +143,8 @@ export default function OccurrenceDetailPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // Signup form state
-  const [remarks, setRemarks] = useState("");
+  // Signup state - simplified for dialog usage
   const [isSignedUp, setIsSignedUp] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
 
   // Roster state
   const [roster, setRoster] = useState<RosterEntry[]>([]);
@@ -202,9 +195,6 @@ export default function OccurrenceDetailPage() {
             (s: Signup) => s.userCID === Number(session.user.cid)
           );
           setIsSignedUp(!!userSignup);
-          if (userSignup) {
-            setRemarks(userSignup.remarks || "");
-          }
         }
       }
     } catch (err) {
@@ -235,71 +225,6 @@ export default function OccurrenceDetailPage() {
     }
   };
 
-  const handleSignup = async () => {
-    if (!session) {
-      toast.error("Bitte melde dich an, um dich anzumelden");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const res = await fetch(
-        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ remarks: remarks || null }),
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Erfolgreich angemeldet!");
-        setIsSignedUp(true);
-        setIsEditing(false);
-        fetchSignups();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Fehler bei der Anmeldung");
-      }
-    } catch (err) {
-      toast.error("Netzwerkfehler");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleUpdateSignup = async () => {
-    if (!session) {
-      toast.error("Bitte melde dich an");
-      return;
-    }
-
-    setBusy(true);
-    try {
-      const res = await fetch(
-        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ remarks: remarks || null }),
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Anmeldung aktualisiert!");
-        setIsEditing(false);
-        fetchSignups();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Fehler beim Aktualisieren");
-      }
-    } catch (err) {
-      toast.error("Netzwerkfehler");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleCancelSignup = async () => {
     if (!confirm("Möchtest du deine Anmeldung wirklich stornieren?")) return;
 
@@ -315,8 +240,6 @@ export default function OccurrenceDetailPage() {
       if (res.ok) {
         toast.success("Anmeldung storniert");
         setIsSignedUp(false);
-        setIsEditing(false);
-        setRemarks("");
         fetchSignups();
       } else {
         const data = await res.json();
@@ -486,14 +409,19 @@ export default function OccurrenceDetailPage() {
         {session && occurrence.config.requiresRoster && !rosterPublished && (
           <Card className="border-gray-200 dark:border-gray-800">
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  signupOpen ? "bg-green-500" : "bg-gray-400"
-                )} />
-                <CardTitle className="text-lg">
-                  {isSignedUp ? "Deine Anmeldung" : "Anmeldung"}
-                </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    signupOpen ? "bg-green-500" : "bg-gray-400"
+                  )} />
+                  <CardTitle className="text-lg">
+                    Anmeldung
+                  </CardTitle>
+                </div>
+                <Badge variant={signupOpen ? "default" : "secondary"} className="text-xs">
+                  {signupOpen ? "Anmeldung offen" : "Geschlossen"}
+                </Badge>
               </div>
               <CardDescription>
                 {signupOpen
@@ -505,86 +433,32 @@ export default function OccurrenceDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {signupOpen ? (
-                <>
-                  {/* Automatic endorsement check */}
-                  {occurrence.config.airports && occurrence.config.airports.length > 0 && (
-                    <AutomaticEndorsement
-                      user={{
-                        userCID: Number(session.user.cid),
-                        rating: getRatingValue(session.user.rating) || 0,
-                      }}
-                      event={{
-                        airport: occurrence.config.airports[0],
-                        fir: occurrence.config.fir?.code,
-                      }}
-                    />
-                  )}
-
-                  <div className="space-y-2">
-                    <Label htmlFor="remarks">Bemerkungen (optional)</Label>
-                    <Textarea
-                      id="remarks"
-                      value={remarks}
-                      onChange={(e) => setRemarks(e.target.value)}
-                      placeholder="Optionale Bemerkungen..."
-                      rows={3}
-                      className="resize-none"
-                      disabled={(isSignedUp && !isEditing) || busy}
-                    />
-                  </div>
-
-                  {isSignedUp ? (
-                    <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <Button onClick={handleUpdateSignup} disabled={busy} size="sm">
-                            {busy ? "Speichert..." : "Änderungen speichern"}
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setIsEditing(false);
-                              const userSignup = signups.find(s => s.userCID === Number(session.user.cid));
-                              if (userSignup) {
-                                setRemarks(userSignup.remarks || "");
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                          >
-                            Abbrechen
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            onClick={() => setIsEditing(true)}
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                          >
-                            <Edit className="mr-2 h-3 w-3" />
-                            Bearbeiten
-                          </Button>
-                          <Button
-                            onClick={handleCancelSignup}
-                            variant="destructive"
-                            size="sm"
-                            disabled={busy}
-                          >
-                            <UserMinus className="mr-2 h-3 w-3" />
-                            {busy ? "Wird storniert..." : "Anmeldung stornieren"}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <Button onClick={handleSignup} disabled={busy} size="sm">
-                      <UserPlus className="mr-2 h-3 w-3" />
-                      {busy ? "Wird angemeldet..." : "Jetzt anmelden"}
+                <div className="flex gap-2">
+                  <WeeklySignupDialog
+                    occurrence={{
+                      id: occurrence.id,
+                      date: new Date(occurrence.date),
+                      signupDeadline: occurrence.signupDeadline ? new Date(occurrence.signupDeadline) : null,
+                    }}
+                    config={{
+                      id: occurrence.config.id,
+                      requiresRoster: occurrence.config.requiresRoster || false,
+                    }}
+                    userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
+                    onSignupChange={fetchSignups}
+                  />
+                  {isSignedUp && (
+                    <Button
+                      onClick={handleCancelSignup}
+                      variant="destructive"
+                      size="default"
+                      disabled={busy}
+                    >
+                      <UserMinus className="mr-2 h-4 w-4" />
+                      {busy ? "Wird storniert..." : "Anmeldung stornieren"}
                     </Button>
                   )}
-                </>
+                </div>
               ) : (
                 <Alert className="border-gray-200 dark:border-gray-800">
                   <AlertCircle className="h-4 w-4" />
