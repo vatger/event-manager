@@ -16,6 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ArrowLeft,
   Calendar,
   Clock,
@@ -27,6 +35,11 @@ import {
   Users,
   Edit,
   Info,
+  Check,
+  X,
+  Award,
+  BookOpen,
+  GripVertical,
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
@@ -35,6 +48,8 @@ import { toast } from "sonner";
 import AutomaticEndorsement from "@/components/AutomaticEndorsement";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { cn } from "@/lib/utils";
+import EventBanner from "@/components/Eventbanner";
 
 interface FIR {
   code: string;
@@ -49,6 +64,7 @@ interface WeeklyConfig {
   weekday: number;
   weeksOn: number;
   weeksOff: number;
+  bannerUrl?: string;
   airports?: string[];
   startTime?: string;
   endTime?: string;
@@ -80,9 +96,20 @@ interface Signup {
   remarks: string | null;
   createdAt: string;
   user: User | null;
-  // These are calculated dynamically by the API
   endorsementGroup: string | null;
   restrictions: string[];
+}
+
+interface RosterEntry {
+  id: number;
+  station: string;
+  userCID: number;
+  user?: {
+    name: string;
+    rating: number;
+  };
+  endorsementGroup?: string;
+  restrictions?: string[];
 }
 
 const WEEKDAYS = [
@@ -126,7 +153,7 @@ export default function OccurrenceDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
 
   // Roster state
-  const [roster, setRoster] = useState<any[]>([]);
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [rosterPublished, setRosterPublished] = useState(false);
 
@@ -306,11 +333,21 @@ export default function OccurrenceDetailPage() {
     return isBefore(new Date(), new Date(occurrence.signupDeadline));
   };
 
+  const getRatingBadge = (rating: number) => {
+    return RATINGS[rating] || `R${rating}`;
+  };
+
+  const getAssignedUserForStation = (station: string): RosterEntry | null => {
+    return roster.find(r => r.station === station) || null;
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto max-w-5xl p-6">
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+          </div>
         </div>
       </div>
     );
@@ -318,11 +355,13 @@ export default function OccurrenceDetailPage() {
 
   if (error || !occurrence) {
     return (
-      <div className="container mx-auto max-w-5xl p-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error || "Termin nicht gefunden"}</AlertDescription>
-        </Alert>
+      <div className="min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <Alert variant="destructive" className="border-red-200 dark:border-red-800">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error || "Termin nicht gefunden"}</AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
@@ -331,373 +370,490 @@ export default function OccurrenceDetailPage() {
   const deadline = occurrence.signupDeadline
     ? new Date(occurrence.signupDeadline)
     : null;
-  const signupOpen = isSignupOpen();
+  const signupOpen = isSignupOpen() && !rosterPublished;
 
   return (
-    <div className="container mx-auto max-w-5xl p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push(`/weeklys/${params.id}`)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">{occurrence.config.name}</h1>
-          <p className="text-muted-foreground">
-            {format(occDate, "EEEE, dd. MMMM yyyy", { locale: de })}
-          </p>
-        </div>
-      </div>
-
-      {/* Event Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Event Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Datum</p>
-                <p className="text-sm text-muted-foreground">
-                  {format(occDate, "dd.MM.yyyy", { locale: de })} ({WEEKDAYS[occDate.getDay()]})
-                </p>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {/* Header mit Back-Button */}
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => router.push(`/weeklys/${params.id}`)}
+            className="h-8 w-8 border-gray-300 dark:border-gray-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {occurrence.config.name}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{format(occDate, "EEEE, dd. MMMM yyyy", { locale: de })}</span>
               </div>
-            </div>
-
-            {(occurrence.config.startTime || occurrence.config.endTime) && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Uhrzeit (UTC)</p>
-                  <p className="text-sm text-muted-foreground">
-                    {occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {occurrence.config.airports && occurrence.config.airports.length > 0 && (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Flughäfen</p>
-                  <p className="text-sm text-muted-foreground font-mono">
-                    {occurrence.config.airports.join(", ")}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {deadline && (
-              <div>
-                <p className="text-sm font-medium">Anmeldeschluss</p>
-                <p className="text-sm text-muted-foreground">
-                  {format(deadline, "dd.MM.yyyy HH:mm", { locale: de })}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {occurrence.config.description && (
-            <div>
-              <h3 className="font-semibold mb-2">Beschreibung</h3>
-              <p className="text-muted-foreground">{occurrence.config.description}</p>
-            </div>
-          )}
-
-          {occurrence.config.requiresRoster &&
-            occurrence.config.staffedStations &&
-            occurrence.config.staffedStations.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Zu besetzende Stationen</h3>
-                <div className="flex flex-wrap gap-2">
-                  {occurrence.config.staffedStations.map((station) => (
-                    <Badge key={station} variant="outline">
-                      {station}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-        </CardContent>
-      </Card>
-
-      {/* Signup Form or Info */}
-      {session && occurrence.config.requiresRoster && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isSignedUp ? "Deine Anmeldung" : "Anmelden"}
-            </CardTitle>
-            <CardDescription>
-              {signupOpen
-                ? isSignedUp
-                  ? "Du bist für diesen Termin angemeldet"
-                  : "Melde dich für diesen Termin an"
-                : "Anmeldeschluss ist abgelaufen"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {signupOpen ? (
-              <>
-                {/* Show automatic endorsement check */}
-                {occurrence.config.airports && occurrence.config.airports.length > 0 && (
-                  <AutomaticEndorsement
-                    user={{
-                      userCID: Number(session.user.cid),
-                      rating: getRatingValue(session.user.rating) || 0,
-                    }}
-                    event={{
-                      airport: occurrence.config.airports[0],
-                      fir: occurrence.config.fir?.code,
-                    }}
-                  />
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="remarks">Bemerkungen (optional)</Label>
-                  <Textarea
-                    id="remarks"
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Optionale Bemerkungen..."
-                    rows={3}
-                    disabled={(isSignedUp && !isEditing) || busy}
-                  />
-                </div>
-
-                {isSignedUp ? (
-                  <div className="flex gap-2">
-                    {isEditing ? (
-                      <>
-                        <Button onClick={handleUpdateSignup} disabled={busy}>
-                          {busy ? "Speichert..." : "Änderungen speichern"}
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setIsEditing(false);
-                            // Reset remarks to original
-                            const userSignup = signups.find(s => s.userCID === Number(session.user.cid));
-                            if (userSignup) {
-                              setRemarks(userSignup.remarks || "");
-                            }
-                          }}
-                          variant="outline"
-                          disabled={busy}
-                        >
-                          Abbrechen
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          onClick={() => setIsEditing(true)}
-                          variant="outline"
-                          disabled={busy}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Bearbeiten
-                        </Button>
-                        <Button
-                          onClick={handleCancelSignup}
-                          variant="destructive"
-                          disabled={busy}
-                        >
-                          <UserMinus className="mr-2 h-4 w-4" />
-                          {busy ? "Wird storniert..." : "Anmeldung stornieren"}
-                        </Button>
-                      </>
-                    )}
+              {(occurrence.config.startTime || occurrence.config.endTime) && (
+                <>
+                  <span className="text-gray-300 dark:text-gray-700">•</span>
+                  <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} UTC</span>
                   </div>
-                ) : (
-                  <Button onClick={handleSignup} disabled={busy}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    {busy ? "Wird angemeldet..." : "Jetzt anmelden"}
-                  </Button>
-                )}
-              </>
-            ) : (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Der Anmeldeschluss für diesen Termin ist abgelaufen.
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
 
-      {/* Info for non-rostered events */}
-      {session && !occurrence.config.requiresRoster && (
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Kein Roster vorgesehen</strong>
-            <p className="mt-2">
+        {/* Main Grid - Banner + Info Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          {/* Info Card */}
+          <Card className="md:col-span-1 border-gray-200 dark:border-gray-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  rosterPublished ? "bg-green-500" : signupOpen ? "bg-blue-500" : "bg-gray-400"
+                )} />
+                <CardTitle className="text-lg">Event Informationen</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Status */}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
+                <Badge 
+                  variant={rosterPublished ? "default" : signupOpen ? "default" : "secondary"}
+                  className={cn(
+                    rosterPublished ? "bg-green-600" : signupOpen ? "bg-blue-600" : ""
+                  )}
+                >
+                  {rosterPublished ? "Veröffentlicht" : signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
+                </Badge>
+              </div>
+
+              {/* Deadline */}
+              {deadline && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Anmeldeschluss</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {format(deadline, "dd.MM.yyyy HH:mm", { locale: de })}
+                  </span>
+                </div>
+              )}
+
+              {/* Airports */}
+              {occurrence.config.airports && occurrence.config.airports.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Flughäfen</span>
+                  <div className="flex flex-wrap gap-1">
+                    {occurrence.config.airports.map((apt) => (
+                      <Badge key={apt} variant="outline" className="text-xs font-mono">
+                        {apt}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Beschreibung */}
+              {occurrence.config.description && (
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {occurrence.config.description}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          {/* Banner */}
+          <div className="md:col-span-2 min-h-0">
+            <div className="relative h-56 md:h-full rounded-xl overflow-hidden">
+              <EventBanner
+                bannerUrl={occurrence.config.bannerUrl || ""}
+                eventName={occurrence.config.name}
+                className="absolute inset-0 w-full h-full object-cover object-center"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Signup Section - Nur wenn Roster nicht veröffentlicht */}
+        {session && occurrence.config.requiresRoster && !rosterPublished && (
+          <Card className="border-gray-200 dark:border-gray-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  signupOpen ? "bg-green-500" : "bg-gray-400"
+                )} />
+                <CardTitle className="text-lg">
+                  {isSignedUp ? "Deine Anmeldung" : "Anmeldung"}
+                </CardTitle>
+              </div>
+              <CardDescription>
+                {signupOpen
+                  ? isSignedUp
+                    ? "Du bist für diesen Termin angemeldet"
+                    : "Melde dich für diesen Termin an"
+                  : "Anmeldeschluss ist abgelaufen"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {signupOpen ? (
+                <>
+                  {/* Automatic endorsement check */}
+                  {occurrence.config.airports && occurrence.config.airports.length > 0 && (
+                    <AutomaticEndorsement
+                      user={{
+                        userCID: Number(session.user.cid),
+                        rating: getRatingValue(session.user.rating) || 0,
+                      }}
+                      event={{
+                        airport: occurrence.config.airports[0],
+                        fir: occurrence.config.fir?.code,
+                      }}
+                    />
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="remarks">Bemerkungen (optional)</Label>
+                    <Textarea
+                      id="remarks"
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Optionale Bemerkungen..."
+                      rows={3}
+                      className="resize-none"
+                      disabled={(isSignedUp && !isEditing) || busy}
+                    />
+                  </div>
+
+                  {isSignedUp ? (
+                    <div className="flex gap-2">
+                      {isEditing ? (
+                        <>
+                          <Button onClick={handleUpdateSignup} disabled={busy} size="sm">
+                            {busy ? "Speichert..." : "Änderungen speichern"}
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setIsEditing(false);
+                              const userSignup = signups.find(s => s.userCID === Number(session.user.cid));
+                              if (userSignup) {
+                                setRemarks(userSignup.remarks || "");
+                              }
+                            }}
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                          >
+                            Abbrechen
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            onClick={() => setIsEditing(true)}
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                          >
+                            <Edit className="mr-2 h-3 w-3" />
+                            Bearbeiten
+                          </Button>
+                          <Button
+                            onClick={handleCancelSignup}
+                            variant="destructive"
+                            size="sm"
+                            disabled={busy}
+                          >
+                            <UserMinus className="mr-2 h-3 w-3" />
+                            {busy ? "Wird storniert..." : "Anmeldung stornieren"}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <Button onClick={handleSignup} disabled={busy} size="sm">
+                      <UserPlus className="mr-2 h-3 w-3" />
+                      {busy ? "Wird angemeldet..." : "Jetzt anmelden"}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <Alert className="border-gray-200 dark:border-gray-800">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Der Anmeldeschluss für diesen Termin ist abgelaufen.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Info for non-rostered events */}
+        {session && !occurrence.config.requiresRoster && (
+          <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-blue-700 dark:text-blue-300">
               Für dieses Weekly Event ist kein Roster vorgesehen. Bitte buche eine Station direkt über das{" "}
               <a
                 href="https://vatsim-germany.org/gdp/roster"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary underline"
+                className="font-medium underline underline-offset-2"
               >
                 VATGER Booking System
               </a>
               .
-            </p>
-          </AlertDescription>
-        </Alert>
-      )}
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {!session && occurrence.config.requiresRoster && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Bitte melde dich an, um dich für diesen Termin anzumelden.
-          </AlertDescription>
-        </Alert>
-      )}
+        {!session && occurrence.config.requiresRoster && (
+          <Alert className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
+            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+            <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+              Bitte melde dich an, um dich für diesen Termin anzumelden.
+            </AlertDescription>
+          </Alert>
+        )}
 
-      {/* Published Roster */}
-      {rosterPublished && roster.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Roster
-              <Badge className="bg-green-600 ml-2">Veröffentlicht</Badge>
-            </CardTitle>
+        {/* Published Roster - Wie im Editor */}
+        {rosterPublished && occurrence.config.staffedStations && (
+          <Card className="border-gray-200 dark:border-gray-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-green-600"></div>
+                <CardTitle className="text-lg">Besetzungsplan</CardTitle>
+              </div>
+              <CardDescription>
+                Offizielle Zuweisung für dieses Event
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {/* Header Row */}
+                <div className="grid grid-cols-[200px_1fr] gap-4 mb-2 px-3">
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Station
+                  </div>
+                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Zugewiesener Lotse
+                  </div>
+                </div>
+
+                {/* Station Rows */}
+                {occurrence.config.staffedStations.map((station) => {
+                  const assigned = getAssignedUserForStation(station);
+                  const stationGroup = station.split("_").pop() || "";
+
+                  return (
+                    <div
+                      key={station}
+                      className={cn(
+                        "grid grid-cols-[200px_1fr] gap-4 items-center p-3 rounded-lg border transition-colors",
+                        "border-gray-200 dark:border-gray-800",
+                        assigned ? "bg-green-50 dark:bg-green-900/10" : "bg-gray-50 dark:bg-gray-900/40"
+                      )}
+                    >
+                      {/* Station Info */}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                              {station}
+                            </span>
+                            <Badge className={cn(
+                              "text-xs",
+                              getBadgeClassForEndorsement(stationGroup)
+                            )}>
+                              {stationGroup}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Assigned User Slot */}
+                      <div>
+                        {assigned ? (
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                              <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                {assigned.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">
+                                {assigned.user?.name || `CID ${assigned.userCID}`}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {assigned.user?.rating && (
+                                  <Badge variant="outline" className="text-[10px] h-4">
+                                    {getRatingBadge(assigned.user.rating)}
+                                  </Badge>
+                                )}
+                                {assigned.endorsementGroup && (
+                                  <Badge className={cn(
+                                    "text-[10px] h-4",
+                                    getBadgeClassForEndorsement(assigned.endorsementGroup)
+                                  )}>
+                                    {assigned.endorsementGroup}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center h-full py-2">
+                            <p className="text-sm text-gray-400 dark:text-gray-600">
+                              Nicht besetzt
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Signups List - Als Tabelle */}
+        <Card className="border-gray-200 dark:border-gray-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
+              <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
+              <Badge variant="outline" className="ml-2">
+                {signups.length}
+              </Badge>
+            </div>
             <CardDescription>
-              Zugewiesene Positionen für diesen Termin
+              {signups.length === 1 ? "Ein Lotse hat sich angemeldet" : `${signups.length} Lotsen haben sich angemeldet`}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {roster.map((entry: any) => {
-                const stationGroup = entry.station.split("_").pop();
-                return (
-                  <Card key={entry.id} className="border-2 border-blue-500">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg flex items-center justify-between">
-                        <span>{entry.station}</span>
-                        <Badge variant="secondary">{stationGroup}</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {entry.user ? (
-                        <>
-                          <div className="font-medium text-lg">
-                            {entry.user.name || `CID ${entry.userCID}`}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              {RATINGS[entry.user.rating] || `R${entry.user.rating}`}
-                            </Badge>
-                            {entry.endorsementGroup && (
-                              <Badge className={getBadgeClassForEndorsement(entry.endorsementGroup)}>
-                                {entry.endorsementGroup}
-                              </Badge>
-                            )}
-                          </div>
-                          {entry.restrictions && entry.restrictions.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {entry.restrictions.map((r: string, i: number) => (
-                                <Badge key={i} variant="secondary" className="text-xs">
-                                  {r}
+            {signupsLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : signups.length === 0 ? (
+              <div className="text-center py-8">
+                <Users className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">Noch keine Anmeldungen</p>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-gray-50 dark:bg-gray-900/40">
+                      <TableHead>Lotse</TableHead>
+                      <TableHead className="w-[100px]">Rating</TableHead>
+                      <TableHead className="w-[120px]">Endorsement</TableHead>
+                      <TableHead className="w-[200px]">Einschränkungen</TableHead>
+                      <TableHead className="w-[120px]">Angemeldet seit</TableHead>
+                      <TableHead className="w-[150px]">Bemerkungen</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {signups
+                      .sort((a, b) => {
+                        if (a.user?.rating !== b.user?.rating) {
+                          return (b.user?.rating || 0) - (a.user?.rating || 0);
+                        }
+                        return (a.user?.name || "").localeCompare(b.user?.name || "");
+                      })
+                      .map((signup) => {
+                        const isCurrentUser = signup.userCID === Number(session?.user?.cid);
+                        const restrictions = signup.restrictions || [];
+
+                        return (
+                          <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className={cn(
+                                  "h-6 w-6 rounded-full flex items-center justify-center",
+                                  isCurrentUser 
+                                    ? "bg-blue-200 dark:bg-blue-800" 
+                                    : "bg-gray-100 dark:bg-gray-800"
+                                )}>
+                                  <span className="text-xs font-semibold">
+                                    {signup.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
+                                  </span>
+                                </div>
+                                <span className="font-medium">
+                                  {signup.user?.name || `CID ${signup.userCID}`}
+                                </span>
+                                {isCurrentUser && (
+                                  <Badge variant="default" className="bg-blue-600 text-[8px] h-3 px-1">
+                                    Du
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {signup.user?.rating && (
+                                <Badge variant="outline" className="text-[10px] h-4">
+                                  {getRatingBadge(signup.user.rating)}
                                 </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="text-muted-foreground">
-                          CID {entry.userCID}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {signup.endorsementGroup ? (
+                                <Badge className={cn(
+                                  "text-[10px] h-4",
+                                  getBadgeClassForEndorsement(signup.endorsementGroup)
+                                )}>
+                                  {signup.endorsementGroup}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {restrictions.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {restrictions.map((r, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[8px] h-3 px-1">
+                                      {r}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-600 text-xs">Keine</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {signup.remarks ? (
+                                <span className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-1">
+                                  {signup.remarks}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Signups List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Anmeldungen ({signups.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {signupsLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : signups.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Noch keine Anmeldungen
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {signups.map((signup) => {
-                // Restrictions come as array from API now
-                const restrictions = signup.restrictions || [];
-
-                return (
-                  <div
-                    key={signup.id}
-                    className="flex items-start justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="font-semibold">
-                          {signup.user?.name || `CID ${signup.userCID}`}
-                        </p>
-                        {signup.user?.rating && (
-                          <Badge variant="outline" className="text-xs">
-                            {RATINGS[signup.user.rating] || `S${signup.user.rating}`}
-                          </Badge>
-                        )}
-                        {signup.endorsementGroup && (
-                          <Badge className={getBadgeClassForEndorsement(signup.endorsementGroup)}>
-                            {signup.endorsementGroup}
-                          </Badge>
-                        )}
-                      </div>
-                      {restrictions.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {restrictions.map((restriction, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
-                              {restriction}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                      {signup.remarks && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {signup.remarks}
-                        </p>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }

@@ -5,16 +5,20 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Users, Check, X, Save } from "lucide-react";
+import { 
+  ArrowLeft, 
+  Users, 
+  Check, 
+  X, 
+  Save,
+  GripVertical,
+  Clock,
+  Calendar,
+  MapPin,
+  AlertCircle
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -24,9 +28,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { cn } from "@/lib/utils";
 
 interface User {
   firstName: string;
@@ -54,6 +60,9 @@ interface WeeklyConfig {
   name: string;
   requiresRoster: boolean;
   staffedStations: string[];
+  startTime?: string;
+  endTime?: string;
+  airports?: string[];
 }
 
 interface Occurrence {
@@ -80,6 +89,7 @@ export default function RosterEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishDialog, setPublishDialog] = useState(false);
+  const [draggedUser, setDraggedUser] = useState<Signup | null>(null);
 
   // Fetch roster data
   useEffect(() => {
@@ -100,6 +110,7 @@ export default function RosterEditorPage() {
       toast.error("Fehler beim Laden der Daten");
     } finally {
       setLoading(false);
+      console.log("signups", data)
     }
   };
 
@@ -122,12 +133,13 @@ export default function RosterEditorPage() {
       }
 
       toast.success("Benutzer zugewiesen");
-      await fetchData(); // Refresh
+      await fetchData();
     } catch (error: any) {
       console.error("Assign error:", error);
       toast.error(error.message || "Fehler beim Zuweisen");
     } finally {
       setSaving(false);
+      setDraggedUser(null);
     }
   };
 
@@ -147,7 +159,7 @@ export default function RosterEditorPage() {
       }
 
       toast.success("Zuweisung entfernt");
-      await fetchData(); // Refresh
+      await fetchData();
     } catch (error: any) {
       console.error("Unassign error:", error);
       toast.error(error.message || "Fehler beim Entfernen");
@@ -200,227 +212,341 @@ export default function RosterEditorPage() {
     return data?.roster.some(r => r.userCID === userCID) || false;
   };
 
+  const canUserStaffStation = (signup: Signup, station: string): boolean => {
+    const stationGroup = extractStationGroup(station);
+    if (!signup.endorsementGroup || !stationGroup) return false;
+    
+    const groupOrder = ["DEL", "GND", "TWR", "APP", "CTR"];
+    const userGroupIndex = groupOrder.indexOf(signup.endorsementGroup);
+    const stationGroupIndex = groupOrder.indexOf(stationGroup);
+    
+    return userGroupIndex >= stationGroupIndex;
+  };
+
+  const handleDragStart = (signup: Signup) => {
+    setDraggedUser(signup);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (station: string) => {
+    if (draggedUser && canUserStaffStation(draggedUser, station)) {
+      assignUser(station, draggedUser.userCID);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="text-center">Laden...</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="h-8 w-8 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="text-center text-red-500">Fehler beim Laden</div>
+      <div className="min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <Alert variant="destructive" className="border-red-200 dark:border-red-800">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Fehler beim Laden der Daten</AlertDescription>
+          </Alert>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push(`/admin/weeklys/${configId}/occurrences`)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Roster Editor</h1>
-            <p className="text-muted-foreground">
-              {data.config.name} -{" "}
-              {format(new Date(data.occurrence.date), "PPP", { locale: de })}
-            </p>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => router.push(`/admin/weeklys/${configId}/occurrences`)}
+              className="h-8 w-8 border-gray-300 dark:border-gray-700"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Roster Editor
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {data.config.name}
+                </p>
+                <span className="text-gray-300 dark:text-gray-700">•</span>
+                <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{format(new Date(data.occurrence.date), "dd.MM.yyyy", { locale: de })}</span>
+                </div>
+                {data.config.startTime && data.config.endTime && (
+                  <>
+                    <span className="text-gray-300 dark:text-gray-700">•</span>
+                    <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>{data.config.startTime} - {data.config.endTime} UTC</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={data.occurrence.rosterPublished ? "default" : "secondary"}
+              className={data.occurrence.rosterPublished ? "bg-green-600" : ""}
+            >
+              {data.occurrence.rosterPublished ? (
+                <Check className="h-3 w-3 mr-1" />
+              ) : (
+                <X className="h-3 w-3 mr-1" />
+              )}
+              {data.occurrence.rosterPublished ? "Veröffentlicht" : "Nicht veröffentlicht"}
+            </Badge>
+            <Button
+              onClick={() => setPublishDialog(true)}
+              disabled={saving}
+              className="bg-blue-900 hover:bg-blue-800 text-white"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {data.occurrence.rosterPublished ? "Zurückziehen" : "Veröffentlichen"}
+            </Button>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {data.occurrence.rosterPublished ? (
-            <Badge variant="default" className="bg-green-600">
-              <Check className="h-3 w-3 mr-1" />
-              Veröffentlicht
-            </Badge>
-          ) : (
-            <Badge variant="secondary">
-              <X className="h-3 w-3 mr-1" />
-              Nicht veröffentlicht
-            </Badge>
-          )}
-          <Button
-            onClick={() => setPublishDialog(true)}
-            disabled={saving}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {data.occurrence.rosterPublished ? "Zurückziehen" : "Veröffentlichen"}
-          </Button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Stations */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stationen</CardTitle>
-              <CardDescription>
-                Weise Benutzer den zu besetzenden Stationen zu
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.config.staffedStations.map((station) => {
-                const assigned = getAssignedUser(station);
-                const rosterEntry = data.roster.find(r => r.station === station);
-                const stationGroup = extractStationGroup(station);
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Timeline - Stations */}
+          <div className="lg:col-span-3 space-y-4">
+            <Card className="border-gray-200 dark:border-gray-800">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-600"></div>
+                  <CardTitle className="text-lg">Besetzungsplan</CardTitle>
+                </div>
+                <CardDescription>
+                  Ziehe Benutzer auf die gewünschten Stationen
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {/* Header Row */}
+                  <div className="grid grid-cols-[200px_1fr] gap-4 mb-2 px-3">
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Station
+                    </div>
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Zugewiesener Lotse
+                    </div>
+                  </div>
 
-                return (
-                  <Card key={station} className="border-2">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <CardTitle className="text-lg">{station}</CardTitle>
-                          <Badge className={getBadgeClassForEndorsement(stationGroup)}>
-                            {stationGroup}
-                          </Badge>
-                        </div>
-                        {assigned && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => rosterEntry && unassignUser(rosterEntry.id)}
-                            disabled={saving}
-                          >
-                            Entfernen
-                          </Button>
+                  {/* Station Rows */}
+                  {data.config.staffedStations.map((station) => {
+                    const assigned = getAssignedUser(station);
+                    const rosterEntry = data.roster.find(r => r.station === station);
+                    const stationGroup = extractStationGroup(station);
+
+                    return (
+                      <div
+                        key={station}
+                        className={cn(
+                          "grid grid-cols-[200px_1fr] gap-4 items-center p-3 rounded-lg border transition-colors",
+                          "hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                          "border-gray-200 dark:border-gray-800",
+                          assigned ? "bg-green-50 dark:bg-green-900/10" : ""
                         )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {assigned ? (
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">
-                            {assigned.user.firstName} {assigned.user.lastName}
-                          </span>
-                          <Badge variant="outline">
-                            {getRatingBadge(assigned.user.rating)}
-                          </Badge>
-                          {assigned.endorsementGroup && (
-                            <Badge className={getBadgeClassForEndorsement(assigned.endorsementGroup)}>
-                              {assigned.endorsementGroup}
-                            </Badge>
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(station)}
+                      >
+                        {/* Station Info */}
+                        <div className="flex items-center gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                {station}
+                              </span>
+                              <Badge className={cn(
+                                "text-xs",
+                                getBadgeClassForEndorsement(stationGroup)
+                              )}>
+                                {stationGroup}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Assigned User Slot */}
+                        <div className="min-h-[60px]">
+                          {assigned ? (
+                            <div className="flex items-center justify-between p-2 bg-white dark:bg-gray-900 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                    {assigned.user.firstName}{assigned.user.lastName}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-gray-100">
+                                    {assigned.user.firstName} {assigned.user.lastName}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <Badge variant="outline" className="text-[10px] h-4">
+                                      {getRatingBadge(assigned.user.rating)}
+                                    </Badge>
+                                    {assigned.endorsementGroup && (
+                                      <Badge className={cn(
+                                        "text-[10px] h-4",
+                                        getBadgeClassForEndorsement(assigned.endorsementGroup)
+                                      )}>
+                                        {assigned.endorsementGroup}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => rosterEntry && unassignUser(rosterEntry.id)}
+                                disabled={saving}
+                                className="h-7 text-xs text-red-600 hover:text-red-700"
+                              >
+                                Entfernen
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-full p-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/40">
+                              <p className="text-sm text-gray-400 dark:text-gray-600">
+                                Hierher ziehen zum zuweisen
+                              </p>
+                            </div>
                           )}
                         </div>
-                      ) : (
-                        <Select
-                          onValueChange={(value) => assignUser(station, parseInt(value))}
-                          disabled={saving}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Nicht zugewiesen" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none" disabled>
-                              Benutzer auswählen
-                            </SelectItem>
-                            {data.signups.map((signup) => {
-                              const canStaff = signup.endorsementGroup 
-                                ? ["DEL", "GND", "TWR", "APP", "CTR"].indexOf(signup.endorsementGroup) >= 
-                                  ["DEL", "GND", "TWR", "APP", "CTR"].indexOf(stationGroup)
-                                : false;
-                              
-                              return (
-                                <SelectItem
-                                  key={signup.userCID}
-                                  value={signup.userCID.toString()}
-                                  disabled={!canStaff}
-                                >
-                                  {signup.user.firstName} {signup.user.lastName} (
-                                  {signup.endorsementGroup || "?"}) - {getRatingBadge(signup.user.rating)}
-                                  {!canStaff && " - Nicht qualifiziert"}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </CardContent>
-          </Card>
-        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        {/* Signups */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Anmeldungen ({data.signups.length})</CardTitle>
-              <CardDescription>Verfügbare Benutzer</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {data.signups.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Keine Anmeldungen</p>
-              ) : (
-                data.signups.map((signup) => {
-                  const assigned = isUserAssigned(signup.userCID);
-                  return (
-                    <Card
-                      key={signup.userCID}
-                      className={`border-2 ${
-                        assigned ? "border-blue-500 bg-blue-50" : "border-green-500 bg-green-50"
-                      }`}
-                    >
-                      <CardContent className="p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium">
-                            {signup.user.firstName} {signup.user.lastName}
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Badge variant="outline">
-                              {getRatingBadge(signup.user.rating)}
-                            </Badge>
-                            {signup.endorsementGroup && (
-                              <Badge className={getBadgeClassForEndorsement(signup.endorsementGroup)}>
-                                {signup.endorsementGroup}
-                              </Badge>
-                            )}
+          {/* Signups Panel */}
+          <div className="space-y-4">
+            <Card className="border-gray-200 dark:border-gray-800">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-gray-500" />
+                    <CardTitle className="text-sm font-medium">
+                      Anmeldungen
+                    </CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {data.signups.length}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                  {data.signups.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Keine Anmeldungen
+                      </p>
+                    </div>
+                  ) : (
+                    data.signups.map((signup) => {
+                      const assigned = isUserAssigned(signup.userCID);
+                      const canDrag = !assigned;
+                      
+                      return (
+                        <div
+                          key={signup.userCID}
+                          className={cn(
+                            "p-3 rounded-lg border transition-all",
+                            assigned 
+                              ? "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 opacity-60"
+                              : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md cursor-move",
+                            canDrag && "hover:border-blue-300 dark:hover:border-blue-700"
+                          )}
+                          draggable={canDrag}
+                          onDragStart={() => canDrag && handleDragStart(signup)}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className={cn(
+                              "h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0",
+                              assigned 
+                                ? "bg-blue-200 dark:bg-blue-800"
+                                : "bg-gray-100 dark:bg-gray-800"
+                            )}>
+                              <span className="font-semibold text-sm">
+                                {signup.user.firstName}{signup.user.lastName}
+                              </span>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="font-medium text-sm truncate">
+                                  {signup.user.firstName} {signup.user.lastName}
+                                </p>
+                                <Badge variant="outline" className="text-[10px] h-4 ml-1">
+                                  {getRatingBadge(signup.user.rating)}
+                                </Badge>
+                              </div>
+                              
+                              <div className="flex flex-wrap gap-1 mb-1">
+                                {signup.endorsementGroup && (
+                                  <Badge className={cn(
+                                    "text-[10px] h-4",
+                                    getBadgeClassForEndorsement(signup.endorsementGroup)
+                                  )}>
+                                    {signup.endorsementGroup}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {signup.restrictions && signup.restrictions.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {signup.restrictions.map((r, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[8px] h-3 px-1">
+                                      {r}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {assigned && (
+                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-blue-600">
+                                  Zugewiesen
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </div>
-                        {signup.restrictions && signup.restrictions.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {signup.restrictions.map((r, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
-                                {r}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                        {signup.remarks && (
-                          <p className="text-xs text-muted-foreground italic">
-                            {signup.remarks}
-                          </p>
-                        )}
-                        {assigned && (
-                          <Badge variant="default" className="text-xs">
-                            Zugewiesen
-                          </Badge>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
 
       {/* Publish Dialog */}
       <Dialog open={publishDialog} onOpenChange={setPublishDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
               {data.occurrence.rosterPublished
@@ -438,10 +564,9 @@ export default function RosterEditorPage() {
               Abbrechen
             </Button>
             <Button
-              onClick={() =>
-                publishRoster(!data.occurrence.rosterPublished)
-              }
+              onClick={() => publishRoster(!data.occurrence.rosterPublished)}
               disabled={saving}
+              className="bg-blue-900 hover:bg-blue-800 text-white"
             >
               {data.occurrence.rosterPublished ? "Zurückziehen" : "Veröffentlichen"}
             </Button>
