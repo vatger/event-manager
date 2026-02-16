@@ -61,8 +61,8 @@ export async function GET(
     // Get signups with endorsements (from cache)
     const signupsData = await getCachedWeeklySignups(occurrenceIdNum);
 
-    // Get current roster assignments
-    const roster = await prisma.weeklyEventRoster.findMany({
+    // Get current roster assignments with user details
+    const rosterEntries = await prisma.weeklyEventRoster.findMany({
       where: { occurrenceId: occurrenceIdNum },
       include: {
         occurrence: {
@@ -72,6 +72,26 @@ export async function GET(
         },
       },
     });
+
+    // Fetch user details for each roster entry
+    const roster = await Promise.all(
+      rosterEntries.map(async (entry) => {
+        const user = await prisma.user.findUnique({
+          where: { cid: entry.userCID },
+          select: {
+            cid: true,
+            first_name: true,
+            last_name: true,
+            rating_short: true,
+          },
+        });
+
+        return {
+          ...entry,
+          user: user || null,
+        };
+      })
+    );
 
     // Parse staffedStations from JSON
     const staffedStations = config.staffedStations 

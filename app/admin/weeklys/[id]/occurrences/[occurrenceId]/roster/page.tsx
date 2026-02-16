@@ -35,18 +35,33 @@ import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { cn } from "@/lib/utils";
 
 interface User {
-  firstName: string;
-  lastName: string;
-  rating: number;
+  cid: number;
+  first_name: string;
+  last_name: string;
+  rating_short: string;
 }
 
 interface Signup {
   id: number;
   userCID: number;
   remarks: string | null;
-  user: User;
+  user: {
+    cid: number;
+    name: string;
+    rating: number;
+  } | null;
   endorsementGroup: string | null;
   restrictions: string[];
+}
+
+interface RosterEntry {
+  id: number;
+  occurrenceId: number;
+  station: string;
+  userCID: number;
+  createdAt: string;
+  updatedAt: string;
+  user: User | null;
 }
 
 interface RosterEntry {
@@ -393,16 +408,17 @@ export default function RosterEditorPage() {
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                   <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                    {assigned.user.firstName?.[0]}{assigned.user.lastName?.[0]}
+                                    {assigned.user?.first_name?.[0]}{assigned.user?.last_name?.[0]}
                                   </span>
                                 </div>
                                 <div>
                                   <p className="font-medium text-gray-900 dark:text-gray-100">
-                                    {assigned.user.firstName} {assigned.user.lastName}
+                                    {assigned.user?.first_name} {assigned.user?.last_name}
                                   </p>
                                   <div className="flex items-center gap-2 mt-0.5">
                                     <Badge variant="outline" className="text-[10px] h-4">
-                                      {getRatingBadge(assigned.user.rating)}
+                                      {assigned.user?.rating_short || 'UNK'}
+                                    </Badge>
                                     </Badge>
                                     {assigned.endorsementGroup && (
                                       <Badge className={cn(
@@ -491,17 +507,17 @@ export default function RosterEditorPage() {
                                 : "bg-gray-100 dark:bg-gray-800"
                             )}>
                               <span className="font-semibold text-sm">
-                                {signup.user.firstName?.[0]}{signup.user.lastName?.[0]}
+                                {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
                               </span>
                             </div>
                             
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="font-medium text-sm truncate">
-                                  {signup.user.firstName} {signup.user.lastName}
+                                  {signup.user?.name || `CID ${signup.userCID}`}
                                 </p>
                                 <Badge variant="outline" className="text-[10px] h-4 ml-1">
-                                  {getRatingBadge(signup.user.rating)}
+                                  {getRatingBadge(signup.user?.rating || 0)}
                                 </Badge>
                               </div>
                               
