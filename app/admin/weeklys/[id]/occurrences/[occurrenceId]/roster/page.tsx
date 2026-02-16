@@ -393,7 +393,7 @@ export default function RosterEditorPage() {
                               <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                                   <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                    {assigned.user.firstName}{assigned.user.lastName}
+                                    {assigned.user.firstName?.[0]}{assigned.user.lastName?.[0]}
                                   </span>
                                 </div>
                                 <div>
@@ -491,7 +491,7 @@ export default function RosterEditorPage() {
                                 : "bg-gray-100 dark:bg-gray-800"
                             )}>
                               <span className="font-semibold text-sm">
-                                {signup.user.firstName}{signup.user.lastName}
+                                {signup.user.firstName?.[0]}{signup.user.lastName?.[0]}
                               </span>
                             </div>
                             
