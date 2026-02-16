@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import AutomaticEndorsement from "@/components/AutomaticEndorsement";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { cn } from "@/lib/utils";
 import EventBanner from "@/components/Eventbanner";
 
@@ -806,16 +807,23 @@ export default function OccurrenceDetailPage() {
                               )}
                             </TableCell>
                             <TableCell>
-                              {signup.endorsementGroup ? (
-                                <Badge className={cn(
-                                  "text-[10px] h-4",
-                                  getBadgeClassForEndorsement(signup.endorsementGroup)
-                                )}>
-                                  {signup.endorsementGroup}
-                                </Badge>
-                              ) : (
-                                <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
-                              )}
+                              <div className="flex flex-wrap gap-1">
+                                {signup.endorsementGroup ? (
+                                  <Badge className={cn(
+                                    "text-[10px] h-4",
+                                    getBadgeClassForEndorsement(signup.endorsementGroup)
+                                  )}>
+                                    {signup.endorsementGroup}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                                )}
+                                {isTrainee(signup.restrictions) && (
+                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                    Trainee
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {restrictions.length > 0 ? (
