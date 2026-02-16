@@ -36,8 +36,7 @@ import { cn } from "@/lib/utils";
 
 interface User {
   cid: number;
-  first_name: string;
-  last_name: string;
+  name: string;
   rating_short: string;
 }
 
@@ -413,12 +412,12 @@ export default function RosterEditorPage() {
                               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                                 <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                                   <span className="text-xs md:text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                    {assigned.user?.first_name?.[0]}{assigned.user?.last_name?.[0]}
+                                    {assigned.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
                                   </span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 truncate">
-                                    {assigned.user?.first_name} {assigned.user?.last_name}
+                                    {assigned.user?.name || `CID ${assigned.userCID}`}
                                   </p>
                                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                     <Badge variant="outline" className="text-[10px] h-4">

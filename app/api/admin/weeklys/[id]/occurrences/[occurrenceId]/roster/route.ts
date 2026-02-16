@@ -80,8 +80,7 @@ export async function GET(
           where: { cid: entry.userCID },
           select: {
             cid: true,
-            first_name: true,
-            last_name: true,
+            name: true,
             rating_short: true,
           },
         });
