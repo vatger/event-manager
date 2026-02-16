@@ -15,6 +15,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import AutomaticEndorsement from "@/components/AutomaticEndorsement";
+import { getRatingValue } from "@/utils/ratingToValue";
 
 interface WeeklySignupDialogProps {
   occurrence: {
@@ -28,7 +29,7 @@ interface WeeklySignupDialogProps {
   };
   user: {
     userCID: number;
-    rating: number;
+    rating: string;
   };
   airports: string[];
   fir?: string;
@@ -91,7 +92,7 @@ export function WeeklySignupDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>{isEditMode ? "Bearbeiten" : "Anmelden"}</Button>
+        <Button className="w-full">{isEditMode ? "Bearbeiten" : "Anmelden"}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
@@ -109,7 +110,7 @@ export function WeeklySignupDialog({
             <AutomaticEndorsement
               user={{
                 userCID: user.userCID,
-                rating: user.rating,
+                rating: getRatingValue(user.rating),
               }}
               event={{
                 airport: airports[0] || "",

@@ -68,7 +68,12 @@ export class GroupService {
     // Wenn Solo gewählt wurde: Restriction mit Expiry
     if (soloWins) {
       const solo = soloExpiryByPosition?.find((s) => s.position === highestSolo);
-      const dateStr = solo?.expiry.toLocaleDateString() || null
+      const dateStr = solo?.expiry.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+        timeZone: 'UTC'
+      }) || null;
       
       const sektor = this.getSector(highestSolo!)
       if(sektor){
@@ -129,7 +134,12 @@ export class GroupService {
         //Wenn solo über Ranking
         group = soloGroup
         const solo = soloExpiryByPosition?.find((s) => s.position === highestSolo);
-        const dateStr = solo ? solo.expiry.toLocaleDateString() : null
+        const dateStr = solo?.expiry.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: '2-digit',
+          timeZone: 'UTC'
+        }) || null;
         const sektor = this.getSector(highestSolo)
         restrictions.push("solo" + (sektor ? (": " + sektor) : "") + " " + (dateStr && ` bis ${dateStr}`))
       }

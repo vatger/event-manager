@@ -391,6 +391,50 @@ export default function OccurrenceDetailPage() {
                   </p>
                 </div>
               )}
+
+              {session && occurrence.config.requiresRoster && !rosterPublished && (
+                signupOpen ? (
+                  <div className="flex gap-2">
+                    <WeeklySignupDialog
+                      occurrence={{
+                        id: occurrence.id,
+                        date: new Date(occurrence.date),
+                        signupDeadline: occurrence.signupDeadline ? new Date(occurrence.signupDeadline) : null,
+                      }}
+                      config={{
+                        id: occurrence.config.id,
+                        requiresRoster: occurrence.config.requiresRoster || false,
+                      }}
+                      user={{
+                        userCID: Number(session.user.cid),
+                        rating: session.user.rating,
+                      }}
+                      airports={occurrence.config.airports || []}
+                      fir={occurrence.config.fir?.code}
+                      userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
+                      onSignupChange={fetchSignups}
+                    />
+                    {isSignedUp && (
+                      <Button
+                        onClick={handleCancelSignup}
+                        variant="destructive"
+                        size="default"
+                        disabled={busy}
+                      >
+                        <UserMinus className="mr-2 h-4 w-4" />
+                        {busy ? "Wird storniert..." : "Anmeldung stornieren"}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Alert className="border-gray-200 dark:border-gray-800">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Der Anmeldeschluss für diesen Termin ist abgelaufen.
+                    </AlertDescription>
+                  </Alert>
+                )
+            )}
             </CardContent>
           </Card>
           {/* Banner */}
@@ -404,78 +448,6 @@ export default function OccurrenceDetailPage() {
             </div>
           </div>
         </div>
-
-        {/* Signup Section - Nur wenn Roster nicht veröffentlicht */}
-        {session && occurrence.config.requiresRoster && !rosterPublished && (
-          <Card className="border-gray-200 dark:border-gray-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    signupOpen ? "bg-green-500" : "bg-gray-400"
-                  )} />
-                  <CardTitle className="text-lg">
-                    Anmeldung
-                  </CardTitle>
-                </div>
-                <Badge variant={signupOpen ? "default" : "secondary"} className="text-xs">
-                  {signupOpen ? "Anmeldung offen" : "Geschlossen"}
-                </Badge>
-              </div>
-              <CardDescription>
-                {signupOpen
-                  ? isSignedUp
-                    ? "Du bist für diesen Termin angemeldet"
-                    : "Melde dich für diesen Termin an"
-                  : "Anmeldeschluss ist abgelaufen"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {signupOpen ? (
-                <div className="flex gap-2">
-                  <WeeklySignupDialog
-                    occurrence={{
-                      id: occurrence.id,
-                      date: new Date(occurrence.date),
-                      signupDeadline: occurrence.signupDeadline ? new Date(occurrence.signupDeadline) : null,
-                    }}
-                    config={{
-                      id: occurrence.config.id,
-                      requiresRoster: occurrence.config.requiresRoster || false,
-                    }}
-                    user={{
-                      userCID: Number(session.user.cid),
-                      rating: Number(session.user.rating),
-                    }}
-                    airports={occurrence.config.airports || []}
-                    fir={occurrence.config.fir?.code}
-                    userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
-                    onSignupChange={fetchSignups}
-                  />
-                  {isSignedUp && (
-                    <Button
-                      onClick={handleCancelSignup}
-                      variant="destructive"
-                      size="default"
-                      disabled={busy}
-                    >
-                      <UserMinus className="mr-2 h-4 w-4" />
-                      {busy ? "Wird storniert..." : "Anmeldung stornieren"}
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <Alert className="border-gray-200 dark:border-gray-800">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Der Anmeldeschluss für diesen Termin ist abgelaufen.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        )}
 
         {/* Info for non-rostered events */}
         {session && !occurrence.config.requiresRoster && (
@@ -550,12 +522,6 @@ export default function OccurrenceDetailPage() {
                             <span className="font-medium text-gray-900 dark:text-gray-100">
                               {station}
                             </span>
-                            <Badge className={cn(
-                              "text-xs",
-                              getBadgeClassForEndorsement(stationGroup)
-                            )}>
-                              {stationGroup}
-                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -607,140 +573,142 @@ export default function OccurrenceDetailPage() {
         )}
 
         {/* Signups List - Als Tabelle */}
-        <Card className="border-gray-200 dark:border-gray-800">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
-              <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
-              <Badge variant="outline" className="ml-2">
-                {signups.length}
-              </Badge>
-            </div>
-            <CardDescription>
-              {signups.length === 1 ? "Ein Lotse hat sich angemeldet" : `${signups.length} Lotsen haben sich angemeldet`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {signupsLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        {occurrence.config.requiresRoster && (
+          <Card className="border-gray-200 dark:border-gray-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
+                <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
+                <Badge variant="outline" className="ml-2">
+                  {signups.length}
+                </Badge>
               </div>
-            ) : signups.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400">Noch keine Anmeldungen</p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-gray-50 dark:bg-gray-900/40">
-                      <TableHead>Lotse</TableHead>
-                      <TableHead className="w-[100px]">Rating</TableHead>
-                      <TableHead className="w-[120px]">Endorsement</TableHead>
-                      <TableHead className="w-[200px]">Einschränkungen</TableHead>
-                      <TableHead className="w-[120px]">Angemeldet seit</TableHead>
-                      <TableHead className="w-[150px]">Bemerkungen</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {signups
-                      .sort((a, b) => {
-                        if (a.user?.rating !== b.user?.rating) {
-                          return (b.user?.rating || 0) - (a.user?.rating || 0);
-                        }
-                        return (a.user?.name || "").localeCompare(b.user?.name || "");
-                      })
-                      .map((signup) => {
-                        const isCurrentUser = signup.userCID === Number(session?.user?.cid);
-                        const restrictions = signup.restrictions || [];
+              <CardDescription>
+                {signups.length === 1 ? "Ein Lotse hat sich angemeldet" : `${signups.length} Lotsen haben sich angemeldet`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {signupsLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                </div>
+              ) : signups.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400">Noch keine Anmeldungen</p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gray-50 dark:bg-gray-900/40">
+                        <TableHead>Lotse</TableHead>
+                        <TableHead className="w-[100px]">Rating</TableHead>
+                        <TableHead className="w-[120px]">Endorsement</TableHead>
+                        <TableHead className="w-[200px]">Einschränkungen</TableHead>
+                        <TableHead className="w-[120px]">Angemeldet seit</TableHead>
+                        <TableHead className="w-[150px]">Bemerkungen</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {signups
+                        .sort((a, b) => {
+                          if (a.user?.rating !== b.user?.rating) {
+                            return (b.user?.rating || 0) - (a.user?.rating || 0);
+                          }
+                          return (a.user?.name || "").localeCompare(b.user?.name || "");
+                        })
+                        .map((signup) => {
+                          const isCurrentUser = signup.userCID === Number(session?.user?.cid);
+                          const restrictions = signup.restrictions || [];
 
-                        return (
-                          <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <div className={cn(
-                                  "h-6 w-6 rounded-full flex items-center justify-center",
-                                  isCurrentUser 
-                                    ? "bg-blue-200 dark:bg-blue-800" 
-                                    : "bg-gray-100 dark:bg-gray-800"
-                                )}>
-                                  <span className="text-xs font-semibold">
-                                    {signup.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
+                          return (
+                            <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className={cn(
+                                    "h-6 w-6 rounded-full flex items-center justify-center",
+                                    isCurrentUser 
+                                      ? "bg-blue-200 dark:bg-blue-800" 
+                                      : "bg-gray-100 dark:bg-gray-800"
+                                  )}>
+                                    <span className="text-xs font-semibold">
+                                      {signup.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium">
+                                    {signup.user?.name || `CID ${signup.userCID}`}
                                   </span>
+                                  {isCurrentUser && (
+                                    <Badge variant="default" className="bg-blue-600 text-[8px] h-3 px-1">
+                                      Du
+                                    </Badge>
+                                  )}
                                 </div>
-                                <span className="font-medium">
-                                  {signup.user?.name || `CID ${signup.userCID}`}
-                                </span>
-                                {isCurrentUser && (
-                                  <Badge variant="default" className="bg-blue-600 text-[8px] h-3 px-1">
-                                    Du
+                              </TableCell>
+                              <TableCell>
+                                {signup.user?.rating && (
+                                  <Badge variant="outline" className="text-[10px] h-4">
+                                    {getRatingBadge(signup.user.rating)}
                                   </Badge>
                                 )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {signup.user?.rating && (
-                                <Badge variant="outline" className="text-[10px] h-4">
-                                  {getRatingBadge(signup.user.rating)}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {signup.endorsementGroup ? (
-                                  <Badge className={cn(
-                                    "text-[10px] h-4",
-                                    getBadgeClassForEndorsement(signup.endorsementGroup)
-                                  )}>
-                                    {signup.endorsementGroup}
-                                  </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {signup.endorsementGroup ? (
+                                    <Badge className={cn(
+                                      "text-[10px] h-4",
+                                      getBadgeClassForEndorsement(signup.endorsementGroup)
+                                    )}>
+                                      {signup.endorsementGroup}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                                  )}
+                                  {isTrainee(signup.restrictions) && (
+                                    <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                      Trainee
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {restrictions.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {restrictions.map((r, i) => (
+                                      <Badge key={i} variant="secondary" className="text-[8px] h-3 px-1">
+                                        {r}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 dark:text-gray-600 text-xs">Keine</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <span className="text-xs text-gray-600 dark:text-gray-400">
+                                  {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {signup.remarks ? (
+                                  <span className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-1">
+                                    {signup.remarks}
+                                  </span>
                                 ) : (
                                   <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
                                 )}
-                                {isTrainee(signup.restrictions) && (
-                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                    Trainee
-                                  </Badge>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {restrictions.length > 0 ? (
-                                <div className="flex flex-wrap gap-1">
-                                  {restrictions.map((r, i) => (
-                                    <Badge key={i} variant="secondary" className="text-[8px] h-3 px-1">
-                                      {r}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-gray-400 dark:text-gray-600 text-xs">Keine</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <span className="text-xs text-gray-600 dark:text-gray-400">
-                                {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {signup.remarks ? (
-                                <span className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-1">
-                                  {signup.remarks}
-                                </span>
-                              ) : (
-                                <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

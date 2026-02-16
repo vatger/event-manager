@@ -183,7 +183,12 @@ export default function PublicWeeklyEventsPage() {
                               <span>{config.name}</span>
                             </CardTitle>
                             <CardDescription>
-                              Jeden {WEEKDAYS[config.weekday]}
+                              {config.weeksOff == 0 ? (
+                               "Jeden " + WEEKDAYS[config.weekday]
+                              ) : (
+                                WEEKDAYS[config.weekday] + "s"
+                              )}
+                              
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="space-y-3">
