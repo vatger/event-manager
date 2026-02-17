@@ -25,7 +25,7 @@ import {
   Repeat,
   Plane,
 } from "lucide-react";
-import { format, isPast, isBefore } from "date-fns";
+import { format, isPast, isBefore, isAfter } from "date-fns";
 import { de } from "date-fns/locale";
 import Link from "next/link";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -42,6 +42,7 @@ interface WeeklyOccurrence {
   signupDeadline: string | null;
   rosterPublishedAt: string | null;
   eventId: number | null;
+  signupStatus: "open" | "closed" | "auto";
 }
 
 interface WeeklyConfig {
@@ -177,8 +178,69 @@ export default function WeeklyDetailPage() {
   };
 
   const isSignupOpen = (occurrence: WeeklyOccurrence): boolean => {
+    if(occurrence.signupStatus === "closed") return false;
     if (!occurrence.signupDeadline) return true;
-    return isBefore(new Date(), new Date(occurrence.signupDeadline));
+    const deadline = new Date(occurrence.signupDeadline);
+    const twoWeeksBeforeDeadline = new Date(deadline);
+    twoWeeksBeforeDeadline.setDate(deadline.getDate() - 14);
+    return isBefore(new Date(), deadline) && isAfter(new Date(), twoWeeksBeforeDeadline);
+  };
+
+  const getSignupStatusMessage = (occurrence: WeeklyOccurrence): { text: string; color: string } => {
+    if (!occurrence || !config?.requiresRoster) {
+      return { text: "Kein Roster vorgesehen", color: "text-gray-500" };
+    }
+    
+    if (occurrence.rosterPublishedAt) {
+      return { text: "Roster veröffentlicht", color: "text-green-600" };
+    }
+    
+    if (occurrence.signupStatus === "closed") {
+      return { text: "Anmeldung geschlossen", color: "text-red-600" };
+    }
+    
+    if (occurrence.signupStatus === "open") {
+      if (occurrence.signupDeadline && !isBefore(new Date(), new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    // Auto mode
+    if (occurrence.signupStatus === "auto") {
+      const now = new Date();
+      const occDate = new Date(occurrence.date);
+      const twoWeeksBefore = new Date(occDate);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      if (now < twoWeeksBefore) {
+        const opensAtStr = twoWeeksBefore.toLocaleDateString("de-DE", { 
+          day: "2-digit", 
+          month: "2-digit", 
+          year: "numeric" 
+        });
+        return { 
+          text: `Noch keine Anmeldung`, 
+          color: "text-amber-600" 
+        };
+      }
+      
+      if (occurrence.signupDeadline && !isBefore(now, new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    return { text: "Status unbekannt", color: "text-gray-500" };
+  };
+
+  const getStatusBadgeColor = (statusMessage: { text: string; color: string }): string => {
+    if (statusMessage.color.includes("green")) return "bg-green-600";
+    if (statusMessage.color.includes("amber")) return "bg-amber-600";
+    if (statusMessage.color.includes("blue")) return "bg-blue-600";
+    if (statusMessage.color.includes("red")) return "bg-red-600";
+    return "";
   };
 
   const getAirportCount = (): number => {
@@ -311,7 +373,7 @@ export default function WeeklyDetailPage() {
                   <Clock className="h-4 w-4 text-amber-700" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (MEZ/MESZ)</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (Lokalzeit)</p>
                   <p className="font-medium">{config.startTime || "?"} - {config.endTime || "?"}</p>
                 </div>
               </div>
@@ -397,7 +459,7 @@ export default function WeeklyDetailPage() {
                 const weekday = WEEKDAYS[occDate.getDay()];
                 const formattedDate = format(occDate, "dd.MM.yyyy", { locale: de });
 
-                if (week.type === "pause") {
+                if (week.type === "pause" && config.weeksOff > 0) {
                   // Pause week placeholder
                   return (
                     <div
@@ -469,11 +531,6 @@ export default function WeeklyDetailPage() {
                               <h3 className="font-semibold text-base">
                                 {formattedDate}
                               </h3>
-                              {config.requiresRoster && deadline && (
-                                <span className="text-xs text-muted-foreground">
-                                  Anmeldeschluss: {format(deadline, "dd.MM.yyyy HH:mm")}
-                                </span>
-                              )}
                             </div>
                             
                             {config.startTime && config.endTime && (
@@ -487,14 +544,13 @@ export default function WeeklyDetailPage() {
                           <div className="flex items-center gap-3">
                             {config.requiresRoster && (
                               <Badge 
-                                variant={signupOpen ? "default" : "secondary"}
-                                className={cn(
-                                  "text-xs px-2 py-0.5",
-                                  signupOpen && "bg-green-600"
-                                )}
-                              >
-                                {signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
-                              </Badge>
+                              variant={signupOpen ? "default" : "secondary"}
+                              className={cn(
+                                getStatusBadgeColor(getSignupStatusMessage(occurrence))
+                              )}
+                            >
+                              {getSignupStatusMessage(occurrence).text}
+                            </Badge>
                             )}
                             
                             <Button 
