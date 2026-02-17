@@ -3,6 +3,7 @@ import { refreshTrainingCache } from '@/lib/training/cacheService'
 import { checkUpcomingEventsForReminders } from './eventReminderJob'
 import { checkWeeklyOccurrenceStatus } from './weeklyNotificationsJob'
 import { checkWeeklyStaffing } from './weeklyStaffingJob'
+import { checkWeeklyMyVatsim } from './weeklyMyVatsimJob'
 
 let isInitialized = false
 
@@ -81,11 +82,28 @@ export function initializeCronJobs() {
     }
   })
 
+  // Check weekly events on myVATSIM daily at 10:00 AM (UTC) by default
+  // Checks if upcoming weekly occurrences are registered on myVATSIM
+  // Sends notifications to EDMM event team for events 2 weeks away that are not registered
+  // Can be configured via WEEKLY_MYVATSIM_CHECK_CRON environment variable
+  const weeklyMyVatsimCron = process.env.WEEKLY_MYVATSIM_CHECK_CRON || '0 10 * * *'
+  
+  cron.schedule(weeklyMyVatsimCron, async () => {
+    console.log('[Cron] Starting weekly myVATSIM check...')
+    try {
+      const result = await checkWeeklyMyVatsim()
+      console.log('[Cron] Weekly myVATSIM check completed:', result)
+    } catch (error) {
+      console.error('[Cron] Weekly myVATSIM check failed:', error)
+    }
+  })
+
   console.log('[Cron] All cron jobs initialized successfully')
   console.log(`[Cron] - Training cache refresh: Schedule = ${trainingCacheCron}`)
   console.log(`[Cron] - Event reminder check: Schedule = ${eventReminderCron}`)
   console.log(`[Cron] - Weekly status check: Schedule = ${weeklyStatusCron}`)
   console.log(`[Cron] - Weekly staffing check: Schedule = ${weeklyStaffingCron}`)
+  console.log(`[Cron] - Weekly myVATSIM check: Schedule = ${weeklyMyVatsimCron}`)
   
   isInitialized = true
 }
