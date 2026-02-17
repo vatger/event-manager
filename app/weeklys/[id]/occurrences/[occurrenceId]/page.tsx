@@ -78,6 +78,7 @@ interface Occurrence {
   rosterPublishedAt: string | null;
   eventId: number | null;
   config: WeeklyConfig;
+  signupStatus: "open" | "closed" | "auto";
 }
 
 interface User {
@@ -253,6 +254,7 @@ export default function OccurrenceDetailPage() {
   };
 
   const isSignupOpen = (): boolean => {
+    if(occurrence?.signupStatus == "closed") return false;
     if (!occurrence?.signupDeadline) return true;
     return isBefore(new Date(), new Date(occurrence.signupDeadline));
   };

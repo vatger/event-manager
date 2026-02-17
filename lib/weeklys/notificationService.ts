@@ -62,7 +62,7 @@ export async function sendRosterPublishedNotifications(
     });
 
     const title = `Roster veröffentlicht: ${occurrence.config.name}`;
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event-manager.vatger.de";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
     const link = `${baseUrl}/weeklys/${configId}/occurrences/${occurrenceId}`;
 
     // Send notification to each signed-up user
@@ -70,10 +70,12 @@ export async function sendRosterPublishedNotifications(
       try {
         const station = userStations.get(signup.userCID);
         
-        let message = `Das Roster für ${occurrence.config.name} am ${eventDate}, ${eventTime} UTC wurde veröffentlicht.`;
+        let message = `Das Roster für ${occurrence.config.name} am ${eventDate}, ${eventTime} wurde veröffentlicht.`;
         
         if (station) {
           message += ` Du wurdest für Station ${station} eingeteilt.`;
+        } else {
+          message += ` Du bist aktuell leider für keine Station eingeteilt.`;
         }
 
         // Create in-app notification (always)
@@ -203,18 +205,18 @@ export async function sendSignupDeadlineDiscordNotification(
       timeZone: "UTC",
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event-manager.vatger.de";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
     const rosterEditorLink = `${baseUrl}/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster`;
 
-    const message = `<@&${roleId}>
+    const message = `
 
-**Anmeldeschluss für Weekly Event: ${occurrence.config.name}**
+**Anmeldeschluss für: ${occurrence.config.name}**
 
-📅 Datum: ${eventDate}, ${eventTime} UTC
+Datum: ${eventDate}, ${eventTime}
 
-Die Anmeldung ist nun geschlossen. Ihr könnt nun mit der Roster-Planung beginnen.
+Die Anmeldung ist nun geschlossen. Das Roster kann nun erstellt werden.
 
-🔗 Roster Editor: ${rosterEditorLink}`;
+Roster Editor: ${rosterEditorLink}`;
 
     const response = await fetch(discordBotUrl, {
       method: "POST",
