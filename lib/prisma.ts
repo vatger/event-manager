@@ -67,6 +67,9 @@ function getPrismaClient(): PrismaClient {
   return client;
 }
 
+// Cache the client instance to avoid repeated function calls
+let clientInstance: PrismaClient | null = null;
+
 /**
  * Type-safe Prisma client instance
  * During build phase, accessing this will throw an error with a clear message
@@ -80,12 +83,16 @@ export const prisma = new Proxy({} as PrismaClient, {
       );
     }
     
-    const client = getPrismaClient();
-    const value = client[prop as keyof PrismaClient];
+    // Cache the client instance to avoid repeated getPrismaClient() calls
+    if (!clientInstance) {
+      clientInstance = getPrismaClient();
+    }
+    
+    const value = clientInstance[prop as keyof PrismaClient];
     
     // Bind methods to the client instance
     if (typeof value === "function") {
-      return value.bind(client);
+      return value.bind(clientInstance);
     }
     
     return value;
