@@ -223,21 +223,24 @@ async function generateOccurrences(configId: number) {
   }
 
   let weekCounter = 0;
+  const totalCycleWeeks = config.weeksOn + config.weeksOff;
+  
   while (currentDate <= sixMonthsFromNow) {
     // Only add occurrence if we're in the "on" weeks
     if (weekCounter < config.weeksOn) {
       if (currentDate >= today) {
         occurrences.push(new Date(currentDate));
       }
-      weekCounter++;
-    } else {
-      weekCounter++;
-      // Skip "off" weeks
-      if (weekCounter >= config.weeksOn + config.weeksOff) {
-        weekCounter = 0;
-      }
     }
+    
+    // Move to next week
     currentDate = addWeeks(currentDate, 1);
+    weekCounter++;
+    
+    // Reset counter after completing a full cycle
+    if (weekCounter >= totalCycleWeeks) {
+      weekCounter = 0;
+    }
   }
 
   // Create occurrences in database

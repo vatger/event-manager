@@ -124,7 +124,6 @@ export default function WeeklyDetailPage() {
 
     const result: CalendarWeek[] = [];
     const startDate = new Date(config.startDate);
-    const today = new Date();
     
     // Get the earliest future or current occurrence
     const upcomingOccurrences = config.occurrences
@@ -139,15 +138,7 @@ export default function WeeklyDetailPage() {
     
     // Calculate how many weeks to show (next 12 weeks)
     const weeksToShow = 12;
-    const pattern = config.weeksOn + config.weeksOff;
     
-    // Find which week in the pattern the first occurrence is
-    const daysSinceStart = Math.floor(
-      (firstOccurrenceDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const weeksSinceStart = Math.floor(daysSinceStart / 7);
-    const weekInPattern = weeksSinceStart % pattern;
-
     // Create occurrence lookup map
     const occurrenceMap = new Map<string, WeeklyOccurrence>();
     upcomingOccurrences.forEach(occ => {
@@ -155,32 +146,22 @@ export default function WeeklyDetailPage() {
       occurrenceMap.set(dateKey, occ);
     });
 
-    // Generate calendar weeks
+    // Generate calendar weeks by checking each week
     let currentDate = new Date(firstOccurrenceDate);
-    let currentWeekInPattern = weekInPattern;
-
+    
     for (let i = 0; i < weeksToShow; i++) {
       const dateKey = currentDate.toISOString().split('T')[0];
       const occurrence = occurrenceMap.get(dateKey);
       
-      // Determine if this week is active or pause based on pattern
-      const isActiveWeek = currentWeekInPattern < config.weeksOn;
-
-      if (isActiveWeek && occurrence) {
-        // Active week with occurrence
+      if (occurrence) {
+        // This week has an actual occurrence - show it as an active week
         result.push({
           type: "occurrence",
           date: new Date(currentDate),
           occurrence: occurrence,
         });
-      } else if (isActiveWeek && !occurrence) {
-        // Active week but no occurrence (shouldn't normally happen, but handle it)
-        result.push({
-          type: "occurrence",
-          date: new Date(currentDate),
-        });
       } else {
-        // Pause week
+        // No occurrence this week - it's a pause week
         result.push({
           type: "pause",
           date: new Date(currentDate),
@@ -190,9 +171,6 @@ export default function WeeklyDetailPage() {
       // Move to next week (same weekday)
       currentDate = new Date(currentDate);
       currentDate.setDate(currentDate.getDate() + 7);
-      
-      // Advance pattern counter
-      currentWeekInPattern = (currentWeekInPattern + 1) % pattern;
     }
 
     return result;
