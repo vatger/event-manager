@@ -353,7 +353,7 @@ export default function WeeklyDetailPage() {
                             <h3 className="font-semibold text-base">
                               {formattedDate}
                             </h3>
-                            {deadline && (
+                            {config.requiresRoster && deadline && (
                               <span className="text-xs text-muted-foreground">
                                 Anmeldeschluss: {format(deadline, "dd.MM.yyyy HH:mm")}
                               </span>
