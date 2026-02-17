@@ -35,6 +35,20 @@ interface Event {
   status: string;
 }
 
+interface WeeklyEvent {
+  id: number;
+  date: string;
+  config: {
+    id: number;
+    name: string;
+    startTime?: string;
+    endTime?: string;
+    fir?: {
+      code: string;
+    };
+  };
+}
+
 interface BlockedDate {
   id: number;
   startDate: string;
@@ -73,6 +87,7 @@ const FIR_COLORS = {
 export default function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [events, setEvents] = useState<Event[]>([]);
+  const [weeklyEvents, setWeeklyEvents] = useState<WeeklyEvent[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -83,6 +98,9 @@ export default function EventCalendar() {
   
   // FIR Filter State
   const [visibleFIRs, setVisibleFIRs] = useState<Set<string>>(new Set(["EDMM", "EDGG", "EDWW"]));
+  
+  // Weekly Events Toggle
+  const [showWeeklyEvents, setShowWeeklyEvents] = useState(true);
   
   const { isVATGERLead } = useUser();
   const router = useRouter();
@@ -134,6 +152,18 @@ export default function EventCalendar() {
         setEvents(monthEvents);
       }
 
+      // Fetch weekly event occurrences for the current month
+      const weeklyRes = await fetch("/api/weeklys/upcoming");
+      if (weeklyRes.ok) {
+        const allWeeklyEvents: WeeklyEvent[] = await weeklyRes.json();
+        // Filter to current month
+        const monthWeeklyEvents = allWeeklyEvents.filter(weeklyEvent => {
+          const eventDate = parseISO(weeklyEvent.date);
+          return eventDate >= monthStart && eventDate <= monthEnd;
+        });
+        setWeeklyEvents(monthWeeklyEvents);
+      }
+
       // Fetch blocked dates for the current month
       const blockedRes = await fetch(
         `/api/calendar/blocked-dates?start=${monthStart.toISOString()}&end=${monthEnd.toISOString()}`
@@ -169,6 +199,18 @@ export default function EventCalendar() {
       const isInRange = day >= new Date(eventStart.toDateString()) && day <= new Date(eventEnd.toDateString());
       const isVisible = visibleFIRs.has(event.firCode);
       return isInRange && isVisible;
+    });
+  };
+
+  const getWeeklyEventsForDay = (day: Date) => {
+    if (!showWeeklyEvents) return [];
+    
+    return weeklyEvents.filter(weeklyEvent => {
+      const eventDate = parseISO(weeklyEvent.date);
+      const isSameDay = day.toDateString() === eventDate.toDateString();
+      const firCode = weeklyEvent.config.fir?.code;
+      const isVisible = firCode ? visibleFIRs.has(firCode) : true;
+      return isSameDay && isVisible;
     });
   };
 
@@ -358,6 +400,7 @@ export default function EventCalendar() {
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day, index) => {
                   const dayEvents = getEventsForDay(day);
+                  const dayWeeklyEvents = getWeeklyEventsForDay(day);
                   const dayBlocked = getBlockedDatesForDay(day);
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isCurrentDay = isToday(day);
@@ -390,6 +433,7 @@ export default function EventCalendar() {
                             </div>
                           ))}
                           
+                          {/* Regular Events */}
                           {dayEvents.slice(0, 2).map((event) => {
                             const colors = FIR_COLORS[event.firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
                             return (
@@ -410,9 +454,31 @@ export default function EventCalendar() {
                             );
                           })}
                           
-                          {dayEvents.length > 2 && (
+                          {/* Weekly Events - Displayed with subdued styling */}
+                          {dayWeeklyEvents.slice(0, 2 - Math.min(dayEvents.length, 2)).map((weeklyEvent) => {
+                            const firCode = weeklyEvent.config.fir?.code || "EDMM";
+                            const colors = FIR_COLORS[firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                            return (
+                              <div
+                                key={`weekly-${weeklyEvent.id}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/weeklys/${weeklyEvent.config.id}/occurrences/${weeklyEvent.id}`);
+                                }}
+                                className={`text-xs px-1.5 py-0.5 rounded truncate border border-dashed opacity-60 hover:opacity-100 ${colors.bg} ${colors.text} flex items-center gap-1`}
+                                title={`${weeklyEvent.config.name} (Weekly)`}
+                              >
+                                <Badge variant="outline" className={`px-1 py-0 text-[10px] h-4 ${colors.badge} border-0 opacity-80`}>
+                                  {firCode}
+                                </Badge>
+                                <span className="truncate italic">{weeklyEvent.config.name}</span>
+                              </div>
+                            );
+                          })}
+                          
+                          {(dayEvents.length + dayWeeklyEvents.length) > 2 && (
                             <div className="text-xs text-muted-foreground px-1.5">
-                              +{dayEvents.length - 2} weitere
+                              +{dayEvents.length + dayWeeklyEvents.length - 2} weitere
                             </div>
                           )}
                         </div>
@@ -429,21 +495,39 @@ export default function EventCalendar() {
       {/* FIR Filter */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">FIR Filter</CardTitle>
+          <CardTitle className="text-lg">Filter</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(FIR_COLORS).map(([fir, colors]) => (
+        <CardContent className="space-y-4">
+          {/* FIR Filter */}
+          <div>
+            <h3 className="text-sm font-medium mb-2">FIR</h3>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(FIR_COLORS).map(([fir, colors]) => (
+                <Button
+                  key={fir}
+                  variant={visibleFIRs.has(fir) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleFIR(fir)}
+                  className={visibleFIRs.has(fir) ? colors.badge : ""}
+                >
+                  {fir}
+                </Button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Weekly Events Toggle */}
+          <div>
+            <h3 className="text-sm font-medium mb-2">Event Typen</h3>
+            <div className="flex gap-2">
               <Button
-                key={fir}
-                variant={visibleFIRs.has(fir) ? "default" : "outline"}
+                variant={showWeeklyEvents ? "default" : "outline"}
                 size="sm"
-                onClick={() => toggleFIR(fir)}
-                className={visibleFIRs.has(fir) ? colors.badge : ""}
+                onClick={() => setShowWeeklyEvents(!showWeeklyEvents)}
               >
-                {fir}
+                Weekly Events
               </Button>
-            ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -481,6 +565,41 @@ export default function EventCalendar() {
                               </div>
                             </div>
                             <Badge className={colors.badge}>{event.firCode}</Badge>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Show weekly events for this day */}
+              {getWeeklyEventsForDay(selectedDate).length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-2">Weekly Events an diesem Tag:</h4>
+                  <div className="space-y-2">
+                    {getWeeklyEventsForDay(selectedDate).map((weeklyEvent) => {
+                      const firCode = weeklyEvent.config.fir?.code || "EDMM";
+                      const colors = FIR_COLORS[firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                      return (
+                        <div
+                          key={`weekly-${weeklyEvent.id}`}
+                          onClick={() => router.push(`/weeklys/${weeklyEvent.config.id}/occurrences/${weeklyEvent.id}`)}
+                          className={`p-3 border border-dashed rounded-lg cursor-pointer ${colors.border} ${colors.bg} ${colors.hover} opacity-80 hover:opacity-100`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className={`font-medium ${colors.text} flex items-center gap-2`}>
+                                <span className="italic">{weeklyEvent.config.name}</span>
+                                <span className="text-xs opacity-60">(Weekly)</span>
+                              </div>
+                              {weeklyEvent.config.startTime && weeklyEvent.config.endTime && (
+                                <div className="text-sm opacity-80">
+                                  {weeklyEvent.config.startTime} - {weeklyEvent.config.endTime} Uhr
+                                </div>
+                              )}
+                            </div>
+                            <Badge className={colors.badge}>{firCode}</Badge>
                           </div>
                         </div>
                       );
