@@ -42,7 +42,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
-import { checkAndNotifyDeadline } from "@/lib/weeklys/deadlineCheck";
 
 interface WeeklyConfig {
   id: number;
@@ -120,25 +119,6 @@ export default function OccurrencesPage() {
       if (!occRes.ok) throw new Error("Failed to fetch occurrences");
       const occData = await occRes.json();
       setOccurrences(occData.occurrences || []);
-
-      // Check deadlines and send Discord notifications if needed
-      // This runs automatically when admin views the page
-      if (configData.fir?.code && occData.occurrences) {
-        occData.occurrences.forEach((occ: Occurrence) => {
-          if (occ.signupDeadline) {
-            // Non-blocking check for deadline notifications
-            checkAndNotifyDeadline(
-              occ.id,
-              configId,
-              new Date(occ.signupDeadline),
-              configData.fir.code,
-              occ.rosterPublished
-            ).catch(err => {
-              console.error(`[DEADLINE CHECK] Failed for occurrence ${occ.id}:`, err);
-            });
-          }
-        });
-      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Fehler", {
