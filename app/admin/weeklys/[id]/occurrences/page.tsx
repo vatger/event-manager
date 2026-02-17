@@ -50,6 +50,8 @@ interface WeeklyConfig {
   fir: {
     code: string;
   };
+  startTime: string | null;
+  endTime: string | null;
 }
 
 interface Occurrence {
@@ -342,7 +344,7 @@ export default function OccurrencesPage() {
                 {occurrences.map((occ) => (
                   <TableRow key={occ.id}>
                     <TableCell>
-                      {format(new Date(occ.date), "dd.MM.yyyy HH:mm", { locale: de })} UTC
+                      {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
                     </TableCell>
                     <TableCell>
                       {occ.signupDeadline

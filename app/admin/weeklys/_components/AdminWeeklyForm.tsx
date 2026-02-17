@@ -522,7 +522,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startTime">Startzeit (UTC)</Label>
+                  <Label htmlFor="startTime">Startzeit (lcl)</Label>
                   <Input
                     id="startTime"
                     type="time"
@@ -534,7 +534,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="endTime">Endzeit (UTC)</Label>
+                  <Label htmlFor="endTime">Endzeit (lcl)</Label>
                   <Input
                     id="endTime"
                     type="time"
