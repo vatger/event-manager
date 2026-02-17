@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   // Lokale Notification speichern
   await prisma.$transaction(
     signups.map((s) =>
-      prisma!.notification.create({
+      prisma.notification.create({
         data: {
           userCID: s.user.cid,
           eventId: id,

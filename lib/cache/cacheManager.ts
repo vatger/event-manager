@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 type CacheEntry<T> = {
@@ -18,14 +18,14 @@ export async function getCache<T>(key: string): Promise<T | null> {
   if (cached && cached.expires > Date.now()) return cached.data as T;
 
   const eventId = Number(key.replace("event:", ""));
-  const dbCache = await prisma!.eventSignupCache.findUnique({
+  const dbCache = await prisma.eventSignupCache.findUnique({
     where: { eventId },
   });
   if (!dbCache) return null;
 
   // Abgelaufen?
   if (dbCache.expiresAt && dbCache.expiresAt.getTime() < Date.now()) {
-    await prisma!.eventSignupCache.delete({ where: { eventId } });
+    await prisma.eventSignupCache.delete({ where: { eventId } });
     memoryCache.delete(key);
     return null;
   }
@@ -46,7 +46,7 @@ export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL) {
   let retries = 3;
   while (retries > 0) {
     try {
-      await prisma!.eventSignupCache.upsert({
+      await prisma.eventSignupCache.upsert({
         where: { eventId },
         update: { data: data as unknown as Prisma.InputJsonValue, expiresAt },
         create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
@@ -76,7 +76,7 @@ export async function invalidateCache(key: string): Promise<void> {
   const eventId = Number(key.replace("event:", ""));
 
   // DB-Einträge löschen
-  await prisma!.eventSignupCache.deleteMany({ where: { eventId } });
+  await prisma.eventSignupCache.deleteMany({ where: { eventId } });
 
   // Memory-Einträge löschen (auch ähnliche Keys)
   for (const existingKey of memoryCache.keys()) {
@@ -91,7 +91,7 @@ export async function invalidateCache(key: string): Promise<void> {
 // 🔹 ALLE Caches löschen (z. B. täglicher Endorsement-Reset)
 // ====================================================================
 export async function invalidateAllCaches(): Promise<void> {
-  await prisma!.eventSignupCache.deleteMany({});
+  await prisma.eventSignupCache.deleteMany({});
   memoryCache.clear();
   console.log(`[CACHE CLEAR] All caches cleared`);
 }

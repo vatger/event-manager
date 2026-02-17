@@ -53,8 +53,6 @@ export async function getCachedWeeklySignups(
   occurrenceId: number,
   forceRefresh = false
 ): Promise<WeeklySignupEntry[]> {
-  if (!prisma) return [];
-  
   const key = `weekly-occurrence:${occurrenceId}`;
 
   // 1️⃣ Check memory cache unless force refresh
@@ -115,7 +113,7 @@ export async function getCachedWeeklySignups(
   // 4️⃣ Fetch user details and calculate endorsements (time-intensive)
   const computed: WeeklySignupEntry[] = await Promise.all(
     signups.map(async (s): Promise<WeeklySignupEntry> => {
-      const user = await prisma!.user.findUnique({
+      const user = await prisma.user.findUnique({
         where: { cid: s.userCID },
         select: {
           cid: true,

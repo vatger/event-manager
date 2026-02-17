@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { userHasFirPermission } from "@/lib/acl/permissions";
 
 /**
@@ -25,7 +25,7 @@ export async function GET(
 
   try {
     // Get the weekly configuration
-    const config = await prisma!.weeklyEventConfiguration.findUnique({
+    const config = await prisma.weeklyEventConfiguration.findUnique({
       where: { id: configId },
       include: { fir: true },
     });
@@ -45,7 +45,7 @@ export async function GET(
     }
 
     // Get all occurrences with signup counts
-    const occurrences = await prisma!.weeklyEventOccurrence.findMany({
+    const occurrences = await prisma.weeklyEventOccurrence.findMany({
       where: { configId },
       include: {
         _count: {
