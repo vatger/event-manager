@@ -77,6 +77,13 @@ const WEEKDAYS = [
 
 const MONTHS = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
 
+// Helper types for calendar display
+interface CalendarWeek {
+  type: "occurrence" | "pause";
+  date: Date;
+  occurrence?: WeeklyOccurrence;
+}
+
 export default function WeeklyDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -106,6 +113,89 @@ export default function WeeklyDetailPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  /**
+   * Generates a complete calendar view including pause weeks
+   * Shows the full pattern of active and pause weeks
+   */
+  const generateCalendarWeeks = (): CalendarWeek[] => {
+    if (!config || config.occurrences.length === 0) return [];
+
+    const result: CalendarWeek[] = [];
+    const startDate = new Date(config.startDate);
+    const today = new Date();
+    
+    // Get the earliest future or current occurrence
+    const upcomingOccurrences = config.occurrences
+      .filter((occ) => !isPast(new Date(occ.date)))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    if (upcomingOccurrences.length === 0) return [];
+
+    // Start from first upcoming occurrence
+    const firstOccurrence = upcomingOccurrences[0];
+    const firstOccurrenceDate = new Date(firstOccurrence.date);
+    
+    // Calculate how many weeks to show (next 12 weeks)
+    const weeksToShow = 12;
+    const pattern = config.weeksOn + config.weeksOff;
+    
+    // Find which week in the pattern the first occurrence is
+    const daysSinceStart = Math.floor(
+      (firstOccurrenceDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const weeksSinceStart = Math.floor(daysSinceStart / 7);
+    const weekInPattern = weeksSinceStart % pattern;
+
+    // Create occurrence lookup map
+    const occurrenceMap = new Map<string, WeeklyOccurrence>();
+    upcomingOccurrences.forEach(occ => {
+      const dateKey = new Date(occ.date).toISOString().split('T')[0];
+      occurrenceMap.set(dateKey, occ);
+    });
+
+    // Generate calendar weeks
+    let currentDate = new Date(firstOccurrenceDate);
+    let currentWeekInPattern = weekInPattern;
+
+    for (let i = 0; i < weeksToShow; i++) {
+      const dateKey = currentDate.toISOString().split('T')[0];
+      const occurrence = occurrenceMap.get(dateKey);
+      
+      // Determine if this week is active or pause based on pattern
+      const isActiveWeek = currentWeekInPattern < config.weeksOn;
+
+      if (isActiveWeek && occurrence) {
+        // Active week with occurrence
+        result.push({
+          type: "occurrence",
+          date: new Date(currentDate),
+          occurrence: occurrence,
+        });
+      } else if (isActiveWeek && !occurrence) {
+        // Active week but no occurrence (shouldn't normally happen, but handle it)
+        result.push({
+          type: "occurrence",
+          date: new Date(currentDate),
+        });
+      } else {
+        // Pause week
+        result.push({
+          type: "pause",
+          date: new Date(currentDate),
+        });
+      }
+
+      // Move to next week (same weekday)
+      currentDate = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + 7);
+      
+      // Advance pattern counter
+      currentWeekInPattern = (currentWeekInPattern + 1) % pattern;
+    }
+
+    return result;
   };
 
   const isSignupOpen = (occurrence: WeeklyOccurrence): boolean => {
@@ -296,109 +386,157 @@ export default function WeeklyDetailPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-semibold tracking-tight">Kommende Termine</h2>
             <Badge variant="outline" className="ml-2">
-              {upcomingOccurrences.length}
+              Nächste 12 Wochen
             </Badge>
           </div>
         </div>
 
-        {upcomingOccurrences.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
-                <Calendar className="h-6 w-6 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm text-muted-foreground">Keine kommenden Termine</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {upcomingOccurrences.map((occurrence, index) => {
-              const occDate = new Date(occurrence.date);
-              const deadline = occurrence.signupDeadline
-                ? new Date(occurrence.signupDeadline)
-                : null;
-              const signupOpen = isSignupOpen(occurrence);
-              const isFirst = index === 0;
+        {(() => {
+          const calendarWeeks = generateCalendarWeeks();
+          
+          if (calendarWeeks.length === 0) {
+            return (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
+                    <Calendar className="h-6 w-6 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Keine kommenden Termine</p>
+                </CardContent>
+              </Card>
+            );
+          }
 
-              // Formatierungen
-              const dayOfMonth = format(occDate, "dd");
-              const month = MONTHS[occDate.getMonth()];
-              const weekday = WEEKDAYS[occDate.getDay()];
-              const formattedDate = format(occDate, "dd.MM.yyyy", { locale: de });
+          return (
+            <div className="space-y-3">
+              {calendarWeeks.map((week, index) => {
+                const occDate = week.date;
+                const isFirst = index === 0;
 
-              return (
-                <Link
-                  key={occurrence.id}
-                  href={`/weeklys/${config.id}/occurrences/${occurrence.id}`}
-                  className="block group"
-                >
-                  <div className={cn(
-                    "flex items-stretch border rounded-lg overflow-hidden transition-all hover:border-primary/30 hover:shadow-sm",
-                    isFirst && "border-primary/20 bg-primary/5"
-                  )}>
-                    {/* Datum-Block */}
-                    <div className={cn(
-                      "w-24 flex flex-col items-center justify-center py-3 border-r",
-                      isFirst ? "bg-primary/10" : "bg-muted/20"
-                    )}>
-                      <span className="text-2xl font-bold leading-none">{dayOfMonth}</span>
-                      <span className="text-xs font-medium uppercase tracking-wider mt-1">{month}</span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5">{weekday}</span>
-                    </div>
+                // Formatierungen
+                const dayOfMonth = format(occDate, "dd");
+                const month = MONTHS[occDate.getMonth()];
+                const weekday = WEEKDAYS[occDate.getDay()];
+                const formattedDate = format(occDate, "dd.MM.yyyy", { locale: de });
 
-                    {/* Content */}
-                    <div className="flex-1 p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <h3 className="font-semibold text-base">
-                              {formattedDate}
-                            </h3>
-                            {config.requiresRoster && deadline && (
-                              <span className="text-xs text-muted-foreground">
-                                Anmeldeschluss: {format(deadline, "dd.MM.yyyy HH:mm")}
-                              </span>
-                            )}
-                          </div>
-                          
-                          {config.startTime && config.endTime && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>{config.startTime} - {config.endTime} Uhr</span>
-                            </div>
-                          )}
+                if (week.type === "pause") {
+                  // Pause week placeholder
+                  return (
+                    <div
+                      key={`pause-${occDate.getTime()}`}
+                      className="block"
+                    >
+                      <div className="flex items-stretch border border-dashed rounded-lg overflow-hidden bg-muted/20 opacity-60">
+                        {/* Datum-Block */}
+                        <div className="w-24 flex flex-col items-center justify-center py-3 border-r border-dashed bg-muted/30">
+                          <span className="text-2xl font-bold leading-none text-muted-foreground">{dayOfMonth}</span>
+                          <span className="text-xs font-medium uppercase tracking-wider mt-1 text-muted-foreground">{month}</span>
+                          <span className="text-[10px] text-muted-foreground mt-0.5">{weekday}</span>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                          {config.requiresRoster && (
-                            <Badge 
-                              variant={signupOpen ? "default" : "secondary"}
-                              className={cn(
-                                "text-xs px-2 py-0.5",
-                                signupOpen && "bg-green-600"
-                              )}
-                            >
-                              {signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
-                            </Badge>
-                          )}
-                          
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-8 px-3 text-sm gap-1"
-                          >
-                            Details
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
+                        {/* Content */}
+                        <div className="flex-1 p-4 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="flex items-center gap-2 justify-center mb-1">
+                              <Repeat className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium text-muted-foreground">Pause Woche</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {formattedDate} - Kein Event
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+                  );
+                }
+
+                // Active week with occurrence
+                const occurrence = week.occurrence;
+                if (!occurrence) {
+                  // Shouldn't happen, but handle gracefully
+                  return null;
+                }
+
+                const deadline = occurrence.signupDeadline
+                  ? new Date(occurrence.signupDeadline)
+                  : null;
+                const signupOpen = isSignupOpen(occurrence);
+
+                return (
+                  <Link
+                    key={occurrence.id}
+                    href={`/weeklys/${config.id}/occurrences/${occurrence.id}`}
+                    className="block group"
+                  >
+                    <div className={cn(
+                      "flex items-stretch border rounded-lg overflow-hidden transition-all hover:border-primary/30 hover:shadow-sm",
+                      isFirst && "border-primary/20 bg-primary/5"
+                    )}>
+                      {/* Datum-Block */}
+                      <div className={cn(
+                        "w-24 flex flex-col items-center justify-center py-3 border-r",
+                        isFirst ? "bg-primary/10" : "bg-muted/20"
+                      )}>
+                        <span className="text-2xl font-bold leading-none">{dayOfMonth}</span>
+                        <span className="text-xs font-medium uppercase tracking-wider mt-1">{month}</span>
+                        <span className="text-[10px] text-muted-foreground mt-0.5">{weekday}</span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 p-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className="font-semibold text-base">
+                                {formattedDate}
+                              </h3>
+                              {config.requiresRoster && deadline && (
+                                <span className="text-xs text-muted-foreground">
+                                  Anmeldeschluss: {format(deadline, "dd.MM.yyyy HH:mm")}
+                                </span>
+                              )}
+                            </div>
+                            
+                            {config.startTime && config.endTime && (
+                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{config.startTime} - {config.endTime} Uhr</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {config.requiresRoster && (
+                              <Badge 
+                                variant={signupOpen ? "default" : "secondary"}
+                                className={cn(
+                                  "text-xs px-2 py-0.5",
+                                  signupOpen && "bg-green-600"
+                                )}
+                              >
+                                {signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
+                              </Badge>
+                            )}
+                            
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 px-3 text-sm gap-1"
+                            >
+                              Details
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
