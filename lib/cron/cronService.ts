@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import { refreshTrainingCache } from '@/lib/training/cacheService'
 import { checkUpcomingEventsForReminders } from './eventReminderJob'
+import { checkWeeklyOccurrenceStatus } from './weeklyNotificationsJob'
 
 let isInitialized = false
 
@@ -47,9 +48,26 @@ export function initializeCronJobs() {
     }
   })
 
+  // Check weekly occurrence status every 15 minutes by default
+  // Opens signups 14 days before occurrence automatically
+  // Closes signups at deadline and sends Discord notifications (EDMM)
+  // Can be configured via WEEKLY_STATUS_CHECK_CRON environment variable
+  const weeklyStatusCron = process.env.WEEKLY_STATUS_CHECK_CRON || '*/15 * * * *'
+  
+  cron.schedule(weeklyStatusCron, async () => {
+    console.log('[Cron] Starting weekly occurrence status check...')
+    try {
+      const result = await checkWeeklyOccurrenceStatus()
+      console.log('[Cron] Weekly status check completed:', result)
+    } catch (error) {
+      console.error('[Cron] Weekly status check failed:', error)
+    }
+  })
+
   console.log('[Cron] All cron jobs initialized successfully')
   console.log(`[Cron] - Training cache refresh: Schedule = ${trainingCacheCron}`)
   console.log(`[Cron] - Event reminder check: Schedule = ${eventReminderCron}`)
+  console.log(`[Cron] - Weekly status check: Schedule = ${weeklyStatusCron}`)
   
   isInitialized = true
 }
