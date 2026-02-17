@@ -243,7 +243,7 @@ export default function WeeklyDetailPage() {
                   <Clock className="h-4 w-4 text-amber-700" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (UTC)</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (Lokalzeit)</p>
                   <p className="font-medium">{config.startTime || "?"} - {config.endTime || "?"}</p>
                 </div>
               </div>
@@ -364,7 +364,7 @@ export default function WeeklyDetailPage() {
                           {config.startTime && config.endTime && (
                             <div className="flex items-center gap-1 text-sm text-muted-foreground">
                               <Clock className="h-3.5 w-3.5" />
-                              <span>{config.startTime} - {config.endTime} UTC</span>
+                              <span>{config.startTime} - {config.endTime} Uhr</span>
                             </div>
                           )}
                         </div>

@@ -325,7 +325,7 @@ export default function OccurrenceDetailPage() {
                   <span className="text-gray-300 dark:text-gray-700">•</span>
                   <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} UTC</span>
+                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} Uhr (Lokalzeit)</span>
                   </div>
                 </>
               )}

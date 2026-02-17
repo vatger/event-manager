@@ -282,8 +282,8 @@ model WeeklyEventConfiguration {
 
   // Event details
   airports        Json? // Array of ICAO codes
-  startTime       String? // Event start time in HH:mm format (UTC)
-  endTime         String? // Event end time in HH:mm format (UTC)
+  startTime       String? // Event start time in HH:mm format (local time Europe/Berlin)
+  endTime         String? // Event end time in HH:mm format (local time Europe/Berlin)
   description     String? @db.Text
   
   // Staffing configuration

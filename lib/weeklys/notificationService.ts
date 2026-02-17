@@ -58,7 +58,7 @@ export async function sendRosterPublishedNotifications(
     const eventTime = occurrence.date.toLocaleTimeString("de-DE", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "UTC",
+      timeZone: "Europe/Berlin",
     });
 
     const title = `Roster veröffentlicht: ${occurrence.config.name}`;
@@ -202,7 +202,7 @@ export async function sendSignupDeadlineDiscordNotification(
     const eventTime = occurrence.date.toLocaleTimeString("de-DE", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "UTC",
+      timeZone: "Europe/Berlin",
     });
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
