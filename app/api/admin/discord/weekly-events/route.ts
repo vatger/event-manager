@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 import { addWeeks, startOfDay } from "date-fns";
+import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
 // Validation schema for weekly event configuration
 const weeklyEventConfigSchema = z.object({
@@ -245,6 +246,12 @@ async function generateOccurrences(configId: number) {
 
   // Create occurrences in database
   for (const date of occurrences) {
+    const signupDeadline = calculateSignupDeadline(
+      date,
+      config.startTime,
+      config.signupDeadlineHours
+    );
+
     await prisma.weeklyEventOccurrence.upsert({
       where: {
         configId_date: {
@@ -255,15 +262,11 @@ async function generateOccurrences(configId: number) {
       create: {
         configId: config.id,
         date: date,
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: signupDeadline,
         eventId: null,
       },
       update: {
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: signupDeadline,
       },
     });
   }
