@@ -35,6 +35,10 @@ export async function GET(
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
     }
 
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
+    }
+
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),
@@ -154,6 +158,10 @@ export async function POST(
 
     if (!config) {
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
+    }
+
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
     }
 
     // Check permissions

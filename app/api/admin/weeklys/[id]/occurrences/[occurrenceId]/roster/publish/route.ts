@@ -55,6 +55,10 @@ export async function POST(
       );
     }
 
+    if (!occurrence.config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
+    }
+
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),

@@ -126,6 +126,7 @@ export default function WeeklyDetailPage() {
   };
 
   const getPatternText = () => {
+    if (!config) return "";
     if (config.weeksOff === 0) {
       return `Jede Woche`;
     }

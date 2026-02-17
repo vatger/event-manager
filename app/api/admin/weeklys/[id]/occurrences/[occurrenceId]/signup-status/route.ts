@@ -45,6 +45,10 @@ export async function POST(
       return NextResponse.json({ error: "Weekly event not found" }, { status: 404 });
     }
 
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
+    }
+
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),

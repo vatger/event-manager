@@ -34,6 +34,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
     }
 
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
+    }
+
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),

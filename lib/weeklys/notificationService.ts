@@ -179,7 +179,7 @@ export async function sendSignupDeadlineDiscordNotification(
       return;
     }
 
-    if (occurrence.config.fir.code !== "EDMM") {
+    if (!occurrence.config.fir || occurrence.config.fir.code !== "EDMM") {
       console.log("[WEEKLY DISCORD] Discord notification only for EDMM events");
       return;
     }
