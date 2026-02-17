@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { canStaffStation, parseStationGroup } from "./stationUtils";
+import { canStaffStation, extractStationGroup } from "./stationUtils";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 
 /**
@@ -113,7 +113,7 @@ export async function checkStaffingFeasibility(
 
     // Check each station to see if user can staff it
     for (const station of staffedStations) {
-      const stationGroup = parseStationGroup(station);
+      const stationGroup = extractStationGroup(station);
       if (stationGroup && canStaffStation(endorsementGroup, stationGroup)) {
         capabilities.add(station);
       }
@@ -148,8 +148,8 @@ export async function checkStaffingFeasibility(
 
   // Sort stations by difficulty (higher groups first - harder to staff)
   stationsToAssign.sort((a, b) => {
-    const groupA = parseStationGroup(a);
-    const groupB = parseStationGroup(b);
+    const groupA = extractStationGroup(a);
+    const groupB = extractStationGroup(b);
     const order = ["DEL", "GND", "TWR", "APP", "CTR"];
     const indexA = groupA ? order.indexOf(groupA) : -1;
     const indexB = groupB ? order.indexOf(groupB) : -1;
