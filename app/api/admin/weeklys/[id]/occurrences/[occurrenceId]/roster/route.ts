@@ -79,7 +79,7 @@ export async function GET(
 
     // Fetch user details for each roster entry
     const roster = await Promise.all(
-      rosterEntries.map(async (entry) => {
+      rosterEntries.map(async (entry: typeof rosterEntries[number]) => {
         const user = await prisma.user.findUnique({
           where: { cid: entry.userCID },
           select: {

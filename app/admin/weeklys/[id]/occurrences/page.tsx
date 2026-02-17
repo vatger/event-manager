@@ -425,7 +425,7 @@ export default function OccurrencesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Datum</TableHead>
-                  {config.requiresRoster && (
+                  {config?.requiresRoster && (
                     <>
                       <TableHead>Anmeldeschluss</TableHead>
                       <TableHead>Status</TableHead>
@@ -443,7 +443,7 @@ export default function OccurrencesPage() {
                     <TableCell>
                       {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
                     </TableCell>
-                    {config.requiresRoster && (
+                    {config?.requiresRoster && (
                       <>
                         <TableCell>
                           {occ.signupDeadline
@@ -483,7 +483,7 @@ export default function OccurrencesPage() {
                             <Calendar className="w-4 h-4 mr-2" />
                             Datum bearbeiten
                           </DropdownMenuItem>
-                          {config.requiresRoster && (
+                          {config?.requiresRoster && (
                             <DropdownMenuItem
                               onClick={() => {
                                 setNewStatus(occ.signupStatus);
