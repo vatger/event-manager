@@ -153,16 +153,38 @@ async function sendEdmmNotification(
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
   const adminLink = `${baseUrl}/admin/events`;
 
-  const message = `⚠️ **myVATSIM Eintragung fehlt!**
-
-**Event:** ${eventName}
-**Datum:** ${dateStr}
-
-Dieses Event findet in 2 Wochen statt und ist noch nicht in myVATSIM eingetragen!
-
-Bitte das Event zeitnah auf myVATSIM registrieren: https://my.vatsim.net/
-
-Admin Panel: ${adminLink}`;
+  const embed = {
+    title: "myVATSIM Eintragung fehlt!",
+    description:
+      "Dieses Event findet in **2 Wochen** statt und ist noch **nicht in myVATSIM registriert**.",
+    color: 0xffa500, // Orange (Warnung)
+    fields: [
+      {
+        name: "Event",
+        value: eventName,
+        inline: false,
+      },
+      {
+        name: "Datum",
+        value: dateStr,
+        inline: true,
+      },
+      {
+        name: "Eventmanager",
+        value: `[Zum Event](${adminLink})`,
+        inline: true,
+      },
+      {
+        name: "myVATSIM",
+        value: "[Event registrieren](https://my.vatsim.net/)",
+        inline: false,
+      },
+    ],
+    footer: {
+      text: "Weekly System • Eventmanager",
+    },
+    timestamp: new Date().toISOString(),
+  };
 
   try {
     const response = await fetch(discordBotUrl, {
@@ -173,8 +195,9 @@ Admin Panel: ${adminLink}`;
       },
       body: JSON.stringify({
         channel_id: channelId,
-        message: message,
+        message: "MyVatsim fehlt!",
         role_id: roleId,
+        embed
       }),
     });
 

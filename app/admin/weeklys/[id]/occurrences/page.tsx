@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -42,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface WeeklyConfig {
   id: number;
@@ -77,6 +79,7 @@ export default function OccurrencesPage() {
   const [config, setConfig] = useState<WeeklyConfig | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingMyVatsim, setCheckingMyVatsim] = useState<Set<number>>(new Set());
 
   // Dialog states
   const [editDateDialog, setEditDateDialog] = useState<{ open: boolean; occurrence: Occurrence | null }>({
@@ -262,56 +265,89 @@ export default function OccurrencesPage() {
   };
 
   const handleCheckMyVatsim = async (occurrenceId: number) => {
+    setCheckingMyVatsim((prev) => new Set(prev).add(occurrenceId));
     try {
       const res = await fetch(
         `/api/admin/weeklys/${configId}/occurrences/${occurrenceId}/check-myvatsim`,
-        {
-          method: "POST",
-        }
+        { method: "POST" }
       );
-
       if (!res.ok) throw new Error("Failed to check myVATSIM");
-
       const data = await res.json();
-      
       toast.success("myVATSIM Prüfung", {
-        description: data.registered 
-          ? "Event ist in myVATSIM eingetragen!" 
+        description: data.registered
+          ? "Event ist in myVATSIM eingetragen!"
           : "Event ist nicht in myVATSIM eingetragen.",
       });
-
       fetchData();
     } catch (error) {
       console.error("Error checking myVATSIM:", error);
-      toast.error("Fehler", {
-        description: "myVATSIM Prüfung fehlgeschlagen.",
+      toast.error("Fehler", { description: "myVATSIM Prüfung fehlgeschlagen." });
+    } finally {
+      setCheckingMyVatsim((prev) => {
+        const next = new Set(prev);
+        next.delete(occurrenceId);
+        return next;
       });
     }
   };
 
   const getMyVatsimBadge = (occurrence: Occurrence) => {
+    const isChecking = checkingMyVatsim.has(occurrence.id);
+  
+    if (isChecking) {
+      return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
+    }
+  
     if (!occurrence.myVatsimChecked) {
       return (
-        <Badge variant="outline" className="bg-gray-100">
-          Nicht geprüft
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleCheckMyVatsim(occurrence.id)}
+                className="cursor-pointer"
+              >
+                <XCircle className="w-5 h-5 text-gray-300 hover:text-gray-500 transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Nicht geprüft – Klicken zum Prüfen</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
-
+  
     if (occurrence.myVatsimRegistered) {
       return (
-        <Badge className="bg-green-600">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Eingetragen
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleCheckMyVatsim(occurrence.id)}
+                className="cursor-pointer"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 hover:text-green-700 transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>In myVATSIM eingetragen – Klicken zum Neu-Prüfen</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     }
-
+  
     return (
-      <Badge variant="outline" className="bg-red-100 text-red-800 border-red-300">
-        <XCircle className="w-3 h-3 mr-1" />
-        Nicht eingetragen
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => handleCheckMyVatsim(occurrence.id)}
+              className="cursor-pointer"
+            >
+              <XCircle className="w-5 h-5 text-red-400 hover:text-red-600 transition-colors" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Nicht in myVATSIM eingetragen – Klicken zum Neu-Prüfen</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
 
