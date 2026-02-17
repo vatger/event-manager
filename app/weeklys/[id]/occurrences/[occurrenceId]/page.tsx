@@ -254,9 +254,90 @@ export default function OccurrenceDetailPage() {
   };
 
   const isSignupOpen = (): boolean => {
-    if(occurrence?.signupStatus == "closed") return false;
-    if (!occurrence?.signupDeadline) return true;
-    return isBefore(new Date(), new Date(occurrence.signupDeadline));
+    if (!occurrence) return false;
+    
+    // Manual override - closed
+    if (occurrence.signupStatus === "closed") return false;
+    
+    // Manual override - open
+    if (occurrence.signupStatus === "open") {
+      // Still need to check deadline
+      if (occurrence.signupDeadline) {
+        return isBefore(new Date(), new Date(occurrence.signupDeadline));
+      }
+      return true;
+    }
+    
+    // Auto mode - check if within 2 weeks and before deadline
+    if (occurrence.signupStatus === "auto") {
+      const now = new Date();
+      const occDate = new Date(occurrence.date);
+      const twoWeeksBefore = new Date(occDate);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      // Not yet 2 weeks before
+      if (now < twoWeeksBefore) {
+        return false;
+      }
+      
+      // Check deadline
+      if (occurrence.signupDeadline) {
+        return isBefore(now, new Date(occurrence.signupDeadline));
+      }
+      
+      return true;
+    }
+    
+    return false;
+  };
+
+  const getSignupStatusMessage = (): { text: string; color: string } => {
+    if (!occurrence || !occurrence.config.requiresRoster) {
+      return { text: "Kein Roster vorgesehen", color: "text-gray-500" };
+    }
+    
+    if (rosterPublished) {
+      return { text: "Roster veröffentlicht", color: "text-green-600" };
+    }
+    
+    if (occurrence.signupStatus === "closed") {
+      return { text: "Anmeldung geschlossen", color: "text-red-600" };
+    }
+    
+    if (occurrence.signupStatus === "open") {
+      if (occurrence.signupDeadline && !isBefore(new Date(), new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    // Auto mode
+    if (occurrence.signupStatus === "auto") {
+      const now = new Date();
+      const occDate = new Date(occurrence.date);
+      const twoWeeksBefore = new Date(occDate);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      if (now < twoWeeksBefore) {
+        const opensAtStr = twoWeeksBefore.toLocaleDateString("de-DE", { 
+          day: "2-digit", 
+          month: "2-digit", 
+          year: "numeric" 
+        });
+        return { 
+          text: `Anmeldung öffnet am ${opensAtStr}`, 
+          color: "text-amber-600" 
+        };
+      }
+      
+      if (occurrence.signupDeadline && !isBefore(now, new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    return { text: "Status unbekannt", color: "text-gray-500" };
   };
 
   const getRatingBadge = (rating: number) => {
@@ -342,7 +423,14 @@ export default function OccurrenceDetailPage() {
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  rosterPublished ? "bg-green-500" : signupOpen ? "bg-blue-500" : "bg-gray-400"
+                  (() => {
+                    const status = getSignupStatusMessage();
+                    if (status.color.includes("green")) return "bg-green-500";
+                    if (status.color.includes("amber")) return "bg-amber-500";
+                    if (status.color.includes("blue")) return "bg-blue-500";
+                    if (status.color.includes("red")) return "bg-red-500";
+                    return "bg-gray-400";
+                  })()
                 )} />
                 <CardTitle className="text-lg">Event Informationen</CardTitle>
               </div>
@@ -352,12 +440,19 @@ export default function OccurrenceDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
                 <Badge 
-                  variant={rosterPublished ? "default" : signupOpen ? "default" : "secondary"}
+                  variant={signupOpen ? "default" : "secondary"}
                   className={cn(
-                    rosterPublished ? "bg-green-600" : signupOpen ? "bg-blue-600" : ""
+                    (() => {
+                      const status = getSignupStatusMessage();
+                      if (status.color.includes("green")) return "bg-green-600";
+                      if (status.color.includes("amber")) return "bg-amber-600";
+                      if (status.color.includes("blue")) return "bg-blue-600";
+                      if (status.color.includes("red")) return "bg-red-600";
+                      return "";
+                    })()
                   )}
                 >
-                  {rosterPublished ? "Veröffentlicht" : signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
+                  {getSignupStatusMessage().text}
                 </Badge>
               </div>
 
