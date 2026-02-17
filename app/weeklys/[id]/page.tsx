@@ -333,7 +333,7 @@ export default function WeeklyDetailPage() {
                   <Clock className="h-4 w-4 text-amber-700" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (Lokalzeit)</p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Uhrzeit (MEZ/MESZ)</p>
                   <p className="font-medium">{config.startTime || "?"} - {config.endTime || "?"}</p>
                 </div>
               </div>

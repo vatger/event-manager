@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { addHours, subHours } from "date-fns";
-import { checkStaffingFeasibility, formatStaffingCheckMessage } from "@/lib/weeklys/staffingCheck";
+import { 
+  checkStaffingFeasibility, 
+  formatStaffingCheckMessage,
+  StaffingCheckResult 
+} from "@/lib/weeklys/staffingCheck";
 
 // In-memory cache to track which occurrences have already been checked
 // This prevents duplicate notifications
@@ -133,7 +137,7 @@ export async function checkWeeklyStaffing() {
 async function sendStaffingAlert(
   occurrenceId: number,
   configId: number,
-  checkResult: any
+  checkResult: StaffingCheckResult
 ) {
   const occurrence = await prisma.weeklyEventOccurrence.findUnique({
     where: { id: occurrenceId },

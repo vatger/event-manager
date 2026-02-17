@@ -340,6 +340,22 @@ export default function OccurrenceDetailPage() {
     return { text: "Status unbekannt", color: "text-gray-500" };
   };
 
+  const getStatusDotColor = (statusMessage: { text: string; color: string }): string => {
+    if (statusMessage.color.includes("green")) return "bg-green-500";
+    if (statusMessage.color.includes("amber")) return "bg-amber-500";
+    if (statusMessage.color.includes("blue")) return "bg-blue-500";
+    if (statusMessage.color.includes("red")) return "bg-red-500";
+    return "bg-gray-400";
+  };
+
+  const getStatusBadgeColor = (statusMessage: { text: string; color: string }): string => {
+    if (statusMessage.color.includes("green")) return "bg-green-600";
+    if (statusMessage.color.includes("amber")) return "bg-amber-600";
+    if (statusMessage.color.includes("blue")) return "bg-blue-600";
+    if (statusMessage.color.includes("red")) return "bg-red-600";
+    return "";
+  };
+
   const getRatingBadge = (rating: number) => {
     return RATINGS[rating] || `R${rating}`;
   };
@@ -423,14 +439,7 @@ export default function OccurrenceDetailPage() {
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  (() => {
-                    const status = getSignupStatusMessage();
-                    if (status.color.includes("green")) return "bg-green-500";
-                    if (status.color.includes("amber")) return "bg-amber-500";
-                    if (status.color.includes("blue")) return "bg-blue-500";
-                    if (status.color.includes("red")) return "bg-red-500";
-                    return "bg-gray-400";
-                  })()
+                  getStatusDotColor(getSignupStatusMessage())
                 )} />
                 <CardTitle className="text-lg">Event Informationen</CardTitle>
               </div>
@@ -442,14 +451,7 @@ export default function OccurrenceDetailPage() {
                 <Badge 
                   variant={signupOpen ? "default" : "secondary"}
                   className={cn(
-                    (() => {
-                      const status = getSignupStatusMessage();
-                      if (status.color.includes("green")) return "bg-green-600";
-                      if (status.color.includes("amber")) return "bg-amber-600";
-                      if (status.color.includes("blue")) return "bg-blue-600";
-                      if (status.color.includes("red")) return "bg-red-600";
-                      return "";
-                    })()
+                    getStatusBadgeColor(getSignupStatusMessage())
                   )}
                 >
                   {getSignupStatusMessage().text}

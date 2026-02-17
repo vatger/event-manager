@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { canStaffStation, parseStationGroup } from "./stationUtils";
+import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 
 /**
  * Results of staffing feasibility check
@@ -96,7 +97,6 @@ export async function checkStaffingFeasibility(
   }
 
   // Fetch cached endorsements for all users
-  const { getCachedWeeklySignups } = await import("@/lib/cache/weeklySignupCache");
   const enrichedSignups = await getCachedWeeklySignups(occurrenceId);
 
   // Build capability map: which users can staff which stations
