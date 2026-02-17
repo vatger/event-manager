@@ -323,11 +323,12 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${formData.requiresRoster ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="basic">Grunddaten</TabsTrigger>
           <TabsTrigger value="schedule">Zeitplan</TabsTrigger>
-          <TabsTrigger value="airports">Flughäfen</TabsTrigger>
-          <TabsTrigger value="staffing">Besetzung</TabsTrigger>
+          {formData.requiresRoster && (
+            <TabsTrigger value="staffing">Besetzung</TabsTrigger>
+          )}
         </TabsList>
 
         {/* Basic Information Tab */}
@@ -405,6 +406,59 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                 <p className="text-sm text-muted-foreground">
                   URL eines Banner-Bildes, das auf der öffentlichen Weekly-Seite angezeigt wird
                 </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="requiresRoster"
+                  checked={formData.requiresRoster}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, requiresRoster: checked })
+                  }
+                />
+                <Label htmlFor="requiresRoster">Roster erforderlich</Label>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Wenn aktiviert, können sich Nutzer anmelden und ein Roster wird erstellt
+              </p>
+
+              <div className="space-y-2">
+                <Label>Flughäfen (ICAO Codes)</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.airportInput}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        airportInput: e.target.value.toUpperCase(),
+                      })
+                    }
+                    placeholder="z.B. EDDM"
+                    maxLength={4}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddAirport();
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={handleAddAirport} variant="outline">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                {formData.airports.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.airports.map((icao) => (
+                      <Badge key={icao} variant="secondary" className="gap-1">
+                        {icao}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => handleRemoveAirport(icao)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">
@@ -535,59 +589,8 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
           </Card>
         </TabsContent>
 
-        {/* Airports Tab */}
-        <TabsContent value="airports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Flughäfen</CardTitle>
-              <CardDescription>
-                ICAO Codes der Flughäfen für dieses Event
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>ICAO Codes hinzufügen</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={formData.airportInput}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        airportInput: e.target.value.toUpperCase(),
-                      })
-                    }
-                    placeholder="z.B. EDDM"
-                    maxLength={4}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddAirport();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={handleAddAirport} variant="outline">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                {formData.airports.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.airports.map((icao) => (
-                      <Badge key={icao} variant="secondary" className="gap-1">
-                        {icao}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
-                          onClick={() => handleRemoveAirport(icao)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Staffing Tab */}
+        {/* Staffing Tab - Only shown if roster is required */}
+        {formData.requiresRoster && (
         <TabsContent value="staffing" className="space-y-4">
           <Card>
             <CardHeader>
@@ -616,24 +619,12 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                 />
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="requiresRoster"
-                  checked={formData.requiresRoster}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, requiresRoster: checked })
-                  }
-                />
-                <Label htmlFor="requiresRoster">Rostering erforderlich</Label>
-              </div>
-
-              {formData.requiresRoster && (
-                <div className="space-y-2 pl-6 border-l-2">
-                  <Label>Zu besetzende Stationen *</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Stationen, die bei diesem Weekly Event besetzt werden müssen
-                  </p>
-                  <div className="flex gap-2">
+              <div className="space-y-2">
+                <Label>Zu besetzende Stationen *</Label>
+                <p className="text-sm text-muted-foreground">
+                  Stationen, die bei diesem Weekly Event besetzt werden müssen
+                </p>
+                <div className="flex gap-2">
                     <Input
                       value={formData.stationInput}
                       onChange={(e) =>
@@ -671,11 +662,11 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                       ))}
                     </div>
                   )}
-                </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
+        )}
       </Tabs>
     </form>
   );

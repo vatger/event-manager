@@ -15,7 +15,7 @@ export async function checkWeeklyOccurrenceStatus() {
     const now = new Date();
     const thirtyDaysFromNow = addDays(now, 30);
 
-    // Find occurrences in the next 30 days
+    // Find occurrences in the next 30 days (only for weeklys that require roster)
     const occurrences = await prisma.weeklyEventOccurrence.findMany({
       where: {
         date: {
@@ -23,6 +23,9 @@ export async function checkWeeklyOccurrenceStatus() {
           lte: thirtyDaysFromNow,
         },
         rosterPublished: false, // Skip if roster already published
+        config: {
+          requiresRoster: true, // Only process weeklys that need signup management
+        },
       },
       include: {
         config: {
