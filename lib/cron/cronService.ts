@@ -2,6 +2,7 @@ import cron from 'node-cron'
 import { refreshTrainingCache } from '@/lib/training/cacheService'
 import { checkUpcomingEventsForReminders } from './eventReminderJob'
 import { checkWeeklyOccurrenceStatus } from './weeklyNotificationsJob'
+import { checkWeeklyStaffing } from './weeklyStaffingJob'
 
 let isInitialized = false
 
@@ -64,10 +65,27 @@ export function initializeCronJobs() {
     }
   })
 
+  // Check weekly staffing feasibility every hour by default
+  // Checks EDMM events 24 hours before signup deadline
+  // Sends Discord notification if roster cannot be completed
+  // Can be configured via WEEKLY_STAFFING_CHECK_CRON environment variable
+  const weeklyStaffingCron = process.env.WEEKLY_STAFFING_CHECK_CRON || '0 * * * *'
+  
+  cron.schedule(weeklyStaffingCron, async () => {
+    console.log('[Cron] Starting weekly staffing check...')
+    try {
+      const result = await checkWeeklyStaffing()
+      console.log('[Cron] Weekly staffing check completed:', result)
+    } catch (error) {
+      console.error('[Cron] Weekly staffing check failed:', error)
+    }
+  })
+
   console.log('[Cron] All cron jobs initialized successfully')
   console.log(`[Cron] - Training cache refresh: Schedule = ${trainingCacheCron}`)
   console.log(`[Cron] - Event reminder check: Schedule = ${eventReminderCron}`)
   console.log(`[Cron] - Weekly status check: Schedule = ${weeklyStatusCron}`)
+  console.log(`[Cron] - Weekly staffing check: Schedule = ${weeklyStaffingCron}`)
   
   isInitialized = true
 }
