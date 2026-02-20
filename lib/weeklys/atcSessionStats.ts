@@ -56,19 +56,17 @@ export async function fetchATCSessions(userCID: number): Promise<ATCSession[]> {
  * - EDDM_1_TWR -> EDDM_TWR
  */
 export function normalizeStation(callsign: string): string {
-  // Remove common position suffixes
-  // Directional: _N, _S, _E, _W, _C, _NH, _SH, etc.
-  // Numeric: _1, _2, _3, etc.
-  const normalized = callsign
-    .replace(/_NH_/, '_')
-    .replace(/_SH_/, '_')
-    .replace(/_[NSEWC]_/, '_')
-    .replace(/_[FD]_/, '_') // Frankfurt specific
-    .replace(/_\d+_/, '_')  // Numeric suffixes
-    .replace(/_[NSEWC]$/, '')  // Trailing directional
-    .replace(/_\d+$/, '');     // Trailing numeric
-  
-  return normalized;
+  const parts = callsign.split("_");
+
+  if (parts.length <= 2) {
+    // z.B. EDDM_APP oder EDMM_CTR → nichts zu tun
+    return callsign;
+  }
+
+  const prefix = parts[0];
+  const position = parts[parts.length - 1];
+
+  return `${prefix}_${position}`;
 }
 
 /**
