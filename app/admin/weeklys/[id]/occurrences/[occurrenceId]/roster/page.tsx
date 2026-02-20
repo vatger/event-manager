@@ -15,7 +15,11 @@ import {
   Clock,
   Calendar,
   MapPin,
-  AlertCircle
+  AlertCircle,
+  History,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,6 +32,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
@@ -41,6 +50,23 @@ interface User {
   rating: string;
 }
 
+interface UserHistory {
+  userCID: number;
+  previousOccurrences: Array<{
+    occurrenceId: number;
+    date: string;
+    signedUp: boolean;
+    assigned: boolean;
+    station?: string;
+  }>;
+  stats: {
+    totalOccurrencesChecked: number;
+    totalSignups: number;
+    totalAssigned: number;
+    assignmentRate: number;
+  };
+}
+
 interface Signup {
   id: number;
   userCID: number;
@@ -52,6 +78,7 @@ interface Signup {
   } | null;
   endorsementGroup: string | null;
   restrictions: string[];
+  history?: UserHistory | null;
 }
 
 interface RosterEntry {
@@ -554,6 +581,135 @@ export default function RosterEditorPage() {
                                       {r}
                                     </Badge>
                                   ))}
+                                </div>
+                              )}
+                              
+                              {/* History Information */}
+                              {signup.history && signup.history.stats.totalOccurrencesChecked > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-5 px-1.5 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-800"
+                                      >
+                                        <History className="h-3 w-3 mr-1" />
+                                        Geschichte ({signup.history.stats.totalSignups})
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80" align="start">
+                                      <div className="space-y-3">
+                                        <div>
+                                          <h4 className="font-medium text-sm mb-2">Teilnahme-Historie</h4>
+                                          <div className="grid grid-cols-2 gap-2 text-xs">
+                                            <div>
+                                              <span className="text-gray-500 dark:text-gray-400">Anmeldungen:</span>
+                                              <span className="ml-1 font-medium">
+                                                {signup.history.stats.totalSignups}/{signup.history.stats.totalOccurrencesChecked} 
+                                                ({Math.round((signup.history.stats.totalSignups / signup.history.stats.totalOccurrencesChecked) * 100)}%)
+                                              </span>
+                                            </div>
+                                            <div>
+                                              <span className="text-gray-500 dark:text-gray-400">Eingeplant:</span>
+                                              <span className="ml-1 font-medium">
+                                                {signup.history.stats.totalAssigned}/{signup.history.stats.totalOccurrencesChecked} 
+                                                ({Math.round(signup.history.stats.assignmentRate)}%)
+                                              </span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="border-t pt-2">
+                                          <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                            Letzte {signup.history.previousOccurrences.length} Termine
+                                          </h5>
+                                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {signup.history.previousOccurrences.map((occ) => (
+                                              <div 
+                                                key={occ.occurrenceId}
+                                                className={cn(
+                                                  "text-xs p-2 rounded border",
+                                                  occ.assigned 
+                                                    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                                                    : occ.signedUp
+                                                    ? "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800"
+                                                    : "bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800"
+                                                )}
+                                              >
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <span className="font-medium">
+                                                    {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
+                                                  </span>
+                                                  {occ.assigned && (
+                                                    <Badge variant="outline" className="text-[9px] h-4 bg-green-100 dark:bg-green-900">
+                                                      <Check className="h-2.5 w-2.5 mr-0.5" />
+                                                      Eingeplant
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400">
+                                                  {occ.signedUp ? (
+                                                    <>
+                                                      <Check className="h-3 w-3 text-green-600" />
+                                                      <span>Angemeldet</span>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <Minus className="h-3 w-3 text-gray-400" />
+                                                      <span>Nicht angemeldet</span>
+                                                    </>
+                                                  )}
+                                                </div>
+                                                {occ.station && (
+                                                  <div className="mt-1 text-[10px] text-gray-600 dark:text-gray-400">
+                                                    Station: <span className="font-medium">{occ.station}</span>
+                                                  </div>
+                                                )}
+                                                {occ.signedUp && !occ.assigned && (
+                                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
+                                                    <X className="h-3 w-3" />
+                                                    <span>Nicht eingeplant</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                  
+                                  {/* Assignment Rate Badge */}
+                                  {signup.history.stats.totalSignups > 0 && (
+                                    <Badge 
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[9px] h-5 px-1.5",
+                                        signup.history.stats.assignmentRate >= 70 
+                                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700"
+                                          : signup.history.stats.assignmentRate >= 40
+                                          ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700"
+                                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
+                                      )}
+                                    >
+                                      {signup.history.stats.assignmentRate >= 70 ? (
+                                        <>
+                                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                          Häufig eingeplant
+                                        </>
+                                      ) : signup.history.stats.assignmentRate < 40 ? (
+                                        <>
+                                          <TrendingDown className="h-2.5 w-2.5 mr-0.5" />
+                                          Selten eingeplant
+                                        </>
+                                      ) : (
+                                        <>
+                                          {Math.round(signup.history.stats.assignmentRate)}% eingeplant
+                                        </>
+                                      )}
+                                    </Badge>
+                                  )}
                                 </div>
                               )}
                               

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { userHasFirPermission } from "@/lib/acl/permissions";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
+import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
 
 // GET roster data for occurrence
 export async function GET(
@@ -103,13 +104,23 @@ export async function GET(
           : config.staffedStations)
       : [];
 
+    // Get historical signup/roster data for all signed-up users
+    const userCIDs = signupsData.map((s) => s.userCID);
+    const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum);
+
+    // Enrich signups with history data
+    const signupsWithHistory = signupsData.map((signup) => ({
+      ...signup,
+      history: historyMap.get(signup.userCID) || null,
+    }));
+
     return NextResponse.json({
       occurrence,
       config: {
         ...config,
         staffedStations,
       },
-      signups: signupsData,
+      signups: signupsWithHistory,
       roster,
     });
   } catch (error) {
