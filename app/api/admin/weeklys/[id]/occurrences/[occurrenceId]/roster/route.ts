@@ -6,6 +6,7 @@ import { userHasFirPermission } from "@/lib/acl/permissions";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
 import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
+import { getUsersATCStatsBatch } from "@/lib/weeklys/atcSessionStats";
 
 // GET roster data for occurrence
 export async function GET(
@@ -108,10 +109,14 @@ export async function GET(
     const userCIDs = signupsData.map((s) => s.userCID);
     const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum);
 
-    // Enrich signups with history data
+    // Get ATC session statistics for all signed-up users
+    const atcStatsMap = await getUsersATCStatsBatch(userCIDs);
+
+    // Enrich signups with history data and ATC stats
     const signupsWithHistory = signupsData.map((signup) => ({
       ...signup,
       history: historyMap.get(signup.userCID) || null,
+      atcStats: atcStatsMap.get(signup.userCID) || null,
     }));
 
     return NextResponse.json({

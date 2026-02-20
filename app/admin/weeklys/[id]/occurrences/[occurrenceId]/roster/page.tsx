@@ -67,6 +67,19 @@ interface UserHistory {
   };
 }
 
+interface StationExperience {
+  totalMinutes: number;
+  sessionCount: number;
+  lastSession?: string;
+}
+
+interface ATCSessionStats {
+  userCID: number;
+  stationStats: {
+    [station: string]: StationExperience;
+  };
+}
+
 interface Signup {
   id: number;
   userCID: number;
@@ -79,6 +92,7 @@ interface Signup {
   endorsementGroup: string | null;
   restrictions: string[];
   history?: UserHistory | null;
+  atcStats?: ATCSessionStats | null;
 }
 
 interface RosterEntry {
@@ -712,6 +726,103 @@ export default function RosterEditorPage() {
                                   )}
                                 </div>
                               )}
+                              
+                              {/* ATC Session Statistics */}
+                              {signup.atcStats && signup.atcStats.stationStats && Object.keys(signup.atcStats.stationStats).length > 0 && (() => {
+                                const stats = signup.atcStats.stationStats;
+                                const totalMinutes = Object.values(stats).reduce((sum, s) => sum + s.totalMinutes, 0);
+                                const totalHours = totalMinutes / 60;
+                                const experienceLevel = totalHours > 20 ? 'high' : totalHours > 5 ? 'medium' : 'low';
+                                
+                                return (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    <Popover>
+                                      <PopoverTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-5 px-1.5 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-800"
+                                        >
+                                          <Clock className="h-3 w-3 mr-1" />
+                                          Erfahrung ({totalHours.toFixed(1)}h)
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent className="w-80" align="start">
+                                        <div className="space-y-3">
+                                          <div>
+                                            <h4 className="font-medium text-sm mb-2">ATC Erfahrung</h4>
+                                            <div className="text-xs mb-3">
+                                              <span className="text-gray-500 dark:text-gray-400">Gesamt:</span>
+                                              <span className="ml-1 font-medium text-base">
+                                                {totalHours.toFixed(1)}h
+                                              </span>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="border-t pt-2">
+                                            <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
+                                              Stationen mit Erfahrung
+                                            </h5>
+                                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                              {Object.entries(stats)
+                                                .sort(([, a], [, b]) => b.totalMinutes - a.totalMinutes)
+                                                .map(([station, exp]) => (
+                                                  <div 
+                                                    key={station}
+                                                    className="text-xs p-2 rounded border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                                                  >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                      <span className="font-medium">{station}</span>
+                                                      <Badge variant="outline" className="text-[9px] h-4 bg-blue-100 dark:bg-blue-900">
+                                                        {(exp.totalMinutes / 60).toFixed(1)}h
+                                                      </Badge>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-[10px] text-gray-600 dark:text-gray-400">
+                                                      <span>{exp.sessionCount} Sessions</span>
+                                                      {exp.lastSession && (
+                                                        <span>Letzte: {format(new Date(exp.lastSession), "dd.MM.yyyy", { locale: de })}</span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                    
+                                    {/* Experience Level Badge */}
+                                    <Badge 
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[9px] h-5 px-1.5",
+                                        experienceLevel === 'high'
+                                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700"
+                                          : experienceLevel === 'medium'
+                                          ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700"
+                                          : "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700"
+                                      )}
+                                    >
+                                      {experienceLevel === 'high' ? (
+                                        <>
+                                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
+                                          Hoch
+                                        </>
+                                      ) : experienceLevel === 'low' ? (
+                                        <>
+                                          <TrendingDown className="h-2.5 w-2.5 mr-0.5" />
+                                          Gering
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Minus className="h-2.5 w-2.5 mr-0.5" />
+                                          Mittel
+                                        </>
+                                      )}
+                                    </Badge>
+                                  </div>
+                                );
+                              })()}
                               
                               {assigned && (
                                 <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-blue-600">
