@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Users, UserPlus, UserMinus, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import TrainingCacheCard from './RefreshEndorsements';
+import CronJobMonitor from './CronJobMonitor';
 
 interface VATGERMember {
   id: string;
@@ -205,6 +206,7 @@ export default function SystemSettingsPage() {
           )}
         </CardContent>
       </Card>
+      <CronJobMonitor />
       <TrainingCacheCard />
     </div>
   );

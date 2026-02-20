@@ -360,4 +360,23 @@ model WeeklyEventRoster {
   @@index([userCID])
 }
 
+model CronJobStatus {
+  id              Int      @id @default(autoincrement())
+  jobName         String   @unique // Unique identifier for the cron job
+  displayName     String   // Human-readable name
+  description     String   @db.Text // What the job does
+  schedule        String   // Cron schedule expression
+  isActive        Boolean  @default(true)
+  lastRunAt       DateTime? // When the job last ran
+  lastRunStatus   String?  // "success" or "error"
+  lastRunDuration Int?     // Duration in milliseconds
+  lastError       String?  @db.Text // Error message if failed
+  runCount        Int      @default(0) // Total number of runs
+  errorCount      Int      @default(0) // Total number of errors
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([jobName])
+}
+
 
