@@ -15,6 +15,8 @@ import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import StationSelector from "@/app/admin/events/_components/StationSelector";
+
 
 interface WeeklyEventConfig {
   id: number;
@@ -56,7 +58,6 @@ interface FormData {
   firId: number | null;
   requiresRoster: boolean;
   staffedStations: string[];
-  stationInput: string;
   signupDeadlineHours: number;
   enabled: boolean;
 }
@@ -99,7 +100,6 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     firId: null,
     requiresRoster: false,
     staffedStations: [],
-    stationInput: "",
     signupDeadlineHours: 24,
     enabled: true,
   });
@@ -131,7 +131,6 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         firId: config.firId,
         requiresRoster: config.requiresRoster || false,
         staffedStations,
-        stationInput: "",
         signupDeadlineHours: config.signupDeadlineHours || 24,
         enabled: config.enabled,
       });
@@ -162,23 +161,9 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     });
   };
 
-  const handleAddStation = () => {
-    const station = formData.stationInput.trim().toUpperCase();
-    if (station && !formData.staffedStations.includes(station)) {
-      setFormData({
-        ...formData,
-        staffedStations: [...formData.staffedStations, station],
-        stationInput: "",
-      });
-    }
-  };
-
-  const handleRemoveStation = (station: string) => {
-    setFormData({
-      ...formData,
-      staffedStations: formData.staffedStations.filter((s) => s !== station),
-    });
-  };
+  const handleStationsChange = useCallback((stations: string[]) => {
+    setFormData(prev => ({ ...prev, staffedStations: stations }));
+  }, []);
 
   const formValidation = (): boolean => {
     if (!formData.name.trim()) {
@@ -621,47 +606,22 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
 
               <div className="space-y-2">
                 <Label>Zu besetzende Stationen *</Label>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-4">
                   Stationen, die bei diesem Weekly Event besetzt werden müssen
                 </p>
-                <div className="flex gap-2">
-                    <Input
-                      value={formData.stationInput}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          stationInput: e.target.value.toUpperCase(),
-                        })
-                      }
-                      placeholder="z.B. EDDM_TWR"
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddStation();
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddStation}
-                      variant="outline"
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                {formData.airports.length > 0 ? (
+                  <StationSelector
+                    airport={formData.airports[0]}
+                    selectedStations={formData.staffedStations}
+                    onStationsChange={handleStationsChange}
+                    disabled={isSaving}
+                    firCode={firs.find(f => f.id === formData.firId)?.code}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                    Bitte gebe zuerst einen Flughafen im Tab Grunddaten ein, um Stationsvorschläge zu erhalten.
                   </div>
-                  {formData.staffedStations.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {formData.staffedStations.map((station) => (
-                        <Badge key={station} variant="secondary" className="gap-1">
-                          {station}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
-                            onClick={() => handleRemoveStation(station)}
-                          />
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                )}
               </div>
             </CardContent>
           </Card>
