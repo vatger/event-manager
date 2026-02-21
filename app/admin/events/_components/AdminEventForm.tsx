@@ -551,6 +551,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                     selectedStations={formData.staffedStations}
                     onStationsChange={handleStationsChange}
                     disabled={isSaving}
+                    firCode={formData.fir || fir?.code}
                   />
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
