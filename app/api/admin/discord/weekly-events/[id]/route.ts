@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 import { addWeeks, startOfDay } from "date-fns";
+import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
 // Validation schema for updating weekly event configuration
 const weeklyEventConfigUpdateSchema = z.object({
@@ -335,15 +336,19 @@ async function generateOccurrences(configId: number) {
       create: {
         configId: config.id,
         date: date,
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: calculateSignupDeadline(
+          date,
+          config.startTime,
+          config.signupDeadlineHours
+        ),
         eventId: null,
       },
       update: {
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: calculateSignupDeadline(
+          date,
+          config.startTime,
+          config.signupDeadlineHours
+        ),
       },
     });
   }

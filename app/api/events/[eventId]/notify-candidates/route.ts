@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { userhasPermissiononEvent } from '@/lib/acl/permissions';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
     // Create internal notifications for all users
     await prisma.$transaction(
       users.map((user) =>
-        prisma!.notification.create({
+        prisma.notification.create({
           data: {
             userCID: user.cid,
             eventId,

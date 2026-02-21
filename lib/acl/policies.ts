@@ -93,7 +93,7 @@ export function computeEffectiveData(user: UserWithAll): EffectiveData {
 
 /** Helper zum Laden und Berechnen */
 export async function getUserWithEffectiveData(cid: number) {
-  const user = await prisma!.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { cid },
     include: {
       fir: true,

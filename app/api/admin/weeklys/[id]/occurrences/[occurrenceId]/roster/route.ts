@@ -5,6 +5,8 @@ import prisma from "@/lib/prisma";
 import { userHasFirPermission } from "@/lib/acl/permissions";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
+import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
+import { getUsersATCStatsBatch } from "@/lib/weeklys/atcSessionStats";
 
 // GET roster data for occurrence
 export async function GET(
@@ -33,6 +35,10 @@ export async function GET(
 
     if (!config) {
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
+    }
+
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
     }
 
     // Check permissions
@@ -75,7 +81,7 @@ export async function GET(
 
     // Fetch user details for each roster entry
     const roster = await Promise.all(
-      rosterEntries.map(async (entry) => {
+      rosterEntries.map(async (entry: typeof rosterEntries[number]) => {
         const user = await prisma.user.findUnique({
           where: { cid: entry.userCID },
           select: {
@@ -99,13 +105,27 @@ export async function GET(
           : config.staffedStations)
       : [];
 
+    // Get historical signup/roster data for all signed-up users
+    const userCIDs = signupsData.map((s) => s.userCID);
+    const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum);
+
+    // Get ATC session statistics for all signed-up users
+    const atcStatsMap = await getUsersATCStatsBatch(userCIDs);
+
+    // Enrich signups with history data and ATC stats
+    const signupsWithHistory = signupsData.map((signup) => ({
+      ...signup,
+      history: historyMap.get(signup.userCID) || null,
+      atcStats: atcStatsMap.get(signup.userCID) || null,
+    }));
+
     return NextResponse.json({
       occurrence,
       config: {
         ...config,
         staffedStations,
       },
-      signups: signupsData,
+      signups: signupsWithHistory,
       roster,
     });
   } catch (error) {
@@ -154,6 +174,10 @@ export async function POST(
 
     if (!config) {
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
+    }
+
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
     }
 
     // Check permissions

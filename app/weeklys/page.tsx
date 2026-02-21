@@ -209,7 +209,7 @@ export default function PublicWeeklyEventsPage() {
                               <div className="flex items-center gap-2 text-sm">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                 <span>
-                                  {config.startTime || "?"} - {config.endTime || "?"} UTC
+                                  {config.startTime || "?"} - {config.endTime || "?"} Uhr
                                 </span>
                               </div>
                             )}

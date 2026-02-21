@@ -1,4 +1,4 @@
-import prisma from "../prisma";
+import { prisma } from "@/lib/prisma";
 import { getUserWithEffectiveData } from "./policies";
 
 /**
@@ -78,7 +78,7 @@ export async function canManageFir(cid: number, firCode?: string) {
  * (d. h. in einer Gruppe mit kind == GLOBAL_VATGER_LEITUNG)
  */
 export async function isVatgerEventleitung(cid: number) {
-  const user = await prisma!.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { cid }
   });
 
@@ -88,7 +88,7 @@ export async function isVatgerEventleitung(cid: number) {
   if (user.role === "MAIN_ADMIN") return true;
 
   // Prüfen, ob User in der neuen Tabelle 'VatgerLeitung' ist
-  const isInVatgerLeitungTable = await prisma!.vATGERLeitung.findUnique({
+  const isInVatgerLeitungTable = await prisma.vATGERLeitung.findUnique({
     where: { userCID: cid },
   });
 
@@ -102,7 +102,7 @@ export async function isVatgerEventleitung(cid: number) {
  * @example userhasPermissiononEvent(1649341, 1, "roster.publish")
  */
 export async function userhasPermissiononEvent(cid: number, eventId: number, permission: string){
-  const event = await prisma!.event.findUnique({
+  const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: { firCode: true }
   })

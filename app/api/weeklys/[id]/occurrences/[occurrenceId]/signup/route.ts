@@ -126,6 +126,41 @@ export async function POST(
       );
     }
 
+    // Check if signups are actually open
+    // For "auto" status, signups only open 14 days before the event
+    const now = new Date();
+    if (occurrence.signupStatus === "auto") {
+      const twoWeeksBefore = new Date(occurrence.date);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      if (now < twoWeeksBefore) {
+        return NextResponse.json(
+          { 
+            error: "Signups are not yet open. Signups will open 14 days before the event.",
+            opensAt: twoWeeksBefore.toISOString()
+          },
+          { status: 403 }
+        );
+      }
+    } else if (occurrence.signupStatus === "closed") {
+      // Only allow event team to signup when manually closed
+      const canManageSignups = occurrence.config.fir
+        ? await userHasFirPermission(
+            Number(session.user.cid),
+            occurrence.config.fir.code,
+            "signups.manage"
+          )
+        : false;
+
+      if (!canManageSignups) {
+        return NextResponse.json(
+          { error: "Signups are closed" },
+          { status: 403 }
+        );
+      }
+    }
+    // If signupStatus is "open", allow signups (continues below)
+
     // Get user data for endorsement check
     const user = await prisma.user.findUnique({
       where: { cid: Number(session.user.cid) },

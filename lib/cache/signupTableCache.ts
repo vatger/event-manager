@@ -1,4 +1,4 @@
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getCache, setCache, invalidateCache } from "./cacheManager";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
@@ -34,7 +34,6 @@ export function setLastUpdateTimestamp(eventId: number): void {
 // 🔹 Hauptfunktion: getCachedSignupTable
 // ===================================================================
 export async function getCachedSignupTable(eventId: number, forceRefresh = false): Promise<SignupTableEntry[]> {
-  if(!prisma) return [];
   const key = `event:${eventId}`;
 
   // 1️⃣ Check if force refresh is requested or skip cache check
@@ -51,7 +50,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
   console.log(`[CACHE MISS] Recalculate SignupTable für Event ${eventId}`);
 
   // 2️⃣ Falls kein Cache vorhanden → Eventdaten laden
-  const event = await prisma!.event.findUnique({
+  const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { fir: true },
   });
@@ -59,7 +58,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
   if (!event) throw new Error(`Event ${eventId} not found`);
 
   // 3️⃣ Alle Signups abrufen
-  const signups = await prisma!.eventSignup.findMany({
+  const signups = await prisma.eventSignup.findMany({
     where: { eventId },
     include: { user: true },
   });

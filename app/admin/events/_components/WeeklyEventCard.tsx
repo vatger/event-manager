@@ -158,7 +158,7 @@ export function WeeklyEventCard({
             {config.startTime && config.endTime && (
               <div className="col-span-2 p-2 bg-gray-50 dark:bg-gray-900/40 rounded-lg">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">Uhrzeit (UTC)</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Uhrzeit (lcl)</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {config.startTime} - {config.endTime}
                   </span>

@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -42,6 +42,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface WeeklyConfig {
   id: number;
@@ -50,6 +52,8 @@ interface WeeklyConfig {
   fir: {
     code: string;
   };
+  startTime: string | null;
+  endTime: string | null;
 }
 
 interface Occurrence {
@@ -59,6 +63,8 @@ interface Occurrence {
   signupStatus: string;
   rosterPublished: boolean;
   rosterPublishedAt: string | null;
+  myVatsimChecked: boolean;
+  myVatsimRegistered: boolean | null;
   _count: {
     signups: number;
   };
@@ -73,6 +79,7 @@ export default function OccurrencesPage() {
   const [config, setConfig] = useState<WeeklyConfig | null>(null);
   const [occurrences, setOccurrences] = useState<Occurrence[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingMyVatsim, setCheckingMyVatsim] = useState<Set<number>>(new Set());
 
   // Dialog states
   const [editDateDialog, setEditDateDialog] = useState<{ open: boolean; occurrence: Occurrence | null }>({
@@ -257,6 +264,93 @@ export default function OccurrencesPage() {
     }
   };
 
+  const handleCheckMyVatsim = async (occurrenceId: number) => {
+    setCheckingMyVatsim((prev) => new Set(prev).add(occurrenceId));
+    try {
+      const res = await fetch(
+        `/api/admin/weeklys/${configId}/occurrences/${occurrenceId}/check-myvatsim`,
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error("Failed to check myVATSIM");
+      const data = await res.json();
+      toast.success("myVATSIM Prüfung", {
+        description: data.registered
+          ? "Event ist in myVATSIM eingetragen!"
+          : "Event ist nicht in myVATSIM eingetragen.",
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Error checking myVATSIM:", error);
+      toast.error("Fehler", { description: "myVATSIM Prüfung fehlgeschlagen." });
+    } finally {
+      setCheckingMyVatsim((prev) => {
+        const next = new Set(prev);
+        next.delete(occurrenceId);
+        return next;
+      });
+    }
+  };
+
+  const getMyVatsimBadge = (occurrence: Occurrence) => {
+    const isChecking = checkingMyVatsim.has(occurrence.id);
+  
+    if (isChecking) {
+      return <Loader2 className="w-5 h-5 animate-spin text-blue-500" />;
+    }
+  
+    if (!occurrence.myVatsimChecked) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleCheckMyVatsim(occurrence.id)}
+                className="cursor-pointer"
+              >
+                <XCircle className="w-5 h-5 text-gray-300 hover:text-gray-500 transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Nicht geprüft – Klicken zum Prüfen</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+  
+    if (occurrence.myVatsimRegistered) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => handleCheckMyVatsim(occurrence.id)}
+                className="cursor-pointer"
+              >
+                <CheckCircle className="w-5 h-5 text-green-600 hover:text-green-700 transition-colors" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>In myVATSIM eingetragen – Klicken zum Neu-Prüfen</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+  
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => handleCheckMyVatsim(occurrence.id)}
+              className="cursor-pointer"
+            >
+              <XCircle className="w-5 h-5 text-red-400 hover:text-red-600 transition-colors" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>Nicht in myVATSIM eingetragen – Klicken zum Neu-Prüfen</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const getStatusBadge = (occurrence: Occurrence) => {
     if (!config) return null;
 
@@ -331,10 +425,15 @@ export default function OccurrencesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Datum</TableHead>
-                  <TableHead>Anmeldeschluss</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Anmeldungen</TableHead>
-                  <TableHead>Roster</TableHead>
+                  {config?.requiresRoster && (
+                    <>
+                      <TableHead>Anmeldeschluss</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Anmeldungen</TableHead>
+                      <TableHead>Roster</TableHead>
+                    </>
+                  )}
+                  <TableHead>myVATSIM</TableHead>
                   <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
               </TableHeader>
@@ -342,21 +441,28 @@ export default function OccurrencesPage() {
                 {occurrences.map((occ) => (
                   <TableRow key={occ.id}>
                     <TableCell>
-                      {format(new Date(occ.date), "dd.MM.yyyy HH:mm", { locale: de })} UTC
+                      {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
                     </TableCell>
+                    {config?.requiresRoster && (
+                      <>
+                        <TableCell>
+                          {occ.signupDeadline
+                            ? format(new Date(occ.signupDeadline), "dd.MM. HH:mm", { locale: de })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(occ)}</TableCell>
+                        <TableCell>{occ._count.signups}</TableCell>
+                        <TableCell>
+                          {occ.rosterPublished ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-gray-400" />
+                          )}
+                        </TableCell>
+                      </>
+                    )}
                     <TableCell>
-                      {occ.signupDeadline
-                        ? format(new Date(occ.signupDeadline), "dd.MM. HH:mm", { locale: de })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(occ)}</TableCell>
-                    <TableCell>{occ._count.signups}</TableCell>
-                    <TableCell>
-                      {occ.rosterPublished ? (
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <XCircle className="w-5 h-5 text-gray-400" />
-                      )}
+                      {getMyVatsimBadge(occ)}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -377,14 +483,16 @@ export default function OccurrencesPage() {
                             <Calendar className="w-4 h-4 mr-2" />
                             Datum bearbeiten
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setNewStatus(occ.signupStatus);
-                              setStatusDialog({ open: true, occurrence: occ });
-                            }}
-                          >
-                            Status ändern
-                          </DropdownMenuItem>
+                          {config?.requiresRoster && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setNewStatus(occ.signupStatus);
+                                setStatusDialog({ open: true, occurrence: occ });
+                              }}
+                            >
+                              Status ändern
+                            </DropdownMenuItem>
+                          )}
                           {config?.requiresRoster && (
                             <>
                               <DropdownMenuItem
@@ -399,6 +507,11 @@ export default function OccurrencesPage() {
                               </DropdownMenuItem>
                             </>
                           )}
+                          <DropdownMenuItem
+                            onClick={() => handleCheckMyVatsim(occ.id)}
+                          >
+                            myVATSIM prüfen
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => setDeleteDialog({ open: true, occurrence: occ })}
                             className="text-red-600"

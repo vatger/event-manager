@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const today = startOfDay(new Date());
     const threeMonthsFromNow = addMonths(today, 3);
 
-    const occurrences = await prisma!.weeklyEventOccurrence.findMany({
+    const occurrences = await prisma.weeklyEventOccurrence.findMany({
       where: {
         date: {
           gte: today,

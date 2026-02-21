@@ -36,6 +36,9 @@ import {
   Award,
   BookOpen,
   GripVertical,
+  Pencil,
+  Trash2,
+  MoreVertical,
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
@@ -46,6 +49,23 @@ import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { cn } from "@/lib/utils";
 import EventBanner from "@/components/Eventbanner";
 import { WeeklySignupDialog } from "./_components/WeeklySignupDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useUser } from "@/hooks/useUser";
 
 interface FIR {
   code: string;
@@ -137,12 +157,24 @@ export default function OccurrenceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
+  const { user, canInFIR } = useUser();
   const [occurrence, setOccurrence] = useState<Occurrence | null>(null);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(true);
   const [signupsLoading, setSignupsLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Edit/Delete dialog states
+  const [editSignupDialog, setEditSignupDialog] = useState<{ open: boolean; signup: Signup | null }>({
+    open: false,
+    signup: null,
+  });
+  const [deleteSignupDialog, setDeleteSignupDialog] = useState<{ open: boolean; signup: Signup | null }>({
+    open: false,
+    signup: null,
+  });
+  const [editRemarks, setEditRemarks] = useState("");
 
   // Signup state - simplified for dialog usage
   const [isSignedUp, setIsSignedUp] = useState(false);
@@ -253,10 +285,170 @@ export default function OccurrenceDetailPage() {
     }
   };
 
+  const handleEditSignup = async () => {
+    if (!editSignupDialog.signup) return;
+
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup/${editSignupDialog.signup.userCID}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remarks: editRemarks }),
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Anmeldung aktualisiert");
+        setEditSignupDialog({ open: false, signup: null });
+        fetchSignups();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Fehler beim Aktualisieren");
+      }
+    } catch (err) {
+      toast.error("Netzwerkfehler");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteSignup = async () => {
+    if (!deleteSignupDialog.signup) return;
+
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup/${deleteSignupDialog.signup.userCID}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Anmeldung gelöscht");
+        setDeleteSignupDialog({ open: false, signup: null });
+        fetchSignups();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Fehler beim Löschen");
+      }
+    } catch (err) {
+      toast.error("Netzwerkfehler");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Check if user can manage signups
+  const canManageSignups = (): boolean => {
+    if (!occurrence?.config?.fir) return false;
+    const firCode = occurrence.config.fir.code;
+    return canInFIR(firCode, "signups.manage") || canInFIR(firCode, "event.manage");
+  };
+
   const isSignupOpen = (): boolean => {
-    if(occurrence?.signupStatus == "closed") return false;
-    if (!occurrence?.signupDeadline) return true;
-    return isBefore(new Date(), new Date(occurrence.signupDeadline));
+    if (!occurrence) return false;
+    
+    // Manual override - closed
+    if (occurrence.signupStatus === "closed") return false;
+    
+    // Manual override - open
+    if (occurrence.signupStatus === "open") {
+      // Still need to check deadline
+      if (occurrence.signupDeadline) {
+        return isBefore(new Date(), new Date(occurrence.signupDeadline));
+      }
+      return true;
+    }
+    
+    // Auto mode - check if within 2 weeks and before deadline
+    if (occurrence.signupStatus === "auto") {
+      const now = new Date();
+      const occDate = new Date(occurrence.date);
+      const twoWeeksBefore = new Date(occDate);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      // Not yet 2 weeks before
+      if (now < twoWeeksBefore) {
+        return false;
+      }
+      
+      // Check deadline
+      if (occurrence.signupDeadline) {
+        return isBefore(now, new Date(occurrence.signupDeadline));
+      }
+      
+      return true;
+    }
+    
+    return false;
+  };
+
+  const getSignupStatusMessage = (): { text: string; color: string } => {
+    if (!occurrence || !occurrence.config.requiresRoster) {
+      return { text: "Kein Roster vorgesehen", color: "text-gray-500" };
+    }
+    
+    if (rosterPublished) {
+      return { text: "Roster veröffentlicht", color: "text-green-600" };
+    }
+    
+    if (occurrence.signupStatus === "closed") {
+      return { text: "Anmeldung geschlossen", color: "text-red-600" };
+    }
+    
+    if (occurrence.signupStatus === "open") {
+      if (occurrence.signupDeadline && !isBefore(new Date(), new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    // Auto mode
+    if (occurrence.signupStatus === "auto") {
+      const now = new Date();
+      const occDate = new Date(occurrence.date);
+      const twoWeeksBefore = new Date(occDate);
+      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
+      
+      if (now < twoWeeksBefore) {
+        const opensAtStr = twoWeeksBefore.toLocaleDateString("de-DE", { 
+          day: "2-digit", 
+          month: "2-digit", 
+          year: "numeric" 
+        });
+        return { 
+          text: `Anmeldung öffnet am ${opensAtStr}`, 
+          color: "text-amber-600" 
+        };
+      }
+      
+      if (occurrence.signupDeadline && !isBefore(now, new Date(occurrence.signupDeadline))) {
+        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
+      }
+      
+      return { text: "Anmeldung offen", color: "text-green-600" };
+    }
+    
+    return { text: "Status unbekannt", color: "text-gray-500" };
+  };
+
+  const getStatusDotColor = (statusMessage: { text: string; color: string }): string => {
+    if (statusMessage.color.includes("green")) return "bg-green-500";
+    if (statusMessage.color.includes("amber")) return "bg-amber-500";
+    if (statusMessage.color.includes("blue")) return "bg-blue-500";
+    if (statusMessage.color.includes("red")) return "bg-red-500";
+    return "bg-gray-400";
+  };
+
+  const getStatusBadgeColor = (statusMessage: { text: string; color: string }): string => {
+    if (statusMessage.color.includes("green")) return "bg-green-600";
+    if (statusMessage.color.includes("amber")) return "bg-amber-600";
+    if (statusMessage.color.includes("blue")) return "bg-blue-600";
+    if (statusMessage.color.includes("red")) return "bg-red-600";
+    return "";
   };
 
   const getRatingBadge = (rating: number) => {
@@ -325,7 +517,7 @@ export default function OccurrenceDetailPage() {
                   <span className="text-gray-300 dark:text-gray-700">•</span>
                   <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
                     <Clock className="h-3.5 w-3.5" />
-                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} UTC</span>
+                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} Uhr (Lokalzeit)</span>
                   </div>
                 </>
               )}
@@ -342,7 +534,7 @@ export default function OccurrenceDetailPage() {
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  rosterPublished ? "bg-green-500" : signupOpen ? "bg-blue-500" : "bg-gray-400"
+                  getStatusDotColor(getSignupStatusMessage())
                 )} />
                 <CardTitle className="text-lg">Event Informationen</CardTitle>
               </div>
@@ -352,12 +544,12 @@ export default function OccurrenceDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
                 <Badge 
-                  variant={rosterPublished ? "default" : signupOpen ? "default" : "secondary"}
+                  variant={signupOpen ? "default" : "secondary"}
                   className={cn(
-                    rosterPublished ? "bg-green-600" : signupOpen ? "bg-blue-600" : ""
+                    getStatusBadgeColor(getSignupStatusMessage())
                   )}
                 >
-                  {rosterPublished ? "Veröffentlicht" : signupOpen ? "Anmeldung offen" : "Anmeldung geschlossen"}
+                  {getSignupStatusMessage().text}
                 </Badge>
               </div>
 
@@ -610,6 +802,7 @@ export default function OccurrenceDetailPage() {
                         <TableHead className="w-[200px]">Einschränkungen</TableHead>
                         <TableHead className="w-[120px]">Angemeldet seit</TableHead>
                         <TableHead className="w-[150px]">Bemerkungen</TableHead>
+                        {canManageSignups() && <TableHead className="w-[50px]"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -701,6 +894,35 @@ export default function OccurrenceDetailPage() {
                                   <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
                                 )}
                               </TableCell>
+                              {canManageSignups() && (
+                                <TableCell>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem
+                                        onClick={() => {
+                                          setEditRemarks(signup.remarks || "");
+                                          setEditSignupDialog({ open: true, signup });
+                                        }}
+                                      >
+                                        <Pencil className="mr-2 h-4 w-4" />
+                                        Bearbeiten
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => setDeleteSignupDialog({ open: true, signup })}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Löschen
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}
@@ -712,6 +934,91 @@ export default function OccurrenceDetailPage() {
           </Card>
         )}
       </div>
+
+      {/* Edit Signup Dialog */}
+      <Dialog open={editSignupDialog.open} onOpenChange={(open) => setEditSignupDialog({ open, signup: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Anmeldung bearbeiten</DialogTitle>
+            <DialogDescription>
+              Bearbeite die Anmeldung von {editSignupDialog.signup?.user?.name || `CID ${editSignupDialog.signup?.userCID}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="remarks">Bemerkungen</Label>
+              <Textarea
+                id="remarks"
+                value={editRemarks}
+                onChange={(e) => setEditRemarks(e.target.value)}
+                placeholder="Optional: Bemerkungen zur Anmeldung"
+                rows={3}
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-500 mt-1">{editRemarks.length}/500 Zeichen</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditSignupDialog({ open: false, signup: null })}
+              disabled={busy}
+            >
+              Abbrechen
+            </Button>
+            <Button onClick={handleEditSignup} disabled={busy}>
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Speichert...
+                </>
+              ) : (
+                "Speichern"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Signup Dialog */}
+      <Dialog open={deleteSignupDialog.open} onOpenChange={(open) => setDeleteSignupDialog({ open, signup: null })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Anmeldung löschen</DialogTitle>
+            <DialogDescription>
+              Möchtest du die Anmeldung von {deleteSignupDialog.signup?.user?.name || `CID ${deleteSignupDialog.signup?.userCID}`} wirklich löschen?
+            </DialogDescription>
+          </DialogHeader>
+          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
+            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            <AlertDescription className="text-red-700 dark:text-red-300">
+              Diese Aktion kann nicht rückgängig gemacht werden.
+            </AlertDescription>
+          </Alert>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteSignupDialog({ open: false, signup: null })}
+              disabled={busy}
+            >
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSignup} disabled={busy}>
+              {busy ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Löscht...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Löschen
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

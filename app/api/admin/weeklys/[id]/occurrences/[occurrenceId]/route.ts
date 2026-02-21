@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
+import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
 /**
  * PATCH /api/admin/weeklys/[id]/occurrences/[occurrenceId]
@@ -43,6 +44,10 @@ export async function PATCH(
       return NextResponse.json({ error: "Weekly event not found" }, { status: 404 });
     }
 
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
+    }
+
     // Check permissions
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),
@@ -64,12 +69,11 @@ export async function PATCH(
 
     // Calculate new signup deadline if applicable
     const newDate = new Date(date);
-    let newSignupDeadline: Date | null = null;
-    if (config.signupDeadlineHours) {
-      newSignupDeadline = new Date(
-        newDate.getTime() - config.signupDeadlineHours * 60 * 60 * 1000
-      );
-    }
+    const newSignupDeadline = calculateSignupDeadline(
+      newDate,
+      config.startTime,
+      config.signupDeadlineHours
+    );
 
     // Update the occurrence
     const updatedOccurrence = await prisma.weeklyEventOccurrence.update({
@@ -125,6 +129,10 @@ export async function DELETE(
 
     if (!config) {
       return NextResponse.json({ error: "Weekly event not found" }, { status: 404 });
+    }
+
+    if (!config.fir) {
+      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
     }
 
     // Check permissions

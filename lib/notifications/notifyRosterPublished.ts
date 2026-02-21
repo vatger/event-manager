@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 const VATGER_API_TOKEN = process.env.VATGER_API_TOKEN!;
 
 export async function notifyRosterPublished(eventId: number) {
-  if(!prisma) return;
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new Error("Event not found");
 
@@ -17,7 +16,7 @@ export async function notifyRosterPublished(eventId: number) {
 
   await prisma.$transaction(
     signups.map((s) =>
-      prisma!.notification.create({
+      prisma.notification.create({
         data: {
           userCID: s.user.cid,
           eventId,

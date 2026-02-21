@@ -9,7 +9,7 @@ const VATGER_API_TOKEN = process.env.VATGER_API_TOKEN!;
  * @returns Number of notifications sent successfully
  */
 export async function notifyEventReminder(eventId: number) {
-  const event = await prisma!.event.findUnique({ 
+  const event = await prisma.event.findUnique({ 
     where: { id: eventId },
     include: {
       fir: {
@@ -54,9 +54,9 @@ export async function notifyEventReminder(eventId: number) {
   const message = `Erinnerung: Das Event "${event.name}" startet in 3 Wochen (${event.startTime.toLocaleDateString("de-DE")}). Die Controlleranmeldung ist noch nicht geöffnet.`;
 
   // Create internal notifications
-  await prisma!.$transaction(
+  await prisma.$transaction(
     firLeaders.map((leader) =>
-      prisma!.notification.create({
+      prisma.notification.create({
         data: {
           userCID: leader.cid,
           eventId,

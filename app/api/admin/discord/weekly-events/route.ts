@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 import { addWeeks, startOfDay } from "date-fns";
+import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
 // Validation schema for weekly event configuration
 const weeklyEventConfigSchema = z.object({
@@ -223,25 +224,34 @@ async function generateOccurrences(configId: number) {
   }
 
   let weekCounter = 0;
+  const totalCycleWeeks = config.weeksOn + config.weeksOff;
+  
   while (currentDate <= sixMonthsFromNow) {
     // Only add occurrence if we're in the "on" weeks
     if (weekCounter < config.weeksOn) {
       if (currentDate >= today) {
         occurrences.push(new Date(currentDate));
       }
-      weekCounter++;
-    } else {
-      weekCounter++;
-      // Skip "off" weeks
-      if (weekCounter >= config.weeksOn + config.weeksOff) {
-        weekCounter = 0;
-      }
     }
+    
+    // Move to next week
     currentDate = addWeeks(currentDate, 1);
+    weekCounter++;
+    
+    // Reset counter after completing a full cycle
+    if (weekCounter >= totalCycleWeeks) {
+      weekCounter = 0;
+    }
   }
 
   // Create occurrences in database
   for (const date of occurrences) {
+    const signupDeadline = calculateSignupDeadline(
+      date,
+      config.startTime,
+      config.signupDeadlineHours
+    );
+
     await prisma.weeklyEventOccurrence.upsert({
       where: {
         configId_date: {
@@ -252,15 +262,11 @@ async function generateOccurrences(configId: number) {
       create: {
         configId: config.id,
         date: date,
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: signupDeadline,
         eventId: null,
       },
       update: {
-        signupDeadline: config.signupDeadlineHours
-          ? new Date(date.getTime() - config.signupDeadlineHours * 60 * 60 * 1000)
-          : null,
+        signupDeadline: signupDeadline,
       },
     });
   }

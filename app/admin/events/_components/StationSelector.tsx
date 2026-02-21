@@ -16,6 +16,7 @@ interface StationSelectorProps {
   selectedStations: string[];
   onStationsChange: (stations: string[]) => void;
   disabled?: boolean;
+  firCode?: string; // FIR code for CTR station filtering (e.g., "EDMM", "EDGG", "EDWW")
 }
 
 const GROUPS: StationGroup[] = ["GND", "TWR", "APP", "CTR"];
@@ -24,7 +25,8 @@ export default function StationSelector({
   airport, 
   selectedStations, 
   onStationsChange, 
-  disabled = false 
+  disabled = false,
+  firCode
 }: StationSelectorProps) {
   const [stations, setStations] = useState<Station[]>([]);
   const [customStation, setCustomStation] = useState("");
@@ -62,10 +64,19 @@ export default function StationSelector({
   const filteredStations = GROUPS.map((group) => ({
     group,
     stations: sortedStations.filter(
-      (s) =>
-        s.group === group &&
-        (!s.airport || s.airport === airport.toUpperCase()) &&
-        s.callsign.toLowerCase().includes(searchTerm.toLowerCase())
+      (s) => {
+        if (s.group !== group) return false;
+        
+        // For CTR stations, filter by FIR prefix if firCode is provided
+        if (group === "CTR" && firCode) {
+          return s.callsign.startsWith(firCode + "_") &&
+                 s.callsign.toLowerCase().includes(searchTerm.toLowerCase());
+        }
+        
+        // For other station types, filter by airport
+        return (!s.airport || s.airport === airport.toUpperCase()) &&
+               s.callsign.toLowerCase().includes(searchTerm.toLowerCase());
+      }
     ),
   })).filter(({ stations }) => stations.length > 0);
 
@@ -205,6 +216,7 @@ export default function StationSelector({
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">
             Vordefinierte Stationen für {airport.toUpperCase()}
+            {firCode && ` (FIR: ${firCode})`}
           </CardTitle>
         </CardHeader>
         <CardContent>
