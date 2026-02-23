@@ -83,20 +83,19 @@ export function AddSignupByCIDDialog({
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <UserPlus className="h-4 w-4" />
-          Anmeldung per CID hinzufügen
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Anmeldung per CID hinzufügen</DialogTitle>
+            <DialogTitle>Anmeldung hinzufügen</DialogTitle>
             <DialogDescription>
-              Melde einen Nutzer anhand seiner VATSIM CID für dieses Weekly Event an.
+              Melde einen Nutzer für dieses Weekly Event an.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="userCID">VATSIM CID *</Label>
+              <Label htmlFor="userCID">CID *</Label>
               <Input
                 id="userCID"
                 type="number"
@@ -107,15 +106,12 @@ export function AddSignupByCIDDialog({
                 min="1"
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">
-                Die CID des Nutzers, der angemeldet werden soll
-              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="remarks">Bemerkungen (optional)</Label>
               <Textarea
                 id="remarks"
-                placeholder="z.B. Präferenzen, besondere Hinweise, etc."
+                placeholder="some space"
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 maxLength={500}
@@ -146,7 +142,7 @@ export function AddSignupByCIDDialog({
                   Wird hinzugefügt...
                 </>
               ) : (
-                "Anmeldung hinzufügen"
+                "Hinzufügen"
               )}
             </Button>
           </DialogFooter>

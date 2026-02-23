@@ -259,33 +259,6 @@ export default function OccurrenceDetailPage() {
     }
   };
 
-  const handleCancelSignup = async () => {
-    if (!confirm("Möchtest du deine Anmeldung wirklich stornieren?")) return;
-
-    setBusy(true);
-    try {
-      const res = await fetch(
-        `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/signup`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (res.ok) {
-        toast.success("Anmeldung storniert");
-        setIsSignedUp(false);
-        fetchSignups();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Fehler beim Stornieren");
-      }
-    } catch (err) {
-      toast.error("Netzwerkfehler");
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const handleEditSignup = async () => {
     if (!editSignupDialog.signup) return;
 
@@ -609,17 +582,6 @@ export default function OccurrenceDetailPage() {
                       userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
                       onSignupChange={fetchSignups}
                     />
-                    {isSignedUp && (
-                      <Button
-                        onClick={handleCancelSignup}
-                        variant="destructive"
-                        size="default"
-                        disabled={busy}
-                      >
-                        <UserMinus className="mr-2 h-4 w-4" />
-                        {busy ? "Wird storniert..." : "Anmeldung stornieren"}
-                      </Button>
-                    )}
                   </div>
                 ) : (
                   <Alert className="border-gray-200 dark:border-gray-800">

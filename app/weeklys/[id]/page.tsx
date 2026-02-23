@@ -41,7 +41,7 @@ interface WeeklyOccurrence {
   id: number;
   date: string;
   signupDeadline: string | null;
-  rosterPublishedAt: string | null;
+  rosterPublished: Boolean;
   eventId: number | null;
   signupStatus: "open" | "closed" | "auto";
 }
@@ -192,7 +192,7 @@ export default function WeeklyDetailPage() {
       return { text: "Kein Roster vorgesehen", color: "text-gray-500" };
     }
     
-    if (occurrence.rosterPublishedAt) {
+    if (occurrence.rosterPublished) {
       return { text: "Roster veröffentlicht", color: "text-green-600" };
     }
     
@@ -553,17 +553,6 @@ export default function WeeklyDetailPage() {
                                 >
                                   {getSignupStatusMessage(occurrence).text}
                                 </Badge>
-                                
-                                {/* Roster Published Badge */}
-                                {occurrence.rosterPublishedAt && (
-                                  <Badge 
-                                    variant="default"
-                                    className="bg-green-600 hover:bg-green-700 gap-1"
-                                  >
-                                    <Check className="h-3 w-3" />
-                                    Roster veröffentlicht
-                                  </Badge>
-                                )}
                               </>
                             )}
                             
