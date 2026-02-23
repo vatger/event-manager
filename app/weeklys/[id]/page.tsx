@@ -24,6 +24,7 @@ import {
   Timer,
   Repeat,
   Plane,
+  Check,
 } from "lucide-react";
 import { format, isPast, isBefore, isAfter } from "date-fns";
 import { de } from "date-fns/locale";
@@ -543,14 +544,27 @@ export default function WeeklyDetailPage() {
 
                           <div className="flex items-center gap-3">
                             {config.requiresRoster && (
-                              <Badge 
-                              variant={signupOpen ? "default" : "secondary"}
-                              className={cn(
-                                getStatusBadgeColor(getSignupStatusMessage(occurrence))
-                              )}
-                            >
-                              {getSignupStatusMessage(occurrence).text}
-                            </Badge>
+                              <>
+                                <Badge 
+                                  variant={signupOpen ? "default" : "secondary"}
+                                  className={cn(
+                                    getStatusBadgeColor(getSignupStatusMessage(occurrence))
+                                  )}
+                                >
+                                  {getSignupStatusMessage(occurrence).text}
+                                </Badge>
+                                
+                                {/* Roster Published Badge */}
+                                {occurrence.rosterPublishedAt && (
+                                  <Badge 
+                                    variant="default"
+                                    className="bg-green-600 hover:bg-green-700 gap-1"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                    Roster veröffentlicht
+                                  </Badge>
+                                )}
+                              </>
                             )}
                             
                             <Button 
