@@ -49,6 +49,7 @@ import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { cn } from "@/lib/utils";
 import EventBanner from "@/components/Eventbanner";
 import { WeeklySignupDialog } from "./_components/WeeklySignupDialog";
+import { AddSignupByCIDDialog } from "./_components/AddSignupByCIDDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -770,12 +771,21 @@ export default function OccurrenceDetailPage() {
         {occurrence.config.requiresRoster && (
           <Card className="border-gray-200 dark:border-gray-800">
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
-                <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
-                <Badge variant="outline" className="ml-2">
-                  {signups.length}
-                </Badge>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
+                  <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
+                  <Badge variant="outline" className="ml-2">
+                    {signups.length}
+                  </Badge>
+                </div>
+                {canManageSignups() && (
+                  <AddSignupByCIDDialog
+                    configId={occurrence.config.id}
+                    occurrenceId={occurrence.id}
+                    onSignupAdded={fetchSignups}
+                  />
+                )}
               </div>
               <CardDescription>
                 {signups.length === 1 ? "Ein Lotse hat sich angemeldet" : `${signups.length} Lotsen haben sich angemeldet`}
