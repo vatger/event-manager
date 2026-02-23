@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2, Eye, Edit, Users, Link, RefreshCw, Edit2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -21,6 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -40,6 +41,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -388,11 +396,12 @@ export default function OccurrencesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-64 bg-gray-200 rounded"></div>
-        </div>
+      <div className="container mx-auto p-6 space-y-4">
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-12 w-full" />
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-24 w-full" />
+        ))}
       </div>
     );
   }
@@ -411,124 +420,300 @@ export default function OccurrencesPage() {
         </div>
       </div>
 
+      {/* Current/Upcoming Occurrences */}
       <Card>
         <CardHeader>
-          <CardTitle>Alle Occurrences</CardTitle>
+          <CardTitle>Aktuelle und kommende Termine</CardTitle>
         </CardHeader>
         <CardContent>
-          {occurrences.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">
-              Keine Occurrences vorhanden.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Datum</TableHead>
-                  {config?.requiresRoster && (
-                    <>
-                      <TableHead>Anmeldeschluss</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Anmeldungen</TableHead>
-                      <TableHead>Roster</TableHead>
-                    </>
-                  )}
-                  <TableHead>myVATSIM</TableHead>
-                  <TableHead className="text-right">Aktionen</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {occurrences.map((occ) => (
-                  <TableRow key={occ.id}>
-                    <TableCell>
-                      {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
-                    </TableCell>
+          {(() => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            yesterday.setHours(0, 0, 0, 0);
+            
+            const currentOccurrences = occurrences.filter(occ => 
+              new Date(occ.date) >= yesterday
+            );
+            
+            if (currentOccurrences.length === 0) {
+              return (
+                <p className="text-muted-foreground text-center py-8">
+                  Keine aktuellen Occurrences vorhanden.
+                </p>
+              );
+            }
+            
+            return (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Datum</TableHead>
                     {config?.requiresRoster && (
                       <>
-                        <TableCell>
-                          {occ.signupDeadline
-                            ? format(new Date(occ.signupDeadline), "dd.MM. HH:mm", { locale: de })
-                            : "-"}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(occ)}</TableCell>
-                        <TableCell>{occ._count.signups}</TableCell>
-                        <TableCell>
-                          {occ.rosterPublished ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
-                          ) : (
-                            <XCircle className="w-5 h-5 text-gray-400" />
-                          )}
-                        </TableCell>
+                        <TableHead>Anmeldeschluss</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Anmeldungen</TableHead>
+                        <TableHead>Roster</TableHead>
                       </>
                     )}
-                    <TableCell>
-                      {getMyVatsimBadge(occ)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              const date = new Date(occ.date);
-                              setNewDate(date.toISOString().split("T")[0]);
-                              setNewTime(date.toISOString().split("T")[1].substring(0, 5));
-                              setEditDateDialog({ open: true, occurrence: occ });
-                            }}
-                          >
-                            <Calendar className="w-4 h-4 mr-2" />
-                            Datum bearbeiten
-                          </DropdownMenuItem>
-                          {config?.requiresRoster && (
+                    <TableHead>myVATSIM</TableHead>
+                    <TableHead className="text-right">Aktionen</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentOccurrences.map((occ) => (
+                    <TableRow key={occ.id}>
+                      <TableCell>
+                        {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
+                      </TableCell>
+                      {config?.requiresRoster && (
+                        <>
+                          <TableCell>
+                            {occ.signupDeadline
+                              ? format(new Date(occ.signupDeadline), "dd.MM. HH:mm", { locale: de })
+                              : "-"}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(occ)}</TableCell>
+                          <TableCell>{occ._count.signups}</TableCell>
+                          <TableCell>
+                            {occ.rosterPublished ? (
+                              <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : (
+                              <XCircle className="w-5 h-5 text-gray-400" />
+                            )}
+                          </TableCell>
+                        </>
+                      )}
+                      <TableCell>
+                        {getMyVatsimBadge(occ)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem
-                              onClick={() => {
-                                setNewStatus(occ.signupStatus);
-                                setStatusDialog({ open: true, occurrence: occ });
-                              }}
+                              onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
                             >
-                              Status ändern
+                              <Eye className="w-4 h-4 mr-2" />
+                              Details ansehen
                             </DropdownMenuItem>
-                          )}
-                          {config?.requiresRoster && (
-                            <>
+                            {config?.requiresRoster && (
                               <DropdownMenuItem
                                 onClick={() => router.push(`/admin/weeklys/${configId}/occurrences/${occ.id}/roster`)}
                               >
+                                <Edit className="w-4 h-4 mr-2" />
                                 Roster bearbeiten
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => setRosterDialog({ open: true, occurrence: occ })}
-                              >
-                                {occ.rosterPublished ? "Roster zurückziehen" : "Roster veröffentlichen"}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() => handleCheckMyVatsim(occ.id)}
-                          >
-                            myVATSIM prüfen
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => setDeleteDialog({ open: true, occurrence: occ })}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Löschen
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                            )}
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
+                            >
+                              <Users className="w-4 h-4 mr-2" />
+                              Anmeldungen ansehen
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const url = `${window.location.origin}/weeklys/${configId}/occurrences/${occ.id}`;
+                                navigator.clipboard.writeText(url);
+                                toast.success("Link kopiert", {
+                                  description: "Der Link wurde in die Zwischenablage kopiert.",
+                                });
+                              }}
+                            >
+                              <Link className="w-4 h-4 mr-2" />
+                              Link kopieren
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleCheckMyVatsim(occ.id)}
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              myVATSIM prüfen
+                            </DropdownMenuItem>
+                            {config?.requiresRoster && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setNewStatus(occ.signupStatus);
+                                    setStatusDialog({ open: true, occurrence: occ });
+                                  }}
+                                >
+                                  <Edit2 className="w-4 h-4 mr-2" />
+                                  Status ändern
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setRosterDialog({ open: true, occurrence: occ })}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  {occ.rosterPublished ? "Roster zurückziehen" : "Roster veröffentlichen"}
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const date = new Date(occ.date);
+                                setNewDate(date.toISOString().split("T")[0]);
+                                setNewTime(date.toISOString().split("T")[1].substring(0, 5));
+                                setEditDateDialog({ open: true, occurrence: occ });
+                              }}
+                            >
+                              <Calendar className="w-4 h-4 mr-2" />
+                              Datum bearbeiten
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeleteDialog({ open: true, occurrence: occ })}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Löschen
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            );
+          })()}
         </CardContent>
       </Card>
+
+      {/* Archived Occurrences */}
+      {(() => {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+        
+        const archivedOccurrences = occurrences.filter(occ => 
+          new Date(occ.date) < yesterday
+        );
+        
+        if (archivedOccurrences.length === 0) return null;
+        
+        return (
+          <Card className="mt-6">
+            <CardContent className="pt-6">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="archive">
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <span>Archiv</span>
+                      <Badge variant="secondary">{archivedOccurrences.length} archivierte Termine</Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Datum</TableHead>
+                          {config?.requiresRoster && (
+                            <>
+                              <TableHead>Anmeldeschluss</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Anmeldungen</TableHead>
+                              <TableHead>Roster</TableHead>
+                            </>
+                          )}
+                          <TableHead>myVATSIM</TableHead>
+                          <TableHead className="text-right">Aktionen</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {archivedOccurrences.map((occ) => (
+                          <TableRow key={occ.id} className="text-muted-foreground">
+                            <TableCell>
+                              {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
+                            </TableCell>
+                            {config?.requiresRoster && (
+                              <>
+                                <TableCell>
+                                  {occ.signupDeadline
+                                    ? format(new Date(occ.signupDeadline), "dd.MM. HH:mm", { locale: de })
+                                    : "-"}
+                                </TableCell>
+                                <TableCell>{getStatusBadge(occ)}</TableCell>
+                                <TableCell>{occ._count.signups}</TableCell>
+                                <TableCell>
+                                  {occ.rosterPublished ? (
+                                    <CheckCircle className="w-5 h-5 text-green-600" />
+                                  ) : (
+                                    <XCircle className="w-5 h-5 text-gray-400" />
+                                  )}
+                                </TableCell>
+                              </>
+                            )}
+                            <TableCell>
+                              {getMyVatsimBadge(occ)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    Details ansehen
+                                  </DropdownMenuItem>
+                                  {config?.requiresRoster && (
+                                    <DropdownMenuItem
+                                      onClick={() => router.push(`/admin/weeklys/${configId}/occurrences/${occ.id}/roster`)}
+                                    >
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Roster bearbeiten
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
+                                  >
+                                    <Users className="w-4 h-4 mr-2" />
+                                    Anmeldungen ansehen
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      const url = `${window.location.origin}/weeklys/${configId}/occurrences/${occ.id}`;
+                                      navigator.clipboard.writeText(url);
+                                      toast.success("Link kopiert", {
+                                        description: "Der Link wurde in die Zwischenablage kopiert.",
+                                      });
+                                    }}
+                                  >
+                                    <Link className="w-4 h-4 mr-2" />
+                                    Link kopieren
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setDeleteDialog({ open: true, occurrence: occ })}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Löschen
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Edit Date Dialog */}
       <Dialog open={editDateDialog.open} onOpenChange={(open) => setEditDateDialog({ open, occurrence: null })}>
