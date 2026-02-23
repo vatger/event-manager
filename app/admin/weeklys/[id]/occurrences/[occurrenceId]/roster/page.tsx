@@ -420,7 +420,7 @@ export default function RosterEditorPage() {
                 <X className="h-3 w-3 mr-1" />
               )}
               <span className="hidden sm:inline">{data.occurrence.rosterPublished ? "Veröffentlicht" : "Nicht veröffentlicht"}</span>
-              <span className="sm:hidden">{data.occurrence.rosterPublished ? "Publik" : "Privat"}</span>
+              <span className="sm:hidden">{data.occurrence.rosterPublished ? "Public" : "Privat"}</span>
             </Badge>
             <Button
               onClick={() => setPublishDialog(true)}
@@ -511,7 +511,7 @@ export default function RosterEditorPage() {
                                     </p>
                                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                       <Badge variant="outline" className="text-[10px] h-4">
-                                        {assigned.user?.rating || 'UNK'}
+                                        {getRatingFromValue(assigned.user?.rating || 0)}
                                       </Badge>
                                       {assigned.endorsementGroup && (
                                         <Badge className={cn(
@@ -523,7 +523,7 @@ export default function RosterEditorPage() {
                                       )}
                                       {isTrainee(assigned.restrictions) && (
                                         <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                          Trainee
+                                          T
                                         </Badge>
                                       )}
                                     </div>
@@ -536,8 +536,7 @@ export default function RosterEditorPage() {
                                 disabled={saving}
                                 className="h-8 md:h-9 text-xs text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
                               >
-                                <X className="h-4 w-4 md:mr-1" />
-                                <span className="hidden md:inline">Entfernen</span>
+                                <X className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
