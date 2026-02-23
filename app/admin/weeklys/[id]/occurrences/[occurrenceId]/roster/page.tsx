@@ -43,6 +43,7 @@ import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { getRatingFromValue } from "@/utils/ratingToValue";
+import { getStationsMetadata } from "@/lib/stations/stationMetadata";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -491,6 +492,11 @@ export default function RosterEditorPage() {
                               )}>
                                 {stationGroup}
                               </Badge>
+                              {s1TwrStations.has(station.toUpperCase()) && (
+                                <Badge className="text-[10px] h-4 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700">
+                                  S1 TWR
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
