@@ -14,11 +14,13 @@ import {
   AlertCircle, 
   Loader2,
   Activity,
-  Calendar
+  Calendar,
+  Play
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import cronstrue from 'cronstrue/i18n';
 
 interface CronJobStatus {
   id: number;
@@ -41,6 +43,7 @@ export default function CronJobMonitor() {
   const [jobs, setJobs] = useState<CronJobStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [triggeringJob, setTriggeringJob] = useState<string | null>(null);
 
   useEffect(() => {
     loadJobStatuses();
@@ -70,6 +73,47 @@ export default function CronJobMonitor() {
     await loadJobStatuses();
     setRefreshing(false);
     toast.success('Status aktualisiert');
+  };
+
+  const handleTriggerJob = async (jobName: string, displayName: string) => {
+    setTriggeringJob(jobName);
+    
+    try {
+      const response = await fetch('/api/admin/system/cron-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobName }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to trigger job');
+      }
+
+      toast.success(`${displayName} wurde erfolgreich ausgeführt (${result.duration}ms)`);
+      
+      // Reload statuses after trigger
+      await loadJobStatuses();
+    } catch (error) {
+      console.error('Failed to trigger job:', error);
+      toast.error(`Fehler beim Ausführen von ${displayName}: ${(error as Error).message}`);
+    } finally {
+      setTriggeringJob(null);
+    }
+  };
+
+  const translateCronSchedule = (schedule: string): string => {
+    try {
+      return cronstrue.toString(schedule, { 
+        locale: 'de',
+        use24HourTimeFormat: true
+      });
+    } catch (error) {
+      return schedule; // Return original if translation fails
+    }
   };
 
   const getStatusBadge = (job: CronJobStatus) => {
@@ -194,10 +238,11 @@ export default function CronJobMonitor() {
                   <TableHead>Job</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead className="w-[100px]">Aktivität</TableHead>
-                  <TableHead className="w-[150px]">Zeitplan</TableHead>
+                  <TableHead className="w-[200px]">Zeitplan</TableHead>
                   <TableHead className="w-[150px]">Letzte Ausführung</TableHead>
                   <TableHead className="w-[80px]">Dauer</TableHead>
                   <TableHead className="w-[100px]">Statistik</TableHead>
+                  <TableHead className="w-[100px]">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,9 +257,14 @@ export default function CronJobMonitor() {
                     <TableCell>{getStatusBadge(job)}</TableCell>
                     <TableCell>{getActivityBadge(job)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1 text-sm font-mono">
-                        <Calendar className="w-3 h-3 text-gray-400" />
-                        {job.schedule}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-xs font-mono text-gray-500">
+                          <Calendar className="w-3 h-3" />
+                          {job.schedule}
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          {translateCronSchedule(job.schedule)}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{formatLastRun(job.lastRunAt)}</TableCell>
@@ -228,6 +278,27 @@ export default function CronJobMonitor() {
                           Fehler: {job.errorCount} ({getErrorRate(job)}%)
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleTriggerJob(job.jobName, job.displayName)}
+                        disabled={triggeringJob === job.jobName || !job.isActive}
+                        className="w-full"
+                      >
+                        {triggeringJob === job.jobName ? (
+                          <>
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            <span className="text-xs">Läuft...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3 h-3 mr-1" />
+                            <span className="text-xs">Jetzt ausführen</span>
+                          </>
+                        )}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

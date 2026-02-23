@@ -192,3 +192,38 @@ export async function getCronJobStatuses() {
   }
 }
 
+/**
+ * Manually trigger a cron job by name
+ */
+export async function triggerCronJob(jobName: string): Promise<{ success: boolean; message: string; duration?: number }> {
+  const job = CRON_JOBS.find(j => j.name === jobName)
+  
+  if (!job) {
+    return { success: false, message: `Job '${jobName}' nicht gefunden` }
+  }
+
+  const startTime = Date.now()
+  console.log(`[Cron] Manually triggering ${jobName}...`)
+  
+  try {
+    await job.handler()
+    const duration = Date.now() - startTime
+    console.log(`[Cron] ${jobName} manually triggered successfully in ${duration}ms`)
+    await recordJobExecution(jobName, 'success', duration)
+    return { 
+      success: true, 
+      message: `Job '${job.displayName}' erfolgreich ausgeführt`,
+      duration 
+    }
+  } catch (error) {
+    const duration = Date.now() - startTime
+    console.error(`[Cron] ${jobName} manual trigger failed after ${duration}ms:`, error)
+    await recordJobExecution(jobName, 'error', duration, error as Error)
+    return { 
+      success: false, 
+      message: `Job fehlgeschlagen: ${(error as Error).message}`,
+      duration 
+    }
+  }
+}
+
