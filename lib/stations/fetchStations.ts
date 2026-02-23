@@ -45,7 +45,10 @@ export async function fetchAllStations(): Promise<Station[]> {
       // Nur bekannte Gruppen behalten
       if (!group) return null;
 
-      return { callsign, group, airport };
+      // Extract S1 TWR flag from datahub
+      const s1Twr = entry.s1_twr === true ? true : undefined;
+
+      return { callsign, group, airport, s1Twr };
     })
     .filter((s: Station | null): s is Station => s !== null);
 

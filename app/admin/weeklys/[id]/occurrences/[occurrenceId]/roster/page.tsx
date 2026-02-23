@@ -146,6 +146,7 @@ export default function RosterEditorPage() {
   const [saving, setSaving] = useState(false);
   const [publishDialog, setPublishDialog] = useState(false);
   const [draggedUser, setDraggedUser] = useState<Signup | null>(null);
+  const [s1TwrStations, setS1TwrStations] = useState<Set<string>>(new Set());
 
   // Fetch roster data
   useEffect(() => {
@@ -161,6 +162,26 @@ export default function RosterEditorPage() {
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
       setData(json);
+      
+      // Fetch station metadata to check for S1 TWR stations
+      if (json.config?.staffedStations) {
+        const stationsRes = await fetch(`/api/stations`);
+        if (stationsRes.ok) {
+          const stationsData = await stationsRes.json();
+          const s1TwrSet = new Set<string>();
+          
+          for (const stationCallsign of json.config.staffedStations) {
+            const station = stationsData.stations?.find(
+              (s: any) => s.callsign.toUpperCase() === stationCallsign.toUpperCase()
+            );
+            if (station?.s1Twr === true) {
+              s1TwrSet.add(stationCallsign.toUpperCase());
+            }
+          }
+          
+          setS1TwrStations(s1TwrSet);
+        }
+      }
     } catch (error) {
       console.error("Fetch error:", error);
       toast.error("Fehler beim Laden der Daten");
@@ -271,6 +292,14 @@ export default function RosterEditorPage() {
   const canUserStaffStation = (signup: Signup, station: string): boolean => {
     const stationGroup = extractStationGroup(station);
     if (!signup.endorsementGroup || !stationGroup) return false;
+    
+    // Check if this is an S1 TWR station
+    const isS1Twr = s1TwrStations.has(station.toUpperCase());
+    
+    // Special case: S1 TWR stations can be staffed by GND-endorsed controllers
+    if (stationGroup === 'TWR' && isS1Twr && signup.endorsementGroup === 'GND') {
+      return true;
+    }
     
     const groupOrder = ["DEL", "GND", "TWR", "APP", "CTR"];
     const userGroupIndex = groupOrder.indexOf(signup.endorsementGroup);

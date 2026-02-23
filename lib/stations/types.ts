@@ -4,4 +4,5 @@ export interface Station {
   callsign: string;
   group: StationGroup;
   airport?: string; // wenn undefined -> FIR-weit gültig
+  s1Twr?: boolean; // true if this TWR station can be staffed with S1 (GND endorsement)
 }

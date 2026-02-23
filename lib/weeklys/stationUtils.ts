@@ -64,15 +64,25 @@ export function getMinimumStationGroup(stations: string[]): StationGroup | null 
 
 /**
  * Check if a user's endorsement group meets the minimum required station group
+ * 
+ * Special case: If station is an S1 TWR (s1TwrFlag = true), then GND endorsement is sufficient
+ * 
  * @param userGroup User's qualified group (GND, TWR, APP, CTR)
  * @param requiredGroup Minimum required group
+ * @param s1TwrFlag Whether this is an S1 TWR station (optional)
  * @returns true if user can staff the required group
  */
 export function canStaffStation(
   userGroup: string | null | undefined,
-  requiredGroup: StationGroup | null
+  requiredGroup: StationGroup | null,
+  s1TwrFlag?: boolean
 ): boolean {
   if (!userGroup || !requiredGroup) return false;
+  
+  // Special case: S1 TWR stations can be staffed by GND-endorsed controllers
+  if (requiredGroup === 'TWR' && s1TwrFlag === true && userGroup === 'GND') {
+    return true;
+  }
   
   const userRank = STATION_GROUP_ORDER.indexOf(userGroup as StationGroup);
   const requiredRank = STATION_GROUP_ORDER.indexOf(requiredGroup);

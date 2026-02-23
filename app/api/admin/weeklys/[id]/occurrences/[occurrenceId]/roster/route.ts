@@ -7,6 +7,7 @@ import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
 import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
 import { getUsersATCStatsBatch } from "@/lib/weeklys/atcSessionStats";
+import { isS1TwrStation } from "@/lib/stations/stationMetadata";
 
 // GET roster data for occurrence
 export async function GET(
@@ -228,10 +229,17 @@ export async function POST(
 
     // Validate endorsement
     const stationGroup = extractStationGroup(station);
-    if (!canStaffStation(signupWithEndorsement.endorsementGroup, stationGroup)) {
+    
+    // Check if this is an S1 TWR station
+    const isS1Twr = await isS1TwrStation(station);
+    
+    if (!canStaffStation(signupWithEndorsement.endorsementGroup, stationGroup, isS1Twr)) {
+      const s1TwrNote = isS1Twr && stationGroup === 'TWR' 
+        ? ' (S1 TWR - GND endorsement allowed)' 
+        : '';
       return NextResponse.json(
         {
-          error: `User endorsement (${signupWithEndorsement.endorsementGroup}) insufficient for station ${station} (requires ${stationGroup})`,
+          error: `User endorsement (${signupWithEndorsement.endorsementGroup}) insufficient for station ${station} (requires ${stationGroup}${s1TwrNote})`,
         },
         { status: 400 }
       );
