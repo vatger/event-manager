@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { getRatingFromValue } from "@/utils/ratingToValue";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -273,9 +274,27 @@ export default function RosterEditorPage() {
     }
   };
 
+  // Helper function to normalize station callsigns for matching
+  const normalizeStationForMatching = (station: string): string => {
+    // Remove numeric suffixes: _1_, _2_, etc.
+    let normalized = station.replace(/_[0-9]+_/g, '_');
+    // Remove directional/position suffixes before the station type
+    // Examples: _A_GND → _GND, _NH_APP → _APP, _N_CTR → _CTR
+    normalized = normalized.replace(/_[A-Z]+_([A-Z]{3})$/, '_$1');
+    return normalized.toUpperCase();
+  };
+
+  // Check if an ATC station is relevant to this event's rostered stations
+  const isRelevantStation = (atcStation: string): boolean => {
+    if (!data?.config?.staffedStations) return false;
+    const normalizedAtc = normalizeStationForMatching(atcStation);
+    return data.config.staffedStations.some(rostered => 
+      normalizeStationForMatching(rostered) === normalizedAtc
+    );
+  };
+
   const getRatingBadge = (rating: number) => {
-    const ratings = ["OBS", "S1", "S2", "S3", "C1", "C3", "I1", "I3", "SUP", "ADM"];
-    return ratings[rating] || `R${rating}`;
+    return getRatingFromValue(rating);
   };
 
   const getAssignedUser = (station: string): Signup | null => {
@@ -665,7 +684,7 @@ export default function RosterEditorPage() {
                                         
                                         <div className="border-t pt-2">
                                           <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
-                                            Letzte {signup.history.previousOccurrences.length} Termine
+                                            Letzte 3 Termine
                                           </h5>
                                           <div className="space-y-2 max-h-48 overflow-y-auto">
                                             {signup.history.previousOccurrences.map((occ) => (
@@ -759,7 +778,14 @@ export default function RosterEditorPage() {
                               {/* ATC Session Statistics */}
                               {signup.atcStats && signup.atcStats.stationStats && Object.keys(signup.atcStats.stationStats).length > 0 && (() => {
                                 const stats = signup.atcStats.stationStats;
-                                const totalMinutes = Object.values(stats).reduce((sum, s) => sum + s.totalMinutes, 0);
+                                // Filter stats to only include stations relevant to this event
+                                const relevantStats = Object.entries(stats).filter(([station]) => 
+                                  isRelevantStation(station)
+                                );
+                                
+                                if (relevantStats.length === 0) return null;
+                                
+                                const totalMinutes = relevantStats.reduce((sum, [, s]) => sum + s.totalMinutes, 0);
                                 const totalHours = totalMinutes / 60;
                                 const experienceLevel = totalHours > 20 ? 'high' : totalHours > 5 ? 'medium' : 'low';
                                 
@@ -790,10 +816,10 @@ export default function RosterEditorPage() {
                                           
                                           <div className="border-t pt-2">
                                             <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
-                                              Stationen mit Erfahrung
+                                              Relevante Stationen
                                             </h5>
                                             <div className="space-y-2 max-h-48 overflow-y-auto">
-                                              {Object.entries(stats)
+                                              {relevantStats
                                                 .sort(([, a], [, b]) => b.totalMinutes - a.totalMinutes)
                                                 .map(([station, exp]) => (
                                                   <div 

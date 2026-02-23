@@ -106,9 +106,9 @@ export async function GET(
           : config.staffedStations)
       : [];
 
-    // Get historical signup/roster data for all signed-up users
+    // Get historical signup/roster data for all signed-up users (last 3 occurrences)
     const userCIDs = signupsData.map((s) => s.userCID);
-    const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum);
+    const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 3);
 
     // Get ATC session statistics for all signed-up users
     const atcStatsMap = await getUsersATCStatsBatch(userCIDs);

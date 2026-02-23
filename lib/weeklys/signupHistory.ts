@@ -28,7 +28,7 @@ export async function getUserWeeklyHistory(
   userCID: number,
   configId: number,
   currentOccurrenceId: number,
-  limit: number = 10
+  limit: number = 3
 ): Promise<UserHistory> {
   // Get previous occurrences for this config (excluding current one)
   const previousOccurrences = await prisma.weeklyEventOccurrence.findMany({
@@ -92,7 +92,7 @@ export async function getUsersHistoryBatch(
   userCIDs: number[],
   configId: number,
   currentOccurrenceId: number,
-  limit: number = 10
+  limit: number = 3
 ): Promise<Map<number, UserHistory>> {
   if (userCIDs.length === 0) {
     return new Map();
