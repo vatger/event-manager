@@ -113,11 +113,20 @@ export async function GET(
     // Get ATC session statistics for all signed-up users
     const atcStatsMap = await getUsersATCStatsBatch(userCIDs);
 
+    // Convert Map to plain objects for JSON serialization
+    const atcStatsWithObjects = new Map<number, any>();
+    for (const [cid, stats] of atcStatsMap.entries()) {
+      atcStatsWithObjects.set(cid, {
+        userCID: stats.userCID,
+        stationStats: Object.fromEntries(stats.stationStats),
+      });
+    }
+
     // Enrich signups with history data and ATC stats
     const signupsWithHistory = signupsData.map((signup) => ({
       ...signup,
       history: historyMap.get(signup.userCID) || null,
-      atcStats: atcStatsMap.get(signup.userCID) || null,
+      atcStats: atcStatsWithObjects.get(signup.userCID) || null,
     }));
 
     return NextResponse.json({
