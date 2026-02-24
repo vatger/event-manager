@@ -67,13 +67,15 @@ export default function StationSelector({
       (s) => {
         if (s.group !== group) return false;
         
-        // For CTR stations, filter by FIR prefix if firCode is provided
-        if (group === "CTR" && firCode) {
+        // For CTR stations, ONLY show if firCode is provided and matches FIR prefix
+        // CTR stations are FIR-wide, not airport-specific
+        if (group === "CTR") {
+          if (!firCode) return false; // Don't show CTR stations without FIR code
           return s.callsign.startsWith(firCode + "_") &&
                  s.callsign.toLowerCase().includes(searchTerm.toLowerCase());
         }
         
-        // For other station types, filter by airport
+        // For other station types (GND, TWR, APP, DEL), filter by airport
         return (!s.airport || s.airport === airport.toUpperCase()) &&
                s.callsign.toLowerCase().includes(searchTerm.toLowerCase());
       }
