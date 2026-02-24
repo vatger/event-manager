@@ -18,6 +18,7 @@ import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui
 import { parseEventAirports, fetchAirportEndorsements, getExcludedAirports } from "@/lib/multiAirport";
 import { EndorsementResponse } from "@/lib/endorsements/types";
 import { getRatingValue } from "@/utils/ratingToValue";
+import { set } from "date-fns";
 
 export type SignupRow = Signup;
 
@@ -95,7 +96,11 @@ export default function SignupEditDialog({
 
   // Hydration für bestehende Signups
   useEffect(() => {
-    if (!signup) return;
+    if (!signup) {
+      setRemarks("");
+      setPreferredStations("");
+      return; 
+    }
     setPreferredStations(signup.preferredStations || "");
     setRemarks(signup.remarks || "");
     setExcludedAirports(
