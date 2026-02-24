@@ -15,9 +15,11 @@ RUN apt-get update && apt-get install -y \
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
+COPY scripts ./scripts
 
 # Production Dependencies installieren
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts && \
+npm install -g tsx
 
 # Prisma Client generieren
 ENV DATABASE_URL="mysql://user:pass@localhost:3306/dummy"
@@ -78,6 +80,8 @@ COPY --from=builder --chown=nextjs:nextjs /app/public ./public
 # Prisma Schema + Config
 COPY --from=builder --chown=nextjs:nextjs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nextjs /app/prisma.config.ts ./prisma.config.ts
+#Scripts
+COPY --from=builder /app/scripts ./scripts
 
 # ALLE Production node_modules (aus deps stage)
 # Dies enthält: Prisma, Sharp, Satori, dotenv, valibot, tsx, etc.
