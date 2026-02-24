@@ -70,7 +70,7 @@ export async function canManageFir(cid: number, firCode?: string) {
   const code = firCode ?? user.fir?.code;
   if (!code) return false;
 
-  return user.firScopedPermissions[code]?.includes("fir.manage") ?? false;
+  return user.firLevels[code] == "FIR_EVENTLEITER";
 }
 
 /**
