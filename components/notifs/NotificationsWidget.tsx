@@ -11,7 +11,8 @@ import {
   Info,
   AlertTriangle,
   TowerControl,
-  RefreshCcw
+  RefreshCcw,
+  InfoIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -117,7 +118,7 @@ export default function NotificationsWidget() {
       case 'SYSTEM':
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
       case 'INFO':
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <InfoIcon className="w-4 h-4 text-green-500" />;
       case 'EVENT':
         return <TowerControl className="w-4 h-4 text-blue-500" />;
       default:
