@@ -5,17 +5,44 @@ import EventsSection from "@/components/EventsSection";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Calendar, ChevronDown, ChevronUp, Filter, FolderArchive, Search, User } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, Filter, FolderArchive, Search, User, Repeat } from "lucide-react";
 import EventCard from "@/components/EventCard";
+import WeeklyCard from "@/components/WeeklyCard";
 import { Input } from "@/components/ui/input";
 
+
+interface FIR {
+  code: string;
+  name: string;
+}
+
+interface WeeklyConfig {
+  id: number;
+  firId: number | null;
+  fir?: FIR;
+  name: string;
+  weekday: number;
+  weeksOn: number;
+  weeksOff: number;
+  startDate: string;
+  airports?: string[];
+  startTime?: string;
+  endTime?: string;
+  description?: string;
+  bannerUrl?: string | null;
+  requiresRoster?: boolean;
+  staffedStations?: string[];
+  enabled: boolean;
+}
 
 export default function EventsPage() {
   const { data: session } = useSession();
   const [events, setEvents] = useState<Event[]>([]);
+  const [weeklys, setWeeklys] = useState<WeeklyConfig[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFIR, setSelectedFIR] = useState(session?.user.fir || "all");
   const [showArchived, setShowArchived] = useState(false);
+  const [viewMode, setViewMode] = useState<"events" | "weeklys">("events");
   
   useEffect(() => {
     async function loadEvents() {
@@ -26,6 +53,24 @@ export default function EventsPage() {
     }
     loadEvents();
   }, [session?.user?.id]);
+
+  // Load weeklys
+  useEffect(() => {
+    async function loadWeeklys() {
+      try {
+        const res = await fetch("/api/admin/discord/weekly-events");
+        if (res.ok) {
+          const data = await res.json();
+          // Filter only enabled configs
+          const enabledConfigs = data.filter((c: WeeklyConfig) => c.enabled);
+          setWeeklys(enabledConfigs);
+        }
+      } catch (err) {
+        console.error("Failed to load weeklys:", err);
+      }
+    }
+    loadWeeklys();
+  }, []);
 
   // Countdown für das nächste angemeldete Event
   useEffect(() => {
@@ -100,6 +145,35 @@ export default function EventsPage() {
 
     return { signedUpEvents, openEvents, archivedEvents, firOverviewEvents };
   }, [events, searchQuery, selectedFIR]);
+
+  // Filter weeklys by FIR and search
+  const filteredWeeklys = useMemo(() => {
+    return weeklys.filter(weekly => {
+      const matchesSearch = searchQuery === "" || 
+        weekly.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (weekly.fir?.code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (weekly.airports || []).some(airport => 
+          airport.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      
+      const matchesFIR = selectedFIR === "all" || (weekly.fir?.code === selectedFIR);
+      
+      return matchesSearch && matchesFIR;
+    });
+  }, [weeklys, searchQuery, selectedFIR]);
+
+  // Group weeklys by FIR
+  const weeklysByFir = useMemo(() => {
+    const grouped: Record<string, WeeklyConfig[]> = {};
+    filteredWeeklys.forEach(weekly => {
+      const firCode = weekly.fir?.code || "Andere";
+      if (!grouped[firCode]) {
+        grouped[firCode] = [];
+      }
+      grouped[firCode].push(weekly);
+    });
+    return grouped;
+  }, [filteredWeeklys]);
 
   // FIR-Optionen für Filter
   const firOptions = [
@@ -209,8 +283,15 @@ export default function EventsPage() {
         {/* FIR Filter & Suche */}
         <section className="mb-12">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold text-foreground mb-1">Events nach FIR</h2>
-            <p className="text-muted-foreground text-sm">Schaue die Events der einzelnen FIRs an</p>
+            <h2 className="text-xl font-semibold text-foreground mb-1">
+              {viewMode === "events" ? "Events nach FIR" : "Weeklys nach FIR"}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {viewMode === "events" 
+                ? "Schaue die Events der einzelnen FIRs an"
+                : "Schaue die wöchentlichen Events der einzelnen FIRs an"
+              }
+            </p>
           </div>
 
           {/* Suchleiste und FIR Filter */}
@@ -220,7 +301,7 @@ export default function EventsPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   type="text"
-                  placeholder="Events suchen..."
+                  placeholder={viewMode === "events" ? "Events suchen..." : "Weeklys suchen..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 pr-4 py-2 w-full"
@@ -238,6 +319,26 @@ export default function EventsPage() {
               </Button>
             </div>
             
+            {/* View Mode Toggle */}
+            <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b">
+              <Button
+                variant={viewMode === "events" ? "default" : "outline"}
+                onClick={() => setViewMode("events")}
+                className="flex items-center gap-2"
+              >
+                <Calendar className="w-4 h-4" />
+                Events
+              </Button>
+              <Button
+                variant={viewMode === "weeklys" ? "default" : "outline"}
+                onClick={() => setViewMode("weeklys")}
+                className="flex items-center gap-2"
+              >
+                <Repeat className="w-4 h-4" />
+                Weeklys
+              </Button>
+            </div>
+
             {/* FIR Filter Buttons */}
             <div className="flex flex-wrap gap-2">
               {firOptions.map((fir) => (
@@ -254,30 +355,77 @@ export default function EventsPage() {
             </div>
           </div>
 
-          {/* Gefilterte Events */}
-          {firOverviewEvents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {firOverviewEvents.map(event => (
-                <EventCard
-                  key={`fir-${event.id}`}
-                  event={event}
-                  showBanner={false}
-                />
-              ))}
-            </div>
+          {/* Gefilterte Events oder Weeklys */}
+          {viewMode === "events" ? (
+            firOverviewEvents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {firOverviewEvents.map(event => (
+                  <EventCard
+                    key={`fir-${event.id}`}
+                    event={event}
+                    showBanner={false}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
+                <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  Keine Events gefunden
+                </h3>
+                <p className="text-muted-foreground">
+                  {searchQuery || selectedFIR !== "all" 
+                    ? "Keine Events entsprechen deinen Suchfiltern." 
+                    : "Keine zukünftigen Events verfügbar."
+                  }
+                </p>
+              </div>
+            )
           ) : (
-            <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
-              <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                Keine Events gefunden
-              </h3>
-              <p className="text-muted-foreground">
-                {searchQuery || selectedFIR !== "all" 
-                  ? "Keine Events entsprechen deinen Suchfiltern." 
-                  : "Keine zukünftigen Events verfügbar."
-                }
-              </p>
-            </div>
+            /* Weeklys View */
+            Object.keys(weeklysByFir).length > 0 ? (
+              <div className="space-y-8">
+                {Object.entries(weeklysByFir).map(([firCode, firWeeklys]) => {
+                  const firName = firWeeklys[0]?.fir?.name || firCode;
+                  
+                  return (
+                    <div key={firCode} className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-xl font-semibold">
+                          {firName} ({firCode})
+                        </h3>
+                        <span className="text-sm text-muted-foreground">
+                          {firWeeklys.length} {firWeeklys.length === 1 ? "Weekly" : "Weeklys"}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {firWeeklys.map(weekly => (
+                          <WeeklyCard
+                            key={`weekly-${weekly.id}`}
+                            config={weekly}
+                            showBanner={false}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-muted rounded-lg border border-dashed">
+                <Repeat className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  Keine Weeklys gefunden
+                </h3>
+                <p className="text-muted-foreground">
+                  {searchQuery || selectedFIR !== "all" 
+                    ? "Keine Weeklys entsprechen deinen Suchfiltern." 
+                    : "Keine wöchentlichen Events verfügbar."
+                  }
+                </p>
+              </div>
+            )
           )}
         </section>
 
