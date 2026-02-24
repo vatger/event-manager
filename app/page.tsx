@@ -149,10 +149,13 @@ export default function EventsPage() {
   // Filter weeklys by FIR and search
   const filteredWeeklys = useMemo(() => {
     return weeklys.filter(weekly => {
+      // Ensure airports is an array (handle Json type from Prisma)
+      const airportsArray = Array.isArray(weekly.airports) ? weekly.airports : [];
+      
       const matchesSearch = searchQuery === "" || 
         weekly.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (weekly.fir?.code || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (weekly.airports || []).some(airport => 
+        airportsArray.some(airport => 
           airport.toLowerCase().includes(searchQuery.toLowerCase())
         );
       
