@@ -201,7 +201,7 @@ export default function SignupEditDialog({
   // 🧩 DELETE (soft delete)
   async function deleteSignup() {
     if (!signup) return;
-    if (!window.confirm("Anmeldung wirklich löschen? (Soft Delete - kann wiederhergestellt werden)")) return;
+    if (!window.confirm("Anmeldung wirklich zurückziehen? (retract - kann wiederhergestellt werden)")) return;
 
     setDeleting(true);
     setError(null);
@@ -216,7 +216,7 @@ export default function SignupEditDialog({
         throw new Error(data.error || "Löschen fehlgeschlagen");
       }
 
-      toast.success("Anmeldung wurde gelöscht (Soft Delete)");
+      toast.success("Benutzer wurde abgemeldet (retracted)");
       onDeleted?.();
       onClose();
     } catch (err) {
@@ -509,7 +509,7 @@ export default function SignupEditDialog({
                     onClick={deleteSignup}
                     disabled={deleting || saving}
                   >
-                    {deleting ? "Lösche..." : "Soft Delete"}
+                    {deleting ? "Lösche..." : "Abmelden"}
                   </Button>
                   {canInOwnFIR("signups.manage") && (
                     <Button
@@ -518,7 +518,7 @@ export default function SignupEditDialog({
                       disabled={deleting || saving}
                       className="bg-red-700 hover:bg-red-800"
                     >
-                      {deleting ? "Lösche..." : "Hard Delete"}
+                      {deleting ? "Lösche..." : "Löschen"}
                     </Button>
                   )}
                 </>
