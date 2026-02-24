@@ -24,8 +24,7 @@ async function listMainAdmins() {
     console.log(
       chalk.white(`${index + 1}. `) +
       chalk.green(admin.name) +
-      chalk.gray(` (CID: ${admin.cid})`) +
-      (admin.email ? chalk.gray(` - ${admin.email}`) : "")
+      chalk.gray(` (CID: ${admin.cid})`)
     );
   });
   
