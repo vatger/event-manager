@@ -29,7 +29,7 @@ export async function POST(
     }
 
     // Get the weekly config and occurrence
-    const occurrence = await prisma.weeklyOccurrence.findUnique({
+    const occurrence = await prisma.weeklyEventOccurrence.findUnique({
       where: { id: occurrenceId },
       include: {
         config: {
@@ -51,8 +51,8 @@ export async function POST(
     const firCode = occurrence.config.fir.code;
 
     // Check permission
-    const hasSignupsManage = await userHasFirPermission(session.user.cid, firCode, 'signups.manage');
-    const hasEventManage = await userHasFirPermission(session.user.cid, firCode, 'event.manage');
+    const hasSignupsManage = await userHasFirPermission(Number(session.user.cid), firCode, 'signups.manage');
+    const hasEventManage = await userHasFirPermission(Number(session.user.cid), firCode, 'event.manage');
 
     if (!hasSignupsManage && !hasEventManage) {
       return NextResponse.json(
@@ -70,7 +70,7 @@ export async function POST(
 
     // Check if user exists
     const targetUser = await prisma.user.findUnique({
-      where: { userCID },
+      where: { cid: Number(userCID) },
     });
 
     if (!targetUser) {
@@ -78,7 +78,7 @@ export async function POST(
     }
 
     // Check if user is already signed up
-    const existingSignup = await prisma.weeklySignup.findUnique({
+    const existingSignup = await prisma.weeklyEventSignup.findUnique({
       where: {
         occurrenceId_userCID: {
           occurrenceId,
@@ -92,7 +92,7 @@ export async function POST(
     }
 
     // Create the signup
-    const signup = await prisma.weeklySignup.create({
+    const signup = await prisma.weeklyEventSignup.create({
       data: {
         occurrenceId,
         userCID,
