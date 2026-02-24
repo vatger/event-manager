@@ -11,7 +11,7 @@ import { userHasFirPermission } from '@/lib/acl/permissions';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; occurrenceId: string } }
+  { params }: { params: Promise<{ id: string; occurrenceId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,8 +20,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const configId = parseInt(params.id);
-    const occurrenceId = parseInt(params.occurrenceId);
+    const { id, occurrenceId: occurrenceIdParam } = await params;
+    const configId = parseInt(id);
+    const occurrenceId = parseInt(occurrenceIdParam);
 
     if (isNaN(configId) || isNaN(occurrenceId)) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
