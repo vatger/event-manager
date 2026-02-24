@@ -29,7 +29,7 @@ const weeklyEventConfigUpdateSchema = z.object({
 });
 
 /**
- * GET /api/admin/discord/weekly-events/[id]
+ * GET /api/admin/weeklys/[id]
  * Get a single weekly event configuration
  */
 export async function GET(
@@ -85,7 +85,7 @@ export async function GET(
 }
 
 /**
- * PATCH /api/admin/discord/weekly-events/[id]
+ * PATCH /api/admin/weeklys/[id]
  * Update a weekly event configuration
  */
 export async function PATCH(
@@ -210,7 +210,7 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/admin/discord/weekly-events/[id]
+ * DELETE /api/admin/weeklys/[id]
  * Delete a weekly event configuration
  */
 export async function DELETE(

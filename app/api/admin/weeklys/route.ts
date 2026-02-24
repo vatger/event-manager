@@ -30,7 +30,7 @@ const weeklyEventConfigSchema = z.object({
 });
 
 /**
- * GET /api/admin/discord/weekly-events
+ * GET /api/admin/weeklys
  * List all weekly event configurations
  * Returns configs with their next 5 upcoming occurrences
  */
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/admin/discord/weekly-events
+ * POST /api/admin/weeklys
  * Create a new weekly event configuration
  */
 export async function POST(req: NextRequest) {

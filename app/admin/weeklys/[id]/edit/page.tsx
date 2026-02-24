@@ -52,7 +52,7 @@ export default function EditWeeklyPage() {
 
         // Fetch config
         const configRes = await fetch(
-          `/api/admin/discord/weekly-events/${params.id}`
+          `/api/admin/weeklys/${params.id}`
         );
         if (configRes.ok) {
           const configData = await configRes.json();

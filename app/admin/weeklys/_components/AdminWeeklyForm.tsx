@@ -213,8 +213,8 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
 
       const method = isEdit ? "PATCH" : "POST";
       const url = isEdit
-        ? `/api/admin/discord/weekly-events/${config!.id}`
-        : "/api/admin/discord/weekly-events";
+        ? `/api/admin/weeklys/${config!.id}`
+        : "/api/admin/weeklys";
 
       const res = await fetch(url, {
         method,
@@ -251,7 +251,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     if (!confirm("Weekly Event wirklich löschen?")) return;
     try {
       if (!config) return;
-      const res = await fetch(`/api/admin/discord/weekly-events/${config.id}`, {
+      const res = await fetch(`/api/admin/weeklys/${config.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Fehler beim Löschen");

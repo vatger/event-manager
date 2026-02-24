@@ -114,7 +114,7 @@ export default function AdminEventsPage() {
   // Fetch weekly events
   const refreshWeeklyEvents = async () => {
     try {
-      const res = await fetch("/api/admin/discord/weekly-events");
+      const res = await fetch("/api/admin/weeklys");
       if (res.ok) {
         const data = await res.json();
         setWeeklyConfigs(data);
@@ -251,7 +251,7 @@ export default function AdminEventsPage() {
     if (!confirm("Weekly Event wirklich löschen?")) return;
     
     try {
-      const res = await fetch(`/api/admin/discord/weekly-events/${id}`, {
+      const res = await fetch(`/api/admin/weeklys/${id}`, {
         method: "DELETE",
       });
       

@@ -58,7 +58,7 @@ export default function EventsPage() {
   useEffect(() => {
     async function loadWeeklys() {
       try {
-        const res = await fetch("/api/admin/discord/weekly-events");
+        const res = await fetch("/api/admin/weeklys");
         if (res.ok) {
           const data = await res.json();
           // Filter only enabled configs

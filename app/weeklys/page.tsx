@@ -78,7 +78,7 @@ export default function PublicWeeklyEventsPage() {
   const fetchWeeklyConfigs = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/discord/weekly-events");
+      const res = await fetch("/api/admin/weeklys");
       if (res.ok) {
         const data = await res.json();
         // Filter only enabled configs

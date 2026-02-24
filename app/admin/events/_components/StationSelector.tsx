@@ -66,10 +66,10 @@ export default function StationSelector({
     stations: sortedStations.filter(
       (s) => {
         if (s.group !== group) return false;
-        
         // For CTR stations, ONLY show if firCode is provided and matches FIR prefix
         // CTR stations are FIR-wide, not airport-specific
         if (group === "CTR") {
+          console.log("Filtering CTR station:", s.callsign, "with FIR code:", firCode);
           if (!firCode) return false; // Don't show CTR stations without FIR code
           return s.callsign.startsWith(firCode + "_") &&
                  s.callsign.toLowerCase().includes(searchTerm.toLowerCase());

@@ -124,7 +124,7 @@ export default function OccurrencesPage() {
     setLoading(true);
     try {
       // Fetch weekly config
-      const configRes = await fetch(`/api/admin/discord/weekly-events/${configId}`);
+      const configRes = await fetch(`/api/admin/weeklys/${configId}`);
       if (!configRes.ok) throw new Error("Failed to fetch config");
       const configData = await configRes.json();
       setConfig(configData);
