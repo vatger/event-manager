@@ -407,7 +407,7 @@ export default function WeeklyDetailPage() {
             <div className="mt-5 pt-5 border-t">
               <div className="flex items-center gap-2 mb-3">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-medium">Zu besetzende Stationen</p>
+                <p className="text-sm font-medium">Gerosterte Stationen</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {config.staffedStations.map((station) => (

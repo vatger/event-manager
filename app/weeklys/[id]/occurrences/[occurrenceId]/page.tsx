@@ -546,6 +546,22 @@ export default function OccurrenceDetailPage() {
                 </div>
               )}
 
+              {/* Stationen */}
+              {occurrence.config.requiresRoster && occurrence.config.staffedStations && occurrence.config.staffedStations.length > 0 && (
+                <div className="mt-5 pt-5 border-t">
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-sm font-medium">Gerosterte Stationen</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {occurrence.config.staffedStations.map((station) => (
+                      <Badge key={station} variant="outline" className="py-1">
+                        {station}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {session && occurrence.config.requiresRoster && !rosterPublished && (
                 signupOpen ? (
                   <div className="flex gap-2">

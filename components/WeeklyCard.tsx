@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, MapPin, Repeat } from "lucide-react";
+import { Calendar, Clock, InfoIcon, MapPin, Repeat, Users } from "lucide-react";
 import Link from "next/link";
 
 interface FIR {
@@ -85,15 +85,18 @@ export default function WeeklyCard({ config, showBanner = false }: WeeklyCardPro
         </div>
 
         <CardDescription className="flex items-center gap-2 text-sm">
-          <Badge variant="secondary">
-            {config.fir?.code || "N/A"}
-          </Badge>
           <Badge variant="outline" className="text-xs">
             {config.weeksOff === 0 
               ? `Jeden ${WEEKDAYS[config.weekday]}`
               : `${WEEKDAYS[config.weekday]}s`
             }
           </Badge>
+          {config.requiresRoster && (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <Users className="w-3 h-3" />
+              Roster
+            </Badge>
+          )}
         </CardDescription>
       </CardHeader>
 
@@ -109,11 +112,10 @@ export default function WeeklyCard({ config, showBanner = false }: WeeklyCardPro
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-gray-500" />
             <span>
-              {config.startTime || "?"} - {config.endTime || "?"} Uhr (MEZ/MESZ)
+              {config.startTime || "?"} - {config.endTime || "?"} lcl
             </span>
           </div>
         )}
-
         {config.description && (
           <p className="text-sm text-muted-foreground line-clamp-2 pt-1">
             {config.description}
@@ -130,6 +132,7 @@ export default function WeeklyCard({ config, showBanner = false }: WeeklyCardPro
             </Badge>
           )}
         </div>
+        
       </CardContent>
 
       <CardFooter>
@@ -138,6 +141,7 @@ export default function WeeklyCard({ config, showBanner = false }: WeeklyCardPro
             Details ansehen
           </Button>
         </Link>
+        
       </CardFooter>
     </Card>
   );
