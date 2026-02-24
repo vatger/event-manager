@@ -415,7 +415,7 @@ export default function OccurrencesPage() {
             Zurück
           </Button>
           <h1 className="text-3xl font-bold">
-            Occurrences - {config?.name || "Loading..."}
+            Termine - {config?.name || "Loading..."}
           </h1>
         </div>
       </div>
@@ -495,11 +495,11 @@ export default function OccurrencesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
+                          <DropdownMenuItem
                               onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
-                              Details ansehen
+                              <Users className="w-4 h-4 mr-2" />
+                              Anmeldungen ansehen
                             </DropdownMenuItem>
                             {config?.requiresRoster && (
                               <DropdownMenuItem
@@ -509,12 +509,6 @@ export default function OccurrencesPage() {
                                 Roster bearbeiten
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem
-                              onClick={() => router.push(`/weeklys/${configId}/occurrences/${occ.id}`)}
-                            >
-                              <Users className="w-4 h-4 mr-2" />
-                              Anmeldungen ansehen
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => {
@@ -599,7 +593,7 @@ export default function OccurrencesPage() {
         
         return (
           <Card className="mt-6">
-            <CardContent className="pt-6">
+            <CardContent>
               <Accordion type="single" collapsible>
                 <AccordionItem value="archive">
                   <AccordionTrigger>
@@ -720,16 +714,12 @@ export default function OccurrencesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Datum bearbeiten</DialogTitle>
-            <DialogDescription>Neues Datum und Uhrzeit für diese Occurrence festlegen.</DialogDescription>
+            <DialogDescription>Neues Datum und Uhrzeit für diesen Termin festlegen.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Datum</Label>
+              <Label className="pb-1">Datum</Label>
               <Input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
-            </div>
-            <div>
-              <Label>Uhrzeit (UTC)</Label>
-              <Input type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} />
             </div>
           </div>
           <DialogFooter>

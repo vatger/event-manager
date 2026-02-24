@@ -488,15 +488,10 @@ export default function RosterEditorPage() {
                               </span>
                               <Badge className={cn(
                                 "text-xs",
-                                getBadgeClassForEndorsement(stationGroup)
+                                getBadgeClassForEndorsement(s1TwrStations.has(station.toUpperCase()) ? 'GND' : stationGroup)
                               )}>
-                                {stationGroup}
+                                {s1TwrStations.has(station.toUpperCase()) ? 'S1 TWR' : stationGroup}
                               </Badge>
-                              {s1TwrStations.has(station.toUpperCase()) && (
-                                <Badge className="text-[10px] h-4 bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-700">
-                                  S1 TWR
-                                </Badge>
-                              )}
                             </div>
                           </div>
                         </div>

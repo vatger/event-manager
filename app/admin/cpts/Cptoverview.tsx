@@ -117,10 +117,13 @@ const CPTOverview: React.FC = () => {
     return date.toISOString().split('T')[0];
   };
   
-  // Hilfsfunktion um Zeit zu formatieren (HH:MM)
-  const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toTimeString().slice(0, 5); // "HH:MM"
+  const formatTimeZulu = (dateString: string): string => {
+    // Offset entfernen, damit es lokal interpretiert wird
+    const cleaned = dateString.replace(/([+-]\d{2}:\d{2}|Z)$/, "");
+  
+    const date = new Date(cleaned);
+  
+    return date.toISOString().slice(11, 16);
   };
   
   // Banner-URL generieren
@@ -132,7 +135,7 @@ const CPTOverview: React.FC = () => {
       template: template,
       name: cpt.trainee_name,
       date: formatDateShort(cpt.date),
-      time: formatTime(cpt.date),
+      time: formatTimeZulu(cpt.date),
     });
     
     return `/api/cpt-banner/generate/?${params.toString()}`;

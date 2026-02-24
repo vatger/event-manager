@@ -67,6 +67,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
+import { getRatingFromValue } from "@/utils/ratingToValue";
 
 interface FIR {
   code: string;
@@ -140,19 +141,7 @@ const WEEKDAYS = [
   "Samstag",
 ];
 
-const RATINGS: Record<number, string> = {
-  1: "OBS",
-  2: "S1",
-  3: "S2",
-  4: "S3",
-  5: "C1",
-  7: "C3",
-  8: "I1",
-  9: "I2",
-  10: "I3",
-  11: "SUP",
-  12: "ADM",
-};
+
 
 export default function OccurrenceDetailPage() {
   const params = useParams();
@@ -425,9 +414,6 @@ export default function OccurrenceDetailPage() {
     return "";
   };
 
-  const getRatingBadge = (rating: number) => {
-    return RATINGS[rating] || `R${rating}`;
-  };
 
   const getAssignedUserForStation = (station: string): RosterEntry | null => {
     return roster.find(r => r.station === station) || null;
@@ -540,13 +526,13 @@ export default function OccurrenceDetailPage() {
               {/* Airports */}
               {occurrence.config.airports && occurrence.config.airports.length > 0 && (
                 <div className="space-y-1">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Flughäfen</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Flughafen</span>
                   <div className="flex flex-wrap gap-1">
-                    {occurrence.config.airports.map((apt) => (
-                      <Badge key={apt} variant="outline" className="text-xs font-mono">
-                        {apt}
-                      </Badge>
-                    ))}
+                  {occurrence.config.airports.map((apt) => (
+                    <Badge key={apt} variant="outline" className="text-xs font-mono">
+                    {apt}
+                    </Badge>
+                  ))}
                   </div>
                 </div>
               )}
@@ -699,7 +685,7 @@ export default function OccurrenceDetailPage() {
                               <div className="flex items-center gap-2 mt-0.5">
                                 {assigned.user?.rating && (
                                   <Badge variant="outline" className="text-[10px] h-4">
-                                    {getRatingBadge(assigned.user.rating)}
+                                    {getRatingFromValue(assigned.user.rating)}
                                   </Badge>
                                 )}
                                 {assigned.endorsementGroup && (
@@ -768,9 +754,10 @@ export default function OccurrenceDetailPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-gray-50 dark:bg-gray-900/40">
-                        <TableHead>Lotse</TableHead>
+                        <TableHead>CID</TableHead>
+                        <TableHead>Name</TableHead>
                         <TableHead className="w-[100px]">Rating</TableHead>
-                        <TableHead className="w-[120px]">Endorsement</TableHead>
+                        <TableHead className="w-[120px]">Gruppe</TableHead>
                         <TableHead className="w-[200px]">Einschränkungen</TableHead>
                         <TableHead className="w-[120px]">Angemeldet seit</TableHead>
                         <TableHead className="w-[150px]">Bemerkungen</TableHead>
@@ -792,7 +779,7 @@ export default function OccurrenceDetailPage() {
                           return (
                             <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
                               <TableCell>
-                                <div className="flex items-center gap-2">
+                                {/* <div className="flex items-center gap-2">
                                   <div className={cn(
                                     "h-6 w-6 rounded-full flex items-center justify-center",
                                     isCurrentUser 
@@ -811,12 +798,22 @@ export default function OccurrenceDetailPage() {
                                       Du
                                     </Badge>
                                   )}
+                                </div> */}
+                                <span className="font-medium">
+                                    {signup.userCID}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {signup.user?.name || `Unbekannt`}
+                                  </span>
                                 </div>
                               </TableCell>
                               <TableCell>
                                 {signup.user?.rating && (
                                   <Badge variant="outline" className="text-[10px] h-4">
-                                    {getRatingBadge(signup.user.rating)}
+                                    {getRatingFromValue(signup.user.rating)}
                                   </Badge>
                                 )}
                               </TableCell>

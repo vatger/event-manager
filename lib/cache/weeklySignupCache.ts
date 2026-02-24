@@ -136,7 +136,7 @@ export async function getCachedWeeklySignups(
 
       try {
         // Calculate endorsement dynamically based on current rating
-        const checkAirport = airports[0] || "EDDF"; // Fallback
+        const checkAirport = airports[0]
         
         const result: EndorsementResponse = await GroupService.getControllerGroup({
           user: {

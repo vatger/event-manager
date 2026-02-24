@@ -436,10 +436,12 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                     {formData.airports.map((icao) => (
                       <Badge key={icao} variant="secondary" className="gap-1">
                         {icao}
-                        <X
-                          className="h-3 w-3 cursor-pointer"
+                        <div
+                          className="cursor-pointer hover:text-red-500"
                           onClick={() => handleRemoveAirport(icao)}
-                        />
+                        >
+                          <X className="h-3 w-3" />
+                        </div>
                       </Badge>
                     ))}
                   </div>
