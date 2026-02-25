@@ -141,7 +141,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     },
     event: {
       airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
-      fir: "EDMM",
+      fir: event.firCode,
     },
   }), [userCID, session?.user.rating, event.airports]);
   

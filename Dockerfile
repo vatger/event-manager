@@ -16,6 +16,7 @@ COPY package.json package-lock.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
 COPY scripts ./scripts
+COPY lib ./lib
 
 # Production Dependencies installieren
 RUN npm ci --omit=dev --ignore-scripts && \
