@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE `weeklyeventconfiguration` ADD COLUMN `airports` JSON NULL,
+ALTER TABLE `WeeklyEventConfiguration` ADD COLUMN `airports` JSON NULL,
     ADD COLUMN `bannerUrl` TEXT NULL,
     ADD COLUMN `description` TEXT NULL,
     ADD COLUMN `endTime` VARCHAR(191) NULL,
@@ -10,7 +10,7 @@ ALTER TABLE `weeklyeventconfiguration` ADD COLUMN `airports` JSON NULL,
     ADD COLUMN `startTime` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `weeklyeventoccurrence` ADD COLUMN `eventId` INTEGER NULL,
+ALTER TABLE `WeeklyEventOccurrence` ADD COLUMN `eventId` INTEGER NULL,
     ADD COLUMN `rosterPublished` BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN `rosterPublishedAt` DATETIME(3) NULL,
     ADD COLUMN `signupDeadline` DATETIME(3) NULL,
