@@ -117,7 +117,6 @@ export function GroupMembers({ group, firCode, canManage, VATGERStaff, onUpdate 
               <TableHead>CID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Rating</TableHead>
-              <TableHead>Rolle</TableHead>
               {canManage && <TableHead className="w-[100px]">Aktionen</TableHead>}
             </TableRow>
           </TableHeader>
@@ -128,9 +127,6 @@ export function GroupMembers({ group, firCode, canManage, VATGERStaff, onUpdate 
                 <TableCell className="font-medium">{member.name}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{member.rating}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{member.role}</Badge>
                 </TableCell>
                 {canManage && (
                   <TableCell>

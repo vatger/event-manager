@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { EndorsementQueryParams } from "@/lib/endorsements/types";
 import { getServerSession } from "next-auth";
-import { authOptions, isMainAdmin } from "@/lib/auth";
+import { authOptions } from "@/lib/auth";
+import { isMainAdminCid } from "@/lib/acl/mainAdmins";
 
 export async function POST(req: Request) {
   
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid CID" }, { status: 400 });
     }
     
-    if (requestedCID !== sessionCID && !isMainAdmin(session.user)) {
+    if (requestedCID !== sessionCID && !isMainAdminCid(sessionCID)) {
       return NextResponse.json({ 
         error: "Forbidden - You can only query your own endorsement data" 
       }, { status: 403 });

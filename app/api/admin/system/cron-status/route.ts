@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { getCronJobStatuses, triggerCronJob, toggleCronJobActive } from '@/lib/cron/cronService';
+import { isMainAdminCid } from '@/lib/acl/mainAdmins';
 
 /**
  * GET /api/admin/system/cron-status
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if user is main admin
-    if (session.user.role !== 'MAIN_ADMIN') {
+    if (!isMainAdminCid(Number(session.user.cid))) {
       return NextResponse.json({ error: 'Forbidden - Main Admin access required' }, { status: 403 });
     }
 
@@ -46,7 +47,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (session.user.role !== 'MAIN_ADMIN') {
+    if (!isMainAdminCid(Number(session.user.cid))) {
       return NextResponse.json({ error: 'Forbidden - Main Admin access required' }, { status: 403 });
     }
 
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is main admin
-    if (session.user.role !== 'MAIN_ADMIN') {
+    if (!isMainAdminCid(Number(session.user.cid))) {
       return NextResponse.json({ error: 'Forbidden - Main Admin access required' }, { status: 403 });
     }
 

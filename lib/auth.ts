@@ -2,7 +2,6 @@
 import { User, type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
-import { getUserWithPermissions, hasAdminAccess } from "./acl/permissions";
 import { isMainAdminCid } from "./acl/mainAdmins";
 
 interface VatsimProfile {
@@ -167,23 +166,15 @@ export const authOptions: NextAuthOptions = {
           token.cid = user.cid;
           token.name = user.name!;
           token.rating = user.rating;
-          token.role = user.role || "USER";
           token.fir = user.fir
         }
         return token;
       },
       async session({ session, token }) {
         const cid = Number(token.cid);
-        const dbUser = await prisma.user.findUnique({
-          where: { cid },
-        });
 
-        // MAIN_ADMIN role is exclusively determined by the MAIN_ADMIN_CIDS env variable
-        const role = isMainAdminCid(cid)
-          ? 'MAIN_ADMIN'
-          : dbUser?.role === 'MAIN_ADMIN'
-          ? 'USER'
-          : dbUser?.role || token.role || 'USER';
+        // MAIN_ADMIN is exclusively determined by the MAIN_ADMIN_CIDS env variable
+        const role = isMainAdminCid(cid) ? 'MAIN_ADMIN' : 'USER';
 
         session.user = {
           id: token.id,
@@ -203,10 +194,10 @@ export const authOptions: NextAuthOptions = {
 export async function getUser(userId: string) {
   return prisma.user.findUnique({
     where: { cid: Number(userId) },
-    select: { id: true, role: true, name: true, cid: true, rating: true },
+    select: { id: true, name: true, cid: true, rating: true },
   });
 }
 
-export function isMainAdmin(user: { role: string }) {
-  return user.role === "MAIN_ADMIN";
+export function isMainAdmin(cid: number): boolean {
+  return isMainAdminCid(cid);
 }

@@ -6,11 +6,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  USER
-  MAIN_ADMIN
-}
-
 enum PermissionScope {
   OWN_FIR
   ALL
@@ -50,7 +45,6 @@ model User {
   cid                       Int      @unique
   name                      String
   rating                    String
-  role                      Role     @default(USER)
   firId                     Int?
   fir                       FIR?     @relation(fields: [firId], references: [id])
   createdAt                 DateTime @default(now())

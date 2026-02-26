@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
     // Get user's FIR affiliation
     const user = await prisma.user.findUnique({
       where: { cid: Number(session.user.cid) },
-      select: { firId: true, role: true },
+      select: { firId: true },
     });
 
     const isVatgerAdmin = await isVatgerEventleitung(Number(session.user.cid));

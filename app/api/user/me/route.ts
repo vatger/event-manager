@@ -18,7 +18,6 @@ export async function GET() {
     cid: user.cid,
     name: user.name,
     rating: user.rating,
-    role: user.role,
     fir: user.fir
       ? { id: user.fir.id, code: user.fir.code, name: user.fir.name }
       : null,

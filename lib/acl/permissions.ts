@@ -19,7 +19,7 @@ export async function userHasPermission(cid: number, permissionKey: string) {
   if (!user) return false;
 
   // MAIN_ADMIN darf alles
-  if (user.role === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   if (user.effectivePermissions.includes("*")) return true;
   return user.effectivePermissions.includes(permissionKey);
 }
@@ -37,7 +37,7 @@ export async function userHasFirPermission(
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
   if (user.effectivePermissions.includes("*")) return true;
-  if (user.role === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   return user.firScopedPermissions[firCode]?.includes(permissionKey) ?? false;
 }
 
@@ -52,7 +52,7 @@ export async function userHasOwnFirPermission(
   const user = await getUserWithEffectiveData(cid);
   if (!user || !user.fir?.code) return false;
   if (user.effectivePermissions.includes("*")) return true;
-  if (user.role === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   return (
     user.firScopedPermissions[user.fir.code]?.includes(permissionKey) ?? false
   );
@@ -65,7 +65,7 @@ export async function canManageFir(cid: number, firCode?: string) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
 
-  if (user.role === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   if (user.effectiveLevel === "VATGER_LEITUNG") return true;
   
   const code = firCode ?? user.fir?.code;
@@ -82,13 +82,7 @@ export async function isVatgerEventleitung(cid: number) {
   // MAIN_ADMIN is exclusively determined by the MAIN_ADMIN_CIDS env variable
   if (isMainAdminCid(cid)) return true;
 
-  const user = await prisma.user.findUnique({
-    where: { cid }
-  });
-
-  if (!user) return false;
-
-  // Prüfen, ob User in der neuen Tabelle 'VatgerLeitung' ist
+  // Prüfen, ob User in der Tabelle 'VatgerLeitung' ist
   const isInVatgerLeitungTable = await prisma.vATGERLeitung.findUnique({
     where: { userCID: cid },
   });
@@ -120,7 +114,7 @@ export async function hasAdminAccess(cid: number) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
 
-  if (user.role === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   if (user.effectiveLevel === "VATGER_LEITUNG") return true;
   if(user.groups && user.groups.length > 0) return true;
 

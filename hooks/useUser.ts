@@ -18,7 +18,7 @@ export function useUser() {
   // ---------- PERMISSION HELPERS ----------
   const can = (perm: string): boolean => {
     if(!data) return false
-    if(data.role == "MAIN_ADMIN") return true
+    if(data.effectiveLevel == "MAIN_ADMIN") return true
     if(perm == "MAIN_ADMIN") return false
     if(data.effectivePermissions.includes("*")) return true
     if(data.effectivePermissions.includes(perm)) return true
@@ -48,10 +48,10 @@ export function useUser() {
   const isVATGERLead = (): boolean =>
     data?.effectiveLevel === "VATGER_LEITUNG" || data?.effectiveLevel === "MAIN_ADMIN";
 
-  const isMainAdmin = (): boolean => data?.role === "MAIN_ADMIN";
+  const isMainAdmin = (): boolean => data?.effectiveLevel === "MAIN_ADMIN";
 
   const hasAdminAcess = (): boolean => {
-    if(data?.role == "MAIN_ADMIN") return true;
+    if(data?.effectiveLevel == "MAIN_ADMIN") return true;
     if(data?.effectiveLevel == "VATGER_LEITUNG") return true;
     if(data?.groups && data?.groups.length > 0) return true;
     

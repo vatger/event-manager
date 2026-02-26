@@ -32,7 +32,7 @@ export default function CPTBannerGenerator() {
   const [copied, setCopied] = useState(false);
 
   // Check if user is from FIR München
-  const isEDMM = user?.fir?.code === "EDMM" || user?.role === "MAIN_ADMIN";
+  const isEDMM = user?.fir?.code === "EDMM" || user?.effectiveLevel === "MAIN_ADMIN";
 
   // Get template configuration
   const templateConfig = getTemplateConfig(bannerData.template);

@@ -30,7 +30,6 @@ declare module "next-auth/jwt" {
     cid: string;
     rating: string;
     name: string;
-    role: "USER" | "MAIN_ADMIN";
     fir: string;
   }
 }

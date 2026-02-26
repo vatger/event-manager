@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getMainAdminCids } from '@/lib/acl/mainAdmins';
+import { getMainAdminCids, isMainAdminCid } from '@/lib/acl/mainAdmins';
 
 /**
  * GET /api/admin/system/main-admins
@@ -12,7 +12,7 @@ import { getMainAdminCids } from '@/lib/acl/mainAdmins';
 export async function GET() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== 'MAIN_ADMIN') {
+  if (!session || !isMainAdminCid(Number(session.user.cid))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

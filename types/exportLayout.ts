@@ -18,7 +18,6 @@ export interface User {
   cid: number;
   name: string;
   rating: string;
-  role: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -39,15 +39,14 @@ async function importUsers() {
   const regex =
     /\((\d+),\s*(\d+),\s*'([^']*)',\s*'([^']*)',\s*'([^']*)',\s*'[^']*',\s*'[^']*'\)/g;
 
-  const users: { cid: number; name: string; rating: string; role: string }[] = [];
+  const users: { cid: number; name: string; rating: string }[] = [];
 
   for (const match of sql.matchAll(regex)) {
-    const [, , cidStr, name, rating, role] = match;
+    const [, , cidStr, name, rating] = match;
     users.push({
       cid: Number(cidStr),
       name,
       rating,
-      role,
     });
   }
 
@@ -78,7 +77,6 @@ async function importUsers() {
             cid: user.cid,
             name: user.name,
             rating: user.rating,
-            role: "USER",
           },
         });
         created++;
@@ -92,7 +90,6 @@ async function importUsers() {
           data: {
             name: user.name,
             rating: user.rating,
-            role: "USER",
           },
         });
         updated++;

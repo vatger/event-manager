@@ -61,7 +61,6 @@ export async function GET() {
                   cid: true,
                   name: true,
                   rating: true,
-                  role: true,
                 },
               },
             },
@@ -97,7 +96,6 @@ export async function GET() {
         cid: m.user.cid,
         name: m.user.name,
         rating: m.user.rating,
-        role: m.user.role,
       })),
       permissions: g.permissions.map((p) => ({
         key: p.permission.key,

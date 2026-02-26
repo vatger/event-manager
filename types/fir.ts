@@ -3,7 +3,6 @@ export interface User {
     cid: string;
     name: string;
     rating: string;
-    role: string;
   }
   
   export interface Permission {
@@ -18,7 +17,6 @@ export interface User {
     cid: string;
     name: string;
     rating: string;
-    role: string;
   }
   
   export interface Group {
@@ -42,7 +40,6 @@ export interface User {
     cid: number;
     name: string;
     rating: string;
-    role: "USER" | "MAIN_ADMIN";
     fir: FIR | null;
     groups: Group[];
   

@@ -1,10 +1,11 @@
 import { getSessionUser } from "@/lib/getSessionUser";
 import prisma from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { isMainAdminCid } from "@/lib/acl/mainAdmins";
 
 export async function GET() {
   const user = await getSessionUser();
-  if (!user || user.role !== "MAIN_ADMIN") {
+  if (!user || !isMainAdminCid(Number(user.cid))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
   }
 

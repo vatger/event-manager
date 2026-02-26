@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, GroupKind, PermissionScope, Role } from "@prisma/client";
+import { PrismaClient, GroupKind, PermissionScope } from "@prisma/client";
 import { createDatabaseAdapter } from "../lib/db-adapter";
 
 const adapter = createDatabaseAdapter();
@@ -109,7 +109,6 @@ async function main() {
       cid: 1649341,
       name: "Yannik Schäffler",
       rating: "C1",
-      role: Role.MAIN_ADMIN,
       firId: firEDMM?.id,
     },
   });

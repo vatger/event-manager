@@ -1,99 +1,43 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
-import { createDatabaseAdapter } from "../lib/db-adapter";
 import chalk from "chalk";
 
-const adapter = createDatabaseAdapter();
-const prisma = new PrismaClient({ adapter });
+/**
+ * This script lists the current Main Admins as configured via the
+ * MAIN_ADMIN_CIDS environment variable.
+ *
+ * Main Admins are no longer stored in the database – they are managed
+ * exclusively through the MAIN_ADMIN_CIDS env variable (comma-separated CIDs).
+ */
 
-async function listMainAdmins() {
-  const mainAdmins = await prisma.user.findMany({
-    where: { role: "MAIN_ADMIN" },
-    orderBy: { name: "asc" },
-  });
-
-  if (mainAdmins.length === 0) {
-    console.log(chalk.yellow("ℹ️  Keine Main Admins gefunden."));
-    return;
-  }
-
-  console.log(chalk.cyan("\n📋 Main Admins:\n"));
-  console.log(chalk.gray("─".repeat(60)));
-  
-  mainAdmins.forEach((admin, index) => {
-    console.log(
-      chalk.white(`${index + 1}. `) +
-      chalk.green(admin.name) +
-      chalk.gray(` (CID: ${admin.cid})`)
-    );
-  });
-  
-  console.log(chalk.gray("─".repeat(60)));
-  console.log(chalk.cyan(`\nGesamt: ${mainAdmins.length} Main Admin(s)\n`));
+function getMainAdminCids(): number[] {
+  const raw = process.env.MAIN_ADMIN_CIDS || '';
+  return raw
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
 }
 
 async function main() {
-  const args = process.argv.slice(2);
+  const cids = getMainAdminCids();
 
-  // Liste alle Main Admins auf
-  if (args.includes("--list") || args.includes("-l")) {
-    await listMainAdmins();
-    await prisma.$disconnect();
+  if (cids.length === 0) {
+    console.log(chalk.yellow("ℹ️  Keine Main Admins konfiguriert (MAIN_ADMIN_CIDS ist leer)."));
+    console.log(chalk.gray("   Setze die MAIN_ADMIN_CIDS Umgebungsvariable mit kommagetrennten CIDs."));
     return;
   }
 
-  // Normale Set/Remove Logik
-  if (args.length < 1) {
-    console.error(chalk.red("❌ Bitte eine CID angeben oder --list verwenden!"));
-    console.info(chalk.yellow("\nVerwendung:"));
-    console.info(chalk.white("  Main Admin setzen:    npx tsx scripts/setMainAdmin.ts 123456"));
-    console.info(chalk.white("  Main Admin entfernen: npx tsx scripts/setMainAdmin.ts 123456 --remove"));
-    console.info(chalk.white("  Alle anzeigen:        npx tsx scripts/setMainAdmin.ts --list"));
-    process.exit(1);
-  }
-
-  const cid = parseInt(args[0], 10);
-  const remove = args.includes("--remove");
-
-  if (isNaN(cid)) {
-    console.error(chalk.red("❌ Ungültige CID angegeben!"));
-    process.exit(1);
-  }
-
-  const user = await prisma.user.findUnique({ where: { cid } });
-
-  if (!user) {
-    console.error(chalk.red(`❌ Kein Benutzer mit CID ${cid} gefunden.`));
-    process.exit(1);
-  }
-
-  const newRole = remove ? "USER" : "MAIN_ADMIN";
-
-  if (user.role === newRole) {
-    console.log(chalk.yellow(`ℹ️  Benutzer ${user.name} (${cid}) ist bereits ${newRole}.`));
-    process.exit(0);
-  }
-
-  await prisma.user.update({
-    where: { cid },
-    data: { role: newRole },
+  console.log(chalk.cyan("\n📋 Konfigurierte Main Admins (via MAIN_ADMIN_CIDS):\n"));
+  console.log(chalk.gray("─".repeat(60)));
+  cids.forEach((cid, index) => {
+    console.log(chalk.white(`${index + 1}. CID: `) + chalk.green(String(cid)));
   });
-
-  if (remove) {
-    console.log(chalk.green(`✅ Benutzer ${user.name} (${cid}) wurde als MAIN_ADMIN entfernt.`));
-  } else {
-    console.log(chalk.green(`✅ Benutzer ${user.name} (${cid}) wurde als MAIN_ADMIN gesetzt.`));
-  }
-
-  // Optional: Liste nach Änderung anzeigen
-  console.log(chalk.gray("\nAktuelle Main Admins:"));
-  await listMainAdmins();
-
-  await prisma.$disconnect();
+  console.log(chalk.gray("─".repeat(60)));
+  console.log(chalk.cyan(`\nGesamt: ${cids.length} Main Admin(s)\n`));
+  console.log(chalk.gray("Hinweis: Main Admins werden ausschließlich über die MAIN_ADMIN_CIDS"));
+  console.log(chalk.gray("         Umgebungsvariable verwaltet, nicht über die Datenbank.\n"));
 }
 
-main().catch(async (err) => {
+main().catch((err) => {
   console.error(chalk.red("❌ Fehler:"), err);
-  await prisma.$disconnect();
   process.exit(1);
 });
