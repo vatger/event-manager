@@ -86,6 +86,7 @@ model Event {
   endTime         DateTime
   airports        Json // Array of ICAO codes
   signupDeadline  DateTime?
+  signupSlotMinutes Int?      @default(30) // Duration of signup availability slots in minutes (15 or 30)
   staffedStations Json? // Array of Callsigns
   status          EventStatus @default(PLANNING)
   rosterlink      String?

@@ -23,6 +23,9 @@ const eventSchema = z.object({
     .refine((val) => !val || !isNaN(Date.parse(val)), {
       message: "Invalid date format for signupDeadline",
     }).optional().nullable(),
+  signupSlotMinutes: z.number().int().refine((val) => [15, 30].includes(val), {
+    message: "signupSlotMinutes must be 15 or 30",
+  }).optional().nullable(),
   staffedStations: z.array(z.string()).optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
   firCode: z.string().nullable().optional(),
@@ -133,6 +136,7 @@ export async function POST(req: Request) {
         signupDeadline: parsed.data.signupDeadline
           ? new Date(parsed.data.signupDeadline)
           : null,
+        signupSlotMinutes: parsed.data.signupSlotMinutes ?? 30,
         staffedStations: parsed.data.staffedStations || [],
         status: parsed.data.status || "PLANNING",
         createdById: parseInt(session.user.id),

@@ -131,22 +131,22 @@ const EventTimeSelector = ({
 
         {/* Dauer */}
         <div className="space-y-2">
-          <Label htmlFor="duration">Dauer (Minuten)</Label>
+          <Label htmlFor="duration">Dauer (Stunden)</Label>
           <Input
             id="duration"
             type="number"
-            min="15"
-            step="15"
-            value={duration}
-            onChange={(e) => handleDurationChange(Number(e.target.value))}
-            placeholder="60"
+            min="0.25"
+            step="0.25"
+            value={duration / 60}
+            onChange={(e) => handleDurationChange(Math.round(Number(e.target.value) * 60))}
+            placeholder="2"
           />
         </div>
       </div>
 
       {/* Schnelle Dauer-Buttons */}
       <div className="flex flex-wrap gap-2">
-        {[60, 120, 180, 300, 720].map((mins) => (
+        {[60, 120, 180, 240, 300, 360, 720].map((mins) => (
           <Button
             key={mins}
             type="button"
@@ -155,7 +155,7 @@ const EventTimeSelector = ({
             onClick={() => handleDurationChange(mins)}
             className="text-xs"
           >
-            {mins}min
+            {mins / 60}h
           </Button>
         ))}
       </div>

@@ -19,6 +19,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { normalizeAirportCode, isValidAirportCode } from "@/utils/airportUtils";
 
+/** Convert an ISO date string to a datetime-local input value (local time). */
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 interface FormData {
   name: string;
   description: string;
@@ -31,6 +38,7 @@ interface FormData {
   status: Event["status"];
   deadline?: string;
   fir: string;
+  signupSlotMinutes: number;
 }
 
 interface Props {
@@ -67,6 +75,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     staffedStations: [],
     status: "DRAFT",
     fir: "",
+    signupSlotMinutes: 30,
   });
 
   const { isVATGERLead } = useUser();
@@ -101,6 +110,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           status: "DRAFT", // Events from calendar start as DRAFT
           rosterUrl: "",
           fir: "",
+          signupSlotMinutes: 30,
         });
         return;
       }
@@ -125,6 +135,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           ? new Date(event.signupDeadline).toISOString()
           : "",
         fir: event.firCode || "",
+        signupSlotMinutes: event.signupSlotMinutes ?? 30,
       });
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event?.id, initialDate]);
@@ -208,6 +219,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         status: formData.status,
         rosterlink: formData.rosterUrl?.trim() || null,
         signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+        signupSlotMinutes: formData.signupSlotMinutes,
         firCode: isVATGERLead() ? formData.fir : null,
       };
 
@@ -499,17 +511,42 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                   
                 )}
                 {formData.status === "SIGNUP_OPEN" && (
+                  <>
                   <div className="space-y-2">
-                    <Label htmlFor="rosterUrl">Deadline</Label>
+                    <Label htmlFor="deadline">Deadline</Label>
                     <Input
                       id="deadline"
                       name="deadline"
-                      type="date"
-                      value={formData.deadline ? formData.deadline.split("T")[0] : ""}
-                      onChange={handleChange}
+                      type="datetime-local"
+                      value={formData.deadline ? toDatetimeLocal(formData.deadline) : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormData(prev => ({ ...prev, deadline: val ? new Date(val).toISOString() : "" }));
+                      }}
                     />
                   </div>
-                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signupSlotMinutes">Zeitslot-Größe für Anmeldungen</Label>
+                    <Select
+                      value={formData.signupSlotMinutes.toString()}
+                      onValueChange={(value) =>
+                        setFormData(prev => ({ ...prev, signupSlotMinutes: parseInt(value) }))
+                      }
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Zeitslot wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 Minuten</SelectItem>
+                        <SelectItem value="30">30 Minuten (Standard)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Granularität der Verfügbarkeitsslots bei der Anmeldung
+                    </p>
+                  </div>
+                  </>
                 )}
                 
               </CardContent>

@@ -8,6 +8,7 @@ export interface Event {
     endTime: string;
     staffedStations: string[];
     signupDeadline: string;
+    signupSlotMinutes?: number; // Duration of signup availability slots in minutes (15 or 30)
     registrations: number;
     status: "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
     isSignedUp?: boolean;

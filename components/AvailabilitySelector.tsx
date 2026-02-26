@@ -36,6 +36,8 @@ export type AvailabilitySelectorProps = {
   innerRef?: React.Ref<AvailabilitySelectorHandle>
   /** Optional: show a compact legend on top (default true). */
   showLegend?: boolean
+  /** Slot duration in minutes (default 30). Supported values: 15, 30. */
+  slotDuration?: number
 }
 
 // ===================== Helpers =====================
@@ -50,13 +52,13 @@ function fromMinutes(mins: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
 }
 
-function generateSlots(start: string, end: string): string[] {
+function generateSlots(start: string, end: string, slotDuration = 30): string[] {
   const out: string[] = []
   let cur = toMinutes(start)
   const endMin = toMinutes(end)
   while (cur < endMin) {
     out.push(fromMinutes(cur))
-    cur += 30
+    cur += slotDuration
   }
   return out
 }
@@ -71,10 +73,10 @@ function timeRangeToIdxRange(range: TimeRange, slots: string[]): RangeIdx | null
   return { start: s, end: Math.max(s, eExclusive - 1) }
 }
 
-function idxRangeToTimeRange(r: RangeIdx, slots: string[]): TimeRange {
+function idxRangeToTimeRange(r: RangeIdx, slots: string[], slotDuration = 30): TimeRange {
   const start = slots[r.start]
   const endIdxExclusive = r.end + 1
-  const end = endIdxExclusive < slots.length ? slots[endIdxExclusive] : fromMinutes(toMinutes(slots[0]) + (r.end + 1) * 30) // fallback
+  const end = endIdxExclusive < slots.length ? slots[endIdxExclusive] : fromMinutes(toMinutes(slots[0]) + (r.end + 1) * slotDuration) // fallback
   return { start, end }
 }
 
@@ -156,9 +158,9 @@ const Legend = () => (
 )
 
 export default function AvailabilitySelectorBlock(props: AvailabilitySelectorProps) {
-  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, title = "Verfügbarkeit", innerRef, showLegend = true } = props
+  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, title = "Verfügbarkeit", innerRef, showLegend = true, slotDuration = 30 } = props
 
-  const slots = useMemo(() => generateSlots(eventStart, eventEnd), [eventStart, eventEnd])
+  const slots = useMemo(() => generateSlots(eventStart, eventEnd, slotDuration), [eventStart, eventEnd, slotDuration])
   const [ranges, setRanges] = useState<RangeIdx[]>([])
   const [pendingStartIdx, setPendingStartIdx] = useState<number | null>(null)
 
@@ -181,20 +183,20 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
       validate: () => {
         const errors: string[] = []
         const segs = computeAvailableSegments(slots.length, ranges)
-        const minSlots = Math.ceil(minAvailableMinutes / 30)
+        const minSlots = Math.ceil(minAvailableMinutes / slotDuration)
         for (const s of segs) {
           const len = s.end - s.start + 1
           if (len > 0 && len < minSlots) {
-            const tr = idxRangeToTimeRange({ start: s.start, end: s.end }, slots)
+            const tr = idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration)
             errors.push(`Verfügbare Spanne ${tr.start}–${tr.end} ist kürzer als ${minAvailableMinutes} Minuten.`)
           }
         }
         return { ok: errors.length === 0, errors }
       },
-      getUnavailable: () => ranges.map((r) => idxRangeToTimeRange(r, slots)),
+      getUnavailable: () => ranges.map((r) => idxRangeToTimeRange(r, slots, slotDuration)),
       getAvailable: () => {
         const segs = computeAvailableSegments(slots.length, ranges)
-        return segs.map((s) => idxRangeToTimeRange({ start: s.start, end: s.end }, slots))
+        return segs.map((s) => idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration))
       },
       setUnavailable: (tRanges: TimeRange[]) => {
         const idxRanges: RangeIdx[] = []
@@ -210,7 +212,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
         setPendingStartIdx(null)
       },
     }),
-    [ranges, slots, minAvailableMinutes]
+    [ranges, slots, minAvailableMinutes, slotDuration]
   )
 
   // ===================== Interaction =====================
@@ -278,7 +280,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {isBlocked ? "Klicken, um diesen 30‑Min‑Slot wieder verfügbar zu machen" : pendingStartIdx!=null ? "Endzeit wählen" : "Klicken, um Nicht‑Verfügbarkeit zu starten"}
+                    {isBlocked ? `Klicken, um diesen ${slotDuration}‑Min‑Slot wieder verfügbar zu machen` : pendingStartIdx!=null ? "Endzeit wählen" : "Klicken, um Nicht‑Verfügbarkeit zu starten"}
                   </TooltipContent>
                 </Tooltip>
               )

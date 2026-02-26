@@ -39,18 +39,18 @@ interface SignupFormProps {
 
 type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
 
-// Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf 30-Min-Raster
-function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
+// Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf Slot-Raster
+function toHHMMUTC(dateIso?: string, round?: "down" | "up", slotMinutes = 30): string {
   if (!dateIso) return "00:00";
   const d = new Date(dateIso);
   let hh = d.getUTCHours();
   let mm = d.getUTCMinutes();
   if (round === "down") {
-    mm = mm - (mm % 30);
+    mm = mm - (mm % slotMinutes);
   } else if (round === "up") {
-    const extra = mm % 30;
+    const extra = mm % slotMinutes;
     if (extra !== 0) {
-      mm = mm + (30 - extra);
+      mm = mm + (slotMinutes - extra);
       if (mm >= 60) {
         mm -= 60;
         hh = (hh + 1) % 24;
@@ -342,10 +342,11 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           <div>
             <Label className="pb-2">Availability</Label>
             <AvailabilitySlider
-              eventStart={toHHMMUTC(event.startTime, "down")}
-              eventEnd={toHHMMUTC(event.endTime, "up")}
+              eventStart={toHHMMUTC(event.startTime, "down", event.signupSlotMinutes ?? 30)}
+              eventEnd={toHHMMUTC(event.endTime, "up", event.signupSlotMinutes ?? 30)}
               initialUnavailable={availability?.unavailable}
               innerRef={avselectorRef}
+              slotDuration={event.signupSlotMinutes ?? 30}
             />
           </div>
           
