@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Users, UserPlus, UserMinus, Shield, AlertCircle, Loader2 } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Shield, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import TrainingCacheCard from './RefreshEndorsements';
 import CronJobMonitor from './CronJobMonitor';
@@ -21,15 +21,24 @@ interface VATGERMember {
   };
 }
 
+interface MainAdmin {
+  cid: number;
+  name: string | null;
+  rating: string | null;
+}
+
 export default function SystemSettingsPage() {
   const [members, setMembers] = useState<VATGERMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [newCid, setNewCid] = useState('');
+  const [mainAdmins, setMainAdmins] = useState<MainAdmin[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(true);
 
   useEffect(() => {
     loadMembers();
+    loadMainAdmins();
   }, []);
 
   const loadMembers = async () => {
@@ -49,6 +58,21 @@ export default function SystemSettingsPage() {
       toast.error(error instanceof Error ? error.message : 'Fehler beim Laden der Mitglieder');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMainAdmins = async () => {
+    try {
+      setLoadingAdmins(true);
+      const response = await fetch('/api/admin/system/main-admins');
+      if (response.ok) {
+        const data = await response.json();
+        setMainAdmins(data);
+      }
+    } catch (error) {
+      console.error('Failed to load main admins:', error);
+    } finally {
+      setLoadingAdmins(false);
     }
   };
 
@@ -127,6 +151,54 @@ export default function SystemSettingsPage() {
           <p className="text-muted-foreground">Verwaltung der VATGER Eventleiter</p>
         </div>
       </div>
+
+      {/* Main Admins Card (read-only, from env) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="w-5 h-5" />
+            Main Admins
+            <Badge variant="secondary">{mainAdmins.length}</Badge>
+          </CardTitle>
+          <CardDescription>
+            Main Admins werden ausschließlich per Umgebungsvariable (<code className="font-mono text-xs">MAIN_ADMIN_CIDS</code>) konfiguriert.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingAdmins ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin mr-2" />
+              <span>Lade Main Admins...</span>
+            </div>
+          ) : mainAdmins.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <KeyRound className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Keine Main Admins konfiguriert (MAIN_ADMIN_CIDS ist leer)</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>CID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Rating</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mainAdmins.map((admin) => (
+                  <TableRow key={admin.cid}>
+                    <TableCell className="font-mono">{admin.cid}</TableCell>
+                    <TableCell className="font-medium">{admin.name ?? <span className="text-muted-foreground italic">Unbekannt</span>}</TableCell>
+                    <TableCell>
+                      {admin.rating ? <Badge variant="outline">{admin.rating}</Badge> : '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Members List Card */}
       <Card>

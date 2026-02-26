@@ -15,7 +15,8 @@ import {
   Loader2,
   Activity,
   Calendar,
-  Play
+  Play,
+  Power
 } from 'lucide-react';
 import { toast } from 'sonner';
 import cronstrue from 'cronstrue';
@@ -44,6 +45,7 @@ export default function CronJobMonitor() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [triggeringJob, setTriggeringJob] = useState<string | null>(null);
+  const [togglingJob, setTogglingJob] = useState<string | null>(null);
 
   useEffect(() => {
     loadJobStatuses();
@@ -102,6 +104,30 @@ export default function CronJobMonitor() {
       toast.error(`Fehler beim Ausführen von ${displayName}: ${(error as Error).message}`);
     } finally {
       setTriggeringJob(null);
+    }
+  };
+
+  const handleToggleActive = async (jobName: string, displayName: string, currentlyActive: boolean) => {
+    setTogglingJob(jobName);
+    try {
+      const response = await fetch('/api/admin/system/cron-status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobName, isActive: !currentlyActive }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to toggle job');
+      }
+
+      toast.success(`${displayName} wurde ${!currentlyActive ? 'aktiviert' : 'deaktiviert'}`);
+      await loadJobStatuses();
+    } catch (error) {
+      console.error('Failed to toggle job:', error);
+      toast.error(`Fehler beim Ändern des Status: ${(error as Error).message}`);
+    } finally {
+      setTogglingJob(null);
     }
   };
 
@@ -242,6 +268,7 @@ export default function CronJobMonitor() {
                   <TableHead className="w-[150px]">Letzte Ausführung</TableHead>
                   <TableHead className="w-[80px]">Dauer</TableHead>
                   <TableHead className="w-[100px]">Statistik</TableHead>
+                  <TableHead className="w-[120px]">Aktivierung</TableHead>
                   <TableHead className="w-[100px]">Aktion</TableHead>
                 </TableRow>
               </TableHeader>
@@ -278,6 +305,22 @@ export default function CronJobMonitor() {
                           Fehler: {job.errorCount} ({getErrorRate(job)}%)
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="sm"
+                        variant={job.isActive ? 'outline' : 'secondary'}
+                        onClick={() => handleToggleActive(job.jobName, job.displayName, job.isActive)}
+                        disabled={togglingJob === job.jobName}
+                        className="w-full"
+                      >
+                        {togglingJob === job.jobName ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Power className="w-3 h-3 mr-1" />
+                        )}
+                        <span className="text-xs">{job.isActive ? 'Deaktivieren' : 'Aktivieren'}</span>
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <Button

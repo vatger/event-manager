@@ -97,6 +97,13 @@ async function recordJobExecution(
  */
 function wrapJobHandler(jobName: string, handler: () => Promise<any>) {
   return async () => {
+    // Skip execution if the job has been disabled in the database
+    const statusRecord = await prisma.cronJobStatus.findUnique({ where: { jobName } })
+    if (statusRecord && !statusRecord.isActive) {
+      console.log(`[Cron] ${jobName} is disabled, skipping...`)
+      return
+    }
+
     const startTime = Date.now()
     console.log(`[Cron] Starting ${jobName}...`)
     
@@ -127,7 +134,7 @@ async function initializeJobStatuses() {
           displayName: job.displayName,
           description: job.description,
           schedule,
-          isActive: true,
+          // Do not reset isActive so that manually disabled jobs stay disabled across restarts
         },
         create: {
           jobName: job.name,
@@ -224,6 +231,31 @@ export async function triggerCronJob(jobName: string): Promise<{ success: boolea
       message: `Job fehlgeschlagen: ${(error as Error).message}`,
       duration 
     }
+  }
+}
+
+/**
+ * Toggle the active state of a cron job
+ */
+export async function toggleCronJobActive(jobName: string, isActive: boolean): Promise<{ success: boolean; message: string }> {
+  const job = CRON_JOBS.find(j => j.name === jobName)
+  if (!job) {
+    return { success: false, message: `Job '${jobName}' nicht gefunden` }
+  }
+
+  try {
+    await prisma.cronJobStatus.update({
+      where: { jobName },
+      data: { isActive },
+    })
+    console.log(`[Cron] ${jobName} ${isActive ? 'enabled' : 'disabled'}`)
+    return {
+      success: true,
+      message: `Job '${job.displayName}' wurde ${isActive ? 'aktiviert' : 'deaktiviert'}`,
+    }
+  } catch (error) {
+    console.error(`[Cron] Failed to toggle ${jobName}:`, error)
+    return { success: false, message: `Fehler beim Ändern des Status: ${(error as Error).message}` }
   }
 }
 

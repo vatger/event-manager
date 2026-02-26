@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getCronJobStatuses, triggerCronJob } from '@/lib/cron/cronService';
+import { getCronJobStatuses, triggerCronJob, toggleCronJobActive } from '@/lib/cron/cronService';
 
 /**
  * GET /api/admin/system/cron-status
@@ -28,6 +28,45 @@ export async function GET(request: NextRequest) {
     console.error('[API] Failed to get CRON job statuses:', error);
     return NextResponse.json(
       { error: 'Failed to fetch CRON job statuses' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/system/cron-status
+ * Toggle a CRON job's active state
+ * Requires MAIN_ADMIN role
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (session.user.role !== 'MAIN_ADMIN') {
+      return NextResponse.json({ error: 'Forbidden - Main Admin access required' }, { status: 403 });
+    }
+
+    const { jobName, isActive } = await request.json();
+
+    if (!jobName || typeof isActive !== 'boolean') {
+      return NextResponse.json({ error: 'jobName and isActive (boolean) are required' }, { status: 400 });
+    }
+
+    const result = await toggleCronJobActive(jobName, isActive);
+
+    if (!result.success) {
+      return NextResponse.json({ error: result.message }, { status: 400 });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('[API] Failed to toggle CRON job active state:', error);
+    return NextResponse.json(
+      { error: 'Failed to toggle CRON job active state' },
       { status: 500 }
     );
   }

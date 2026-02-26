@@ -3,6 +3,7 @@ import { User, type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
 import { getUserWithPermissions, hasAdminAccess } from "./acl/permissions";
+import { isMainAdminCid } from "./acl/mainAdmins";
 
 interface VatsimProfile {
   id: number,
@@ -172,16 +173,24 @@ export const authOptions: NextAuthOptions = {
         return token;
       },
       async session({ session, token }) {
+        const cid = Number(token.cid);
         const dbUser = await prisma.user.findUnique({
-          where: { cid: Number(token.cid) },
+          where: { cid },
         });
+
+        // MAIN_ADMIN role is exclusively determined by the MAIN_ADMIN_CIDS env variable
+        const role = isMainAdminCid(cid)
+          ? 'MAIN_ADMIN'
+          : dbUser?.role === 'MAIN_ADMIN'
+          ? 'USER'
+          : dbUser?.role || token.role || 'USER';
 
         session.user = {
           id: token.id,
           cid: token.cid,
           name: token.name,
           rating: token.rating,
-          role: dbUser?.role || token.role || "USER",
+          role,
           fir: token.fir
         };
         return session;
