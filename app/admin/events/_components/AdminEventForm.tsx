@@ -510,6 +510,24 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                   </div>
                   
                 )}
+                <div className="space-y-2">
+                    <Label htmlFor="signupSlotMinutes">Zeitslot-Größe für Anmeldungen</Label>
+                    <Select
+                      value={formData.signupSlotMinutes.toString()}
+                      onValueChange={(value) =>
+                        setFormData(prev => ({ ...prev, signupSlotMinutes: parseInt(value) }))
+                      }
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Zeitslot wählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 Minuten</SelectItem>
+                        <SelectItem value="30">30 Minuten</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 {formData.status === "SIGNUP_OPEN" && (
                   <>
                   <div className="space-y-2">
@@ -524,27 +542,6 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                         setFormData(prev => ({ ...prev, deadline: val ? new Date(val).toISOString() : "" }));
                       }}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signupSlotMinutes">Zeitslot-Größe für Anmeldungen</Label>
-                    <Select
-                      value={formData.signupSlotMinutes.toString()}
-                      onValueChange={(value) =>
-                        setFormData(prev => ({ ...prev, signupSlotMinutes: parseInt(value) }))
-                      }
-                      disabled={isSaving}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Zeitslot wählen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="15">15 Minuten</SelectItem>
-                        <SelectItem value="30">30 Minuten (Standard)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Granularität der Verfügbarkeitsslots bei der Anmeldung
-                    </p>
                   </div>
                   </>
                 )}
