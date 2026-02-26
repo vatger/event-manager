@@ -25,7 +25,7 @@ export class GroupService {
       event.fir
     );
       
-    const isTier1 = isAirportTier1(event.airport)
+    const isTier1 = await isAirportTier1(event.airport)
     const famsMap = (familiarizations as { familiarizations: Record<string, string[]> }).familiarizations ?? {};
     const famsForFir: string[] = fir ? (famsMap[fir] ?? []) : [];
     

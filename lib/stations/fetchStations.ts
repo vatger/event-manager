@@ -48,7 +48,7 @@ export async function fetchAllStations(): Promise<Station[]> {
       // Extract S1 TWR flag from datahub
       const s1Twr = entry.s1_twr === true ? true : undefined;
 
-      return { callsign, group, airport, s1Twr };
+      return { callsign, group, airport, s1Twr, gcapStatus: entry.gcap_status };
     })
     .filter((s: Station | null): s is Station => s !== null);
 
@@ -60,4 +60,14 @@ export async function fetchAllStations(): Promise<Station[]> {
 export async function fetchStationsByAirport(icao: string): Promise<Station[]> {
   const allStations = await fetchAllStations();
   return allStations.filter((s) => s.airport === icao);
+}
+
+// Funktion: Prüft ob ein Airport ein Tier-1 Airport ist (gcap_status === "1" an der TWR-Station)
+// Nutzt den vorhandenen Stations-Cache aus fetchAllStations.
+export async function isAirportTier1(airport: string): Promise<boolean> {
+  const allStations = await fetchAllStations();
+  const icao = airport.toUpperCase();
+  return allStations.some(
+    (s) => s.group === "TWR" && s.airport === icao && s.gcapStatus === "1"
+  );
 }

@@ -46,7 +46,8 @@ export async function GET(
 
     // Prüfe Tier-1 Airport
     const airports = event.airports as string[];
-    const isTier1 = airports.some(ap => isAirportTier1(ap));
+    const tier1Checks = await Promise.all(airports.map(ap => isAirportTier1(ap)));
+    const isTier1 = tier1Checks.some(Boolean);
     
     if (!isTier1) {
       return NextResponse.json({ 
