@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isMainAdminCid } from "./mainAdmins";
 
 export type UserWithAll = Prisma.UserGetPayload<{
   include: {
@@ -33,8 +34,8 @@ export function computeEffectiveData(user: UserWithAll): EffectiveData {
 
   let effectiveLevel: EffectiveData["effectiveLevel"] = "USER";
 
-  // MAIN_ADMIN → alles
-  if (user.role === "MAIN_ADMIN") {
+  // MAIN_ADMIN → alles (determined exclusively by MAIN_ADMIN_CIDS env variable)
+  if (isMainAdminCid(user.cid)) {
     effectiveLevel = "MAIN_ADMIN";
     [
       "*",
@@ -70,7 +71,7 @@ export function computeEffectiveData(user: UserWithAll): EffectiveData {
   }
 
   // globale Level bestimmen
-  if (user.role === "MAIN_ADMIN") {
+  if (isMainAdminCid(user.cid)) {
     effectiveLevel = "MAIN_ADMIN";
   } else if (
     Object.values(firLevels).includes("FIR_EVENTLEITER") &&

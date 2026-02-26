@@ -125,6 +125,7 @@ function convertEvent(eventData: Event): ConvertedEvent {
     signupDeadline: eventData.signupDeadline ? eventData.signupDeadline.toISOString() : null,
     airports: parseStringArray(eventData.airports),
     staffedStations: parseStringArray(eventData.staffedStations),
+    signupSlotMinutes: eventData.signupSlotMinutes ?? 30,
     signups: 'signups' in eventData && Array.isArray(eventData.signups)
       ? eventData.signups.map(convertSignup)
       : [],
@@ -205,7 +206,8 @@ export async function POST(req: Request) {
     
     // Event konvertieren
     const event = convertEvent(rawEvent);
-    const timeslots = generateTimeslots(event.startTime!, event.endTime!, layout.timeslotInterval);
+    const timeslotInterval = event.signupSlotMinutes ?? layout.timeslotInterval;
+    const timeslots = generateTimeslots(event.startTime!, event.endTime!, timeslotInterval);
     const currentDate = formatDateGerman(new Date());
     
     // Determine user detail columns based on whether we're filtering by airport

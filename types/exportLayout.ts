@@ -47,6 +47,7 @@ export interface ConvertedEvent {
   airports: string[];
   signupDeadline: string | null;
   staffedStations: string[];
+  signupSlotMinutes: number | null;
   status: string;
   createdById: number | null;
   createdAt: Date;

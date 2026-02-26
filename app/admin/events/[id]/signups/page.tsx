@@ -62,7 +62,7 @@ export default function AdminEventSignupsPage() {
   
 
   // Slots für Timeline generieren
-  const slots = useMemo(() => generateHalfHourSlotsUTC(event?.startTime, event?.endTime), [event?.startTime, event?.endTime]);
+  const slots = useMemo(() => generateSlotsUTC(event?.startTime, event?.endTime, event?.signupSlotMinutes ?? 30), [event?.startTime, event?.endTime, event?.signupSlotMinutes]);
 
   // Parse airports from event
   const eventAirports = useMemo(() => {
@@ -205,22 +205,22 @@ export default function AdminEventSignupsPage() {
 }
 
 // Helper function (kann später in separate utils Datei ausgelagert werden)
-function generateHalfHourSlotsUTC(startIso?: string, endIso?: string): { slotStart: string; slotEnd: string }[] {
+function generateSlotsUTC(startIso?: string, endIso?: string, slotMinutes = 30): { slotStart: string; slotEnd: string }[] {
   if (!startIso || !endIso) return [];
   const start = new Date(startIso);
   const end = new Date(endIso);
   const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
   
   const minutes = t.getUTCMinutes();
-  if (minutes % 30 !== 0) {
-    const delta = 30 - (minutes % 30);
+  if (minutes % slotMinutes !== 0) {
+    const delta = slotMinutes - (minutes % slotMinutes);
     t.setUTCMinutes(minutes + delta);
   }
   
   const result: { slotStart: string; slotEnd: string }[] = [];
   while (t < end) {
     const slotStart = new Date(t);
-    t.setUTCMinutes(t.getUTCMinutes() + 30);
+    t.setUTCMinutes(t.getUTCMinutes() + slotMinutes);
     const slotEnd = new Date(t);
     
     if (slotEnd <= end) {

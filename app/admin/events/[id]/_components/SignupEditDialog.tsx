@@ -29,18 +29,19 @@ export type EventRef = {
   endTime: string;
   airports?: string | string[]; // Multi-airport support
   firCode?: string; // FIR code for endorsement checking
+  signupSlotMinutes?: number; // Duration of signup availability slots in minutes (15 or 30)
 };
 
-function toHHMMUTC(dateIso?: string, round?: "down" | "up"): string {
+function toHHMMUTC(dateIso?: string, round?: "down" | "up", slotMinutes = 30): string {
   if (!dateIso) return "00:00";
   const d = new Date(dateIso);
   let hh = d.getUTCHours();
   let mm = d.getUTCMinutes();
-  if (round === "down") mm -= mm % 30;
+  if (round === "down") mm -= mm % slotMinutes;
   else if (round === "up") {
-    const extra = mm % 30;
+    const extra = mm % slotMinutes;
     if (extra !== 0) {
-      mm += 30 - extra;
+      mm += slotMinutes - extra;
       if (mm >= 60) {
         mm -= 60;
         hh = (hh + 1) % 24;
@@ -372,10 +373,11 @@ export default function SignupEditDialog({
           <div className="flex flex-col gap-2">
             <Label>Availability</Label>
             <AvailabilityEditor
-              eventStart={toHHMMUTC(event.startTime, "down")}
-              eventEnd={toHHMMUTC(event.endTime, "up")}
+              eventStart={toHHMMUTC(event.startTime, "down", event.signupSlotMinutes ?? 30)}
+              eventEnd={toHHMMUTC(event.endTime, "up", event.signupSlotMinutes ?? 30)}
               initialUnavailable={signup?.availability?.unavailable}
               innerRef={avRef}
+              slotDuration={event.signupSlotMinutes ?? 30}
             />
           </div>
           

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getUserWithEffectiveData } from "./policies";
+import { isMainAdminCid } from "./mainAdmins";
 
 /**
  * Lädt den User inklusive effektiver Berechtigungen
@@ -78,14 +79,14 @@ export async function canManageFir(cid: number, firCode?: string) {
  * (d. h. in einer Gruppe mit kind == GLOBAL_VATGER_LEITUNG)
  */
 export async function isVatgerEventleitung(cid: number) {
+  // MAIN_ADMIN is exclusively determined by the MAIN_ADMIN_CIDS env variable
+  if (isMainAdminCid(cid)) return true;
+
   const user = await prisma.user.findUnique({
     where: { cid }
   });
 
   if (!user) return false;
-
-  // Hauptadmin ist immer berechtigt
-  if (user.role === "MAIN_ADMIN") return true;
 
   // Prüfen, ob User in der neuen Tabelle 'VatgerLeitung' ist
   const isInVatgerLeitungTable = await prisma.vATGERLeitung.findUnique({
