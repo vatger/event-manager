@@ -48,11 +48,6 @@ export class GroupService {
   ): ControllerGroup{
     const highestEndorsement = EndorsementService.getHighestEndorsement(endorsements)
     const highestSolo = EndorsementService.getHighestEndorsement(solos)
-    
-    if (!highestEndorsement && !highestSolo) {
-      return { group: null, restrictions: [], data: { endorsement: endorsements, solos, fams: famsForFir } }
-    }
-    
     const rankOf = (pos?: string) => {
       if (!pos) return -1
       const grp = EndorsementService.extractGroupFromEndorsement(pos)
@@ -61,7 +56,9 @@ export class GroupService {
 
     const soloWins = rankOf(highestSolo!) > rankOf(highestEndorsement!)
     const chosenPos = soloWins ? highestSolo! : highestEndorsement!
-    let group = EndorsementService.extractGroupFromEndorsement(chosenPos)
+    let group: 'GND' | 'TWR' | 'APP' | 'CTR' | null = chosenPos
+      ? EndorsementService.extractGroupFromEndorsement(chosenPos)
+      : null
 
     const restrictions: string[] = []
 
@@ -103,7 +100,12 @@ export class GroupService {
         }
       }
     }
+    
+    if (!group) {
+      return { group: null, restrictions: [], data: { endorsement: endorsements, solos, fams: famsForFir } }
+    }
 
+    
     return {
       group: group || null,
       restrictions,
