@@ -46,3 +46,4 @@ services:
       - DISCORD_BOT_URL
       - DISCORD_EDMM_CHANNEL_ID
       - DISCORD_EDMM_ROLE_ID
+      - MAIN_ADMIN_CIDS
