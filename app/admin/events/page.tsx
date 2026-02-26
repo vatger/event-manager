@@ -600,7 +600,7 @@ export default function AdminEventsPage() {
                 <Label htmlFor="deadline">Signup-Deadline</Label>
                 <Input
                   id="deadline"
-                  type="date"
+                  type="datetime-local"
                   value={deadlineInput}
                   onChange={(e) => setDeadlineInput(e.target.value)}
                   className="w-full"

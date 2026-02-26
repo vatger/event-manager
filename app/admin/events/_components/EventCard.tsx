@@ -36,11 +36,16 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
   const formattedDeadline = useMemo(() => {
     if (!event.signupDeadline) return "—";
     const deadline = new Date(event.signupDeadline);
-    return deadline.toLocaleString("de-DE", {
+    const localTime = deadline.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const localDate = deadline.toLocaleDateString("de-DE", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
+    return `${localDate}, ${localTime}lcl`;
   }, [event.signupDeadline]);
 
   const statusBadgeConfig = {

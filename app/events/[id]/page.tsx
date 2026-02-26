@@ -267,7 +267,9 @@ export default function EventPage() {
             ) : null}
             {(event.status=="SIGNUP_OPEN" && event.signupDeadline) && (
                 <div className="flex items-center gap-2 text-sm">
-                    <span className="font-medium">Anmeldeschluss: {new Date(event.signupDeadline).toLocaleDateString("de-DE")}</span>
+                    <div className="flex flex-col">
+                      <span className="font-medium">Anmeldeschluss: {new Date(event.signupDeadline).toLocaleDateString("de-DE")} - {new Date(event.signupDeadline).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} lcl</span>
+                    </div>
                 </div>
               )}
             {(event.status=="SIGNUP_CLOSED" && isSignedUp) && (

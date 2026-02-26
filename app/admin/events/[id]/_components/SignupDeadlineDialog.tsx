@@ -114,7 +114,7 @@ export function SignupDeadlineDialog({ event, onUpdate, children }: SignupDeadli
             <Label htmlFor="signupDeadline">Anmeldefrist</Label>
             <Input
               id="signupDeadline"
-              type="date"
+              type="datetime-local"
               value={signupDeadline}
               onChange={(e) => setSignupDeadline(e.target.value)}
             />

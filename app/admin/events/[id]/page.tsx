@@ -275,9 +275,9 @@ export default function EventOverviewPage() {
                   "
                 >
                   <AlertCircle className="h-4 w-4 text-blue-600" />
-                  <AlertDescription>
-                    Anmeldung offen bis: <strong>{formatDate(event.signupDeadline)}</strong>
-                  </AlertDescription>
+                    <AlertDescription>
+                    Anmeldung offen bis: <strong>{formatDate(event.signupDeadline)} - {new Date(event.signupDeadline).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Berlin' })} lcl</strong>
+                    </AlertDescription>
                 </Alert>
               )}
 
