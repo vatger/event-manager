@@ -117,6 +117,14 @@ export default function WeeklyDetailPage() {
     }
   };
 
+  // Hilfsfunktion: lokalen Datums-Key erzeugen (YYYY-MM-DD)
+  const toLocalDateKey = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
   /**
    * Generates a complete calendar view including pause weeks
    * Shows the full pattern of active and pause weeks
@@ -144,7 +152,7 @@ export default function WeeklyDetailPage() {
     // Create occurrence lookup map
     const occurrenceMap = new Map<string, WeeklyOccurrence>();
     upcomingOccurrences.forEach(occ => {
-      const dateKey = new Date(occ.date).toISOString().split('T')[0];
+      const dateKey = toLocalDateKey(new Date(occ.date)); // ✅ statt toISOString
       occurrenceMap.set(dateKey, occ);
     });
 
@@ -152,7 +160,7 @@ export default function WeeklyDetailPage() {
     let currentDate = new Date(firstOccurrenceDate);
     
     for (let i = 0; i < weeksToShow; i++) {
-      const dateKey = currentDate.toISOString().split('T')[0];
+      const dateKey = toLocalDateKey(currentDate);
       const occurrence = occurrenceMap.get(dateKey);
       
       if (occurrence) {
