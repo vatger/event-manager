@@ -514,8 +514,11 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                     <Label htmlFor="signupSlotMinutes">Zeitslot-Größe für Anmeldungen</Label>
                     <Select
                       value={formData.signupSlotMinutes.toString()}
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
+                        if(!value) return
                         setFormData(prev => ({ ...prev, signupSlotMinutes: parseInt(value) }))
+                      }
+                        
                       }
                       disabled={isSaving}
                     >
