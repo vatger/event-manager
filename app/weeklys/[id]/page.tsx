@@ -147,7 +147,7 @@ export default function WeeklyDetailPage() {
     const firstOccurrenceDate = new Date(firstOccurrence.date);
     
     // Calculate how many weeks to show (next 12 weeks)
-    const weeksToShow = 12;
+    const weeksToShow = 10;
     
     // Create occurrence lookup map
     const occurrenceMap = new Map<string, WeeklyOccurrence>();
@@ -185,6 +185,7 @@ export default function WeeklyDetailPage() {
 
     return result;
   };
+  
 
   const isSignupOpen = (occurrence: WeeklyOccurrence): boolean => {
     if(occurrence.signupStatus === "closed") return false;
@@ -435,7 +436,7 @@ export default function WeeklyDetailPage() {
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-semibold tracking-tight">Kommende Termine</h2>
             <Badge variant="outline" className="ml-2">
-              Nächste 12 Wochen
+              Nächste 10 Wochen
             </Badge>
           </div>
         </div>
