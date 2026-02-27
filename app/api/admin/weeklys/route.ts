@@ -211,15 +211,19 @@ async function generateOccurrences(configId: number) {
 
   if (!config) return;
 
-  const today = startOfDay(new Date());
+  const utcStartOfDay = (date: Date): Date => {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  };
+
+  const today = utcStartOfDay(new Date());
   const sixMonthsFromNow = addWeeks(today, 26);
 
   // Calculate occurrences based on the pattern
   const occurrences: Date[] = [];
-  let currentDate = startOfDay(new Date(config.startDate));
+  let currentDate = utcStartOfDay(new Date(config.startDate));
 
   // Adjust to the correct weekday if needed
-  while (currentDate.getDay() !== config.weekday) {
+  while (currentDate.getUTCDay() !== config.weekday) {
     currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000); // Add one day
   }
 

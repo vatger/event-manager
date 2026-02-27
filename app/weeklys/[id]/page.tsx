@@ -468,7 +468,7 @@ export default function WeeklyDetailPage() {
                 const weekday = WEEKDAYS[occDate.getDay()];
                 const formattedDate = format(occDate, "dd.MM.yyyy", { locale: de });
 
-                if (week.type === "pause" && config.weeksOff > 0) {
+                if (week.type === "pause") {
                   // Pause week placeholder
                   return (
                     <div
@@ -561,17 +561,18 @@ export default function WeeklyDetailPage() {
                                 >
                                   {getSignupStatusMessage(occurrence).text}
                                 </Badge>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 px-3 text-sm gap-1"
+                                >
+                                  Details
+                                  <ChevronRight className="h-4 w-4" />
+                                </Button>
                               </>
                             )}
                             
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 px-3 text-sm gap-1"
-                            >
-                              Details
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
+                            
                           </div>
                         </div>
                       </div>

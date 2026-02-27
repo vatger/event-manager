@@ -615,14 +615,13 @@ export default function OccurrenceDetailPage() {
             <AlertDescription className="text-blue-700 dark:text-blue-300">
               Für dieses Weekly Event ist kein Roster vorgesehen. Bitte buche eine Station direkt über das{" "}
               <a
-                href="https://vatsim-germany.org/gdp/roster"
+                href="https://vatsim-germany.org/controllers/booking"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline underline-offset-2"
               >
-                VATGER Booking System
+                VATGER Booking System.
               </a>
-              .
             </AlertDescription>
           </Alert>
         )}
