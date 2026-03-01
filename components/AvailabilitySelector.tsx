@@ -66,17 +66,32 @@ function generateSlots(start: string, end: string, slotDuration = 30): string[] 
 /** Range in slot indices (inclusive). */
 type RangeIdx = { start: number; end: number }
 
-function timeRangeToIdxRange(range: TimeRange, slots: string[]): RangeIdx | null {
+function timeRangeToIdxRange(range: TimeRange, slots: string[], eventEnd?: string): RangeIdx | null {
   const s = slots.indexOf(range.start)
-  const eExclusive = slots.indexOf(range.end) // end is exclusive in time; index of end start-time
-  if (s === -1 || eExclusive === -1) return null
+  if (s === -1) return null
+  
+  // End kann eventEnd sein (nicht in slots[]) → letzter Slot
+  let eExclusive = slots.indexOf(range.end)
+  if (eExclusive === -1 && range.end === eventEnd) {
+    eExclusive = slots.length // exklusiv = einer nach dem letzten
+  } else if (eExclusive === -1) {
+    return null
+  }
+  
   return { start: s, end: Math.max(s, eExclusive - 1) }
 }
 
-function idxRangeToTimeRange(r: RangeIdx, slots: string[], slotDuration = 30): TimeRange {
+function idxRangeToTimeRange(
+  r: RangeIdx, 
+  slots: string[], 
+  slotDuration = 30,
+  eventEnd?: string
+): TimeRange {
   const start = slots[r.start]
   const endIdxExclusive = r.end + 1
-  const end = endIdxExclusive < slots.length ? slots[endIdxExclusive] : fromMinutes(toMinutes(slots[0]) + (r.end + 1) * slotDuration) // fallback
+  const end = endIdxExclusive < slots.length
+    ? slots[endIdxExclusive]
+    : eventEnd ?? fromMinutes(toMinutes(slots[slots.length - 1]) + slotDuration)
   return { start, end }
 }
 
@@ -169,7 +184,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
     if (!initialUnavailable || initialUnavailable.length === 0) return
     const idxRanges: RangeIdx[] = []
     for (const r of initialUnavailable) {
-      const idxR = timeRangeToIdxRange(r, slots)
+      const idxR = timeRangeToIdxRange(r, slots, eventEnd)
       if (idxR) idxRanges.push(idxR)
     }
     setRanges(mergeRanges(idxRanges))
@@ -187,16 +202,16 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
         for (const s of segs) {
           const len = s.end - s.start + 1
           if (len > 0 && len < minSlots) {
-            const tr = idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration)
+            const tr = idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration, eventEnd)
             errors.push(`Verfügbare Spanne ${tr.start}–${tr.end} ist kürzer als ${minAvailableMinutes} Minuten.`)
           }
         }
         return { ok: errors.length === 0, errors }
       },
-      getUnavailable: () => ranges.map((r) => idxRangeToTimeRange(r, slots, slotDuration)),
+      getUnavailable: () => ranges.map((r) => idxRangeToTimeRange(r, slots, slotDuration, eventEnd)),
       getAvailable: () => {
         const segs = computeAvailableSegments(slots.length, ranges)
-        return segs.map((s) => idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration))
+        return segs.map((s) => idxRangeToTimeRange({ start: s.start, end: s.end }, slots, slotDuration, eventEnd))
       },
       setUnavailable: (tRanges: TimeRange[]) => {
         const idxRanges: RangeIdx[] = []
@@ -301,7 +316,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
             <div className="font-medium pb-2">Unavailable:</div>
             <ul className="list-disc">
               {ranges.map((r, idx) => {
-                const tr = idxRangeToTimeRange(r, slots)
+                const tr = idxRangeToTimeRange(r, slots, slotDuration, eventEnd)
                 return (
                   <li key={idx} className="flex items-center bg-destructive/20 dark:bg-destructive/50 justify-between px-2 py-1 rounded mb-2">
                     {tr.start}z – {tr.end}z
