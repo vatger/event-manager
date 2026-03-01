@@ -305,7 +305,7 @@ export default function WeeklyDetailPage() {
         <Button 
           variant="outline" 
           size="icon" 
-          onClick={() => router.push("/weeklys")}
+          onClick={() => router.push("/")}
           className="h-9 w-9"
         >
           <ArrowLeft className="h-4 w-4" />
