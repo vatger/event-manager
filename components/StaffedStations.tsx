@@ -83,12 +83,12 @@ export default function StaffedStations({ callsigns }: StaffedStationsProps) {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue={defaultTab} className="w-full">
-          <TabsList className="flex flex-wrap gap-2 bg-muted/50 p-1 rounded-lg w-full">
+        <TabsList className="flex flex-wrap gap-1.5 bg-muted/50 p-1 rounded-lg w-full h-auto">
             {groupedStations.map(([area, stations]) => (
               <TabsTrigger
                 key={area as string}
                 value={area as string}
-                className="rounded-md px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
+                className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
               >
                 {area as string}
                 <span className="ml-2 text-xs text-muted-foreground">
