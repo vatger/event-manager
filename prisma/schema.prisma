@@ -314,6 +314,7 @@ model WeeklyEventOccurrence {
   signupStatus       String    @default("auto") // "auto", "open", "closed" - controls signup availability
   rosterPublished    Boolean   @default(false) // Whether roster has been published
   rosterPublishedAt  DateTime? // When roster was published
+  rosterScheduledPublish Boolean @default(false) // Auto-publish roster when signup deadline passes
   eventId            Int? // Link to created Event if converted
   
   createdAt          DateTime                 @default(now())

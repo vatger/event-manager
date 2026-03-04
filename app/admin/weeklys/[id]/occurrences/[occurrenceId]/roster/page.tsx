@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { format } from "date-fns";
+import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
 import { 
   ArrowLeft, 
@@ -11,20 +11,17 @@ import {
   Check, 
   X, 
   Save,
-  GripVertical,
   Clock,
   Calendar,
-  MapPin,
   AlertCircle,
   History,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   MoreVertical,
   GraduationCap,
   ClipboardCheck,
   UserCheck,
   Search,
+  Plane,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -141,7 +138,9 @@ interface WeeklyConfig {
 interface Occurrence {
   id: number;
   date: string;
+  signupDeadline: string | null;
   rosterPublished: boolean;
+  rosterScheduledPublish: boolean;
 }
 
 interface RosterData {
@@ -166,6 +165,7 @@ export default function RosterEditorPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [publishDialog, setPublishDialog] = useState(false);
+  const [scheduleDialog, setScheduleDialog] = useState(false);
   const [draggedUser, setDraggedUser] = useState<Signup | null>(null);
   const [s1TwrStations, setS1TwrStations] = useState<Set<string>>(new Set());
 
@@ -333,6 +333,36 @@ export default function RosterEditorPage() {
     }
   };
 
+  const schedulePublish = async (scheduled: boolean) => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster/schedule-publish`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ scheduled }),
+        }
+      );
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to schedule");
+      }
+
+      toast.success(scheduled 
+        ? "Ready for Takeoff! Roster wird nach Anmeldeschluss automatisch veröffentlicht." 
+        : "Automatische Veröffentlichung deaktiviert.");
+      await fetchData();
+      setScheduleDialog(false);
+    } catch (error: any) {
+      console.error("Schedule error:", error);
+      toast.error(error.message || "Fehler beim Planen");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Helper function to normalize station callsigns for matching
   const normalizeStationForMatching = (station: string): string => {
     // Remove numeric suffixes: _1_, _2_, etc.
@@ -493,22 +523,65 @@ export default function RosterEditorPage() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
             <Badge 
               variant={data.occurrence.rosterPublished ? "default" : "secondary"}
               className={cn(
                 "text-xs whitespace-nowrap",
-                data.occurrence.rosterPublished && "bg-green-600"
+                data.occurrence.rosterPublished && "bg-green-600",
+                data.occurrence.rosterScheduledPublish && !data.occurrence.rosterPublished && "bg-amber-500 text-white"
               )}
             >
               {data.occurrence.rosterPublished ? (
                 <Check className="h-3 w-3 mr-1" />
+              ) : data.occurrence.rosterScheduledPublish ? (
+                <Plane className="h-3 w-3 mr-1" />
               ) : (
                 <X className="h-3 w-3 mr-1" />
               )}
-              <span className="hidden sm:inline">{data.occurrence.rosterPublished ? "Veröffentlicht" : "Nicht veröffentlicht"}</span>
-              <span className="sm:hidden">{data.occurrence.rosterPublished ? "Public" : "Privat"}</span>
+              <span className="hidden sm:inline">
+                {data.occurrence.rosterPublished 
+                  ? "Veröffentlicht" 
+                  : data.occurrence.rosterScheduledPublish 
+                  ? "Ready for Takeoff" 
+                  : "Nicht veröffentlicht"}
+              </span>
+              <span className="sm:hidden">
+                {data.occurrence.rosterPublished 
+                  ? "Public" 
+                  : data.occurrence.rosterScheduledPublish 
+                  ? "Scheduled" 
+                  : "Privat"}
+              </span>
             </Badge>
+            
+            {/* Ready for Takeoff button - only show if not yet published and deadline not passed */}
+            {!data.occurrence.rosterPublished && (
+              data.occurrence.rosterScheduledPublish ? (
+                <Button
+                  onClick={() => schedulePublish(false)}
+                  disabled={saving}
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 h-8 md:h-9"
+                >
+                  <Plane className="h-3.5 w-3.5 md:mr-2" />
+                  <span className="hidden md:inline">Scheduling deaktivieren</span>
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setScheduleDialog(true)}
+                  disabled={saving}
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-400 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 h-8 md:h-9"
+                >
+                  <Plane className="h-3.5 w-3.5 md:mr-2" />
+                  <span className="hidden md:inline">Ready for Takeoff</span>
+                </Button>
+              )
+            )}
+
             <Button
               onClick={() => setPublishDialog(true)}
               disabled={saving}
@@ -824,41 +897,39 @@ export default function RosterEditorPage() {
                         >
                           <div className="flex items-start gap-2">
                             <div className={cn(
-                              "h-9 w-9 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                              "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-semibold",
                               assigned 
                                 ? "bg-green-200 dark:bg-green-800"
                                 : hasCptOrTraining
                                 ? "bg-purple-100 dark:bg-purple-900/30"
                                 : "bg-gray-100 dark:bg-gray-800"
                             )}>
-                              <span className="font-semibold text-sm md:text-base">
-                                {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
-                              </span>
+                              {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1 gap-2">
-                                <p className="font-medium text-sm md:text-base truncate">
+                              {/* Name + Rating row */}
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="font-medium text-sm truncate flex-1">
                                   {signup.user?.name || `CID ${signup.userCID}`}
                                 </p>
-                                <Badge variant="outline" className="text-[10px] h-4 flex-shrink-0">
+                                <Badge variant="outline" className="text-[9px] h-4 flex-shrink-0">
                                   {getRatingBadge(signup.user?.rating || 0)}
                                 </Badge>
                               </div>
                               
+                              {/* Endorsement + type badges */}
                               <div className="flex flex-wrap gap-1 mb-1">
                                 {signup.endorsementGroup && (
                                   <Badge className={cn(
-                                    "text-[10px] h-4",
+                                    "text-[9px] h-4",
                                     getBadgeClassForEndorsement(signup.endorsementGroup)
                                   )}>
                                     {signup.endorsementGroup}
                                   </Badge>
                                 )}
                                 {isTrainee(signup.restrictions) && (
-                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                    Trainee
-                                  </Badge>
+                                  <Badge className="text-[9px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black" title="Trainee">T</Badge>
                                 )}
                                 {cptCount > 0 && (
                                   <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
@@ -873,32 +944,52 @@ export default function RosterEditorPage() {
                                   </Badge>
                                 )}
                               </div>
-                              
+
+                              {/* Restrictions */}
                               {signup.restrictions && signup.restrictions.length > 0 && (
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap gap-1 mb-1">
                                   {signup.restrictions.map((r, i) => (
-                                    <Badge key={i} variant="secondary" className="text-[8px] md:text-[9px] h-3.5 px-1.5">
+                                    <Badge key={i} variant="secondary" className="text-[8px] h-3.5 px-1.5">
                                       {r}
                                     </Badge>
                                   ))}
                                 </div>
                               )}
+
+                              {/* RMK */}
+                              {signup.remarks && (
+                                <div className="flex items-start gap-1 mt-1 text-[10px] text-gray-500 dark:text-gray-400">
+                                  <MessageSquare className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                  <span className="line-clamp-2">{signup.remarks}</span>
+                                </div>
+                              )}
                               
-                              {/* History Information */}
-                              {signup.history && signup.history.stats.totalOccurrencesChecked > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1.5">
+                              {/* History + ATC stats row - compact icons */}
+                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                {/* History dot */}
+                                {signup.history && signup.history.stats.totalOccurrencesChecked > 0 && (
                                   <Popover>
                                     <PopoverTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-5 px-1.5 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-800"
-                                      >
-                                        <History className="h-3 w-3 mr-1" />
-                                        Geschichte ({signup.history.stats.totalSignups})
-                                      </Button>
+                                      <button className="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
+                                        <History className="h-3 w-3" />
+                                        <span>
+                                          {signup.history.stats.totalSignups}/{signup.history.stats.totalOccurrencesChecked}
+                                        </span>
+                                        {signup.history.stats.totalSignups > 0 && (
+                                          <span className={cn(
+                                            "text-[8px] font-medium px-1 rounded",
+                                            signup.history.stats.assignmentRate >= 70
+                                              ? "text-green-600 dark:text-green-400"
+                                              : signup.history.stats.assignmentRate >= 40
+                                              ? "text-amber-600 dark:text-amber-400"
+                                              : "text-red-600 dark:text-red-400"
+                                          )}>
+                                            {Math.round(signup.history.stats.assignmentRate)}%
+                                          </span>
+                                        )}
+                                      </button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-80" align="start">
+                                    <PopoverContent className="w-72" align="start">
                                       <div className="space-y-3">
                                         <div>
                                           <h4 className="font-medium text-sm mb-2">Teilnahme-Historie</h4>
@@ -906,30 +997,25 @@ export default function RosterEditorPage() {
                                             <div>
                                               <span className="text-gray-500 dark:text-gray-400">Anmeldungen:</span>
                                               <span className="ml-1 font-medium">
-                                                {signup.history.stats.totalSignups}/{signup.history.stats.totalOccurrencesChecked} 
-                                                ({Math.round((signup.history.stats.totalSignups / signup.history.stats.totalOccurrencesChecked) * 100)}%)
+                                                {signup.history.stats.totalSignups}/{signup.history.stats.totalOccurrencesChecked}
                                               </span>
                                             </div>
                                             <div>
                                               <span className="text-gray-500 dark:text-gray-400">Eingeplant:</span>
                                               <span className="ml-1 font-medium">
-                                                {signup.history.stats.totalAssigned}/{signup.history.stats.totalOccurrencesChecked} 
-                                                ({Math.round(signup.history.stats.assignmentRate)}%)
+                                                {Math.round(signup.history.stats.assignmentRate)}%
                                               </span>
                                             </div>
                                           </div>
                                         </div>
-                                        
                                         <div className="border-t pt-2">
-                                          <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
-                                            Letzte 3 Termine
-                                          </h5>
-                                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                                          <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">Letzte {signup.history.stats.totalOccurrencesChecked} überprüfte Termine</h5>
+                                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
                                             {signup.history.previousOccurrences.map((occ) => (
                                               <div 
                                                 key={occ.occurrenceId}
                                                 className={cn(
-                                                  "text-xs p-2 rounded border",
+                                                  "text-xs p-1.5 rounded border flex items-center justify-between",
                                                   occ.assigned 
                                                     ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                                                     : occ.signedUp
@@ -937,41 +1023,21 @@ export default function RosterEditorPage() {
                                                     : "bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800"
                                                 )}
                                               >
-                                                <div className="flex items-center justify-between mb-1">
-                                                  <span className="font-medium">
-                                                    {format(new Date(occ.date), "dd.MM.yyyy", { locale: de })}
-                                                  </span>
-                                                  {occ.assigned && (
-                                                    <Badge variant="outline" className="text-[9px] h-4 bg-green-100 dark:bg-green-900">
-                                                      <Check className="h-2.5 w-2.5 mr-0.5" />
-                                                      Eingeplant
-                                                    </Badge>
-                                                  )}
-                                                </div>
-                                                <div className="flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400">
-                                                  {occ.signedUp ? (
+                                                <span className="font-medium">
+                                                  {format(new Date(occ.date), "dd.MM.yy", { locale: de })}
+                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                  {occ.assigned ? (
                                                     <>
                                                       <Check className="h-3 w-3 text-green-600" />
-                                                      <span>Angemeldet</span>
+                                                      <span className="text-green-700 dark:text-green-300">{occ.station}</span>
                                                     </>
+                                                  ) : occ.signedUp ? (
+                                                    <span className="text-amber-600 dark:text-amber-400">Angemeldet</span>
                                                   ) : (
-                                                    <>
-                                                      <Minus className="h-3 w-3 text-gray-400" />
-                                                      <span>Nicht angemeldet</span>
-                                                    </>
+                                                    <span className="text-gray-400">–</span>
                                                   )}
                                                 </div>
-                                                {occ.station && (
-                                                  <div className="mt-1 text-[10px] text-gray-600 dark:text-gray-400">
-                                                    Station: <span className="font-medium">{occ.station}</span>
-                                                  </div>
-                                                )}
-                                                {occ.signedUp && !occ.assigned && (
-                                                  <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
-                                                    <X className="h-3 w-3" />
-                                                    <span>Nicht eingeplant</span>
-                                                  </div>
-                                                )}
                                               </div>
                                             ))}
                                           </div>
@@ -979,154 +1045,64 @@ export default function RosterEditorPage() {
                                       </div>
                                     </PopoverContent>
                                   </Popover>
-                                  
-                                  {/* Assignment Rate Badge */}
-                                  {signup.history.stats.totalSignups > 0 && (
-                                    <Badge 
-                                      variant="outline"
-                                      className={cn(
-                                        "text-[9px] h-5 px-1.5",
-                                        signup.history.stats.assignmentRate >= 70 
-                                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700"
-                                          : signup.history.stats.assignmentRate >= 40
-                                          ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700"
-                                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700"
-                                      )}
-                                    >
-                                      {signup.history.stats.assignmentRate >= 70 ? (
-                                        <>
-                                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
-                                          Häufig eingeplant
-                                        </>
-                                      ) : signup.history.stats.assignmentRate < 40 ? (
-                                        <>
-                                          <TrendingDown className="h-2.5 w-2.5 mr-0.5" />
-                                          Selten eingeplant
-                                        </>
-                                      ) : (
-                                        <>
-                                          {Math.round(signup.history.stats.assignmentRate)}% eingeplant
-                                        </>
-                                      )}
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {/* ATC Session Statistics */}
-                              {signup.atcStats && signup.atcStats.stationStats && Object.keys(signup.atcStats.stationStats).length > 0 && (() => {
-                                const stats = signup.atcStats.stationStats;
-                                // Filter stats to only include stations relevant to this event
-                                const relevantStats = Object.entries(stats).filter(([station]) => 
-                                  isRelevantStation(station)
-                                );
-                                
-                                if (relevantStats.length === 0) return null;
-                                
-                                const totalMinutes = relevantStats.reduce((sum, [, s]) => sum + s.totalMinutes, 0);
-                                const totalHours = totalMinutes / 60;
-                                const experienceLevel = totalHours > 20 ? 'high' : totalHours > 5 ? 'medium' : 'low';
-                                
-                                return (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                )}
+
+                                {/* ATC experience colored clock */}
+                                {signup.atcStats && signup.atcStats.stationStats && Object.keys(signup.atcStats.stationStats).length > 0 && (() => {
+                                  const stats = signup.atcStats.stationStats;
+                                  const relevantStats = Object.entries(stats).filter(([station]) => isRelevantStation(station));
+                                  if (relevantStats.length === 0) return null;
+                                  const totalMinutes = relevantStats.reduce((sum, [, s]) => sum + (s as any).totalMinutes, 0);
+                                  const totalHours = totalMinutes / 60;
+                                  const experienceLevel = totalHours > 20 ? 'high' : totalHours > 5 ? 'medium' : 'low';
+
+                                  return (
                                     <Popover>
                                       <PopoverTrigger asChild>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-5 px-1.5 text-[10px] hover:bg-gray-100 dark:hover:bg-gray-800"
-                                        >
-                                          <Clock className="h-3 w-3 mr-1" />
-                                          Erfahrung ({totalHours.toFixed(1)}h)
-                                        </Button>
+                                        <button className={cn(
+                                          "flex items-center gap-1 text-[10px] transition-colors",
+                                          experienceLevel === 'high' 
+                                            ? "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                                            : experienceLevel === 'medium'
+                                            ? "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300"
+                                            : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                                        )}>
+                                          <Clock className="h-3 w-3" />
+                                          <span>{totalHours.toFixed(0)}h</span>
+                                        </button>
                                       </PopoverTrigger>
-                                      <PopoverContent className="w-80" align="start">
+                                      <PopoverContent className="w-72" align="start">
                                         <div className="space-y-3">
-                                          <div>
-                                            <h4 className="font-medium text-sm mb-2">ATC Erfahrung</h4>
-                                            <div className="text-xs mb-3">
-                                              <span className="text-gray-500 dark:text-gray-400">Gesamt:</span>
-                                              <span className="ml-1 font-medium text-base">
-                                                {totalHours.toFixed(1)}h
-                                              </span>
-                                            </div>
-                                          </div>
-                                          
-                                          <div className="border-t pt-2">
-                                            <h5 className="text-xs font-medium mb-2 text-gray-700 dark:text-gray-300">
-                                              Relevante Stationen
-                                            </h5>
-                                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                                              {relevantStats
-                                                .sort(([, a], [, b]) => b.totalMinutes - a.totalMinutes)
-                                                .map(([station, exp]) => (
-                                                  <div 
-                                                    key={station}
-                                                    className="text-xs p-2 rounded border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                                                  >
-                                                    <div className="flex items-center justify-between mb-1">
+                                          <h4 className="font-medium text-sm">ATC Erfahrung (relevante Stationen)</h4>
+                                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                            {relevantStats
+                                              .sort(([, a], [, b]) => (b as any).totalMinutes - (a as any).totalMinutes)
+                                              .map(([station, exp]) => {
+                                                const e = exp as any;
+                                                return (
+                                                  <div key={station} className="text-xs p-2 rounded border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                                    <div className="flex items-center justify-between">
                                                       <span className="font-medium">{station}</span>
-                                                      <Badge variant="outline" className="text-[9px] h-4 bg-blue-100 dark:bg-blue-900">
-                                                        {(exp.totalMinutes / 60).toFixed(1)}h
+                                                      <Badge variant="outline" className="text-[9px] h-4">
+                                                        {(e.totalMinutes / 60).toFixed(1)}h
                                                       </Badge>
                                                     </div>
-                                                    <div className="flex items-center justify-between text-[10px] text-gray-600 dark:text-gray-400">
-                                                      <span>{exp.sessionCount} Sessions</span>
-                                                      {exp.lastSession && (
-                                                        <span>Letzte: {format(new Date(exp.lastSession), "dd.MM.yyyy", { locale: de })}</span>
+                                                    <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                                      <span>{e.sessionCount} Sessions</span>
+                                                      {e.lastSession && (
+                                                        <span>{format(new Date(e.lastSession), "dd.MM.yy", { locale: de })}</span>
                                                       )}
                                                     </div>
                                                   </div>
-                                                ))}
-                                            </div>
+                                                );
+                                              })}
                                           </div>
                                         </div>
                                       </PopoverContent>
                                     </Popover>
-                                    
-                                    {/* Experience Level Badge */}
-                                    <Badge 
-                                      variant="outline"
-                                      className={cn(
-                                        "text-[9px] h-5 px-1.5",
-                                        experienceLevel === 'high'
-                                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-300 dark:border-green-700"
-                                          : experienceLevel === 'medium'
-                                          ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-700"
-                                          : "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700"
-                                      )}
-                                    >
-                                      {experienceLevel === 'high' ? (
-                                        <>
-                                          <TrendingUp className="h-2.5 w-2.5 mr-0.5" />
-                                          Hoch
-                                        </>
-                                      ) : experienceLevel === 'low' ? (
-                                        <>
-                                          <TrendingDown className="h-2.5 w-2.5 mr-0.5" />
-                                          Gering
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Minus className="h-2.5 w-2.5 mr-0.5" />
-                                          Mittel
-                                        </>
-                                      )}
-                                    </Badge>
-                                  </div>
-                                );
-                              })()}
-                              
-                              {assigned && (
-                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-green-600">
-                                  Eingeplant
-                                </Badge>
-                              )}
-                              {hasCptOrTraining && !assigned && (
-                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-purple-600">
-                                  CPT/Training – weiter ziehbar
-                                </Badge>
-                              )}
+                                  );
+                                })()}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1247,6 +1223,39 @@ export default function RosterEditorPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setMobileAssignDialog({ open: false, station: null })}>
               Abbrechen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ready for Takeoff Dialog */}
+      <Dialog open={scheduleDialog} onOpenChange={setScheduleDialog}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plane className="h-5 w-5 text-blue-500" />
+              Ready for Takeoff
+            </DialogTitle>
+            <DialogDescription>
+              Das Roster wird automatisch veröffentlicht und alle angemeldeten Personen werden benachrichtigt, sobald der Anmeldeschluss abgelaufen ist.
+              {data.occurrence.signupDeadline && (
+                <span className="block mt-2 font-medium text-gray-800 dark:text-gray-200">
+                  Anmeldeschluss: {format(new Date(data.occurrence.signupDeadline), "dd.MM.yyyy HH:mm", { locale: de })} UTC
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button
+              onClick={() => schedulePublish(true)}
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Plane className="h-4 w-4 mr-2" />
+              Ready for Takeoff aktivieren
             </Button>
           </DialogFooter>
         </DialogContent>
