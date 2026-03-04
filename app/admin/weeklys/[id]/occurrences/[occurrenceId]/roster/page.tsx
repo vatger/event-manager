@@ -574,7 +574,7 @@ export default function RosterEditorPage() {
                   disabled={saving}
                   size="sm"
                   variant="outline"
-                  className="border-blue-400 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 h-8 md:h-9"
+                  className="border-blue-400 text-orange-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 h-8 md:h-9"
                 >
                   <Plane className="h-3.5 w-3.5 md:mr-2" />
                   <span className="hidden md:inline">Ready for Takeoff</span>
@@ -1252,10 +1252,9 @@ export default function RosterEditorPage() {
             <Button
               onClick={() => schedulePublish(true)}
               disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-orange-400 hover:bg-orange-700 text-white"
             >
-              <Plane className="h-4 w-4 mr-2" />
-              Ready for Takeoff aktivieren
+              <Plane className="h-4 w-4" />
             </Button>
           </DialogFooter>
         </DialogContent>
