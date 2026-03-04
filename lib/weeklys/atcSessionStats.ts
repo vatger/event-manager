@@ -31,8 +31,9 @@ export interface ATCSessionStats {
  */
 export async function fetchATCSessions(userCID: number): Promise<ATCSession[]> {
   try {
+    const statsBaseUrl = process.env.VATGER_STATS_API ?? "https://stats.vatsim-germany.org/api/atc";
     const response = await fetch(
-      `https://stats.vatsim-germany.org/api/atc/${userCID}/sessions`
+      `${statsBaseUrl}/${userCID}/sessions`
     );
     
     if (!response.ok) {

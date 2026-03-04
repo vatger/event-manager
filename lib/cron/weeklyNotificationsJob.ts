@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { addDays, subDays } from "date-fns";
 import { sendSignupDeadlineDiscordNotification } from "@/lib/weeklys/notificationService";
+import { sendRosterPublishedNotifications } from "@/lib/weeklys/notificationService";
 
 /**
  * Checks weekly occurrences and manages their signup status automatically
@@ -92,6 +93,32 @@ export async function checkWeeklyOccurrenceStatus() {
         });
         
         signupsClosed++;
+
+        // Auto-publish roster if "Ready for Takeoff" was enabled
+        if (occurrence.rosterScheduledPublish && !occurrence.rosterPublished) {
+          try {
+            await prisma.weeklyEventOccurrence.update({
+              where: { id: occurrence.id },
+              data: {
+                rosterPublished: true,
+                rosterPublishedAt: now,
+                rosterScheduledPublish: false,
+              },
+            });
+            console.log(
+              `[Weekly Status] Auto-published roster for occurrence ${occurrence.id} (Ready for Takeoff)`
+            );
+            // Send notifications asynchronously
+            sendRosterPublishedNotifications(occurrence.id, occurrence.configId).catch((error) => {
+              console.error(`[Weekly Status] Failed to send notifications for auto-published roster ${occurrence.id}:`, error);
+            });
+          } catch (error) {
+            console.error(
+              `[Weekly Status] Failed to auto-publish roster for occurrence ${occurrence.id}:`,
+              error
+            );
+          }
+        }
 
         // Send Discord notification for EDMM events (only if deadline within last 24h)
         const hoursSinceDeadline = (now.getTime() - signupDeadline.getTime()) / (1000 * 60 * 60);
