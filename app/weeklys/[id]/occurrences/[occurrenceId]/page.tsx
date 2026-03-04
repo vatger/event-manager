@@ -39,6 +39,8 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
+  GraduationCap,
+  ClipboardCheck,
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
@@ -123,6 +125,7 @@ interface RosterEntry {
   id: number;
   station: string;
   userCID: number;
+  assignmentType?: string;
   user?: {
     name: string;
     rating: number;
@@ -650,7 +653,7 @@ export default function OccurrenceDetailPage() {
             <CardContent>
               <div className="space-y-2">
                 {/* Header Row */}
-                <div className="grid grid-cols-[200px_1fr] gap-4 mb-2 px-3">
+                <div className="hidden sm:grid sm:grid-cols-[200px_1fr] gap-4 mb-2 px-3">
                   <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
                     Station
                   </div>
@@ -663,23 +666,55 @@ export default function OccurrenceDetailPage() {
                 {occurrence.config.staffedStations.map((station) => {
                   const assigned = getAssignedUserForStation(station);
                   const stationGroup = station.split("_").pop() || "";
+                  const assignmentType = assigned?.assignmentType || "normal";
+
+                  const rowBg = assigned
+                    ? assignmentType === "cpt"
+                      ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
+                      : assignmentType === "training"
+                      ? "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800"
+                      : "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
+                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800";
+
+                  const avatarBg = assignmentType === "cpt"
+                    ? "bg-red-100 dark:bg-red-900/30"
+                    : assignmentType === "training"
+                    ? "bg-blue-100 dark:bg-blue-900/30"
+                    : "bg-blue-100 dark:bg-blue-900/30";
+
+                  const avatarText = assignmentType === "cpt"
+                    ? "text-red-600 dark:text-red-400"
+                    : assignmentType === "training"
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-blue-600 dark:text-blue-400";
 
                   return (
                     <div
                       key={station}
                       className={cn(
-                        "grid grid-cols-[200px_1fr] gap-4 items-center p-3 rounded-lg border transition-colors",
-                        "border-gray-200 dark:border-gray-800",
-                        assigned ? "bg-green-50 dark:bg-green-900/10" : "bg-gray-50 dark:bg-gray-900/40"
+                        "flex flex-col sm:grid sm:grid-cols-[200px_1fr] gap-3 sm:gap-4 items-start sm:items-center p-3 rounded-lg border transition-colors",
+                        rowBg,
                       )}
                     >
                       {/* Station Info */}
                       <div className="flex items-center gap-2">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-gray-900 dark:text-gray-100">
                               {station}
                             </span>
+                            {assigned && assignmentType === "cpt" && (
+                              <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
+                                <ClipboardCheck className="h-2.5 w-2.5 mr-0.5" />
+                                CPT
+                              </Badge>
+                            )}
+                            {assigned && assignmentType === "training" && (
+                              <Badge className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-100">
+                                <GraduationCap className="h-2.5 w-2.5 mr-0.5" />
+                                Training
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -688,8 +723,8 @@ export default function OccurrenceDetailPage() {
                       <div>
                         {assigned ? (
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                              <span className="font-semibold text-blue-600 dark:text-blue-400">
+                            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", avatarBg)}>
+                              <span className={cn("font-semibold", avatarText)}>
                                 {assigned.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
                               </span>
                             </div>
@@ -709,6 +744,11 @@ export default function OccurrenceDetailPage() {
                                     getBadgeClassForEndorsement(assigned.endorsementGroup)
                                   )}>
                                     {assigned.endorsementGroup}
+                                  </Badge>
+                                )}
+                                {assigned.restrictions && isTrainee(assigned.restrictions) && (
+                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                    T
                                   </Badge>
                                 )}
                               </div>

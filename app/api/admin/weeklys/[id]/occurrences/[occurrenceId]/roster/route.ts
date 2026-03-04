@@ -108,10 +108,24 @@ export async function GET(
 
     // Get historical signup/roster data for all signed-up users (last 3 occurrences)
     const userCIDs = signupsData.map((s) => s.userCID);
-    const historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 3);
+    let historyMap = new Map<number, any>();
+    let historyLoadError = false;
+    try {
+      historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 3);
+    } catch (err) {
+      console.error("[GET roster] Failed to load history:", err);
+      historyLoadError = true;
+    }
 
     // Get ATC session statistics for all signed-up users
-    const atcStatsMap = await getUsersATCStatsBatch(userCIDs);
+    let atcStatsMap = new Map<number, any>();
+    let atcStatsLoadError = false;
+    try {
+      atcStatsMap = await getUsersATCStatsBatch(userCIDs);
+    } catch (err) {
+      console.error("[GET roster] Failed to load ATC stats:", err);
+      atcStatsLoadError = true;
+    }
 
     // Convert Map to plain objects for JSON serialization
     const atcStatsWithObjects = new Map<number, any>();
@@ -137,6 +151,10 @@ export async function GET(
       },
       signups: signupsWithHistory,
       roster,
+      warnings: {
+        historyLoadError,
+        atcStatsLoadError,
+      },
     });
   } catch (error) {
     console.error("[GET roster] Error:", error);
@@ -167,7 +185,7 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { station, userCID } = body;
+    const { station, userCID, assignmentType } = body;
 
     if (!station || !userCID) {
       return NextResponse.json(
@@ -175,6 +193,10 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    // Validate assignmentType
+    const validTypes = ["normal", "cpt", "training"];
+    const resolvedType = assignmentType && validTypes.includes(assignmentType) ? assignmentType : "normal";
 
     // Fetch config with FIR
     const config = await prisma.weeklyEventConfiguration.findUnique({
@@ -268,7 +290,7 @@ export async function POST(
       // Update existing assignment
       const updated = await prisma.weeklyEventRoster.update({
         where: { id: existingAssignment.id },
-        data: { userCID },
+        data: { userCID, assignmentType: resolvedType },
       });
       
       return NextResponse.json({
@@ -283,6 +305,7 @@ export async function POST(
         occurrenceId: occurrenceIdNum,
         station,
         userCID,
+        assignmentType: resolvedType,
       },
     });
 

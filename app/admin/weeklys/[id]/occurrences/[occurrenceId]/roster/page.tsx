@@ -19,7 +19,12 @@ import {
   History,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  MoreVertical,
+  GraduationCap,
+  ClipboardCheck,
+  UserCheck,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -33,11 +38,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
@@ -102,6 +115,7 @@ interface RosterEntry {
   occurrenceId: number;
   station: string;
   userCID: number;
+  assignmentType: string;
   createdAt: string;
   updatedAt: string;
   user: User | null;
@@ -111,6 +125,7 @@ interface RosterEntry {
   id: number;
   station: string;
   userCID: number;
+  assignmentType: string;
 }
 
 interface WeeklyConfig {
@@ -134,6 +149,10 @@ interface RosterData {
   config: WeeklyConfig;
   signups: Signup[];
   roster: RosterEntry[];
+  warnings?: {
+    historyLoadError: boolean;
+    atcStatsLoadError: boolean;
+  };
 }
 
 export default function RosterEditorPage() {
@@ -149,6 +168,13 @@ export default function RosterEditorPage() {
   const [publishDialog, setPublishDialog] = useState(false);
   const [draggedUser, setDraggedUser] = useState<Signup | null>(null);
   const [s1TwrStations, setS1TwrStations] = useState<Set<string>>(new Set());
+
+  // Mobile click-to-assign state
+  const [mobileAssignDialog, setMobileAssignDialog] = useState<{ open: boolean; station: string | null }>({
+    open: false,
+    station: null,
+  });
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 
   // Fetch roster data
   useEffect(() => {
@@ -193,7 +219,7 @@ export default function RosterEditorPage() {
     }
   };
 
-  const assignUser = async (station: string, userCID: number) => {
+  const assignUser = async (station: string, userCID: number, assignmentType: string = "normal") => {
     setSaving(true);
     try {
       const res = await fetch(
@@ -201,7 +227,7 @@ export default function RosterEditorPage() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ station, userCID }),
+          body: JSON.stringify({ station, userCID, assignmentType }),
         }
       );
 
@@ -242,6 +268,38 @@ export default function RosterEditorPage() {
     } catch (error: any) {
       console.error("Unassign error:", error);
       toast.error(error.message || "Fehler beim Entfernen");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateAssignmentType = async (rosterId: number, assignmentType: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster/${rosterId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assignmentType }),
+        }
+      );
+
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Failed to update");
+      }
+
+      const labels: Record<string, string> = {
+        normal: "Normal",
+        cpt: "CPT",
+        training: "Training",
+      };
+      toast.success(`Typ geändert zu: ${labels[assignmentType] || assignmentType}`);
+      await fetchData();
+    } catch (error: any) {
+      console.error("Update type error:", error);
+      toast.error(error.message || "Fehler beim Aktualisieren");
     } finally {
       setSaving(false);
     }
@@ -306,7 +364,13 @@ export default function RosterEditorPage() {
   };
 
   const isUserAssigned = (userCID: number): boolean => {
-    return data?.roster.some(r => r.userCID === userCID) || false;
+    // A user is considered "fully assigned" only if they have a normal assignment
+    // CPT/Training users can be assigned to multiple stations
+    return data?.roster.some(r => r.userCID === userCID && r.assignmentType === 'normal') || false;
+  };
+
+  const getUserAssignments = (userCID: number): RosterEntry[] => {
+    return data?.roster.filter(r => r.userCID === userCID) || [];
   };
 
   const canUserStaffStation = (signup: Signup, station: string): boolean => {
@@ -338,8 +402,16 @@ export default function RosterEditorPage() {
 
   const handleDrop = (station: string) => {
     if (draggedUser && canUserStaffStation(draggedUser, station)) {
-      assignUser(station, draggedUser.userCID);
+      // Inherit assignment type from existing assignments (CPT/Training)
+      const existingAssignments = getUserAssignments(draggedUser.userCID);
+      const existingType = existingAssignments.length > 0 ? existingAssignments[0].assignmentType : "normal";
+      assignUser(station, draggedUser.userCID, existingType);
     }
+  };
+
+  const handleMobileAssign = (station: string) => {
+    setMobileSearchQuery("");
+    setMobileAssignDialog({ open: true, station });
   };
 
   if (loading) {
@@ -435,6 +507,34 @@ export default function RosterEditorPage() {
           </div>
         </div>
 
+        {/* Warnings */}
+        {(data.warnings?.historyLoadError || data.warnings?.atcStatsLoadError) && (
+          <div className="space-y-2">
+            {data.warnings.historyLoadError && (
+              <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm font-medium">
+                  Teilnahme-Historie nicht verfügbar
+                </AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
+                  Die historischen Anmeldedaten konnten nicht geladen werden. Die Anzeige der Teilnahme-Geschichte ist für diesen Termin nicht verfügbar.
+                </AlertDescription>
+              </Alert>
+            )}
+            {data.warnings.atcStatsLoadError && (
+              <Alert className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertTitle className="text-amber-800 dark:text-amber-300 text-sm font-medium">
+                  ATC-Statistiken nicht verfügbar
+                </AlertTitle>
+                <AlertDescription className="text-amber-700 dark:text-amber-400 text-xs">
+                  Die ATC-Erfahrungsdaten konnten nicht vom Server abgerufen werden. Die Erfahrungsanzeige ist für diesen Termin nicht verfügbar.
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
+
         {/* Main Grid - Responsive Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 lg:gap-6">
           {/* Timeline - Stations */}
@@ -446,11 +546,27 @@ export default function RosterEditorPage() {
                   <CardTitle className="text-base lg:text-lg">Besetzungsplan</CardTitle>
                 </div>
                 <CardDescription className="text-xs lg:text-sm">
-                  Ziehe Benutzer auf die gewünschten Stationen
+                  Ziehe Benutzer auf die gewünschten Stationen oder tippe auf einen freien Slot
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-2 lg:px-6">
                 <div className="space-y-2">
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-3 mb-3 px-1 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700" />
+                      <span>CPT</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700" />
+                      <span>Training</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700" />
+                      <span>Normal</span>
+                    </div>
+                  </div>
+
                   {/* Header Row - Hidden on Mobile */}
                   <div className="hidden md:grid md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] gap-4 mb-2 px-3">
                     <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -466,15 +582,41 @@ export default function RosterEditorPage() {
                     const assigned = getAssignedUser(station);
                     const rosterEntry = data.roster.find(r => r.station === station);
                     const stationGroup = extractStationGroup(station);
+                    const assignmentType = rosterEntry?.assignmentType || "normal";
+
+                    const rowBg = assigned
+                      ? assignmentType === "cpt"
+                        ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
+                        : assignmentType === "training"
+                        ? "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800"
+                        : "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
+                      : "border-gray-200 dark:border-gray-800";
+
+                    const cardBorderColor = assignmentType === "cpt"
+                      ? "border-red-200 dark:border-red-700"
+                      : assignmentType === "training"
+                      ? "border-blue-200 dark:border-blue-700"
+                      : "border-blue-200 dark:border-blue-800";
+
+                    const avatarBg = assignmentType === "cpt"
+                      ? "bg-red-100 dark:bg-red-900/30"
+                      : assignmentType === "training"
+                      ? "bg-blue-100 dark:bg-blue-900/30"
+                      : "bg-blue-100 dark:bg-blue-900/30";
+
+                    const avatarText = assignmentType === "cpt"
+                      ? "text-red-600 dark:text-red-400"
+                      : assignmentType === "training"
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-blue-600 dark:text-blue-400";
 
                     return (
                       <div
                         key={station}
                         className={cn(
                           "flex flex-col md:grid md:grid-cols-[180px_1fr] lg:grid-cols-[200px_1fr] gap-3 md:gap-4 items-start md:items-center p-3 rounded-lg border transition-colors",
-                          "hover:bg-gray-50 dark:hover:bg-gray-800/50",
-                          "border-gray-200 dark:border-gray-800",
-                          assigned ? "bg-green-50 dark:bg-green-900/10" : ""
+                          "hover:bg-gray-50/80 dark:hover:bg-gray-800/30",
+                          rowBg,
                         )}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(station)}
@@ -499,52 +641,115 @@ export default function RosterEditorPage() {
                         {/* Assigned User Slot */}
                         <div className="min-h-[60px] w-full">
                           {assigned ? (
-                            <div className="flex items-center justify-between p-2 md:p-3 bg-white dark:bg-gray-900 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <div className={cn(
+                              "flex items-center justify-between p-2 md:p-3 bg-white dark:bg-gray-900 rounded-lg border",
+                              cardBorderColor,
+                            )}>
                               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
-                                <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-xs md:text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                <div className={cn(
+                                  "h-8 w-8 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                                  avatarBg,
+                                )}>
+                                  <span className={cn("text-xs md:text-sm font-semibold", avatarText)}>
                                     {assigned.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
                                   </span>
                                 </div>
-                                  <div className="flex-1 min-w-0">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                                     <p className="font-medium text-sm md:text-base text-gray-900 dark:text-gray-100 truncate">
                                       {assigned.user?.name || `CID ${assigned.userCID}`}
                                     </p>
-                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                      <Badge variant="outline" className="text-[10px] h-4">
-                                        {getRatingFromValue(assigned.user?.rating || 0)}
+                                    {assignmentType === "cpt" && (
+                                      <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
+                                        <ClipboardCheck className="h-2.5 w-2.5 mr-0.5" />
+                                        CPT
                                       </Badge>
-                                      {assigned.endorsementGroup && (
-                                        <Badge className={cn(
-                                          "text-[10px] h-4",
-                                          getBadgeClassForEndorsement(assigned.endorsementGroup)
-                                        )}>
-                                          {assigned.endorsementGroup}
-                                        </Badge>
-                                      )}
-                                      {isTrainee(assigned.restrictions) && (
-                                        <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                          T
-                                        </Badge>
-                                      )}
-                                    </div>
+                                    )}
+                                    {assignmentType === "training" && (
+                                      <Badge className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-100">
+                                        <GraduationCap className="h-2.5 w-2.5 mr-0.5" />
+                                        Training
+                                      </Badge>
+                                    )}
                                   </div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" className="text-[10px] h-4">
+                                      {getRatingFromValue(assigned.user?.rating || 0)}
+                                    </Badge>
+                                    {assigned.endorsementGroup && (
+                                      <Badge className={cn(
+                                        "text-[10px] h-4",
+                                        getBadgeClassForEndorsement(assigned.endorsementGroup)
+                                      )}>
+                                        {assigned.endorsementGroup}
+                                      </Badge>
+                                    )}
+                                    {isTrainee(assigned.restrictions) && (
+                                      <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
+                                        T
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => rosterEntry && unassignUser(rosterEntry.id)}
-                                disabled={saving}
-                                className="h-8 md:h-9 text-xs text-red-600 hover:text-red-700 flex-shrink-0 ml-2"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                              {/* 3-dot menu */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={saving}
+                                    className="h-8 w-8 p-0 flex-shrink-0 ml-1"
+                                  >
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    onClick={() => rosterEntry && updateAssignmentType(rosterEntry.id, "normal")}
+                                    className={cn(assignmentType === "normal" && "bg-gray-50 dark:bg-gray-800 font-medium")}
+                                  >
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Normal
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => rosterEntry && updateAssignmentType(rosterEntry.id, "cpt")}
+                                    className={cn(assignmentType === "cpt" && "bg-red-50 dark:bg-red-900/20 font-medium text-red-700 dark:text-red-300")}
+                                  >
+                                    <ClipboardCheck className="h-4 w-4 mr-2 text-red-500" />
+                                    Als CPT markieren
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => rosterEntry && updateAssignmentType(rosterEntry.id, "training")}
+                                    className={cn(assignmentType === "training" && "bg-blue-50 dark:bg-blue-900/20 font-medium text-blue-700 dark:text-blue-300")}
+                                  >
+                                    <GraduationCap className="h-4 w-4 mr-2 text-blue-500" />
+                                    Als Training markieren
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => rosterEntry && unassignUser(rosterEntry.id)}
+                                    className="text-red-600 dark:text-red-400 focus:text-red-700 dark:focus:text-red-300"
+                                  >
+                                    <X className="h-4 w-4 mr-2" />
+                                    Zuweisung entfernen
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           ) : (
-                            <div className="flex items-center justify-center h-full min-h-[60px] p-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/40">
-                              <p className="text-xs md:text-sm text-gray-400 dark:text-gray-600 text-center">
-                                Hierher ziehen zum zuweisen
-                              </p>
+                            <div
+                              className="flex items-center justify-center h-full min-h-[60px] p-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/40 cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
+                              onClick={() => handleMobileAssign(station)}
+                            >
+                              <div className="text-center">
+                                <p className="text-xs text-gray-400 dark:text-gray-600 hidden md:block">
+                                  Hierher ziehen oder
+                                </p>
+                                <button className="text-xs text-blue-500 dark:text-blue-400 font-medium hover:underline mt-0.5">
+                                  Person auswählen
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -583,7 +788,11 @@ export default function RosterEditorPage() {
                   ) : (
                     data.signups.map((signup) => {
                       const assigned = isUserAssigned(signup.userCID);
+                      const userAssignments = getUserAssignments(signup.userCID);
+                      const hasCptOrTraining = userAssignments.some(a => a.assignmentType === 'cpt' || a.assignmentType === 'training');
                       const canDrag = !assigned;
+                      const cptCount = userAssignments.filter(a => a.assignmentType === 'cpt').length;
+                      const trainingCount = userAssignments.filter(a => a.assignmentType === 'training').length;
                       
                       return (
                         <div
@@ -591,9 +800,10 @@ export default function RosterEditorPage() {
                           className={cn(
                             "p-2.5 md:p-3 rounded-lg border transition-all touch-manipulation",
                             assigned 
-                              ? "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 opacity-60"
-                              : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md cursor-move active:opacity-75",
-                            canDrag && "hover:border-blue-300 dark:hover:border-blue-700"
+                              ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 opacity-60"
+                              : hasCptOrTraining
+                              ? "border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10 cursor-move active:opacity-75 hover:shadow-md hover:border-purple-300 dark:hover:border-purple-700"
+                              : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:shadow-md cursor-move active:opacity-75 hover:border-blue-300 dark:hover:border-blue-700",
                           )}
                           draggable={canDrag}
                           onDragStart={() => canDrag && handleDragStart(signup)}
@@ -602,7 +812,9 @@ export default function RosterEditorPage() {
                             <div className={cn(
                               "h-9 w-9 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0",
                               assigned 
-                                ? "bg-blue-200 dark:bg-blue-800"
+                                ? "bg-green-200 dark:bg-green-800"
+                                : hasCptOrTraining
+                                ? "bg-purple-100 dark:bg-purple-900/30"
                                 : "bg-gray-100 dark:bg-gray-800"
                             )}>
                               <span className="font-semibold text-sm md:text-base">
@@ -632,6 +844,18 @@ export default function RosterEditorPage() {
                                 {isTrainee(signup.restrictions) && (
                                   <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
                                     Trainee
+                                  </Badge>
+                                )}
+                                {cptCount > 0 && (
+                                  <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
+                                    <ClipboardCheck className="h-2.5 w-2.5 mr-0.5" />
+                                    CPT ×{cptCount}
+                                  </Badge>
+                                )}
+                                {trainingCount > 0 && (
+                                  <Badge className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-100">
+                                    <GraduationCap className="h-2.5 w-2.5 mr-0.5" />
+                                    Training ×{trainingCount}
                                   </Badge>
                                 )}
                               </div>
@@ -880,8 +1104,13 @@ export default function RosterEditorPage() {
                               })()}
                               
                               {assigned && (
-                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-blue-600">
-                                  Zugewiesen
+                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-green-600">
+                                  Eingeplant
+                                </Badge>
+                              )}
+                              {hasCptOrTraining && !assigned && (
+                                <Badge variant="default" className="text-[8px] h-3 px-1 mt-1 bg-purple-600">
+                                  CPT/Training – weiter ziehbar
                                 </Badge>
                               )}
                             </div>
@@ -896,6 +1125,137 @@ export default function RosterEditorPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Assign Dialog */}
+      <Dialog 
+        open={mobileAssignDialog.open} 
+        onOpenChange={(open) => !open && setMobileAssignDialog({ open: false, station: null })}
+      >
+        <DialogContent className="sm:max-w-[480px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Person zuweisen
+            </DialogTitle>
+            <DialogDescription>
+              Station: <span className="font-medium">{mobileAssignDialog.station}</span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden flex flex-col gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Name suchen..."
+                value={mobileSearchQuery}
+                onChange={(e) => setMobileSearchQuery(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            
+            {/* Signup List */}
+            <div className="overflow-y-auto space-y-2 flex-1 max-h-[50vh] pr-1">
+              {data.signups
+                .filter((signup) => {
+                  // Show unassigned and CPT/Training users who can staff this station
+                  const isNormalAssigned = isUserAssigned(signup.userCID);
+                  if (isNormalAssigned) return false;
+                  if (!mobileAssignDialog.station) return false;
+                  if (!canUserStaffStation(signup, mobileAssignDialog.station)) return false;
+                  // Filter by search
+                  if (mobileSearchQuery) {
+                    const name = signup.user?.name?.toLowerCase() || '';
+                    const cid = signup.userCID.toString();
+                    return name.includes(mobileSearchQuery.toLowerCase()) || cid.includes(mobileSearchQuery);
+                  }
+                  return true;
+                })
+                .map((signup) => {
+                  const userAssignments = getUserAssignments(signup.userCID);
+                  const hasCptOrTraining = userAssignments.some(a => a.assignmentType === 'cpt' || a.assignmentType === 'training');
+                  const existingType = userAssignments.length > 0 ? userAssignments[0].assignmentType : "normal";
+
+                  return (
+                    <button
+                      key={signup.userCID}
+                      className={cn(
+                        "w-full text-left p-3 rounded-lg border transition-all",
+                        hasCptOrTraining
+                          ? "border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                          : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
+                      )}
+                      onClick={() => {
+                        if (mobileAssignDialog.station) {
+                          assignUser(mobileAssignDialog.station, signup.userCID, existingType);
+                          setMobileAssignDialog({ open: false, station: null });
+                        }
+                      }}
+                      disabled={saving}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                          hasCptOrTraining ? "bg-purple-100 dark:bg-purple-900/30" : "bg-gray-100 dark:bg-gray-800"
+                        )}>
+                          <span className="font-semibold text-sm">
+                            {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">
+                            {signup.user?.name || `CID ${signup.userCID}`}
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            <Badge variant="outline" className="text-[9px] h-4">
+                              {getRatingBadge(signup.user?.rating || 0)}
+                            </Badge>
+                            {signup.endorsementGroup && (
+                              <Badge className={cn("text-[9px] h-4", getBadgeClassForEndorsement(signup.endorsementGroup))}>
+                                {signup.endorsementGroup}
+                              </Badge>
+                            )}
+                            {isTrainee(signup.restrictions) && (
+                              <Badge className="text-[9px] h-4 bg-yellow-500 text-black">T</Badge>
+                            )}
+                            {hasCptOrTraining && (
+                              <Badge className="text-[9px] h-4 px-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                                CPT/Training
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Check className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                      </div>
+                    </button>
+                  );
+                })}
+              {data.signups.filter((signup) => {
+                const isNormalAssigned = isUserAssigned(signup.userCID);
+                if (isNormalAssigned) return false;
+                if (!mobileAssignDialog.station) return false;
+                if (!canUserStaffStation(signup, mobileAssignDialog.station)) return false;
+                if (mobileSearchQuery) {
+                  const name = signup.user?.name?.toLowerCase() || '';
+                  const cid = signup.userCID.toString();
+                  return name.includes(mobileSearchQuery.toLowerCase()) || cid.includes(mobileSearchQuery);
+                }
+                return true;
+              }).length === 0 && (
+                <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+                  {mobileSearchQuery ? 'Keine Personen gefunden' : 'Keine verfügbaren Anmeldungen für diese Station'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMobileAssignDialog({ open: false, station: null })}>
+              Abbrechen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Publish Dialog */}
       <Dialog open={publishDialog} onOpenChange={setPublishDialog}>

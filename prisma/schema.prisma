@@ -345,13 +345,14 @@ model WeeklyEventSignup {
 
 // Roster assignments for weekly events
 model WeeklyEventRoster {
-  id           Int      @id @default(autoincrement())
-  occurrenceId Int
-  occurrence   WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
-  userCID      Int
-  station      String // Callsign assigned to this user
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  occurrenceId   Int
+  occurrence     WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
+  userCID        Int
+  station        String // Callsign assigned to this user
+  assignmentType String   @default("normal") // "normal", "cpt", "training"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@unique([occurrenceId, station])
   @@index([occurrenceId])
