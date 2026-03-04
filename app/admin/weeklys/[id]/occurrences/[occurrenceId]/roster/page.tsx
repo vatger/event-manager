@@ -485,7 +485,7 @@ export default function RosterEditorPage() {
                     <span className="hidden sm:inline text-gray-300 dark:text-gray-700">•</span>
                     <div className="flex items-center gap-1 text-xs md:text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                      <span className="whitespace-nowrap">{data.config.startTime} - {data.config.endTime} UTC</span>
+                      <span className="whitespace-nowrap">{data.config.startTime} - {data.config.endTime} lcl</span>
                     </div>
                   </>
                 )}
