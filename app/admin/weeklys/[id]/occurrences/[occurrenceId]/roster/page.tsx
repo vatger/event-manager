@@ -414,6 +414,20 @@ export default function RosterEditorPage() {
     setMobileAssignDialog({ open: true, station });
   };
 
+  const getAvailableSignupsForStation = (station: string | null, searchQuery: string): Signup[] => {
+    if (!station || !data) return [];
+    return data.signups.filter((signup) => {
+      if (isUserAssigned(signup.userCID)) return false;
+      if (!canUserStaffStation(signup, station)) return false;
+      if (searchQuery) {
+        const name = signup.user?.name?.toLowerCase() || '';
+        const cid = signup.userCID.toString();
+        return name.includes(searchQuery.toLowerCase()) || cid.includes(searchQuery);
+      }
+      return true;
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -1156,96 +1170,77 @@ export default function RosterEditorPage() {
             
             {/* Signup List */}
             <div className="overflow-y-auto space-y-2 flex-1 max-h-[50vh] pr-1">
-              {data.signups
-                .filter((signup) => {
-                  // Show unassigned and CPT/Training users who can staff this station
-                  const isNormalAssigned = isUserAssigned(signup.userCID);
-                  if (isNormalAssigned) return false;
-                  if (!mobileAssignDialog.station) return false;
-                  if (!canUserStaffStation(signup, mobileAssignDialog.station)) return false;
-                  // Filter by search
-                  if (mobileSearchQuery) {
-                    const name = signup.user?.name?.toLowerCase() || '';
-                    const cid = signup.userCID.toString();
-                    return name.includes(mobileSearchQuery.toLowerCase()) || cid.includes(mobileSearchQuery);
-                  }
-                  return true;
-                })
-                .map((signup) => {
-                  const userAssignments = getUserAssignments(signup.userCID);
-                  const hasCptOrTraining = userAssignments.some(a => a.assignmentType === 'cpt' || a.assignmentType === 'training');
-                  const existingType = userAssignments.length > 0 ? userAssignments[0].assignmentType : "normal";
+              {(() => {
+                const availableSignups = getAvailableSignupsForStation(mobileAssignDialog.station, mobileSearchQuery);
+                return (
+                  <>
+                    {availableSignups.map((signup) => {
+                      const userAssignments = getUserAssignments(signup.userCID);
+                      const hasCptOrTraining = userAssignments.some(a => a.assignmentType === 'cpt' || a.assignmentType === 'training');
+                      const existingType = userAssignments.length > 0 ? userAssignments[0].assignmentType : "normal";
 
-                  return (
-                    <button
-                      key={signup.userCID}
-                      className={cn(
-                        "w-full text-left p-3 rounded-lg border transition-all",
-                        hasCptOrTraining
-                          ? "border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                          : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
-                      )}
-                      onClick={() => {
-                        if (mobileAssignDialog.station) {
-                          assignUser(mobileAssignDialog.station, signup.userCID, existingType);
-                          setMobileAssignDialog({ open: false, station: null });
-                        }
-                      }}
-                      disabled={saving}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                          hasCptOrTraining ? "bg-purple-100 dark:bg-purple-900/30" : "bg-gray-100 dark:bg-gray-800"
-                        )}>
-                          <span className="font-semibold text-sm">
-                            {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {signup.user?.name || `CID ${signup.userCID}`}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            <Badge variant="outline" className="text-[9px] h-4">
-                              {getRatingBadge(signup.user?.rating || 0)}
-                            </Badge>
-                            {signup.endorsementGroup && (
-                              <Badge className={cn("text-[9px] h-4", getBadgeClassForEndorsement(signup.endorsementGroup))}>
-                                {signup.endorsementGroup}
-                              </Badge>
-                            )}
-                            {isTrainee(signup.restrictions) && (
-                              <Badge className="text-[9px] h-4 bg-yellow-500 text-black">T</Badge>
-                            )}
-                            {hasCptOrTraining && (
-                              <Badge className="text-[9px] h-4 px-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
-                                CPT/Training
-                              </Badge>
-                            )}
+                      return (
+                        <button
+                          key={signup.userCID}
+                          className={cn(
+                            "w-full text-left p-3 rounded-lg border transition-all",
+                            hasCptOrTraining
+                              ? "border-purple-200 dark:border-purple-800 bg-purple-50/30 dark:bg-purple-900/10 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                              : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
+                          )}
+                          onClick={() => {
+                            if (mobileAssignDialog.station) {
+                              assignUser(mobileAssignDialog.station, signup.userCID, existingType);
+                              setMobileAssignDialog({ open: false, station: null });
+                            }
+                          }}
+                          disabled={saving}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0",
+                              hasCptOrTraining ? "bg-purple-100 dark:bg-purple-900/30" : "bg-gray-100 dark:bg-gray-800"
+                            )}>
+                              <span className="font-semibold text-sm">
+                                {signup.user?.name?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'U'}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {signup.user?.name || `CID ${signup.userCID}`}
+                              </p>
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                <Badge variant="outline" className="text-[9px] h-4">
+                                  {getRatingBadge(signup.user?.rating || 0)}
+                                </Badge>
+                                {signup.endorsementGroup && (
+                                  <Badge className={cn("text-[9px] h-4", getBadgeClassForEndorsement(signup.endorsementGroup))}>
+                                    {signup.endorsementGroup}
+                                  </Badge>
+                                )}
+                                {isTrainee(signup.restrictions) && (
+                                  <Badge className="text-[9px] h-4 bg-yellow-500 text-black">T</Badge>
+                                )}
+                                {hasCptOrTraining && (
+                                  <Badge className="text-[9px] h-4 px-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                                    CPT/Training
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <Check className="h-4 w-4 text-gray-300 flex-shrink-0" />
                           </div>
-                        </div>
-                        <Check className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                        </button>
+                      );
+                    })}
+                    {availableSignups.length === 0 && (
+                      <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+                        {mobileSearchQuery ? 'Keine Personen gefunden' : 'Keine verfügbaren Anmeldungen für diese Station'}
                       </div>
-                    </button>
-                  );
-                })}
-              {data.signups.filter((signup) => {
-                const isNormalAssigned = isUserAssigned(signup.userCID);
-                if (isNormalAssigned) return false;
-                if (!mobileAssignDialog.station) return false;
-                if (!canUserStaffStation(signup, mobileAssignDialog.station)) return false;
-                if (mobileSearchQuery) {
-                  const name = signup.user?.name?.toLowerCase() || '';
-                  const cid = signup.userCID.toString();
-                  return name.includes(mobileSearchQuery.toLowerCase()) || cid.includes(mobileSearchQuery);
-                }
-                return true;
-              }).length === 0 && (
-                <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-                  {mobileSearchQuery ? 'Keine Personen gefunden' : 'Keine verfügbaren Anmeldungen für diese Station'}
-                </div>
-              )}
+                    )}
+                  </>
+                );
+              })()}
             </div>
           </div>
 
