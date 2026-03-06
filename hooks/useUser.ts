@@ -50,10 +50,18 @@ export function useUser() {
 
   const isMainAdmin = (): boolean => data?.effectiveLevel === "MAIN_ADMIN";
 
+  const isWeeklyManager = (configId?: number): boolean => {
+    if (!data?.managedWeeklyIds || data.managedWeeklyIds.length === 0) return false;
+    if (configId === undefined) return data.managedWeeklyIds.length > 0;
+    return data.managedWeeklyIds.includes(configId);
+  };
+
   const hasAdminAcess = (): boolean => {
     if(data?.effectiveLevel == "MAIN_ADMIN") return true;
     if(data?.effectiveLevel == "VATGER_LEITUNG") return true;
     if(data?.groups && data?.groups.length > 0) return true;
+    // Weekly managers also need admin access to reach the roster editor
+    if(data?.managedWeeklyIds && data.managedWeeklyIds.length > 0) return true;
     
     return false
 
@@ -72,5 +80,6 @@ export function useUser() {
     isVATGERLead,
     isMainAdmin,
     hasAdminAcess,
+    isWeeklyManager,
   };
 }

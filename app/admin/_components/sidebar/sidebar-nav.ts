@@ -8,6 +8,7 @@ import {
     CheckCheckIcon,
     Image,
     TowerControl,
+    Repeat,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   

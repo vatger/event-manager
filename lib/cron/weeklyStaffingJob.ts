@@ -5,6 +5,7 @@ import {
   formatStaffingCheckMessage,
   StaffingCheckResult 
 } from "@/lib/weeklys/staffingCheck";
+import { resolveDiscordNotification } from "@/config/discordNotifications";
 
 // In-memory cache to track which occurrences have already been checked
 // This prevents duplicate notifications
@@ -157,13 +158,23 @@ async function sendStaffingAlert(
 
   const discordBotUrl = process.env.DISCORD_BOT_URL;
   const discordBotToken = process.env.DISCORD_BOT_TOKEN;
-  const channelId = process.env.DISCORD_EDMM_CHANNEL_ID;
-  const roleId = process.env.DISCORD_EDMM_ROLE_ID;
 
-  if (!discordBotUrl || !discordBotToken || !channelId || !roleId) {
-    console.error("[Weekly Staffing] Discord bot configuration missing in env variables");
+  if (!discordBotUrl || !discordBotToken) {
+    console.error("[Weekly Staffing] Discord bot credentials missing in env variables");
     return;
   }
+
+  const firCode = occurrence.config.fir?.code;
+  const discordConfig = firCode
+    ? resolveDiscordNotification(firCode, "staffing_check", configId)
+    : null;
+
+  if (!discordConfig) {
+    console.error(`[Weekly Staffing] No Discord config for FIR ${firCode ?? "unknown"} (staffing_check), skipping`);
+    return;
+  }
+
+  const { channelId, roleId } = discordConfig;
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
   const rosterEditorLink = `${baseUrl}/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster`;
@@ -185,7 +196,7 @@ async function sendStaffingAlert(
     body: JSON.stringify({
       channel_id: channelId,
       message: fullMessage,
-      role_id: roleId,
+      ...(roleId ? { role_id: roleId } : {}),
     }),
   });
 

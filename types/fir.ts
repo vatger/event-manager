@@ -54,6 +54,9 @@ export interface User {
   
     /** FIR-spezifische Rollen: FIR-Code -> "FIR_EVENTLEITER" | "FIR_TEAM" */
     firLevels: Record<string, "FIR_EVENTLEITER" | "FIR_TEAM">;
+
+    /** IDs der Weekly Events, für die der Nutzer als Verantwortlicher eingetragen ist */
+    managedWeeklyIds: number[];
   }
   
   export interface CreateFIRData {

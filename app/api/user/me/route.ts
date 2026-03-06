@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserWithEffectiveData } from "@/lib/acl/policies";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -12,6 +13,13 @@ export async function GET() {
   const user = await getUserWithEffectiveData(cid);
   if (!user)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  // Fetch the weekly events the user is responsible for
+  const managedWeeklys = await prisma.weeklyEventManager.findMany({
+    where: { userCID: cid },
+    select: { configId: true },
+  });
+  const managedWeeklyIds = managedWeeklys.map((m) => m.configId);
 
   // API-Response im Format deines CurrentUser-Interfaces
   const responseData = {
@@ -33,6 +41,7 @@ export async function GET() {
     firScopedPermissions: user.firScopedPermissions,
     effectiveLevel: user.effectiveLevel,
     firLevels: user.firLevels,
+    managedWeeklyIds,
   };
 
   return NextResponse.json(responseData);

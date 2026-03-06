@@ -77,7 +77,7 @@ export default function AdminEventsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");  
   const [selectedFir, setSelectedFir] = useState<string | "ALL">("ALL");
-  const { user, isVATGERLead, canInFIR, canInOwnFIR } = useUser();
+  const { user, isVATGERLead, canInFIR, canInOwnFIR, isWeeklyManager } = useUser();
 
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
@@ -268,6 +268,7 @@ export default function AdminEventsPage() {
   // Check permissions for weekly events
   const canEditWeekly = (config: WeeklyEventConfig): boolean => {
     if (isVATGERLead()) return true;
+    if (isWeeklyManager(config.id)) return true;
     if (!config.fir?.code) return false;
     return canInFIR(config.fir.code, "event.edit");
   };

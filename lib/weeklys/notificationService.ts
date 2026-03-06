@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { resolveDiscordConfig } from "@/lib/discord/resolveConfig";
-import { DISCORD_NOTIFICATION_TYPES } from "@/lib/discord/notificationTypes";
+import { resolveDiscordNotification } from "@/config/discordNotifications";
 
 /**
  * Send notifications when a roster is published
@@ -159,7 +158,7 @@ export async function sendRosterPublishedNotifications(
 /**
  * Send Discord notification when signup deadline passes.
  * Notifies event team that roster planning can begin.
- * Uses per-weekly or FIR-wide Discord config (resolved via resolveDiscordConfig).
+ * Reads channel/role from config/discordNotifications.ts (per-weekly → FIR-wide).
  */
 export async function sendSignupDeadlineDiscordNotification(
   occurrenceId: number,
@@ -196,13 +195,8 @@ export async function sendSignupDeadlineDiscordNotification(
       return;
     }
 
-    // Resolve channel/role: weekly-specific → FIR-wide → env var fallback
-    const discordConfig = await resolveDiscordConfig(
-      fir.id,
-      fir.code,
-      DISCORD_NOTIFICATION_TYPES.WEEKLY_SIGNUP_DEADLINE,
-      configId
-    );
+    // Resolve channel/role from config file: weekly-specific → FIR-wide
+    const discordConfig = resolveDiscordNotification(fir.code, "weekly_signup_deadline", configId);
 
     if (!discordConfig) {
       console.log(`[WEEKLY DISCORD] No Discord config for FIR ${fir.code} (weekly_signup_deadline), skipping`);

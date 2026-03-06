@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { addWeeks } from "date-fns";
 import { checkMultipleOccurrences } from "@/lib/weeklys/myVatsimService";
+import { resolveDiscordNotification } from "@/config/discordNotifications";
 
 /**
  * Daily CRON job to check weekly event occurrences on myVATSIM
@@ -88,16 +89,17 @@ export async function checkWeeklyMyVatsim() {
         );
 
         // Send notification if event is in ~14 days and not registered
+        const firCode = occ.config.fir?.code;
         if (
-          occ.config.fir?.code === "EDMM" &&
+          firCode &&
           daysUntilOccurrence >= 13 &&
           daysUntilOccurrence <= 15
         ) {
           try {
-            await sendEdmmNotification(occ.id, occ.config.name, occurrenceDate);
+            await sendMyVatsimNotification(occ.id, firCode, occ.config.name, occurrenceDate);
             notificationsSent++;
             console.log(
-              `[Weekly myVATSIM] Sent notification for EDMM occurrence ${occ.id}`
+              `[Weekly myVATSIM] Sent notification for occurrence ${occ.id}`
             );
           } catch (error) {
             console.error(
@@ -125,24 +127,33 @@ export async function checkWeeklyMyVatsim() {
 }
 
 /**
- * Send Discord notification to EDMM event team about missing myVATSIM registration
+ * Send Discord notification about missing myVATSIM registration
  */
-async function sendEdmmNotification(
+async function sendMyVatsimNotification(
   occurrenceId: number,
+  firCode: string,
   eventName: string,
   eventDate: Date
 ) {
   const discordBotUrl = process.env.DISCORD_BOT_URL;
   const discordBotToken = process.env.DISCORD_BOT_TOKEN;
-  const channelId = process.env.DISCORD_EDMM_CHANNEL_ID;
-  const roleId = process.env.DISCORD_EDMM_ROLE_ID;
 
-  if (!discordBotUrl || !discordBotToken || !channelId || !roleId) {
+  if (!discordBotUrl || !discordBotToken) {
     console.warn(
-      "[Weekly myVATSIM] Discord bot configuration missing, skipping notification"
+      "[Weekly myVATSIM] Discord bot credentials missing, skipping notification"
     );
     return;
   }
+
+  const discordConfig = resolveDiscordNotification(firCode, "my_vatsim_check");
+  if (!discordConfig) {
+    console.warn(
+      `[Weekly myVATSIM] No Discord config for FIR ${firCode} (my_vatsim_check), skipping notification`
+    );
+    return;
+  }
+
+  const { channelId, roleId } = discordConfig;
 
   const dateStr = eventDate.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -196,7 +207,7 @@ async function sendEdmmNotification(
       body: JSON.stringify({
         channel_id: channelId,
         message: "MyVatsim fehlt!",
-        role_id: roleId,
+        ...(roleId ? { role_id: roleId } : {}),
         embed
       }),
     });
