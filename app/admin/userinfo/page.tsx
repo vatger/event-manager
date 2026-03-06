@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft, User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search, BarChart2 } from 'lucide-react';
 import Link from 'next/link';
 import { getBadgeClassForEndorsement } from '@/utils/EndorsementBadge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -19,6 +20,13 @@ interface UserQualifications {
   familiarizations: Record<string, string[]>;
 }
 
+interface StationStat {
+  station: string;
+  totalMinutes: number;
+  sessionCount: number;
+  lastSession?: string;
+}
+
 export default function UserInfoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,6 +37,11 @@ export default function UserInfoPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ATC Stats state – lädt unabhängig von den Endorsements
+  const [stats, setStats] = useState<StationStat[] | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [stationSearch, setStationSearch] = useState('');
+
   // Lade Daten wenn CID in URL-Param vorhanden
   useEffect(() => {
     if (urlCid) {
@@ -37,40 +50,51 @@ export default function UserInfoPage() {
     }
   }, [urlCid]);
 
-  const loadUserData = async (cidToLoad: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`/api/endorsements/${cidToLoad}`);
-      
-      if (!response.ok) {
-        throw new Error('Benutzerdaten konnten nicht geladen werden');
-      }
-      
-      const userData = await response.json();
-      setData(userData);
-    } catch (err) {
-      console.error('Failed to load user data:', err);
-      setError(err instanceof Error ? err.message : 'Ein Fehler ist aufgetreten');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+  const loadUserData = (cidToLoad: string) => {
+    setLoading(true);
+    setError(null);
+    setStats(null);
+    setStatsLoading(true);
+
+    // Endorsements (Hauptdaten)
+    fetch(`/api/endorsements/${cidToLoad}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('Benutzerdaten konnten nicht geladen werden');
+        return r.json();
+      })
+      .then((d) => setData(d))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Ein Fehler ist aufgetreten');
+        setData(null);
+      })
+      .finally(() => setLoading(false));
+
+    // ATC-Statistiken – parallel, Fehler werden still ignoriert
+    fetch(`/api/admin/userinfo/${cidToLoad}/stats`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { stations: StationStat[] }) => setStats(d.stations))
+      .catch(() => setStats([]))
+      .finally(() => setStatsLoading(false));
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cid.trim()) return;
-    
-    // Update URL mit Query-Parameter
     router.push(`/admin/userinfo?cid=${cid.trim()}`);
   };
 
-  const formatDate = (date: Date) => {
+  const formatHours = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}m`;
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  };
+
+  const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit',
-      year: 'numeric'
+      year: 'numeric',
     });
   };
 
@@ -78,18 +102,28 @@ export default function UserInfoPage() {
     return new Date(expiry) < new Date();
   };
 
+  // Top 5 + Suchfilter
+  const top5 = stats ? stats.slice(0, 5) : [];
+  const searchResults = stationSearch.trim()
+    ? (stats ?? []).filter((s) =>
+        s.station.toLowerCase().includes(stationSearch.trim().toLowerCase())
+      )
+    : [];
+
+  const isDataVisible = data && !loading;
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4 justify-between">
         <div>
           <h1 className="text-3xl font-bold">Controller information</h1>
-          <p className="text-muted-foreground">Endorsements, Solos...</p>
+          <p className="text-muted-foreground">Endorsements, Solos, ATC-Statistiken</p>
         </div>
         {data?.rating && (
-            <Badge className={`${getBadgeClassForEndorsement(data.rating)} text-lg px-3 py-1`}>
+          <Badge className={`${getBadgeClassForEndorsement(data.rating)} text-lg px-3 py-1`}>
             Rating: {data.rating}
-            </Badge>
+          </Badge>
         )}
       </div>
 
@@ -113,7 +147,7 @@ export default function UserInfoPage() {
 
       {loading && (
         <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
         </div>
       )}
 
@@ -128,9 +162,136 @@ export default function UserInfoPage() {
         </div>
       )}
 
-      {data && !loading && (
+      {/* ATC-Statistiken – zeigt Skeleton bis Daten geladen */}
+      {(statsLoading || (stats !== null && urlCid)) && (
         <div className="space-y-6">
+          {/* Top 5 Stationen */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4" />
+                Top 5 Stationen
+                {!statsLoading && stats && (
+                  <Badge variant="secondary">{stats.length} gesamt</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>Stationen mit den meisten kontrollierten Stunden</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              ) : top5.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  Keine ATC-Statistiken vorhanden
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {top5.map((s, idx) => (
+                    <div
+                      key={s.station}
+                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground font-mono text-sm w-5 text-right">
+                          {idx + 1}.
+                        </span>
+                        <span className="font-medium font-mono">{s.station}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="font-mono">
+                              {formatHours(s.totalMinutes)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{s.sessionCount} Sessions</p>
+                            {s.lastSession && (
+                              <p>Letzte Session: {formatDate(s.lastSession)}</p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
+          {/* Stations-Suche */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                Stationssuche
+              </CardTitle>
+              <CardDescription>
+                Nach Airport oder Position suchen (z.B. &quot;EDDM&quot; oder &quot;TWR&quot;)
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Station suchen..."
+                value={stationSearch}
+                onChange={(e) => setStationSearch(e.target.value)}
+                disabled={statsLoading}
+              />
+              {stationSearch.trim() && (
+                <>
+                  {statsLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">
+                      Keine Stationen für &quot;{stationSearch}&quot; gefunden
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {searchResults.map((s) => (
+                        <div
+                          key={s.station}
+                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
+                        >
+                          <span className="font-medium font-mono">{s.station}</span>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="secondary" className="font-mono">
+                                  {formatHours(s.totalMinutes)}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{s.sessionCount} Sessions</p>
+                                {s.lastSession && (
+                                  <p>Letzte Session: {formatDate(s.lastSession)}</p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                            <span className="text-muted-foreground">
+                              {s.sessionCount} Sessions
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {isDataVisible && (
+        <div className="space-y-6">
           {/* Endorsements */}
           <Card>
             <CardHeader>
@@ -226,15 +387,15 @@ export default function UserInfoPage() {
                               <div
                                 key={solo.position}
                                 className={`p-2 rounded border text-sm ${
-                                  expired 
-                                    ? 'border-destructive/20 bg-destructive/5' 
+                                  expired
+                                    ? 'border-destructive/20 bg-destructive/5'
                                     : 'border-green-200 bg-green-50'
                                 }`}
                               >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="font-medium">{solo.position}</span>
-                                  <Badge 
-                                    variant={expired ? "destructive" : "default"}
+                                  <Badge
+                                    variant={expired ? 'destructive' : 'default'}
                                     className="text-xs"
                                   >
                                     {expired ? 'Abgelaufen' : 'Aktiv'}
@@ -327,7 +488,7 @@ export default function UserInfoPage() {
             <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">CID eingeben</h3>
             <p className="text-muted-foreground">
-              Geben Sie eine CID ein, um die User-Informationen anzuzeigen
+              Geben Sie eine CID ein, um die Controller-Informationen anzuzeigen
             </p>
           </CardContent>
         </Card>

@@ -26,6 +26,31 @@ export interface ATCSessionStats {
   stationStats: Map<string, StationExperience>;
 }
 
+/** Serialisierbare Station-Statistik (JSON-kompatibel, ohne Map) */
+export interface StationStat {
+  station: string;
+  totalMinutes: number;
+  sessionCount: number;
+  lastSession?: string; // ISO date string
+}
+
+/**
+ * Gibt alle Stationen eines Nutzers sortiert nach Gesamtminuten zurück.
+ * Optionales `limit` auf die Top-N begrenzen.
+ */
+export function getTopStations(stats: ATCSessionStats, limit?: number): StationStat[] {
+  const sorted = [...stats.stationStats.entries()]
+    .map(([station, exp]): StationStat => ({
+      station,
+      totalMinutes: exp.totalMinutes,
+      sessionCount: exp.sessionCount,
+      lastSession: exp.lastSession?.toISOString(),
+    }))
+    .sort((a, b) => b.totalMinutes - a.totalMinutes);
+
+  return limit !== undefined ? sorted.slice(0, limit) : sorted;
+}
+
 /**
  * Fetch ATC sessions for a user from VATGER API
  */
