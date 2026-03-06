@@ -70,6 +70,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
 import { getRatingFromValue } from "@/utils/ratingToValue";
+import { PublishedRoster } from "./_components/PublishedRoster";
+import { SignupsTable } from "./_components/SignupTable";
+import { SignupDialogs } from "./_components/SignupDialogs";
 
 interface FIR {
   code: string;
@@ -637,412 +640,42 @@ export default function OccurrenceDetailPage() {
             </AlertDescription>
           </Alert>
         )}
-
-        {/* Published Roster - Wie im Editor */}
+        
         {rosterPublished && occurrence.config.staffedStations && (
-          <Card className="border-gray-200 dark:border-gray-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-green-600"></div>
-                <CardTitle className="text-lg">Besetzungsplan</CardTitle>
-              </div>
-              <CardDescription>
-                Offizielle Zuweisung für dieses Event
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {/* Header Row */}
-                <div className="hidden sm:grid sm:grid-cols-[200px_1fr] gap-4 mb-2 px-3">
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Station
-                  </div>
-                  <div className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                    Zugewiesener Lotse
-                  </div>
-                </div>
-
-                {/* Station Rows */}
-                {occurrence.config.staffedStations.map((station) => {
-                  const assigned = getAssignedUserForStation(station);
-                  const stationGroup = station.split("_").pop() || "";
-                  const assignmentType = assigned?.assignmentType || "normal";
-
-                  const rowBg = assigned
-                    ? assignmentType === "cpt"
-                      ? "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
-                      : assignmentType === "training"
-                      ? "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800"
-                      : "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
-                    : "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800";
-
-                  const avatarBg = assignmentType === "cpt"
-                    ? "bg-red-100 dark:bg-red-900/30"
-                    : assignmentType === "training"
-                    ? "bg-blue-100 dark:bg-blue-900/30"
-                    : "bg-blue-100 dark:bg-blue-900/30";
-
-                  const avatarText = assignmentType === "cpt"
-                    ? "text-red-600 dark:text-red-400"
-                    : assignmentType === "training"
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-blue-600 dark:text-blue-400";
-
-                  return (
-                    <div
-                      key={station}
-                      className={cn(
-                        "flex flex-col sm:grid sm:grid-cols-[200px_1fr] gap-3 sm:gap-4 items-start sm:items-center p-3 rounded-lg border transition-colors",
-                        rowBg,
-                      )}
-                    >
-                      {/* Station Info */}
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              {station}
-                            </span>
-                            {assigned && assignmentType === "cpt" && (
-                              <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
-                                <ClipboardCheck className="h-2.5 w-2.5 mr-0.5" />
-                                CPT
-                              </Badge>
-                            )}
-                            {assigned && assignmentType === "training" && (
-                              <Badge className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-100">
-                                <GraduationCap className="h-2.5 w-2.5 mr-0.5" />
-                                Training
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Assigned User Slot */}
-                      <div>
-                        {assigned ? (
-                          <div className="flex items-center gap-3">
-                            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", avatarBg)}>
-                              <span className={cn("font-semibold", avatarText)}>
-                                {assigned.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {assigned.user?.name || `CID ${assigned.userCID}`}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {assigned.user?.rating && (
-                                  <Badge variant="outline" className="text-[10px] h-4">
-                                    {getRatingFromValue(assigned.user.rating)}
-                                  </Badge>
-                                )}
-                                {assigned.endorsementGroup && (
-                                  <Badge className={cn(
-                                    "text-[10px] h-4",
-                                    getBadgeClassForEndorsement(assigned.endorsementGroup)
-                                  )}>
-                                    {assigned.endorsementGroup}
-                                  </Badge>
-                                )}
-                                {assigned.restrictions && isTrainee(assigned.restrictions) && (
-                                  <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                    T
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center h-full py-2">
-                            <p className="text-sm text-gray-400 dark:text-gray-600">
-                              Nicht besetzt
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+          <PublishedRoster
+            staffedStations={occurrence.config.staffedStations}
+            roster={roster}
+          />
         )}
 
-        {/* Signups List - Als Tabelle */}
         {occurrence.config.requiresRoster && (
-          <Card className="border-gray-200 dark:border-gray-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-gray-600"></div>
-                  <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
-                  <Badge variant="outline" className="ml-2">
-                    {signups.length}
-                  </Badge>
-                </div>
-                {canManageSignups() && (
-                  <AddSignupByCIDDialog
-                    configId={occurrence.config.id}
-                    occurrenceId={occurrence.id}
-                    onSignupAdded={fetchSignups}
-                  />
-                )}
-              </div>
-              <CardDescription>
-                {signups.length === 1 ? "Ein Lotse hat sich angemeldet" : `${signups.length} Lotsen haben sich angemeldet`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {signupsLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                </div>
-              ) : signups.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">Noch keine Anmeldungen</p>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50 dark:bg-gray-900/40">
-                        <TableHead>CID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead className="w-[100px]">Rating</TableHead>
-                        <TableHead className="w-[120px]">Gruppe</TableHead>
-                        <TableHead className="w-[200px]">Einschränkungen</TableHead>
-                        <TableHead className="w-[120px]">Angemeldet seit</TableHead>
-                        <TableHead className="w-[150px]">Bemerkungen</TableHead>
-                        {canManageSignups() && <TableHead className="w-[50px]"></TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {signups
-                        .sort((a, b) => {
-                          if (a.user?.rating !== b.user?.rating) {
-                            return (b.user?.rating || 0) - (a.user?.rating || 0);
-                          }
-                          return (a.user?.name || "").localeCompare(b.user?.name || "");
-                        })
-                        .map((signup) => {
-                          const isCurrentUser = signup.userCID === Number(session?.user?.cid);
-                          const restrictions = signup.restrictions || [];
-
-                          return (
-                            <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
-                              <TableCell>
-                                {/* <div className="flex items-center gap-2">
-                                  <div className={cn(
-                                    "h-6 w-6 rounded-full flex items-center justify-center",
-                                    isCurrentUser 
-                                      ? "bg-blue-200 dark:bg-blue-800" 
-                                      : "bg-gray-100 dark:bg-gray-800"
-                                  )}>
-                                    <span className="text-xs font-semibold">
-                                      {signup.user?.name?.split(' ').map(n => n[0]).join('') || '??'}
-                                    </span>
-                                  </div>
-                                  <span className="font-medium">
-                                    {signup.user?.name || `CID ${signup.userCID}`}
-                                  </span>
-                                  {isCurrentUser && (
-                                    <Badge variant="default" className="bg-blue-600 text-[8px] h-3 px-1">
-                                      Du
-                                    </Badge>
-                                  )}
-                                </div> */}
-                                <span className="font-medium">
-                                    {signup.userCID}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
-                                    {signup.user?.name || `Unbekannt`}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {signup.user?.rating && (
-                                  <Badge variant="outline" className="text-[10px] h-4">
-                                    {getRatingFromValue(signup.user.rating)}
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                  {signup.endorsementGroup ? (
-                                    <Badge className={cn(
-                                      "text-[10px] h-4",
-                                      getBadgeClassForEndorsement(signup.endorsementGroup)
-                                    )}>
-                                      {signup.endorsementGroup}
-                                    </Badge>
-                                  ) : (
-                                    <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
-                                  )}
-                                  {isTrainee(signup.restrictions) && (
-                                    <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">
-                                      Trainee
-                                    </Badge>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                {restrictions.length > 0 ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {restrictions.map((r, i) => (
-                                      <Badge key={i} variant="secondary" className="text-[8px] h-3 px-1">
-                                        {r}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-400 dark:text-gray-600 text-xs">Keine</span>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <span className="text-xs text-gray-600 dark:text-gray-400">
-                                  {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                {signup.remarks ? (
-                                  <span className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-1">
-                                    {signup.remarks}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
-                                )}
-                              </TableCell>
-                              {canManageSignups() && (
-                                <TableCell>
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          setEditRemarks(signup.remarks || "");
-                                          setEditSignupDialog({ open: true, signup });
-                                        }}
-                                      >
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        Bearbeiten
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => setDeleteSignupDialog({ open: true, signup })}
-                                        className="text-red-600"
-                                      >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Löschen
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <SignupsTable
+            signups={signups}
+            loading={signupsLoading}
+            canManage={canManageSignups()}
+            configId={occurrence.config.id}
+            occurrenceId={occurrence.id}
+            currentUserCID={session?.user?.cid ? Number(session.user.cid) : undefined}
+            onSignupAdded={fetchSignups}
+            onEdit={(signup) => {
+              setEditRemarks(signup.remarks || "");
+              setEditSignupDialog({ open: true, signup });
+            }}
+            onDelete={(signup) => setDeleteSignupDialog({ open: true, signup })}
+          />
         )}
       </div>
-
-      {/* Edit Signup Dialog */}
-      <Dialog open={editSignupDialog.open} onOpenChange={(open) => setEditSignupDialog({ open, signup: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Anmeldung bearbeiten</DialogTitle>
-            <DialogDescription>
-              Bearbeite die Anmeldung von {editSignupDialog.signup?.user?.name || `CID ${editSignupDialog.signup?.userCID}`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="remarks">Bemerkungen</Label>
-              <Textarea
-                id="remarks"
-                value={editRemarks}
-                onChange={(e) => setEditRemarks(e.target.value)}
-                placeholder="Optional: Bemerkungen zur Anmeldung"
-                rows={3}
-                maxLength={500}
-              />
-              <p className="text-xs text-gray-500 mt-1">{editRemarks.length}/500 Zeichen</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setEditSignupDialog({ open: false, signup: null })}
-              disabled={busy}
-            >
-              Abbrechen
-            </Button>
-            <Button onClick={handleEditSignup} disabled={busy}>
-              {busy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Speichert...
-                </>
-              ) : (
-                "Speichern"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Signup Dialog */}
-      <Dialog open={deleteSignupDialog.open} onOpenChange={(open) => setDeleteSignupDialog({ open, signup: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Anmeldung löschen</DialogTitle>
-            <DialogDescription>
-              Möchtest du die Anmeldung von {deleteSignupDialog.signup?.user?.name || `CID ${deleteSignupDialog.signup?.userCID}`} wirklich löschen?
-            </DialogDescription>
-          </DialogHeader>
-          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            <AlertDescription className="text-red-700 dark:text-red-300">
-              Diese Aktion kann nicht rückgängig gemacht werden.
-            </AlertDescription>
-          </Alert>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteSignupDialog({ open: false, signup: null })}
-              disabled={busy}
-            >
-              Abbrechen
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteSignup} disabled={busy}>
-              {busy ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Löscht...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Löschen
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SignupDialogs
+      editState={editSignupDialog}
+      deleteState={deleteSignupDialog}
+      editRemarks={editRemarks}
+      busy={busy}
+      onEditRemarksChange={setEditRemarks}
+      onEditClose={() => setEditSignupDialog({ open: false, signup: null })}
+      onDeleteClose={() => setDeleteSignupDialog({ open: false, signup: null })}
+      onEditConfirm={handleEditSignup}
+      onDeleteConfirm={handleDeleteSignup}
+    />
     </div>
-  );
-}
+        
+)}

@@ -249,7 +249,7 @@ export default function EventOverviewPage() {
                     <MapPin className="h-4 w-4" />
                     <span>Airport</span>
                   </div>
-                  <div className="font-medium">{event.airports}</div>
+                  {Array.isArray(event.airports) ? event.airports.join(", ") : event.airports}
                 </div>
 
                 <div className="space-y-1">
@@ -357,17 +357,18 @@ export default function EventOverviewPage() {
               </Link>
             </Button>
             
-            <Button
+            <Button asChild
               variant="outline"
               className="w-full justify-start h-auto py-3"
               disabled={!canInOwnFIR("user.notif")}
-              onClick={() => router.push(`/admin/events/${event.id}/notify`)}
             >
-              <Eye className="h-4 w-4 mr-2" />
-              <div className="text-left">
-                <div className="font-medium">Benachrichtigen</div>
-                <div className="text-xs text-muted-foreground">Nachricht senden</div>
-              </div>
+              <Link href={`/admin/events/${event.id}/notify`}>
+                <Eye className="h-4 w-4 mr-2" />
+                <div className="text-left">
+                  <div className="font-medium">Benachrichtigen</div>
+                  <div className="text-xs text-muted-foreground">Nachricht senden</div>
+                </div>
+              </Link>
             </Button>
             
             <Button asChild variant="outline" className="w-full justify-start h-auto py-3">
