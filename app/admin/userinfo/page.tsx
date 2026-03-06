@@ -7,8 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search, BarChart2 } from 'lucide-react';
-import Link from 'next/link';
+import { User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getBadgeClassForEndorsement } from '@/utils/EndorsementBadge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -20,11 +19,18 @@ interface UserQualifications {
   familiarizations: Record<string, string[]>;
 }
 
+interface SessionDetail {
+  callsign: string;
+  date: string;
+  minutes: number;
+}
+
 interface StationStat {
   station: string;
   totalMinutes: number;
   sessionCount: number;
   lastSession?: string;
+  sessions: SessionDetail[];
 }
 
 export default function UserInfoPage() {
@@ -41,6 +47,8 @@ export default function UserInfoPage() {
   const [stats, setStats] = useState<StationStat[] | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [stationSearch, setStationSearch] = useState('');
+  // Menge der aufgeklappten Stationen (station-Name als Key)
+  const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
 
   // Lade Daten wenn CID in URL-Param vorhanden
   useEffect(() => {
@@ -55,6 +63,7 @@ export default function UserInfoPage() {
     setError(null);
     setStats(null);
     setStatsLoading(true);
+    setExpandedStations(new Set());
 
     // Endorsements (Hauptdaten)
     fetch(`/api/endorsements/${cidToLoad}`)
@@ -83,6 +92,18 @@ export default function UserInfoPage() {
     router.push(`/admin/userinfo?cid=${cid.trim()}`);
   };
 
+  const toggleStation = (station: string) => {
+    setExpandedStations((prev) => {
+      const next = new Set(prev);
+      if (next.has(station)) {
+        next.delete(station);
+      } else {
+        next.add(station);
+      }
+      return next;
+    });
+  };
+
   const formatHours = (minutes: number) => {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
@@ -95,6 +116,16 @@ export default function UserInfoPage() {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+    });
+  };
+
+  const formatDateTime = (iso: string) => {
+    return new Date(iso).toLocaleString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -111,6 +142,80 @@ export default function UserInfoPage() {
     : [];
 
   const isDataVisible = data && !loading;
+
+  /** Wiederverwendbare Station-Zeile mit Drill-Down */
+  const StationRow = ({ s, rank }: { s: StationStat; rank?: number }) => {
+    const expanded = expandedStations.has(s.station);
+    return (
+      <div className="rounded-lg border overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleStation(s.station)}
+          className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted/80 transition-colors text-left"
+        >
+          <div className="flex items-center gap-3">
+            {rank !== undefined && (
+              <span className="text-muted-foreground font-mono text-sm w-5 text-right">
+                {rank}.
+              </span>
+            )}
+            <span className="font-medium font-mono">{s.station}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className="font-mono">
+                  {formatHours(s.totalMinutes)}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{s.sessionCount} Sessions</p>
+                {s.lastSession && (
+                  <p>Letzte Session: {formatDate(s.lastSession)}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+            <span className="text-muted-foreground text-sm">{s.sessionCount}×</span>
+            {expanded ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </div>
+        </button>
+
+        {expanded && (
+          <div className="divide-y border-t bg-background">
+            {s.sessions.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-3">
+                Keine Sessions vorhanden
+              </p>
+            ) : (
+              s.sessions.map((session, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between px-4 py-2 text-sm"
+                >
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="w-3 h-3" />
+                    <span>{formatDateTime(session.date)}</span>
+                    {session.callsign !== s.station && (
+                      <span className="font-mono text-xs text-muted-foreground/60">
+                        ({session.callsign})
+                      </span>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {formatHours(session.minutes)}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -175,7 +280,9 @@ export default function UserInfoPage() {
                   <Badge variant="secondary">{stats.length} gesamt</Badge>
                 )}
               </CardTitle>
-              <CardDescription>Stationen mit den meisten kontrollierten Stunden</CardDescription>
+              <CardDescription>
+                Stationen mit den meisten kontrollierten Stunden – klicken zum Aufklappen
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {statsLoading ? (
@@ -191,32 +298,7 @@ export default function UserInfoPage() {
               ) : (
                 <div className="space-y-2">
                   {top5.map((s, idx) => (
-                    <div
-                      key={s.station}
-                      className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-muted-foreground font-mono text-sm w-5 text-right">
-                          {idx + 1}.
-                        </span>
-                        <span className="font-medium font-mono">{s.station}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="secondary" className="font-mono">
-                              {formatHours(s.totalMinutes)}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{s.sessionCount} Sessions</p>
-                            {s.lastSession && (
-                              <p>Letzte Session: {formatDate(s.lastSession)}</p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </div>
+                    <StationRow key={s.station} s={s} rank={idx + 1} />
                   ))}
                 </div>
               )}
@@ -231,7 +313,7 @@ export default function UserInfoPage() {
                 Stationssuche
               </CardTitle>
               <CardDescription>
-                Nach Airport oder Position suchen (z.B. &quot;EDDM&quot; oder &quot;TWR&quot;)
+                Nach Airport oder Position suchen (z.B. &quot;EDDM&quot; oder &quot;TWR&quot;) – klicken zum Aufklappen
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -256,30 +338,7 @@ export default function UserInfoPage() {
                   ) : (
                     <div className="space-y-2">
                       {searchResults.map((s) => (
-                        <div
-                          key={s.station}
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border"
-                        >
-                          <span className="font-medium font-mono">{s.station}</span>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="secondary" className="font-mono">
-                                  {formatHours(s.totalMinutes)}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>{s.sessionCount} Sessions</p>
-                                {s.lastSession && (
-                                  <p>Letzte Session: {formatDate(s.lastSession)}</p>
-                                )}
-                              </TooltipContent>
-                            </Tooltip>
-                            <span className="text-muted-foreground">
-                              {s.sessionCount} Sessions
-                            </span>
-                          </div>
-                        </div>
+                        <StationRow key={s.station} s={s} />
                       ))}
                     </div>
                   )}
