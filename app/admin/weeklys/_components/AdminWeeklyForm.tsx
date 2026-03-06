@@ -386,7 +386,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
           {formData.requiresRoster && (
             <TabsTrigger value="staffing">Besetzung</TabsTrigger>
           )}
-          {isEdit && (
+          {isEdit && formData.requiresRoster && (
             <TabsTrigger value="managers">
               <Users className="h-3.5 w-3.5 mr-1.5" />
               Verantwortliche

@@ -1240,7 +1240,7 @@ export default function RosterEditorPage() {
               Das Roster wird automatisch veröffentlicht und alle angemeldeten Personen werden benachrichtigt, sobald der Anmeldeschluss abgelaufen ist.
               {data.occurrence.signupDeadline && (
                 <span className="block mt-2 font-medium text-gray-800 dark:text-gray-200">
-                  Anmeldeschluss: {format(new Date(data.occurrence.signupDeadline), "dd.MM.yyyy HH:mm", { locale: de })} UTC
+                  Anmeldeschluss: {format(new Date(data.occurrence.signupDeadline), "dd.MM.yyyy HH:mm", { locale: de })} lcl
                 </span>
               )}
             </DialogDescription>
