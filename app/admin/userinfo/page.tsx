@@ -267,88 +267,6 @@ export default function UserInfoPage() {
         </div>
       )}
 
-      {/* ATC-Statistiken – zeigt Skeleton bis Daten geladen */}
-      {(statsLoading || (stats !== null && urlCid)) && (
-        <div className="space-y-6">
-          {/* Top 5 Stationen */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart2 className="w-4 h-4" />
-                Top 5 Stationen
-                {!statsLoading && stats && (
-                  <Badge variant="secondary">{stats.length} gesamt</Badge>
-                )}
-              </CardTitle>
-              <CardDescription>
-                Stationen mit den meisten kontrollierten Stunden – klicken zum Aufklappen
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {statsLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
-                </div>
-              ) : top5.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">
-                  Keine ATC-Statistiken vorhanden
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {top5.map((s, idx) => (
-                    <StationRow key={s.station} s={s} rank={idx + 1} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Stations-Suche */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Search className="w-4 h-4" />
-                Stationssuche
-              </CardTitle>
-              <CardDescription>
-                Nach Airport oder Position suchen (z.B. &quot;EDDM&quot; oder &quot;TWR&quot;) – klicken zum Aufklappen
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder="Station suchen..."
-                value={stationSearch}
-                onChange={(e) => setStationSearch(e.target.value)}
-                disabled={statsLoading}
-              />
-              {stationSearch.trim() && (
-                <>
-                  {statsLoading ? (
-                    <div className="space-y-2">
-                      {Array.from({ length: 3 }).map((_, i) => (
-                        <Skeleton key={i} className="h-10 w-full" />
-                      ))}
-                    </div>
-                  ) : searchResults.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
-                      Keine Stationen für &quot;{stationSearch}&quot; gefunden
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {searchResults.map((s) => (
-                        <StationRow key={s.station} s={s} />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
       {isDataVisible && (
         <div className="space-y-6">
           {/* Endorsements */}
@@ -521,6 +439,88 @@ export default function UserInfoPage() {
                         </div>
                       </CardContent>
                     </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ATC-Statistiken – zeigt Skeleton bis Daten geladen */}
+      {(statsLoading || (stats !== null && urlCid)) && (
+        <div className="space-y-6">
+          {/* Stations-Suche */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                Stationssuche
+              </CardTitle>
+              <CardDescription>
+                Nach Airport oder Position suchen (z.B. &quot;EDDM&quot; oder &quot;TWR&quot;) – klicken zum Aufklappen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Station suchen..."
+                value={stationSearch}
+                onChange={(e) => setStationSearch(e.target.value)}
+                disabled={statsLoading}
+              />
+              {stationSearch.trim() && (
+                <>
+                  {statsLoading ? (
+                    <div className="space-y-2">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <Skeleton key={i} className="h-10 w-full" />
+                      ))}
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">
+                      Keine Stationen für &quot;{stationSearch}&quot; gefunden
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {searchResults.map((s) => (
+                        <StationRow key={s.station} s={s} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Top 5 Stationen */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4" />
+                Top 5 Stationen
+                {!statsLoading && stats && (
+                  <Badge variant="secondary">{stats.length} gesamt</Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Stationen mit den meisten kontrollierten Stunden – klicken zum Aufklappen
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {statsLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              ) : top5.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">
+                  Keine ATC-Statistiken vorhanden
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {top5.map((s, idx) => (
+                    <StationRow key={s.station} s={s} rank={idx + 1} />
                   ))}
                 </div>
               )}
