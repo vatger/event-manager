@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
-import { addWeeks, startOfDay } from "date-fns";
+import { addWeeks } from "date-fns";
 import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
 // Validation schema for weekly event configuration
@@ -53,38 +53,57 @@ export async function GET(request: NextRequest) {
 
     const isVatgerAdmin = await isVatgerEventleitung(Number(session.user.cid));
 
-    // Build filter based on permissions
-    let firFilter = {};
-    if (!isVatgerAdmin && user?.firId) {
-      // Only show configs for user's FIR if they're not VATGER admin
-      firFilter = { firId: user.firId };
+    // Check if user has FIR-level event permissions
+    let hasFirLevelAccess = isVatgerAdmin;
+    if (!hasFirLevelAccess && user?.firId) {
+      const fir = await prisma.fIR.findUnique({ where: { id: user.firId }, select: { code: true } });
+      if (fir) {
+        hasFirLevelAccess = await userHasFirPermission(Number(session.user.cid), fir.code, "event.edit");
+      }
     }
 
-    const configs = await prisma.weeklyEventConfiguration.findMany({
-      where: firFilter,
-      include: {
-        fir: {
-          select: {
-            code: true,
-            name: true,
+    let configs;
+
+    if (hasFirLevelAccess) {
+      // FIR-level users (or VATGER admin): show all configs in their FIR (or all FIRs for VATGER)
+      const firFilter = isVatgerAdmin || !user?.firId ? {} : { firId: user.firId };
+      configs = await prisma.weeklyEventConfiguration.findMany({
+        where: firFilter,
+        include: {
+          fir: { select: { code: true, name: true } },
+          occurrences: {
+            where: { date: { gte: new Date() } },
+            orderBy: { date: "asc" },
+            take: 5,
           },
         },
-        occurrences: {
-          where: {
-            date: {
-              gte: new Date(),
-            },
+        orderBy: { name: "asc" },
+      });
+    } else {
+      // Pure weekly managers: only show the specific weeklys they manage
+      const managedEntries = await prisma.weeklyEventManager.findMany({
+        where: { userCID: Number(session.user.cid) },
+        select: { configId: true },
+      });
+      const managedIds = managedEntries.map((e) => e.configId);
+
+      if (managedIds.length === 0) {
+        return NextResponse.json([]);
+      }
+
+      configs = await prisma.weeklyEventConfiguration.findMany({
+        where: { id: { in: managedIds } },
+        include: {
+          fir: { select: { code: true, name: true } },
+          occurrences: {
+            where: { date: { gte: new Date() } },
+            orderBy: { date: "asc" },
+            take: 5,
           },
-          orderBy: {
-            date: "asc",
-          },
-          take: 5,
         },
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
+        orderBy: { name: "asc" },
+      });
+    }
 
     return NextResponse.json(configs);
   } catch (error) {

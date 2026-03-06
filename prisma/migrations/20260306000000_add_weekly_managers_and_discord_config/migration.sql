@@ -17,18 +17,26 @@ ALTER TABLE `WeeklyEventManager` ADD CONSTRAINT `WeeklyEventManager_userCID_fkey
 -- AddForeignKey
 ALTER TABLE `WeeklyEventManager` ADD CONSTRAINT `WeeklyEventManager_configId_fkey` FOREIGN KEY (`configId`) REFERENCES `WeeklyEventConfiguration`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
--- CreateTable: FirDiscordConfig
-CREATE TABLE `FirDiscordConfig` (
+-- CreateTable: FirDiscordNotification
+-- Replaces the old single-entry FirDiscordConfig with a multi-type, per-weekly notification config.
+CREATE TABLE `FirDiscordNotification` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
     `firId` INTEGER NOT NULL,
+    `notificationType` VARCHAR(191) NOT NULL,
+    `label` VARCHAR(191) NULL,
+    `weeklyConfigId` INTEGER NULL,
     `channelId` VARCHAR(191) NOT NULL,
     `roleId` VARCHAR(191) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
-    UNIQUE INDEX `FirDiscordConfig_firId_key`(`firId`),
+    INDEX `FirDiscordNotification_firId_notificationType_idx`(`firId`, `notificationType`),
+    INDEX `FirDiscordNotification_weeklyConfigId_idx`(`weeklyConfigId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- AddForeignKey
-ALTER TABLE `FirDiscordConfig` ADD CONSTRAINT `FirDiscordConfig_firId_fkey` FOREIGN KEY (`firId`) REFERENCES `FIR`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE `FirDiscordNotification` ADD CONSTRAINT `FirDiscordNotification_firId_fkey` FOREIGN KEY (`firId`) REFERENCES `FIR`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE `FirDiscordNotification` ADD CONSTRAINT `FirDiscordNotification_weeklyConfigId_fkey` FOREIGN KEY (`weeklyConfigId`) REFERENCES `WeeklyEventConfiguration`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

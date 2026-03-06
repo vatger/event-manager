@@ -72,8 +72,8 @@ model FIR {
   events    Event[]
   members   User[]
   groups    Group[]
-  weeklyEventConfigs WeeklyEventConfiguration[]
-  discordConfig      FirDiscordConfig?
+  weeklyEventConfigs   WeeklyEventConfiguration[]
+  discordNotifications FirDiscordNotification[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -303,6 +303,7 @@ model WeeklyEventConfiguration {
 
   occurrences WeeklyEventOccurrence[]
   managers    WeeklyEventManager[]
+  discordNotifications FirDiscordNotification[]
 }
 
 // Generated occurrences for weekly events (for easier querying and display)
@@ -381,13 +382,22 @@ model WeeklyEventManager {
   @@index([configId])
 }
 
-// Discord bot configuration per FIR (channel + role to ping for notifications)
-model FirDiscordConfig {
-  id        Int      @id @default(autoincrement())
-  firId     Int      @unique
-  fir       FIR      @relation(fields: [firId], references: [id])
-  channelId String
-  roleId    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// Discord notification configuration per FIR and notification type.
+// Supports different channels/roles for different notification types (e.g., CPT vs weekly deadlines).
+// weeklyConfigId is optional: null means "applies to all weeklys of this type in the FIR".
+model FirDiscordNotification {
+  id               Int      @id @default(autoincrement())
+  firId            Int
+  fir              FIR      @relation(fields: [firId], references: [id])
+  notificationType String
+  label            String?
+  weeklyConfigId   Int?
+  weeklyConfig     WeeklyEventConfiguration? @relation(fields: [weeklyConfigId], references: [id], onDelete: Cascade)
+  channelId        String
+  roleId           String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([firId, notificationType])
+  @@index([weeklyConfigId])
 }

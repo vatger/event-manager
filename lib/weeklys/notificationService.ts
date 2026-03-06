@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { resolveDiscordConfig } from "@/lib/discord/resolveConfig";
+import { DISCORD_NOTIFICATION_TYPES } from "@/lib/discord/notificationTypes";
 
 /**
  * Send notifications when a roster is published
@@ -155,8 +157,9 @@ export async function sendRosterPublishedNotifications(
 }
 
 /**
- * Send Discord notification when signup deadline passes (EDMM only)
- * Notifies event team that roster planning can begin
+ * Send Discord notification when signup deadline passes.
+ * Notifies event team that roster planning can begin.
+ * Uses per-weekly or FIR-wide Discord config (resolved via resolveDiscordConfig).
  */
 export async function sendSignupDeadlineDiscordNotification(
   occurrenceId: number,
@@ -168,11 +171,7 @@ export async function sendSignupDeadlineDiscordNotification(
       include: {
         config: {
           include: {
-            fir: {
-              include: {
-                discordConfig: true,
-              },
-            },
+            fir: true,
           },
         },
       },
@@ -191,17 +190,22 @@ export async function sendSignupDeadlineDiscordNotification(
       return;
     }
 
-    // Prefer DB config for channel/role; fall back to env vars for EDMM (backward compat)
     const fir = occurrence.config.fir;
-    const dbDiscord = fir?.discordConfig;
+    if (!fir) {
+      console.log("[WEEKLY DISCORD] No FIR on config, skipping Discord notification");
+      return;
+    }
 
-    const channelId = dbDiscord?.channelId
-      ?? (fir?.code === "EDMM" ? process.env.DISCORD_EDMM_CHANNEL_ID : undefined);
-    const roleId = dbDiscord?.roleId
-      ?? (fir?.code === "EDMM" ? process.env.DISCORD_EDMM_ROLE_ID : undefined);
+    // Resolve channel/role: weekly-specific → FIR-wide → env var fallback
+    const discordConfig = await resolveDiscordConfig(
+      fir.id,
+      fir.code,
+      DISCORD_NOTIFICATION_TYPES.WEEKLY_SIGNUP_DEADLINE,
+      configId
+    );
 
-    if (!channelId) {
-      console.log(`[WEEKLY DISCORD] No Discord config for FIR ${fir?.code ?? "unknown"}, skipping notification`);
+    if (!discordConfig) {
+      console.log(`[WEEKLY DISCORD] No Discord config for FIR ${fir.code} (weekly_signup_deadline), skipping`);
       return;
     }
 
@@ -236,9 +240,9 @@ Roster Editor: ${rosterEditorLink}`;
         "Authorization": `Bearer ${discordBotToken}`,
       },
       body: JSON.stringify({
-        channel_id: channelId,
+        channel_id: discordConfig.channelId,
         message: message,
-        ...(roleId ? { role_id: roleId } : {}),
+        ...(discordConfig.roleId ? { role_id: discordConfig.roleId } : {}),
       }),
     });
 
