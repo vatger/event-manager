@@ -57,9 +57,9 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
 
   if (!event) throw new Error(`Event ${eventId} not found`);
 
-  // 3️⃣ Alle aktiven Signups abrufen (soft-deleted ausschließen)
+  // 3️⃣ Alle Signups abrufen (inkl. soft-deleted, damit die Tabelle diese durchgestrichen anzeigen kann)
   const signups = await prisma.eventSignup.findMany({
-    where: { eventId, deletedAt: null },
+    where: { eventId },
     include: { user: true },
   });
 

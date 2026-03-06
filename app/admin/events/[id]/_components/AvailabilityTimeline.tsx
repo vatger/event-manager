@@ -76,13 +76,16 @@ export const AvailabilityTimeline = forwardRef<
   const grouped = useMemo(() => {
     const groups: Record<string, SignupTableEntry[]> = {};
     
+    // Nur aktive Anmeldungen anzeigen (soft-deleted ausschließen)
+    const activeSignups = signups.filter(s => !s.deletedAt);
+
     // Filter signups by selected airport if specified
     const filteredSignups = selectedAirport
-      ? signups.filter(s => {
+      ? activeSignups.filter(s => {
           const endorsement = s.airportEndorsements?.[selectedAirport];
           return !!endorsement?.group; // Only include if can staff this airport
         })
-      : signups;
+      : activeSignups;
     
     for (const s of filteredSignups) {
       // Use airport-specific group if filtering by airport
@@ -116,7 +119,7 @@ export const AvailabilityTimeline = forwardRef<
       </Alert>
     );
 
-  if (signups.length === 0)
+  if (orderedAreas.length === 0)
     return <div className="text-sm text-muted-foreground">Keine Anmeldungen vorhanden.</div>;
 
   return (
