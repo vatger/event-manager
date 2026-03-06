@@ -77,7 +77,7 @@ export default function AdminEventsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");  
   const [selectedFir, setSelectedFir] = useState<string | "ALL">("ALL");
-  const { user, isVATGERLead, canInFIR, canInOwnFIR, isWeeklyManager } = useUser();
+  const { user, isVATGERLead, canInFIR, canInOwnFIR, isWeeklyManager, isPureWeeklyManager } = useUser();
 
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
@@ -128,6 +128,11 @@ export default function AdminEventsPage() {
     refreshWeeklyEvents();
     
     if (user) {
+      // Pure weekly managers only see their assigned weeklys — no regular events
+      if (isPureWeeklyManager()) {
+        setLoading(false);
+        return;
+      }
       if (isVATGERLead()) {
         setSelectedFir("ALL");
         refreshEvents("ALL");
@@ -327,30 +332,34 @@ export default function AdminEventsPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Event Management</h1>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Verwalte alle Events und Weekly-Konfigurationen
+                {isPureWeeklyManager()
+                  ? "Deine verwalteten Weekly Events"
+                  : "Verwalte alle Events und Weekly-Konfigurationen"}
               </p>
             </div>
             
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => router.push("/admin/events/create")} 
-                disabled={!canInOwnFIR("event.create")}
-                className="bg-blue-900 hover:bg-blue-800 text-white"
-              >
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                Neues Event
-              </Button>
-              {canInOwnFIR("event.create") && (
+            {!isPureWeeklyManager() && (
+              <div className="flex gap-2">
                 <Button 
-                  onClick={() => router.push("/admin/weeklys/create")} 
-                  variant="outline"
-                  className="border-gray-300 dark:border-gray-700"
+                  onClick={() => router.push("/admin/events/create")} 
+                  disabled={!canInOwnFIR("event.create")}
+                  className="bg-blue-900 hover:bg-blue-800 text-white"
                 >
-                  <Repeat className="mr-2 h-4 w-4" />
-                  Weekly erstellen
+                  <CalendarPlus className="mr-2 h-4 w-4" />
+                  Neues Event
                 </Button>
-              )}
-            </div>
+                {canInOwnFIR("event.create") && (
+                  <Button 
+                    onClick={() => router.push("/admin/weeklys/create")} 
+                    variant="outline"
+                    className="border-gray-300 dark:border-gray-700"
+                  >
+                    <Repeat className="mr-2 h-4 w-4" />
+                    Weekly erstellen
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {error && (
@@ -360,8 +369,9 @@ export default function AdminEventsPage() {
             </Alert>
           )}
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+          {/* Stats Cards – only for users with broader event management permissions */}
+          {!isPureWeeklyManager() && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
             <Card className="border-gray-200 dark:border-gray-800">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
@@ -404,8 +414,10 @@ export default function AdminEventsPage() {
               </CardContent>
             </Card>
           </div>
+          )}
 
-          {/* Filters */}
+          {/* Filters – hidden for pure weekly managers */}
+          {!isPureWeeklyManager() && (
           <Card className="border-gray-200 dark:border-gray-800 mb-6">
             <CardContent className="p-4">
               <div className="flex flex-col lg:flex-row gap-4">
@@ -460,8 +472,10 @@ export default function AdminEventsPage() {
               </div>
             </CardContent>
           </Card>
+          )}
 
-          {/* Regular Events Section */}
+          {/* Regular Events Section – hidden for pure weekly managers */}
+          {!isPureWeeklyManager() && (
           <Card className="border-gray-200 dark:border-gray-800">
             <CardContent className="p-6">
               <div className="flex items-center gap-2 mb-6">
@@ -533,6 +547,7 @@ export default function AdminEventsPage() {
               )}
             </CardContent>
           </Card>
+          )}
 
           {/* Weekly Events Section */}
           {filteredWeeklyConfigs.length > 0 && (

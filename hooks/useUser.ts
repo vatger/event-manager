@@ -56,6 +56,17 @@ export function useUser() {
     return data.managedWeeklyIds.includes(configId);
   };
 
+  /**
+   * Returns true when the user's only admin access is via managedWeeklyIds.
+   * These users have no FIR-level group memberships and are not VATGER leads.
+   */
+  const isPureWeeklyManager = (): boolean => {
+    if (!data) return false;
+    if (data.effectiveLevel === "MAIN_ADMIN" || data.effectiveLevel === "VATGER_LEITUNG") return false;
+    if (data.groups && data.groups.length > 0) return false;
+    return (data.managedWeeklyIds?.length ?? 0) > 0;
+  };
+
   const hasAdminAcess = (): boolean => {
     if(data?.effectiveLevel == "MAIN_ADMIN") return true;
     if(data?.effectiveLevel == "VATGER_LEITUNG") return true;
@@ -81,5 +92,6 @@ export function useUser() {
     isMainAdmin,
     hasAdminAcess,
     isWeeklyManager,
+    isPureWeeklyManager,
   };
 }
