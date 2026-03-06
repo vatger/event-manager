@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   }
 
   const signups = await prisma.eventSignup.findMany({
-    where: { id },
+    where: { eventId: id, deletedAt: null },
     include: { user: true },
   });
 
