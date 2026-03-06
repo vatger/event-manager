@@ -120,10 +120,10 @@ export async function checkWeeklyOccurrenceStatus() {
           }
         }
 
-        // Send Discord notification for EDMM events (only if deadline within last 24h)
+        // Send Discord notification for FIRs with Discord config (only if deadline within last 24h)
         const hoursSinceDeadline = (now.getTime() - signupDeadline.getTime()) / (1000 * 60 * 60);
         
-        if (occurrence.config.fir?.code === "EDMM" && hoursSinceDeadline < 24) {
+        if (hoursSinceDeadline < 24) {
           try {
             await sendSignupDeadlineDiscordNotification(occurrence.id, occurrence.configId);
             notificationsSent++;

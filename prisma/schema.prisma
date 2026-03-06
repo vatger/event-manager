@@ -57,6 +57,7 @@ model User {
   groups              UserGroup[]
   vatgerLeitung       VATGERLeitung?
   blockedDatesCreated CalendarBlockedDate[] @relation("BlockedDateCreator")
+  weeklyEventManagers WeeklyEventManager[]
 }
 
 model FIR {
@@ -67,6 +68,7 @@ model FIR {
   members            User[]
   groups             Group[]
   weeklyEventConfigs WeeklyEventConfiguration[]
+  discordConfig      FirDiscordConfig?
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 }
@@ -296,6 +298,7 @@ model WeeklyEventConfiguration {
   updatedAt DateTime @updatedAt
 
   occurrences WeeklyEventOccurrence[]
+  managers    WeeklyEventManager[]
 }
 
 // Generated occurrences for weekly events (for easier querying and display)
@@ -379,4 +382,30 @@ model CronJobStatus {
   @@index([jobName])
 }
 
+// Weekly-specific manager: grants a user access to manage a specific weekly event
+// without requiring FIR-wide permissions.
+model WeeklyEventManager {
+  id        Int      @id @default(autoincrement())
+  userCID   Int
+  configId  Int
+  createdAt DateTime @default(now())
+
+  user   User                     @relation(fields: [userCID], references: [cid], onDelete: Cascade)
+  config WeeklyEventConfiguration @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@unique([userCID, configId])
+  @@index([userCID])
+  @@index([configId])
+}
+
+// Discord bot configuration per FIR (channel + role to ping for notifications)
+model FirDiscordConfig {
+  id        Int      @id @default(autoincrement())
+  firId     Int      @unique
+  fir       FIR      @relation(fields: [firId], references: [id])
+  channelId String   // Discord channel ID to post in
+  roleId    String?  // Discord role ID to mention (optional)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 

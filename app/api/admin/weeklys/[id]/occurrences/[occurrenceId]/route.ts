@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly, userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
 import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 
@@ -34,28 +34,22 @@ export async function PATCH(
       return NextResponse.json({ error: "Date is required" }, { status: 400 });
     }
 
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
+      Number(session.user.cid),
+      configId
+    );
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Get the weekly configuration and occurrence
     const config = await prisma.weeklyEventConfiguration.findUnique({
       where: { id: configId },
-      include: { fir: true },
     });
 
     if (!config) {
       return NextResponse.json({ error: "Weekly event not found" }, { status: 404 });
-    }
-
-    if (!config.fir) {
-      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
-    }
-
-    // Check permissions
-    const hasPermission = await userHasFirPermission(
-      Number(session.user.cid),
-      config.fir.code,
-      "event.edit"
-    );
-    if (!hasPermission) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Get the occurrence
@@ -121,7 +115,7 @@ export async function DELETE(
   }
 
   try {
-    // Get the weekly configuration
+    // Get the weekly configuration (need FIR for permission check)
     const config = await prisma.weeklyEventConfiguration.findUnique({
       where: { id: configId },
       include: { fir: true },
@@ -135,7 +129,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
     }
 
-    // Check permissions
+    // Delete is restricted to FIR-level permission (weekly managers cannot delete occurrences)
     const hasPermission = await userHasFirPermission(
       Number(session.user.cid),
       config.fir.code,

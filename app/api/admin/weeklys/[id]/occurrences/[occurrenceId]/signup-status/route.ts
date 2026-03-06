@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly } from "@/lib/acl/permissions";
 
 /**
  * POST /api/admin/weeklys/[id]/occurrences/[occurrenceId]/signup-status
@@ -35,25 +35,10 @@ export async function POST(
       );
     }
 
-    // Get the weekly configuration
-    const config = await prisma.weeklyEventConfiguration.findUnique({
-      where: { id: configId },
-      include: { fir: true },
-    });
-
-    if (!config) {
-      return NextResponse.json({ error: "Weekly event not found" }, { status: 404 });
-    }
-
-    if (!config.fir) {
-      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
-    }
-
-    // Check permissions
-    const hasPermission = await userHasFirPermission(
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
       Number(session.user.cid),
-      config.fir.code,
-      "event.edit"
+      configId
     );
     if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { checkOccurrenceInMyVatsim } from "@/lib/weeklys/myVatsimService";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly } from "@/lib/acl/permissions";
 
 /**
  * POST /api/admin/weeklys/[id]/occurrences/[occurrenceId]/check-myvatsim
@@ -23,6 +23,15 @@ export async function POST(
     const configId = parseInt(id);
     const occId = parseInt(occurrenceId);
 
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
+      parseInt(session.user.cid),
+      configId
+    );
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    }
+
     // Fetch occurrence with config
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
       where: { id: occId },
@@ -41,19 +50,6 @@ export async function POST(
 
     if (occurrence.configId !== configId) {
       return NextResponse.json({ error: "Occurrence does not belong to this config" }, { status: 400 });
-    }
-
-    // Check permissions
-    if (occurrence.config.fir) {
-      const hasPermission = await userHasFirPermission(
-        parseInt(session.user.cid),
-        occurrence.config.fir.code,
-        "events.manage"
-      );
-
-      if (!hasPermission) {
-        return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
-      }
     }
 
     // Check myVATSIM

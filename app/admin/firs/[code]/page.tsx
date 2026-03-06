@@ -8,13 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Users, Key, ArrowLeft, Plus, Settings, Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Users, Key, ArrowLeft, Plus, Settings, Trash2, MessageSquare, Check, X } from 'lucide-react';
 import Link from 'next/link';
 import { GroupMembers } from '../_components/group-members';
 import { GroupPermissions } from '../_components/group-permissions';
 import { useUser } from '@/hooks/useUser';
 import { CreateGroupDialog, EditGroupDialog, DeleteGroupDialog } from '../_components/GroupDialogs';
+import { toast } from 'sonner';
 
+interface DiscordConfig {
+  id: number;
+  channelId: string;
+  roleId: string | null;
+}
 
 export default function FIRDetailPage() {
   const params = useParams();
@@ -22,6 +30,12 @@ export default function FIRDetailPage() {
   const [fir, setFir] = useState<FIR | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('groups');
+  
+  // Discord config state
+  const [discordConfig, setDiscordConfig] = useState<DiscordConfig | null>(null);
+  const [discordChannelId, setDiscordChannelId] = useState('');
+  const [discordRoleId, setDiscordRoleId] = useState('');
+  const [savingDiscord, setSavingDiscord] = useState(false);
   
   // Dialog States
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -45,6 +59,68 @@ export default function FIRDetailPage() {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load Discord config when Discord tab is activated
+  const loadDiscordConfig = async () => {
+    try {
+      const res = await fetch(`/api/admin/firs/${firCode}/discord-config`);
+      if (res.ok) {
+        const data = await res.json();
+        setDiscordConfig(data.discordConfig);
+        if (data.discordConfig) {
+          setDiscordChannelId(data.discordConfig.channelId);
+          setDiscordRoleId(data.discordConfig.roleId ?? '');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load Discord config', err);
+    }
+  };
+
+  const saveDiscordConfig = async () => {
+    if (!discordChannelId.trim()) {
+      toast.error('Channel ID darf nicht leer sein');
+      return;
+    }
+    setSavingDiscord(true);
+    try {
+      const res = await fetch(`/api/admin/firs/${firCode}/discord-config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId: discordChannelId.trim(), roleId: discordRoleId.trim() || null }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Fehler beim Speichern');
+      }
+      const data = await res.json();
+      setDiscordConfig(data.discordConfig);
+      toast.success('Discord-Konfiguration gespeichert');
+    } catch (err: any) {
+      toast.error(err.message || 'Fehler beim Speichern');
+    } finally {
+      setSavingDiscord(false);
+    }
+  };
+
+  const deleteDiscordConfig = async () => {
+    setSavingDiscord(true);
+    try {
+      const res = await fetch(`/api/admin/firs/${firCode}/discord-config`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Fehler beim Löschen');
+      }
+      setDiscordConfig(null);
+      setDiscordChannelId('');
+      setDiscordRoleId('');
+      toast.success('Discord-Konfiguration entfernt');
+    } catch (err: any) {
+      toast.error(err.message || 'Fehler beim Löschen');
+    } finally {
+      setSavingDiscord(false);
     }
   };
 
@@ -131,7 +207,10 @@ export default function FIRDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => {
+        setActiveTab(v);
+        if (v === 'discord' && !discordConfig && canManageFIR) loadDiscordConfig();
+      }} className="space-y-6">
         <TabsList>
           <TabsTrigger value="groups">
             <Users className="w-4 h-4 mr-2" />
@@ -141,6 +220,12 @@ export default function FIRDetailPage() {
             <Key className="w-4 h-4 mr-2" />
             Berechtigungen
           </TabsTrigger>
+          {canManageFIR && (
+            <TabsTrigger value="discord">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Discord
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Groups Tab */}
@@ -248,6 +333,82 @@ export default function FIRDetailPage() {
             </Card>
           ))}
         </TabsContent>
+
+        {/* Discord Tab */}
+        {canManageFIR && (
+          <TabsContent value="discord" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5" />
+                  Discord-Konfiguration
+                </CardTitle>
+                <CardDescription>
+                  Konfiguriere den Discord-Kanal und die Rolle, die für {fir.code}-Benachrichtigungen (z. B. Anmeldeschluss, Roster-Veröffentlichung) verwendet werden.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {discordConfig && (
+                  <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2">
+                    <Check className="w-4 h-4 flex-shrink-0" />
+                    <span>Aktive Konfiguration: Kanal <code className="font-mono">{discordConfig.channelId}</code>
+                      {discordConfig.roleId && <>, Rolle <code className="font-mono">{discordConfig.roleId}</code></>}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="discord-channel">Channel ID <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="discord-channel"
+                      placeholder="z. B. 1234567890123456789"
+                      value={discordChannelId}
+                      onChange={(e) => setDiscordChannelId(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Discord Channel ID (Entwicklermodus → Rechtsklick auf Kanal → ID kopieren)</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discord-role">Role ID <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                    <Input
+                      id="discord-role"
+                      placeholder="z. B. 9876543210987654321"
+                      value={discordRoleId}
+                      onChange={(e) => setDiscordRoleId(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">Rolle die bei Benachrichtigungen gepingt wird</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button onClick={saveDiscordConfig} disabled={savingDiscord || !discordChannelId.trim()}>
+                    Konfiguration speichern
+                  </Button>
+                  {discordConfig && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={deleteDiscordConfig}
+                      disabled={savingDiscord}
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Entfernen
+                    </Button>
+                  )}
+                </div>
+
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-xs text-blue-700 dark:text-blue-400 space-y-1">
+                  <p className="font-medium">Verwendung:</p>
+                  <ul className="list-disc ml-4 space-y-0.5">
+                    <li>Anmeldeschluss-Benachrichtigung: wird automatisch gesendet wenn die Deadline abläuft</li>
+                    <li>Roster-Veröffentlichung: wird gesendet wenn ein Roster veröffentlicht wird</li>
+                    <li>Die Bot-URL und der Token werden global über Umgebungsvariablen konfiguriert</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Dialogs */}

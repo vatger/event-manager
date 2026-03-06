@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly } from "@/lib/acl/permissions";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
 import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
@@ -28,6 +28,16 @@ export async function GET(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
     }
 
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
+      Number(session.user.cid),
+      configId
+    );
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Fetch config with FIR
     const config = await prisma.weeklyEventConfiguration.findUnique({
       where: { id: configId },
@@ -36,21 +46,6 @@ export async function GET(
 
     if (!config) {
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
-    }
-
-    if (!config.fir) {
-      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
-    }
-
-    // Check permissions
-    const hasPermission = await userHasFirPermission(
-      Number(session.user.cid),
-      config.fir.code,
-      "event.edit"
-    );
-
-    if (!hasPermission) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Fetch occurrence
@@ -198,6 +193,16 @@ export async function POST(
     const validTypes = ["normal", "cpt", "training"];
     const resolvedType = assignmentType && validTypes.includes(assignmentType) ? assignmentType : "normal";
 
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
+      Number(session.user.cid),
+      configId
+    );
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Fetch config with FIR
     const config = await prisma.weeklyEventConfiguration.findUnique({
       where: { id: configId },
@@ -206,21 +211,6 @@ export async function POST(
 
     if (!config) {
       return NextResponse.json({ error: "Config not found" }, { status: 404 });
-    }
-
-    if (!config.fir) {
-      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
-    }
-
-    // Check permissions
-    const hasPermission = await userHasFirPermission(
-      Number(session.user.cid),
-      config.fir.code,
-      "event.edit"
-    );
-
-    if (!hasPermission) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Verify occurrence exists

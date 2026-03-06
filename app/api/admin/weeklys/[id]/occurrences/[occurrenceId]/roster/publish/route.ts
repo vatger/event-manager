@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly } from "@/lib/acl/permissions";
 import { sendRosterPublishedNotifications } from "@/lib/weeklys/notificationService";
 
 export async function POST(
@@ -36,6 +36,16 @@ export async function POST(
       );
     }
 
+    // Check permissions (FIR-level OR weekly-manager)
+    const hasPermission = await userCanManageWeekly(
+      Number(session.user.cid),
+      configId
+    );
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     // Fetch occurrence with config and FIR
     const occurrence = await prisma.weeklyEventOccurrence.findUnique({
       where: { id: occurrenceIdNum },
@@ -53,21 +63,6 @@ export async function POST(
         { error: "Occurrence not found" },
         { status: 404 }
       );
-    }
-
-    if (!occurrence.config.fir) {
-      return NextResponse.json({ error: "Configuration or FIR not found" }, { status: 404 });
-    }
-
-    // Check permissions
-    const hasPermission = await userHasFirPermission(
-      Number(session.user.cid),
-      occurrence.config.fir.code,
-      "event.edit"
-    );
-
-    if (!hasPermission) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Update roster published status

@@ -107,8 +107,40 @@ export async function userhasPermissiononEvent(cid: number, eventId: number, per
 }
 
 /**
+ * Prüft, ob ein Nutzer Zugriff auf ein bestimmtes Weekly Event hat.
+ * Gibt true wenn:
+ *   - MAIN_ADMIN / VATGER_LEITUNG
+ *   - FIR-weite event.edit-Berechtigung für das FIR des Weeklys
+ *   - Als WeeklyEventManager für genau dieses Weekly eingetragen
+ */
+export async function userCanManageWeekly(cid: number, configId: number): Promise<boolean> {
+  const user = await getUserWithEffectiveData(cid);
+  if (!user) return false;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
+  if (user.effectivePermissions.includes("*")) return true;
+
+  // Load config to check FIR
+  const config = await prisma.weeklyEventConfiguration.findUnique({
+    where: { id: configId },
+    include: { fir: true },
+  });
+
+  // FIR-level permission
+  if (config?.fir?.code &&
+      (user.firScopedPermissions[config.fir.code]?.includes("event.edit") ?? false)) {
+    return true;
+  }
+
+  // Weekly-specific manager role
+  const manager = await prisma.weeklyEventManager.findUnique({
+    where: { userCID_configId: { userCID: cid, configId } },
+  });
+  return !!manager;
+}
+
+/**
  * Prüft, ob ein Nutzer Admin-Zugriff hat
- * (d. h. in einer Gruppe ist oder MAIN_ADMIN ist)
+ * (d. h. in einer Gruppe ist, MAIN_ADMIN ist, oder Weekly-Manager)
  */
 export async function hasAdminAccess(cid: number) {
   const user = await getUserWithEffectiveData(cid);
@@ -116,8 +148,11 @@ export async function hasAdminAccess(cid: number) {
 
   if (user.effectiveLevel === "MAIN_ADMIN") return true;
   if (user.effectiveLevel === "VATGER_LEITUNG") return true;
-  if(user.groups && user.groups.length > 0) return true;
+  if (user.groups && user.groups.length > 0) return true;
 
-  return false
-  
+  // Weekly managers also need admin access to reach the roster editor
+  const isWeeklyManager = await prisma.weeklyEventManager.findFirst({
+    where: { userCID: cid },
+  });
+  return !!isWeeklyManager;
 }

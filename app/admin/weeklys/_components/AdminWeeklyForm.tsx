@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AlertCircleIcon, ArrowLeft, Plus, X } from "lucide-react";
+import { AlertCircleIcon, ArrowLeft, Plus, X, Users, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUser } from "@/hooks/useUser";
@@ -84,6 +84,12 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
   const { user, isVATGERLead } = useUser();
+
+  // Manager state (only in edit mode)
+  const [managers, setManagers] = useState<{ userCID: number; user: { cid: number; name: string; rating: string } }[]>([]);
+  const [newManagerCid, setNewManagerCid] = useState("");
+  const [managersLoaded, setManagersLoaded] = useState(false);
+  const [savingManager, setSavingManager] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -179,6 +185,69 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     }
 
     return true;
+  };
+
+  // Manager functions (edit mode only)
+  const loadManagers = useCallback(async () => {
+    if (!config?.id || managersLoaded) return;
+    try {
+      const res = await fetch(`/api/admin/weeklys/${config.id}/managers`);
+      if (res.ok) {
+        const data = await res.json();
+        setManagers(data.managers);
+        setManagersLoaded(true);
+      }
+    } catch (err) {
+      console.error("Failed to load managers", err);
+    }
+  }, [config?.id, managersLoaded]);
+
+  const addManager = async () => {
+    const cid = parseInt(newManagerCid.trim());
+    if (isNaN(cid) || !config?.id) return;
+    setSavingManager(true);
+    try {
+      const res = await fetch(`/api/admin/weeklys/${config.id}/managers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userCID: cid }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Fehler beim Hinzufügen");
+      }
+      const data = await res.json();
+      setManagers((prev) => {
+        const exists = prev.some((m) => m.userCID === data.manager.userCID);
+        return exists ? prev : [...prev, data.manager];
+      });
+      setNewManagerCid("");
+      toast.success(`${data.manager.user.name} als Verantwortlicher hinzugefügt`);
+    } catch (err: any) {
+      toast.error(err.message || "Fehler beim Hinzufügen");
+    } finally {
+      setSavingManager(false);
+    }
+  };
+
+  const removeManager = async (userCID: number) => {
+    if (!config?.id) return;
+    setSavingManager(true);
+    try {
+      const res = await fetch(`/api/admin/weeklys/${config.id}/managers/${userCID}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || "Fehler beim Entfernen");
+      }
+      setManagers((prev) => prev.filter((m) => m.userCID !== userCID));
+      toast.success("Verantwortlicher entfernt");
+    } catch (err: any) {
+      toast.error(err.message || "Fehler beim Entfernen");
+    } finally {
+      setSavingManager(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -307,12 +376,21 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         </Alert>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className={`grid w-full ${formData.requiresRoster ? 'grid-cols-3' : 'grid-cols-2'}`}>
+      <Tabs value={activeTab} onValueChange={(v) => {
+          setActiveTab(v);
+          if (v === "managers" && isEdit) loadManagers();
+        }} className="w-full">
+        <TabsList className={`grid w-full ${isEdit && formData.requiresRoster ? 'grid-cols-4' : isEdit ? 'grid-cols-3' : formData.requiresRoster ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="basic">Grunddaten</TabsTrigger>
           <TabsTrigger value="schedule">Zeitplan</TabsTrigger>
           {formData.requiresRoster && (
             <TabsTrigger value="staffing">Besetzung</TabsTrigger>
+          )}
+          {isEdit && (
+            <TabsTrigger value="managers">
+              <Users className="h-3.5 w-3.5 mr-1.5" />
+              Verantwortliche
+            </TabsTrigger>
           )}
         </TabsList>
 
@@ -628,6 +706,91 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
             </CardContent>
           </Card>
         </TabsContent>
+        )}
+
+        {/* Managers Tab — Edit mode only */}
+        {isEdit && (
+          <TabsContent value="managers" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Verantwortliche
+                </CardTitle>
+                <CardDescription>
+                  Verantwortliche können Anmeldungen einsehen, das Roster erstellen und veröffentlichen – ohne FIR-weite Berechtigung.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Add manager */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="VATSIM CID eingeben"
+                    value={newManagerCid}
+                    onChange={(e) => setNewManagerCid(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addManager();
+                      }
+                    }}
+                    type="number"
+                    className="max-w-xs"
+                  />
+                  <Button
+                    type="button"
+                    onClick={addManager}
+                    disabled={savingManager || !newManagerCid.trim()}
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Hinzufügen
+                  </Button>
+                </div>
+
+                {/* Manager list */}
+                {managers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Noch keine Verantwortlichen eingetragen
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {managers.map((m) => (
+                      <div
+                        key={m.userCID}
+                        className="flex items-center justify-between p-2.5 rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                              {m.user.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) || "?"}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{m.user.name}</p>
+                            <p className="text-xs text-muted-foreground">CID {m.userCID}</p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] h-4">
+                            {m.user.rating}
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => removeManager(m.userCID)}
+                          disabled={savingManager}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         )}
       </Tabs>
     </form>

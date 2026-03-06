@@ -168,7 +168,11 @@ export async function sendSignupDeadlineDiscordNotification(
       include: {
         config: {
           include: {
-            fir: true,
+            fir: {
+              include: {
+                discordConfig: true,
+              },
+            },
           },
         },
       },
@@ -179,18 +183,25 @@ export async function sendSignupDeadlineDiscordNotification(
       return;
     }
 
-    if (!occurrence.config.fir || occurrence.config.fir.code !== "EDMM") {
-      console.log("[WEEKLY DISCORD] Discord notification only for EDMM events");
+    const discordBotUrl = process.env.DISCORD_BOT_URL;
+    const discordBotToken = process.env.DISCORD_BOT_TOKEN;
+
+    if (!discordBotUrl || !discordBotToken) {
+      console.error("[WEEKLY DISCORD] Discord bot URL or token missing in env variables");
       return;
     }
 
-    const discordBotUrl = process.env.DISCORD_BOT_URL;
-    const discordBotToken = process.env.DISCORD_BOT_TOKEN;
-    const channelId = process.env.DISCORD_EDMM_CHANNEL_ID;
-    const roleId = process.env.DISCORD_EDMM_ROLE_ID;
+    // Prefer DB config for channel/role; fall back to env vars for EDMM (backward compat)
+    const fir = occurrence.config.fir;
+    const dbDiscord = fir?.discordConfig;
 
-    if (!discordBotUrl || !discordBotToken || !channelId || !roleId) {
-      console.error("[WEEKLY DISCORD] Discord bot configuration missing in env variables");
+    const channelId = dbDiscord?.channelId
+      ?? (fir?.code === "EDMM" ? process.env.DISCORD_EDMM_CHANNEL_ID : undefined);
+    const roleId = dbDiscord?.roleId
+      ?? (fir?.code === "EDMM" ? process.env.DISCORD_EDMM_ROLE_ID : undefined);
+
+    if (!channelId) {
+      console.log(`[WEEKLY DISCORD] No Discord config for FIR ${fir?.code ?? "unknown"}, skipping notification`);
       return;
     }
 
@@ -227,7 +238,7 @@ Roster Editor: ${rosterEditorLink}`;
       body: JSON.stringify({
         channel_id: channelId,
         message: message,
-        role_id: roleId,
+        ...(roleId ? { role_id: roleId } : {}),
       }),
     });
 
