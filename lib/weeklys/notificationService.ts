@@ -56,11 +56,6 @@ export async function sendRosterPublishedNotifications(
       month: "2-digit",
       year: "numeric",
     });
-    const eventTime = occurrence.date.toLocaleTimeString("de-DE", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Berlin",
-    });
 
     const title = `Roster veröffentlicht: ${occurrence.config.name}`;
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
@@ -71,7 +66,7 @@ export async function sendRosterPublishedNotifications(
       try {
         const station = userStations.get(signup.userCID);
         
-        let message = `Das Roster für ${occurrence.config.name} am ${eventDate}, ${eventTime} wurde veröffentlicht.`;
+        let message = `Das Roster für ${occurrence.config.name} am ${eventDate} wurde veröffentlicht.`;
         
         if (station) {
           message += ` Du wurdest für Station ${station} eingeteilt.`;
@@ -208,24 +203,26 @@ export async function sendSignupDeadlineDiscordNotification(
       month: "2-digit",
       year: "numeric",
     });
-    const eventTime = occurrence.date.toLocaleTimeString("de-DE", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Berlin",
-    });
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://event.vatger.de";
     const rosterEditorLink = `${baseUrl}/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster`;
 
-    const message = `
+    let message = `
 
 **Anmeldeschluss für: ${occurrence.config.name}**
 
-Datum: ${eventDate}, ${eventTime}
+Datum: ${eventDate}, 
+`
 
-Die Anmeldung ist nun geschlossen. Das Roster kann nun erstellt werden.
+    if(occurrence.rosterScheduledPublish || occurrence.rosterPublished){
+      message += `Das Roster wurde nun veröffentlicht.`
+    } else {
+      message += `Die Anmeldung ist nun geschlossen. Das Roster kann erstellt werden.
 
 Roster Editor: ${rosterEditorLink}`;
+    }
+
+
 
     const response = await fetch(discordBotUrl, {
       method: "POST",

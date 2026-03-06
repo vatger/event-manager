@@ -52,6 +52,7 @@ interface WeeklyEventCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   canEdit: boolean;
+  canManage: boolean;
   canDelete: boolean;
 }
 
@@ -60,6 +61,7 @@ export function WeeklyEventCard({
   onEdit,
   onDelete,
   canEdit,
+  canManage,
   canDelete,
 }: WeeklyEventCardProps) {
   const router = useRouter();
@@ -225,7 +227,7 @@ export function WeeklyEventCard({
               </p>
             )}
             
-            {canEdit && (
+            {canManage && (
               <Button
                 variant="outline"
                 size="sm"

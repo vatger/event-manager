@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userCanManageWeekly } from "@/lib/acl/permissions";
 
 /**
  * GET /api/admin/weeklys/[id]/occurrences
@@ -35,10 +35,9 @@ export async function GET(
     }
 
     // Check permissions
-    const hasPermission = await userHasFirPermission(
+    const hasPermission = await userCanManageWeekly(
       Number(session.user.cid),
-      config.fir!.code,
-      "event.edit"
+      config.id
     );
     if (!hasPermission) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

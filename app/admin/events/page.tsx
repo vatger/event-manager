@@ -268,6 +268,11 @@ export default function AdminEventsPage() {
   // Check permissions for weekly events
   const canEditWeekly = (config: WeeklyEventConfig): boolean => {
     if (isVATGERLead()) return true;
+    if (!config.fir?.code) return false;
+    return canInFIR(config.fir.code, "event.edit");
+  };
+  const canManageWeekly = (config: WeeklyEventConfig): boolean => {
+    if (isVATGERLead()) return true;
     if (isWeeklyManager(config.id)) return true;
     if (!config.fir?.code) return false;
     return canInFIR(config.fir.code, "event.edit");
@@ -565,6 +570,7 @@ export default function AdminEventsPage() {
                                 onEdit={() => router.push(`/admin/weeklys/${config.id}/edit`)}
                                 onDelete={() => handleDeleteWeekly(config.id)}
                                 canEdit={canEditWeekly(config)}
+                                canManage={canManageWeekly(config)}
                                 canDelete={canDeleteWeekly(config)}
                               />
                             ))}

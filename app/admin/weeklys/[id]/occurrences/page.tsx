@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2, Eye, Edit, Users, Link, RefreshCw, Edit2 } from "lucide-react";
+import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2, Eye, Edit, Users, Link, RefreshCw, Edit2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -71,6 +71,7 @@ interface Occurrence {
   signupStatus: string;
   rosterPublished: boolean;
   rosterPublishedAt: string | null;
+  rosterScheduledPublish: boolean;
   myVatsimChecked: boolean;
   myVatsimRegistered: boolean | null;
   _count: {
@@ -134,6 +135,7 @@ export default function OccurrencesPage() {
       if (!occRes.ok) throw new Error("Failed to fetch occurrences");
       const occData = await occRes.json();
       setOccurrences(occData.occurrences || []);
+      console.log(occData.occurrences);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Fehler", {
@@ -245,8 +247,9 @@ export default function OccurrencesPage() {
     setSubmitting(true);
     try {
       const willPublish = !rosterDialog.occurrence.rosterPublished;
+
       const res = await fetch(
-        `/api/admin/weeklys/${configId}/occurrences/${rosterDialog.occurrence.id}/publish-roster`,
+        `/api/admin/weeklys/${configId}/occurrences/${rosterDialog.occurrence.id}/roster/publish`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -478,6 +481,8 @@ export default function OccurrencesPage() {
                           <TableCell>
                             {occ.rosterPublished ? (
                               <CheckCircle className="w-5 h-5 text-green-600" />
+                            ) : occ.rosterScheduledPublish ? (
+                              <Clock className="w-5 h-5 text-yellow-500" />
                             ) : (
                               <XCircle className="w-5 h-5 text-gray-400" />
                             )}
@@ -637,6 +642,8 @@ export default function OccurrencesPage() {
                                 <TableCell>
                                   {occ.rosterPublished ? (
                                     <CheckCircle className="w-5 h-5 text-green-600" />
+                                  ) : occ.rosterScheduledPublish ? (
+                                    <Clock className="w-5 h-5 text-yellow-500" />
                                   ) : (
                                     <XCircle className="w-5 h-5 text-gray-400" />
                                   )}

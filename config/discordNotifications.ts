@@ -8,20 +8,16 @@
  *   1. Entry matching (firCode + notificationType + weeklyConfigId)  ← most specific
  *   2. Entry matching (firCode + notificationType) with no weeklyConfigId  ← FIR-wide fallback
  *
- * Non-sensitive IDs (channel IDs, role IDs) live here.
- * Sensitive credentials (DISCORD_BOT_TOKEN) remain in environment variables.
- * The bot URL (DISCORD_BOT_URL) also stays in env vars as it may differ between deployments.
+ * Sensitive credentials (DISCORD_BOT_TOKEN, DISCORD_BOT_URL) remain in environment variables.
  *
  * Notification types:
  *   "weekly_signup_deadline" — sent when the signup deadline for a weekly event passes
- *   "roster_published"       — sent when a roster is published for a weekly event
  *   "staffing_check"         — sent by the staffing check cron job
  *   "my_vatsim_check"        — sent by the myVATSIM check cron job
  */
 
 export type DiscordNotificationType =
   | "weekly_signup_deadline"
-  | "roster_published"
   | "staffing_check"
   | "my_vatsim_check";
 
@@ -56,13 +52,14 @@ export const DISCORD_NOTIFICATIONS: DiscordNotificationEntry[] = [
   // ---------------------------------------------------------------------------
   // EDMM (München)
   // ---------------------------------------------------------------------------
-  // {
-  //   firCode: "EDMM",
-  //   notificationType: "weekly_signup_deadline",
-  //   channelId: "YOUR_CHANNEL_ID",
-  //   roleId: "YOUR_ROLE_ID",
-  //   label: "EDMM Weekly Anmeldeschluss",
-  // },
+  {
+    firCode: "EDMM",
+    notificationType: "weekly_signup_deadline",
+    channelId: "1472258888819802317",
+    roleId: "1473073605943234672",
+    weeklyConfigId: 4,
+    label: "EDMM Weekly Anmeldeschluss",
+  },
   // {
   //   firCode: "EDMM",
   //   notificationType: "roster_published",
