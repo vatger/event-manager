@@ -46,7 +46,7 @@ export default function EventsPage() {
   
   useEffect(() => {
     async function loadEvents() {
-      const url = session?.user?.id ? `/api/events?userCID=${session.user.id}` : "/api/events";
+      const url = session?.user?.id ? `/api/public/events?userCID=${session.user.id}` : "/api/public/events";
       const res = await fetch(url);
       const data = await res.json();
       setEvents(data);
@@ -58,12 +58,10 @@ export default function EventsPage() {
   useEffect(() => {
     async function loadWeeklys() {
       try {
-        const res = await fetch("/api/admin/weeklys");
+        const res = await fetch("/api/public/weeklys/configs");
         if (res.ok) {
           const data = await res.json();
-          // Filter only enabled configs
-          const enabledConfigs = data.filter((c: WeeklyConfig) => c.enabled);
-          setWeeklys(enabledConfigs);
+          setWeeklys(data);
         }
       } catch (err) {
         console.error("Failed to load weeklys:", err);
