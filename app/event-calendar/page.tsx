@@ -238,7 +238,7 @@ export default function PublicEventCalendar() {
                 Event Kalender
               </h1>
               <p className="text-sm text-muted-foreground">
-                Alle angekündigten Events und Weeklys von VATSIM Germany
+                Alle Events von VATSIM Germany
               </p>
             </div>
           </div>
@@ -410,20 +410,6 @@ export default function PublicEventCalendar() {
           )}
         </div>
 
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Legende:</span>
-          {Object.entries(FIR_COLORS).map(([fir, c]) => (
-            <span key={fir} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-sm ${c.dot}`} />
-              {fir}
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5">
-            <Repeat className="h-3 w-3" />
-            Weekly Event
-          </span>
-        </div>
       </div>
 
       {/* Day detail dialog */}
