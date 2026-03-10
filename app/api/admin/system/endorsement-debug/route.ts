@@ -59,6 +59,17 @@ export async function POST(req: Request) {
   return NextResponse.json({
     user: { cid: user.cid, name: user.name, rating: user.rating, ratingValue: rating },
     policy,
+    eligibilityData: {
+      endorsements: data.endorsements,
+      allEndorsements: data.allEndorsements,
+      solos: data.solos.map((s) => ({ position: s.position, expiry: s.expiry.toISOString() })),
+      relevantSoloPositions: data.relevantSoloPositions,
+      famsForFir: data.famsForFir,
+      isOnRoster: data.isOnRoster,
+      isS1TheoryOnly: data.isS1TheoryOnly,
+      t2AfisEndorsements: data.t2AfisEndorsements,
+      missingCourses: data.missingCourses,
+    },
     result,
   });
 }

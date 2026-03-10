@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
-import { Search, CheckCircle2, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { Search, CheckCircle2, XCircle, AlertCircle, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 
 interface LevelEvaluation {
@@ -29,6 +29,18 @@ interface LevelEvaluation {
   allowed: boolean;
   restrictions: string[];
   blockReasons: string[];
+}
+
+interface EligibilityData {
+  endorsements: string[];
+  allEndorsements: string[];
+  solos: { position: string; expiry: string }[];
+  relevantSoloPositions: string[];
+  famsForFir: string[];
+  isOnRoster: boolean;
+  isS1TheoryOnly: boolean;
+  t2AfisEndorsements: string[];
+  missingCourses: Record<string, string[]>;
 }
 
 interface DebugResult {
@@ -46,12 +58,56 @@ interface DebugResult {
     s1TwrAllowed: boolean;
     s1TheoryMaxLevel?: string;
     tier1RequiredFrom?: string;
+    requiredCourses?: Record<string, string[]>;
   };
+  eligibilityData: EligibilityData;
   result: {
     maxAllowedGroup: "GND" | "TWR" | "APP" | "CTR" | null;
     restrictions: string[];
     reasonsPerLevel: LevelEvaluation[];
   };
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+      {children}
+    </p>
+  );
+}
+
+function TagList({ items, emptyText = "–" }: { items: string[]; emptyText?: string }) {
+  if (items.length === 0) return <p className="text-xs text-muted-foreground">{emptyText}</p>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item) => (
+        <Badge key={item} variant="outline" className="font-mono text-xs">
+          {item}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function JsonBox({ label, value }: { label: string; value: unknown }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 hover:text-foreground transition-colors"
+      >
+        {open ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {label}
+      </button>
+      {open && (
+        <pre className="rounded-md bg-muted p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all">
+          {JSON.stringify(value, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
 }
 
 export default function EndorsementDebugCard() {
@@ -115,7 +171,7 @@ export default function EndorsementDebugCard() {
         </CardTitle>
         <CardDescription>
           Vollständige Eligibility-Auswertung für eine CID und einen Airport – inklusive
-          Reasons per Level für die Fehlersuche im Livebetrieb.
+          Endorsements, Fams, Airport Policy und Reasons per Level für die Fehlersuche im Livebetrieb.
         </CardDescription>
       </CardHeader>
 
@@ -187,7 +243,7 @@ export default function EndorsementDebugCard() {
 
         {/* Results */}
         {data && (
-          <div className="space-y-4 pt-2">
+          <div className="space-y-5 pt-2">
             {/* User + result summary */}
             <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-muted/50">
               <div className="flex-1 min-w-0">
@@ -202,6 +258,9 @@ export default function EndorsementDebugCard() {
                   {data.policy.isTier1 ? " · T1" : ""}
                   {data.policy.requiresAfis ? " · AFIS" : ""}
                   {data.policy.s1TwrAllowed ? " · S1-TWR" : ""}
+                  {data.eligibilityData.isOnRoster
+                    ? " · Im Roster ✓"
+                    : " · Nicht im Roster ✗"}
                 </p>
               </div>
               <div>
@@ -218,9 +277,7 @@ export default function EndorsementDebugCard() {
             {/* Restrictions */}
             {data.result.restrictions.length > 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                  Restrictions
-                </p>
+                <SectionLabel>Restrictions</SectionLabel>
                 {data.result.restrictions.map((r, i) => (
                   <p key={i} className="text-xs text-amber-600">
                     • {r}
@@ -229,11 +286,35 @@ export default function EndorsementDebugCard() {
               </div>
             )}
 
+            {/* Endorsements & Fams */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <SectionLabel>T1 Endorsements (gefiltert)</SectionLabel>
+                <TagList items={data.eligibilityData.endorsements} emptyText="Keine" />
+                <SectionLabel>T1 Endorsements (alle)</SectionLabel>
+                <TagList items={data.eligibilityData.allEndorsements} emptyText="Keine" />
+                {data.eligibilityData.t2AfisEndorsements.length > 0 && (
+                  <>
+                    <SectionLabel>T2 / AFIS Endorsements</SectionLabel>
+                    <TagList items={data.eligibilityData.t2AfisEndorsements} />
+                  </>
+                )}
+              </div>
+              <div className="space-y-2">
+                <SectionLabel>Familiarizations (FIR)</SectionLabel>
+                <TagList items={data.eligibilityData.famsForFir} emptyText="Keine" />
+                {data.eligibilityData.relevantSoloPositions.length > 0 && (
+                  <>
+                    <SectionLabel>Solo Positions</SectionLabel>
+                    <TagList items={data.eligibilityData.relevantSoloPositions} />
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* Reasons per level */}
             <div>
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-                Reasons per Level
-              </p>
+              <SectionLabel>Reasons per Level</SectionLabel>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -279,9 +360,18 @@ export default function EndorsementDebugCard() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Raw JSON sections */}
+            <div className="space-y-3 border-t pt-4">
+              <p className="text-xs font-semibold text-muted-foreground">Raw Debug Data</p>
+              <JsonBox label="Airport Policy" value={data.policy} />
+              <JsonBox label="Eligibility Data" value={data.eligibilityData} />
+              <JsonBox label="Vollständige Antwort" value={data} />
+            </div>
           </div>
         )}
       </CardContent>
     </Card>
   );
 }
+
