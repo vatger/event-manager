@@ -82,7 +82,6 @@ export function SignupsTable({
                 <TableRow className="bg-gray-50 dark:bg-gray-900/40">
                   <TableHead>CID</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="w-[100px]">Rating</TableHead>
                   <TableHead className="w-[120px]">Gruppe</TableHead>
                   <TableHead className="w-[200px]">Einschränkungen</TableHead>
                   <TableHead className="w-[120px]">Angemeldet seit</TableHead>
@@ -103,13 +102,6 @@ export function SignupsTable({
                       <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
                         <TableCell><span className="font-medium">{signup.userCID}</span></TableCell>
                         <TableCell><span className="font-medium">{signup.user?.name || "Unbekannt"}</span></TableCell>
-                        <TableCell>
-                          {signup.user?.rating && (
-                            <Badge variant="outline" className="text-[10px] h-4">
-                              {getRatingFromValue(signup.user.rating)}
-                            </Badge>
-                          )}
-                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {signup.endorsementGroup ? (

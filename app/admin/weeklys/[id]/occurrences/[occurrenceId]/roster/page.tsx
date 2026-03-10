@@ -760,9 +760,6 @@ export default function RosterEditorPage() {
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <Badge variant="outline" className="text-[10px] h-4">
-                                      {getRatingFromValue(assigned.user?.rating || 0)}
-                                    </Badge>
                                     {assigned.endorsementGroup && (
                                       <Badge className={cn(
                                         "text-[10px] h-4",
