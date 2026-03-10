@@ -10,6 +10,7 @@ import { Users, UserPlus, UserMinus, Shield, Loader2, KeyRound } from 'lucide-re
 import { toast } from 'sonner';
 import TrainingCacheCard from './RefreshEndorsements';
 import CronJobMonitor from './CronJobMonitor';
+import EndorsementDebugCard from './EndorsementDebugCard';
 
 interface VATGERMember {
   id: string;
@@ -280,6 +281,7 @@ export default function SystemSettingsPage() {
       </Card>
       <CronJobMonitor />
       <TrainingCacheCard />
+      <EndorsementDebugCard />
     </div>
   );
 }
