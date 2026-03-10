@@ -2,15 +2,9 @@ import prisma from "@/lib/prisma";
 import { GroupService } from "@/lib/endorsements/groupService";
 import { getRatingValue } from "@/utils/ratingToValue";
 import type { EndorsementResponse } from "@/lib/endorsements/types";
+import { getMemoryCacheItem, setMemoryCacheItem, deleteMemoryCacheItem } from "@/lib/cache/cacheManager";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 hours
-
-// In-memory cache for weekly signups
-type CacheEntry<T> = {
-  data: T;
-  expires: number;
-};
-const memoryCache = new Map<string, CacheEntry<unknown>>();
 
 // Track last update timestamps per occurrence for cache busting
 const lastUpdateTimestamps = new Map<number, number>();
@@ -57,10 +51,10 @@ export async function getCachedWeeklySignups(
 
   // 1️⃣ Check memory cache unless force refresh
   if (!forceRefresh) {
-    const cached = memoryCache.get(key);
-    if (cached && cached.expires > Date.now()) {
+    const cached = getMemoryCacheItem<WeeklySignupEntry[]>(key);
+    if (cached) {
       console.log(`[WEEKLY CACHE HIT] Signups for occurrence ${occurrenceId}`);
-      return cached.data as WeeklySignupEntry[];
+      return cached;
     }
   } else {
     console.log(`[WEEKLY CACHE SKIP] Force refresh for occurrence ${occurrenceId}`);
@@ -185,7 +179,7 @@ export async function getCachedWeeklySignups(
   );
 
   // 5️⃣ Store in memory cache
-  memoryCache.set(key, { data: computed, expires: Date.now() + TTL });
+  setMemoryCacheItem(key, computed, TTL);
   console.log(`[WEEKLY CACHE SET] Signups cached for occurrence ${occurrenceId}`);
 
   return computed;
@@ -196,7 +190,7 @@ export async function getCachedWeeklySignups(
  */
 export async function invalidateWeeklySignupCache(occurrenceId: number): Promise<void> {
   const key = `weekly-occurrence:${occurrenceId}`;
-  memoryCache.delete(key);
+  deleteMemoryCacheItem(key);
   setLastUpdateTimestamp(occurrenceId);
   console.log(`[WEEKLY CACHE INVALIDATED] Signups cache for occurrence ${occurrenceId}`);
 }

@@ -8,68 +8,25 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   ArrowLeft,
   Calendar,
   Clock,
-  MapPin,
   Loader2,
   AlertCircle,
-  UserPlus,
-  UserMinus,
-  Users,
   Info,
-  Check,
-  X,
-  Award,
-  BookOpen,
-  GripVertical,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  GraduationCap,
-  ClipboardCheck,
 } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { de } from "date-fns/locale";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
-import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { cn } from "@/lib/utils";
 import EventBanner from "@/components/Eventbanner";
 import { WeeklySignupDialog } from "./_components/WeeklySignupDialog";
-import { AddSignupByCIDDialog } from "./_components/AddSignupByCIDDialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/hooks/useUser";
-import { getRatingFromValue } from "@/utils/ratingToValue";
 import { PublishedRoster } from "./_components/PublishedRoster";
 import { SignupsTable } from "./_components/SignupTable";
 import { SignupDialogs } from "./_components/SignupDialogs";
@@ -136,16 +93,6 @@ interface RosterEntry {
   endorsementGroup?: string;
   restrictions?: string[];
 }
-
-const WEEKDAYS = [
-  "Sonntag",
-  "Montag",
-  "Dienstag",
-  "Mittwoch",
-  "Donnerstag",
-  "Freitag",
-  "Samstag",
-];
 
 
 
@@ -420,11 +367,6 @@ export default function OccurrenceDetailPage() {
     return "";
   };
 
-
-  const getAssignedUserForStation = (station: string): RosterEntry | null => {
-    return roster.find(r => r.station === station) || null;
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen">
@@ -475,15 +417,15 @@ export default function OccurrenceDetailPage() {
             </h1>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{format(occDate, "EEEE, dd. MMMM yyyy", { locale: de })}</span>
+                <Calendar className="h-3.5 w-3.5 hidden sm:block" />
+                <span>{format(occDate, "EEEE, dd.MM.yy", { locale: de })}</span>
               </div>
               {(occurrence.config.startTime || occurrence.config.endTime) && (
                 <>
                   <span className="text-gray-300 dark:text-gray-700">•</span>
                   <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} Uhr (Lokalzeit)</span>
+                    <Clock className="h-3.5 w-3.5 hidden sm:block" />
+                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} lcl</span>
                   </div>
                 </>
               )}
@@ -494,8 +436,20 @@ export default function OccurrenceDetailPage() {
         {/* Main Grid - Banner + Info Card */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
+          
+          {/* Banner */}
+          <div className="md:col-span-2 min-h-0 order-first md:order-last">
+            <div className="relative h-56 md:h-full rounded-xl overflow-hidden">
+              <EventBanner
+                bannerUrl={occurrence.config.bannerUrl || ""}
+                eventName={occurrence.config.name}
+                className="absolute inset-0 w-full h-full object-cover object-center"
+              />
+            </div>
+          </div>
+
           {/* Info Card */}
-          <Card className="md:col-span-1 border-gray-200 dark:border-gray-800">
+          <Card className="md:col-span-1 border-gray-200 dark:border-gray-800 order-last md:order-first">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <div className={cn(
@@ -602,16 +556,6 @@ export default function OccurrenceDetailPage() {
             )}
             </CardContent>
           </Card>
-          {/* Banner */}
-          <div className="md:col-span-2 min-h-0">
-            <div className="relative h-56 md:h-full rounded-xl overflow-hidden">
-              <EventBanner
-                bannerUrl={occurrence.config.bannerUrl || ""}
-                eventName={occurrence.config.name}
-                className="absolute inset-0 w-full h-full object-cover object-center"
-              />
-            </div>
-          </div>
         </div>
 
         {/* Info for non-rostered events */}

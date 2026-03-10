@@ -131,59 +131,44 @@ export default function WeeklyDetailPage() {
    */
   const generateCalendarWeeks = (): CalendarWeek[] => {
     if (!config || config.occurrences.length === 0) return [];
-
-    const result: CalendarWeek[] = [];
-    const startDate = new Date(config.startDate);
-    
-    // Get the earliest future or current occurrence
-    const upcomingOccurrences = config.occurrences
-      .filter((occ) => !isPast(new Date(occ.date)))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    if (upcomingOccurrences.length === 0) return [];
-
-    // Start from first upcoming occurrence
-    const firstOccurrence = upcomingOccurrences[0];
-    const firstOccurrenceDate = new Date(firstOccurrence.date);
-    
-    // Calculate how many weeks to show (next 12 weeks)
-    const weeksToShow = 10;
-    
-    // Create occurrence lookup map
-    const occurrenceMap = new Map<string, WeeklyOccurrence>();
-    upcomingOccurrences.forEach(occ => {
-      const dateKey = toLocalDateKey(new Date(occ.date)); // ✅ statt toISOString
-      occurrenceMap.set(dateKey, occ);
-    });
-
-    // Generate calendar weeks by checking each week
-    let currentDate = new Date(firstOccurrenceDate);
-    
-    for (let i = 0; i < weeksToShow; i++) {
-      const dateKey = toLocalDateKey(currentDate);
-      const occurrence = occurrenceMap.get(dateKey);
+  
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+  
+    const toLocalDate = (dateStr: string): Date => {
+      const d = new Date(dateStr);
       
-      if (occurrence) {
-        // This week has an actual occurrence - show it as an active week
-        result.push({
-          type: "occurrence",
-          date: new Date(currentDate),
-          occurrence: occurrence,
-        });
-      } else {
-        // No occurrence this week - it's a pause week
-        result.push({
-          type: "pause",
-          date: new Date(currentDate),
-        });
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+  
+    const upcomingOccurrences = config.occurrences
+      .filter((occ) => toLocalDate(occ.date) >= todayStart)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+    if (upcomingOccurrences.length === 0) return [];
+  
+    const result: CalendarWeek[] = [];
+  
+    for (let i = 0; i < upcomingOccurrences.length; i++) {
+      const occ = upcomingOccurrences[i];
+      const occDate = toLocalDate(occ.date);
+  
+      // Pause-Wochen zwischen vorheriger und aktueller Occurrence einfügen
+      if (i > 0) {
+        const prevDate = toLocalDate(upcomingOccurrences[i - 1].date);
+        let checkDate = new Date(prevDate);
+        checkDate.setDate(checkDate.getDate() + 7);
+  
+        while (checkDate < occDate) {
+          result.push({ type: "pause", date: new Date(checkDate) });
+          checkDate.setDate(checkDate.getDate() + 7);
+        }
       }
-
-      // Move to next week (same weekday)
-      currentDate = new Date(currentDate);
-      currentDate.setDate(currentDate.getDate() + 7);
+  
+      result.push({ type: "occurrence", date: occDate, occurrence: occ });
     }
-
-    return result;
+  
+    return result.slice(0, 10);
   };
   
 
@@ -293,10 +278,6 @@ export default function WeeklyDetailPage() {
       </div>
     );
   }
-
-  const upcomingOccurrences = config.occurrences.filter(
-    (occ) => !isPast(new Date(occ.date))
-  );
 
   return (
     <div className="container mx-auto max-w-5xl p-6 space-y-8">

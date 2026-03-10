@@ -1,5 +1,32 @@
+import { AirportLevel } from '@/lib/eligibility/types';
+
 export class EndorsementService {
   static readonly GROUP_ORDER = ['GND', 'TWR', 'APP', 'CTR'] as const;
+
+  /**
+   * Combined endorsements that cover multiple levels.
+   * Key: endorsement suffix (without leading underscore), Value: levels it covers.
+   * Example: "GNDDEL" appears as "AIRPORT_GNDDEL" and covers both GND and DEL.
+   */
+  private static readonly COMBINED_ENDORSEMENTS: Record<string, AirportLevel[]> = {
+    GNDDEL: ['GND', 'DEL'],
+  };
+
+  /**
+   * Returns true if the given endorsement covers the requested ATC level.
+   * Handles combined endorsements (e.g. GNDDEL covers both GND and DEL) as well as
+   * standard single-level endorsements (GND, TWR, APP, CTR).
+   */
+  public static endorsementCoversLevel(endorsement: string, level: AirportLevel): boolean {
+    // Check combined endorsements first
+    for (const [suffix, levels] of Object.entries(this.COMBINED_ENDORSEMENTS)) {
+      if (endorsement.includes(`_${suffix}`)) {
+        return levels.includes(level);
+      }
+    }
+    // Fall back to single-level matching
+    return this.extractGroupFromEndorsement(endorsement) === level;
+  }
 
   static getEndorsementsForAirport(
     endorsements: string[],

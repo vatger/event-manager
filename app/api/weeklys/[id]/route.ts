@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { addDays } from "date-fns";
 
 /**
  * GET /api/weeklys/[id]
@@ -31,7 +32,7 @@ export async function GET(
         occurrences: {
           where: {
             date: {
-              gte: new Date(),
+              gte: new Date(addDays( new Date(), -1)),
             },
           },
           orderBy: {

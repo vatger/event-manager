@@ -47,8 +47,9 @@ export async function fetchAllStations(): Promise<Station[]> {
 
       // Extract S1 TWR flag from datahub
       const s1Twr = entry.s1_twr === true ? true : undefined;
+      const s1Theory = entry.s1_theory === true ? true : undefined;
 
-      return { callsign, group, airport, s1Twr, gcapStatus: entry.gcap_status };
+      return { callsign, group, airport, s1Twr, s1Theory, gcapStatus: entry.gcap_status };
     })
     .filter((s: Station | null): s is Station => s !== null);
 

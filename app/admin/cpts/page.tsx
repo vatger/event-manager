@@ -1,10 +1,7 @@
 import React from 'react';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CPTOverview from './Cptoverview';
-import { getAllFIRCodes, getFIRConfig } from '@/config/firStations';
-import { useUser } from '@/hooks/useUser';
 
 /**
  * CPT Übersicht Admin Page
