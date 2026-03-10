@@ -167,11 +167,10 @@ export default function EndorsementDebugCard() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Search className="w-5 h-5" />
-          Endorsement Debug
+          Automatic-Endorsement Debug
         </CardTitle>
         <CardDescription>
-          Vollständige Eligibility-Auswertung für eine CID und einen Airport – inklusive
-          Endorsements, Fams, Airport Policy und Reasons per Level für die Fehlersuche im Livebetrieb.
+          Vollständige Eligibility-Auswertung für eine CID und einen Airport.
         </CardDescription>
       </CardHeader>
 

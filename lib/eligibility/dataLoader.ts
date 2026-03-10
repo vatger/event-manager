@@ -40,7 +40,7 @@ export async function loadEligibilityData(
   // --- Mock APIs (wating for endpints of real data) ---
 
   // Mock: user is always considered to be on the roster
-  const isOnRoster = false;
+  const isOnRoster = true;
 
   // Mock: no user is on the S1-theory-only roster
   const isS1TheoryOnly = false;
