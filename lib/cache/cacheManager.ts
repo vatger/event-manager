@@ -95,3 +95,25 @@ export async function invalidateAllCaches(): Promise<void> {
   memoryCache.clear();
   console.log(`[CACHE CLEAR] All caches cleared`);
 }
+
+// ====================================================================
+// 🔹 Generische In-Memory-Cache-Operationen (geteilt von allen Caches)
+// Einträge hier werden automatisch von invalidateAllCaches() mitgeleert.
+// ====================================================================
+export function getMemoryCacheItem<T>(key: string): T | null {
+  const cached = memoryCache.get(key);
+  if (!cached) return null;
+  if (cached.expires <= Date.now()) {
+    memoryCache.delete(key);
+    return null;
+  }
+  return cached.data as T;
+}
+
+export function setMemoryCacheItem<T>(key: string, data: T, ttlMs: number): void {
+  memoryCache.set(key, { data, expires: Date.now() + ttlMs });
+}
+
+export function deleteMemoryCacheItem(key: string): void {
+  memoryCache.delete(key);
+}
