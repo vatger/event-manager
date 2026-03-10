@@ -20,9 +20,9 @@ export function tier1Rule(input: RuleInput): RuleResult {
     return { allowed: true };
   }
 
-  // Check if a valid T1 endorsement exists for this level
+  // Check if a valid T1 endorsement exists for this level (handles combined endorsements like GNDDEL)
   const hasT1 = data.endorsements.some((e) =>
-    EndorsementService.extractGroupFromEndorsement(e) === level
+    EndorsementService.endorsementCoversLevel(e, level)
   );
   if (hasT1) {
     return { allowed: true };
