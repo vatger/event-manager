@@ -72,16 +72,3 @@ type Familiarization = {
     solos: string[],
     fams?: string[]
   }
-  
-  export interface ControllerGroup {
-    group: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
-    restrictions: string[];
-    data?: EndorsementSoloFamsData
-  }
-  
-  export interface EventData {
-    id: string;
-    fir: string;
-    airport: string;
-    isTier1: boolean;
-  }
