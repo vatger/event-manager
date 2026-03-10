@@ -5,10 +5,10 @@ import {
   AirportPolicy,
   LevelEvaluation,
   LEVEL_ORDER,
+  levelRank,
   RuleInput,
   RuleResult,
 } from './types';
-import { EndorsementService } from '@/lib/endorsements/endorsementService';
 import { rosterRule } from './rules/rosterRule';
 import { s1TheoryRule } from './rules/s1TheoryRule';
 import { ratingRule } from './rules/ratingRule';
@@ -138,14 +138,16 @@ export class EligibilityEngine {
     const winnerEval = evaluations.find((e) => e.level === maxAllowedGroup);
     const restrictions: string[] = winnerEval?.restrictions ?? [];
 
-    // For tier1 airports: if CTR is allowed but no APP endorsement exists, add "no APP"
-    if (
-      maxAllowedGroup === 'CTR' &&
-      !data.allEndorsements.some(
-        (e) => EndorsementService.extractGroupFromEndorsement(e) === 'APP'
-      )
-    ) {
-      restrictions.push('no APP');
+    // Detect gaps: levels below maxAllowedGroup that are blocked get a "no <LEVEL>" restriction.
+    // This handles cases like CTR allowed but APP/TWR blocked (e.g. FIR CTR endorsement without APP).
+    if (maxAllowedGroup !== null) {
+      for (const level of GROUP_LEVELS) {
+        if (levelRank(level) >= levelRank(maxAllowedGroup)) break;
+        const ev = evaluations.find((e) => e.level === level);
+        if (ev && !ev.allowed) {
+          restrictions.push(`no ${level}`);
+        }
+      }
     }
 
     return { maxAllowedGroup, restrictions, reasonsPerLevel: evaluations };
