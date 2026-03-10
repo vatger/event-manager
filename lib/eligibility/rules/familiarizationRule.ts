@@ -7,10 +7,13 @@ import { RuleInput, RuleResult } from '../types';
  * - 1–2 FAMs: CTR allowed but restricted to those sectors only
  * - 3+ FAMs: CTR fully allowed (no restriction added here)
  *
+ * Exception: a FIR-level CTR endorsement (e.g. EDMM_CTR) grants full CTR access across the
+ * entire FIR without requiring sector familiarizations.
+ *
  * The rule only applies to CTR; other levels are always allowed.
  */
 export function familiarizationRule(input: RuleInput): RuleResult {
-  const { level, user, data } = input;
+  const { level, user, data, policy } = input;
 
   if (level !== 'CTR') {
     return { allowed: true };
@@ -19,6 +22,17 @@ export function familiarizationRule(input: RuleInput): RuleResult {
   // Familiarization only relevant for C1+ (rating >= 5)
   if (user.rating < 5) {
     return { allowed: true };
+  }
+
+  // A FIR-level CTR endorsement (e.g. EDMM_CTR) authorises full CTR access across the FIR
+  // without requiring sector familiarizations.
+  if (policy.fir) {
+    const hasFirCtrEndorsement = data.endorsements.some(
+      (e) => e.startsWith(`${policy.fir}_`) && e.endsWith('_CTR')
+    );
+    if (hasFirCtrEndorsement) {
+      return { allowed: true };
+    }
   }
 
   const fams = data.famsForFir;
