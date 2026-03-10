@@ -14,7 +14,7 @@ export function coursesRule(input: RuleInput): RuleResult {
   if (missing.length > 0) {
     return {
       allowed: true,
-      restriction: `Test nicht abgeschlossen: ${missing.join(', ')}`,
+      // restriction: `Test nicht abgeschlossen: ${missing.join(', ')}`,
     };
   }
 
