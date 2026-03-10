@@ -1,6 +1,8 @@
 import { fetchAllStations } from '@/lib/stations/fetchStations';
 import { AirportLevel, AirportPolicy, LEVEL_ORDER } from './types';
 
+const REVERSED_LEVEL_ORDER = [...LEVEL_ORDER].reverse();
+
 /**
  * Build an AirportPolicy from datahub station metadata.
  *
@@ -11,6 +13,8 @@ import { AirportLevel, AirportPolicy, LEVEL_ORDER } from './types';
  *
  * AFIS airports (gcapStatus === "AFIS" on the TWR/GND station) require a T2/AFIS endorsement.
  * S1-TWR airports (s1_twr flag) allow the TWR station to be staffed with GND-level rating.
+ * S1-Theory airports (s1_theory flag on a station) allow S1-theory-only controllers to staff up
+ * to the highest level that carries the s1_theory flag.
  */
 export async function buildAirportPolicy(airport: string, fir?: string): Promise<AirportPolicy> {
   const allStations = await fetchAllStations();
@@ -44,6 +48,20 @@ export async function buildAirportPolicy(airport: string, fir?: string): Promise
     if (!tier1RequiredFrom) tier1RequiredFrom = 'TWR';
   }
 
+  // Determine the highest level accessible by S1-theory-only controllers.
+  // A station with s1_theory === true in the datahub signals that the level can be staffed
+  // without a full rating – only the S1 theory exam is required.
+  let s1TheoryMaxLevel: AirportLevel | undefined;
+  const s1TheoryGroups = new Set(
+    airportStations.filter((s) => s.s1Theory === true).map((s) => s.group)
+  );
+  for (const level of REVERSED_LEVEL_ORDER) {
+    if (s1TheoryGroups.has(level)) {
+      s1TheoryMaxLevel = level;
+      break;
+    }
+  }
+
   return {
     airport: icao,
     fir,
@@ -51,5 +69,6 @@ export async function buildAirportPolicy(airport: string, fir?: string): Promise
     tier1RequiredFrom,
     requiresAfis,
     s1TwrAllowed,
+    s1TheoryMaxLevel,
   };
 }
