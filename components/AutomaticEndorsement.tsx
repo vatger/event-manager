@@ -71,7 +71,12 @@ export default React.memo(function AutomaticEndorsement(params: EndorsementQuery
             )}
           </div>
         ) : !loading && !data?.group ? (
-          <p className="text-red-600">You are not allowed to control {event.airport}</p>
+          <div>
+            <p className="text-red-600">You are not allowed to control {event.airport}</p>
+            {data?.blockReason && (
+              <p className="text-xs text-muted-foreground mt-1">• {data.blockReason}</p>
+            )}
+          </div>
         ) : (
           <>
             {error && <p className="text-red-500 text-xs">{error}</p>}

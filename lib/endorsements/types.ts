@@ -62,6 +62,8 @@ type Familiarization = {
   export interface EndorsementResponse {
     group: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
     restrictions: string[];
+    /** Human-readable reason why group is null (e.g. "nicht im Roster") */
+    blockReason?: string;
     endorsements: string[];
     familiarizations: string[];
     data?: EndorsementSoloFamsData

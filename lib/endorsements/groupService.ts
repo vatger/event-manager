@@ -11,11 +11,18 @@ export class GroupService {
     const policy = await buildAirportPolicy(event.airport, event.fir);
     const data = await loadEligibilityData(user.userCID, policy);
 
-    const { maxAllowedGroup, restrictions } = EligibilityEngine.evaluate(user, policy, data);
+    const { maxAllowedGroup, restrictions, reasonsPerLevel } = EligibilityEngine.evaluate(user, policy, data);
+
+    // Collect the first block reason from the gatekeeper level when no group was granted
+    const blockReason: string | undefined =
+      maxAllowedGroup === null
+        ? (reasonsPerLevel[0]?.blockReasons ?? [])[0]
+        : undefined;
 
     return {
       group: maxAllowedGroup,
       restrictions,
+      blockReason,
       endorsements: data.allEndorsements,
       familiarizations: data.famsForFir,
       data: {
