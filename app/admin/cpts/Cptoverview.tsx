@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { getFIRConfig } from '@/config/firStations';
+import { cptBelongsToFir, CPT_FIR_NAMES } from '@/config/cptFirMapping';
 import { useUser } from '@/hooks/useUser';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -57,21 +57,11 @@ const CPTOverview: React.FC = () => {
       const result = await response.json();
       let filteredData = result.data || [];
 
-      // Filter by FIR if specified
+      // Filter by FIR using prefix-based mapping
       if (fir) {
-        // Hole die FIR-Konfiguration
-        const firConfig = getFIRConfig(fir); // z.B. CONFIG['EDMM']
-        
-        if (firConfig && firConfig.stations) {
-          // Extrahiere alle Callsigns aus den Stations
-          const validCallsigns = firConfig.stations.map(station => station.callsign);
-        
-          // Filtere nach Callsigns
-          filteredData = filteredData.filter((cpt: CPTData) => 
-            validCallsigns.includes(cpt.position) || // Exakte Übereinstimmung mit Config
-            cpt.position.startsWith(fir + '_') // Beginnt mit FIR-Code (z.B. EDMM_WLD_CTR, EDGG_CH_CTR)
-          );
-        }
+        filteredData = filteredData.filter((cpt: CPTData) =>
+          cptBelongsToFir(cpt.position, fir)
+        );
       }
 
       // Sort by date (upcoming first)
@@ -167,22 +157,6 @@ const CPTOverview: React.FC = () => {
   };
   
 
-  const getStationName = (position: string) => {
-    // Extract FIR code (first 4 characters)
-    if (position.length < 4) return position;
-    
-    const fir = position.substring(0, 4);
-    const firConfig = getFIRConfig(fir);
-    if (!firConfig) return position;
-    
-    // Find matching station by checking if position starts with the station's base callsign
-    const station = firConfig.stations.find(s => {
-      const baseCallsign = s.callsign.replace(/_/g, '');
-      return position.startsWith(baseCallsign);
-    });
-    
-    return station ? station.name : position;
-  };
 
   if (loading) {
     return (
@@ -215,7 +189,7 @@ const CPTOverview: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">
-            {fir ? getFIRConfig(fir)?.fullName : 'Alle FIRs'}
+            {fir ? CPT_FIR_NAMES[fir] ?? fir : 'Alle FIRs'}
           </h2>
           <p className="text-muted-foreground mt-1">
             Anstehende Controller Practical Tests
@@ -308,9 +282,7 @@ const CPTOverview: React.FC = () => {
                   </div>
                   <CardDescription className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4" />
-                    <span className="font-medium">{cpt.position.split("_")[0]}</span>
-                    <span className="text-muted-foreground">•</span>
-                    <span>{getStationName(cpt.position)}</span>
+                    <span className="font-medium">{cpt.position}</span>
                   </CardDescription>
                 </div>
                 <div className="text-right space-y-1">
