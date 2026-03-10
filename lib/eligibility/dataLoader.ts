@@ -4,12 +4,13 @@ import {
   getCachedUserSolos,
 } from '@/lib/training/cacheService';
 import { EndorsementService } from '@/lib/endorsements/endorsementService';
-import { AirportPolicy, EligibilityData } from './types';
+import { AirportLevel, AirportPolicy, EligibilityData, LEVEL_ORDER } from './types';
+import { getIncompleteCourseNames } from './courseService';
 
 /**
  * Load all data needed by the eligibility engine.
- * Real data: T1 endorsements, solos, familiarizations (from training cache).
- * Mock data: roster membership, S1-theory-only status, T2/AFIS endorsements, missing courses.
+ * Real data: T1 endorsements, solos, familiarizations (from training cache), required courses.
+ * Mock data: roster membership, S1-theory-only status, T2/AFIS endorsements.
  * The mock APIs will be replaced once real endpoints are available.
  */
 export async function loadEligibilityData(
@@ -48,8 +49,21 @@ export async function loadEligibilityData(
   // Mock: no T2/AFIS endorsements available yet
   const t2AfisEndorsements: string[] = [];
 
-  // Mock: no missing required courses
-  const missingCourses = {};
+  // Required courses: fetch from VATGER-ATD GitHub and check moodle completion per level.
+  // Callsign for DEL/GND/TWR/APP is "${airport}_${level}"; for CTR use "${fir}_CTR".
+  const missingCourses: Partial<Record<AirportLevel, string[]>> = {};
+  await Promise.all(
+    LEVEL_ORDER.map(async (level) => {
+      const callsign =
+        level === 'CTR' && policy.fir
+          ? `${policy.fir}_CTR`
+          : `${policy.airport}_${level}`;
+      const incomplete = await getIncompleteCourseNames(callsign, userCID);
+      if (incomplete.length > 0) {
+        missingCourses[level] = incomplete;
+      }
+    })
+  );
 
   return {
     endorsements,
