@@ -29,6 +29,7 @@ import {
 } from "date-fns";
 import { de } from "date-fns/locale";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,7 +140,7 @@ export default function PublicEventCalendar() {
     new Set(["EDMM", "EDGG", "EDWW"])
   );
   const [showWeeklys, setShowWeeklys] = useState(true);
-
+  const router = useRouter();
   // ---------------------------------------------------------------------------
   // Data fetching
   // ---------------------------------------------------------------------------
@@ -230,7 +231,10 @@ export default function PublicEventCalendar() {
         {/* Page header */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <div
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 cursor-pointer"
+          onClick={() => router.push("/")}
+          >
               <CalendarDays className="h-5 w-5 text-primary" />
             </div>
             <div>
