@@ -1,10 +1,15 @@
 import { fetchAllStations } from '@/lib/stations/fetchStations';
-import { AirportLevel, AirportPolicy } from './types';
+import { AirportLevel, AirportPolicy, LEVEL_ORDER } from './types';
 
 /**
  * Build an AirportPolicy from datahub station metadata.
- * Tier1 airports (gcapStatus === "1" on TWR) require a T1 endorsement from TWR level onwards.
- * AFIS airports (gcapStatus === "AFIS" on the TWR/AFIS station) require a T2/AFIS endorsement.
+ *
+ * tier1RequiredFrom: the lowest ATC level whose datahub station carries gcapStatus === "1".
+ *   - "Full T1" airports (gcapStatus "1" on DEL, GND, …) → tier1RequiredFrom = "DEL"
+ *   - Standard T1 airports (gcapStatus "1" only on TWR) → tier1RequiredFrom = "TWR"
+ *   - Non-T1 airports → tier1RequiredFrom = undefined
+ *
+ * AFIS airports (gcapStatus === "AFIS" on the TWR/GND station) require a T2/AFIS endorsement.
  * S1-TWR airports (s1_twr flag) allow the TWR station to be staffed with GND-level rating.
  */
 export async function buildAirportPolicy(airport: string, fir?: string): Promise<AirportPolicy> {
@@ -20,7 +25,24 @@ export async function buildAirportPolicy(airport: string, fir?: string): Promise
   );
   const s1TwrAllowed = twr?.s1Twr === true;
 
-  const tier1RequiredFrom: AirportLevel | undefined = isTier1 ? 'TWR' : undefined;
+  // Determine the lowest level that carries gcapStatus === "1" so that "full T1" airports
+  // (where e.g. DEL/GND also have gcapStatus "1") are handled correctly.
+  let tier1RequiredFrom: AirportLevel | undefined;
+  if (isTier1) {
+    const gcap1Groups = new Set(
+      airportStations
+        .filter((s) => s.gcapStatus === '1')
+        .map((s) => s.group)
+    );
+    for (const level of LEVEL_ORDER) {
+      if (gcap1Groups.has(level)) {
+        tier1RequiredFrom = level;
+        break;
+      }
+    }
+    // Fallback: should not happen if isTier1 is true, but guard anyway
+    if (!tier1RequiredFrom) tier1RequiredFrom = 'TWR';
+  }
 
   return {
     airport: icao,
