@@ -24,5 +24,5 @@ export function s1TheoryRule(input: RuleInput): RuleResult {
     };
   }
 
-  return { allowed: true, restriction: 'S1 theory only' };
+  return { allowed: true };
 }

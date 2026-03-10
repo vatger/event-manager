@@ -36,26 +36,27 @@ async function fetchCoursesJson(): Promise<CourseEntry[]> {
  *   - the API call fails for any reason.
  */
 async function isCourseComplete(moduleId: string, userCID: number): Promise<boolean> {
-  const base = process.env.VATGER_API;
-  if (!base) return true;
+  // const base = process.env.VATGER_API;
+  // if (!base) return true;
 
-  const token = process.env.VATGER_API_TOKEN;
-  if (!token) return true;
+  // const token = process.env.VATGER_API_TOKEN;
+  // if (!token) return true;
 
-  const url = `${base}moodle/activity/${moduleId}/user/${userCID}/completion`;
+  // const url = `${base}moodle/activity/${moduleId}/user/${userCID}/completion`;
 
-  try {
-    const res = await fetch(url, {
-      headers: { Authorization: `Token ${token}` },
-    });
-    if (!res.ok) return true;
-    const data = (await res.json()) as { isoverallcomplete?: boolean };
-    return data.isoverallcomplete === true;
-  } catch (error) {
-    // Network error or parse error – don't penalise the controller
-    console.error(`Course completion check failed for module ${moduleId}, CID ${userCID}:`, error);
-    return true;
-  }
+  // try {
+  //   const res = await fetch(url, {
+  //     headers: { Authorization: `Token ${token}` },
+  //   });
+  //   if (!res.ok) return true;
+  //   const data = (await res.json()) as { isoverallcomplete?: boolean };
+  //   return data.isoverallcomplete === true;
+  // } catch (error) {
+  //   // Network error or parse error – don't penalise the controller
+  //   console.error(`Course completion check failed for module ${moduleId}, CID ${userCID}:`, error);
+  //   return true;
+  // }
+  return false
 }
 
 /**

@@ -1,3 +1,4 @@
+import { GroupService } from '@/lib/endorsements/groupService';
 import { RuleInput, RuleResult } from '../types';
 
 /**
@@ -27,12 +28,16 @@ export function familiarizationRule(input: RuleInput): RuleResult {
   // A FIR-level CTR endorsement (e.g. EDMM_CTR) authorises full CTR access across the FIR
   // without requiring sector familiarizations.
   if (policy.fir) {
-    const hasFirCtrEndorsement = data.endorsements.some(
+    const FirCtrEndorsement = data.endorsements.find(
       (e) => e.startsWith(`${policy.fir}_`) && e.endsWith('_CTR')
     );
-    if (hasFirCtrEndorsement) {
-      return { allowed: true };
+    if (FirCtrEndorsement) {
+      const sector = GroupService.getSector(FirCtrEndorsement)
+      if(!sector) {
+        return { allowed: true };
+      }
     }
+    
   }
 
   const fams = data.famsForFir;
@@ -48,7 +53,7 @@ export function familiarizationRule(input: RuleInput): RuleResult {
   if (fams.length < 3) {
     // Partial FAMs – allow CTR but restrict to those sectors
     const label = fams.join(', ');
-    return { allowed: true, restriction: `${label} only` };
+    return { allowed: true, restriction: `${label} only`};
   }
 
   // 3+ FAMs – full CTR access

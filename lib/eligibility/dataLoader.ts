@@ -54,10 +54,7 @@ export async function loadEligibilityData(
   const missingCourses: Partial<Record<AirportLevel, string[]>> = {};
   await Promise.all(
     LEVEL_ORDER.map(async (level) => {
-      const callsign =
-        level === 'CTR' && policy.fir
-          ? `${policy.fir}_CTR`
-          : `${policy.airport}_${level}`;
+      const callsign =`${policy.airport}_${level}`;
       const incomplete = await getIncompleteCourseNames(callsign, userCID);
       if (incomplete.length > 0) {
         missingCourses[level] = incomplete;

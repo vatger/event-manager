@@ -141,12 +141,16 @@ export class EligibilityEngine {
     // Detect gaps: levels below maxAllowedGroup that are blocked get a "no <LEVEL>" restriction.
     // This handles cases like CTR allowed but APP/TWR blocked (e.g. FIR CTR endorsement without APP).
     if (maxAllowedGroup !== null) {
+      const restrictedLevels = [];
       for (const level of GROUP_LEVELS) {
         if (levelRank(level) >= levelRank(maxAllowedGroup)) break;
         const ev = evaluations.find((e) => e.level === level);
         if (ev && !ev.allowed) {
-          restrictions.push(`no ${level}`);
+          restrictedLevels.push(level);
         }
+      }
+      if (restrictedLevels.length > 0) {
+        restrictions.push(`no ${restrictedLevels.join(', ')}`);
       }
     }
 

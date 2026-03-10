@@ -6,11 +6,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  USER
-  MAIN_ADMIN
-}
-
 enum PermissionScope {
   OWN_FIR
   ALL
@@ -50,7 +45,6 @@ model User {
   cid                       Int      @unique
   name                      String
   rating                    String
-  role                      Role     @default(USER)
   firId                     Int?
   fir                       FIR?     @relation(fields: [firId], references: [id])
   createdAt                 DateTime @default(now())
@@ -58,6 +52,7 @@ model User {
   emailNotificationsEnabled Boolean?
 
   signups             EventSignup[]
+  weeklyEventSignups  WeeklyEventSignup[]
   Notification        Notification[]
   groups              UserGroup[]
   vatgerLeitung       VATGERLeitung?
@@ -66,15 +61,15 @@ model User {
 }
 
 model FIR {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name      String
-  events    Event[]
-  members   User[]
-  groups    Group[]
-  weeklyEventConfigs   WeeklyEventConfiguration[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int                        @id @default(autoincrement())
+  code               String                     @unique
+  name               String
+  events             Event[]
+  members            User[]
+  groups             Group[]
+  weeklyEventConfigs WeeklyEventConfiguration[]
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
 }
 
 model Event {
@@ -86,6 +81,7 @@ model Event {
   endTime         DateTime
   airports        Json // Array of ICAO codes
   signupDeadline  DateTime?
+  signupSlotMinutes Int?      @default(30) // Duration of signup availability slots in minutes (15 or 30)
   staffedStations Json? // Array of Callsigns
   status          EventStatus @default(PLANNING)
   rosterlink      String?
@@ -108,7 +104,7 @@ model EventSignup {
   breakrequests         String?
   preferredStations     String?
   remarks               String?
-  excludedAirports      Json? // Array of ICAO codes that the user has excluded (cannot/will not staff)
+  excludedAirports      Json? // Array of ICAO codes the user excluded from multi-airport events
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   deletedAt             DateTime? // Soft delete timestamp
@@ -267,7 +263,7 @@ model CalendarBlockedDate {
   updatedAt   DateTime @updatedAt
 }
 
-// Weekly Event System
+// Discord Bot Configuration
 model WeeklyEventConfiguration {
   id      Int    @id @default(autoincrement())
   firId   Int?
@@ -282,19 +278,19 @@ model WeeklyEventConfiguration {
   startDate DateTime // When the pattern starts
 
   // Event details
-  airports        String? // JSON array of ICAO codes
-  startTime       String? // Event start time in HH:mm format (UTC)
-  endTime         String? // Event end time in HH:mm format (UTC)
+  airports        Json? // Array of ICAO codes
+  startTime       String? // Event start time in HH:mm format (local time Europe/Berlin)
+  endTime         String? // Event end time in HH:mm format (local time Europe/Berlin)
   description     String?
   
   // Staffing configuration
   minStaffing      Int?     @default(0) // Minimum required staff
   requiresRoster   Boolean  @default(false) // Whether positions need to be assigned
-  staffedStations  String? // JSON array of station callsigns that need rostering
+  staffedStations  Json? // Array of station callsigns that need rostering
   signupDeadlineHours Int?  @default(24) // Hours before event when signup closes
 
   // Display
-  bannerUrl   String? // Optional banner image URL for public display
+  bannerUrl   String?  // Optional banner image URL for public display
 
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -343,6 +339,8 @@ model WeeklyEventSignup {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  user  User  @relation(fields: [userCID], references: [cid])
+
   @@unique([occurrenceId, userCID])
   @@index([userCID])
   @@index([occurrenceId])
@@ -364,6 +362,25 @@ model WeeklyEventRoster {
   @@index([userCID])
 }
 
+model CronJobStatus {
+  id              Int      @id @default(autoincrement())
+  jobName         String   @unique // Unique identifier for the cron job
+  displayName     String   // Human-readable name
+  description     String   // What the job does
+  schedule        String   // Cron schedule expression
+  isActive        Boolean  @default(true)
+  lastRunAt       DateTime? // When the job last ran
+  lastRunStatus   String?  // "success" or "error"
+  lastRunDuration Int?     // Duration in milliseconds
+  lastError       String?  // Error message if failed
+  runCount        Int      @default(0) // Total number of runs
+  errorCount      Int      @default(0) // Total number of errors
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([jobName])
+}
+
 // Weekly-specific manager: grants a user access to manage a specific weekly event
 // without requiring FIR-wide permissions.
 model WeeklyEventManager {
@@ -379,3 +396,4 @@ model WeeklyEventManager {
   @@index([userCID])
   @@index([configId])
 }
+
