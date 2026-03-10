@@ -10,7 +10,6 @@ import { getIncompleteCourseNames } from './courseService';
 /**
  * Load all data needed by the eligibility engine.
  * Real data: T1 endorsements, solos, familiarizations (from training cache), required courses.
- * Mock data: roster membership, S1-theory-only status, T2/AFIS endorsements.
  * The mock APIs will be replaced once real endpoints are available.
  */
 export async function loadEligibilityData(
@@ -38,10 +37,10 @@ export async function loadEligibilityData(
   const famsMap = (rawFams as { familiarizations: Record<string, string[]> }).familiarizations ?? {};
   const famsForFir: string[] = policy.fir ? (famsMap[policy.fir] ?? []) : [];
 
-  // --- Mock APIs (to be replaced with real endpoints) ---
+  // --- Mock APIs (wating for endpints of real data) ---
 
   // Mock: user is always considered to be on the roster
-  const isOnRoster = true;
+  const isOnRoster = false;
 
   // Mock: no user is on the S1-theory-only roster
   const isS1TheoryOnly = false;
@@ -49,8 +48,8 @@ export async function loadEligibilityData(
   // Mock: no T2/AFIS endorsements available yet
   const t2AfisEndorsements: string[] = [];
 
-  // Required courses: fetch from VATGER-ATD GitHub and check moodle completion per level.
-  // Callsign for DEL/GND/TWR/APP is "${airport}_${level}"; for CTR use "${fir}_CTR".
+  // Required courses: fetch from VATGER Datahub and check moodle completion per level.
+  // Callsign for DEL/GND/TWR/APP is "${airport}_${level}";
   const missingCourses: Partial<Record<AirportLevel, string[]>> = {};
   await Promise.all(
     LEVEL_ORDER.map(async (level) => {

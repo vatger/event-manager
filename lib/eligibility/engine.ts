@@ -30,8 +30,6 @@ const GATEKEEPER_RULES: Rule[] = [rosterRule];
 /**
  * Per-level rules applied after the rating/solo gate.
  * Each rule can block a level or add a restriction string.
- * ratingRule and soloRule are handled separately (OR logic), not included here.
- * s1TheoryRule is included here so it is evaluated against each level individually.
  */
 const PER_LEVEL_RULES: Rule[] = [s1TheoryRule, tier1Rule, afisRule, coursesRule, familiarizationRule];
 
@@ -63,7 +61,7 @@ function evaluateLevel(
     if (soloResult.blockReason) blockReasons.push(soloResult.blockReason);
     return { allowed: false, restrictions, blockReasons };
   }
-
+  ratingResult.restriction && restrictions.push(ratingResult.restriction)
   // If solo is the reason for access, add the solo restriction
   if (!ratingOk && soloOk && soloResult.restriction) {
     restrictions.push(soloResult.restriction);

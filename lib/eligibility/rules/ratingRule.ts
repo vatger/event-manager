@@ -19,10 +19,11 @@ export function ratingRule(input: RuleInput): RuleResult {
   const { level, user, policy } = input;
 
   let required = MIN_RATING[level];
-
-  // S1-TWR: some small airports allow S1 (GND endorsement) controllers to staff TWR
+  let note = null
+  // S1-TWR: some small airports allow S1 (GND group) controllers to staff TWR
   if (level === 'TWR' && policy.s1TwrAllowed) {
-    required = MIN_RATING['GND']; // S1 is enough
+    required = MIN_RATING['GND']; // S1 is enoug
+    if(user.rating == 2) note = "S1er"
   }
 
   if (user.rating < required) {
@@ -33,5 +34,5 @@ export function ratingRule(input: RuleInput): RuleResult {
     };
   }
 
-  return { allowed: true };
+  return { allowed: true , restriction: note || ""};
 }

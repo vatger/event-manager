@@ -8,7 +8,7 @@ const REVERSED_LEVEL_ORDER = [...LEVEL_ORDER].reverse();
  *
  * tier1RequiredFrom: the lowest ATC level whose datahub station carries gcapStatus === "1".
  *   - "Full T1" airports (gcapStatus "1" on DEL, GND, …) → tier1RequiredFrom = "DEL"
- *   - Standard T1 airports (gcapStatus "1" only on TWR) → tier1RequiredFrom = "TWR"
+ *   - Partly T1 airports (e.g. gcapStatus "1" only on TWR) → tier1RequiredFrom = "TWR"
  *   - Non-T1 airports → tier1RequiredFrom = undefined
  *
  * AFIS airports (gcapStatus === "AFIS" on the TWR/GND station) require a T2/AFIS endorsement.
