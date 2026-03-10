@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut, ChevronDown, CalendarRange, Monitor, Moon, Sun } from "lucide-react";
+import { LogOut, ChevronDown, CalendarRange, CalendarDays, Monitor, Moon, Sun } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 import { ModeToggle } from "@/components/ModeToggle";
@@ -62,6 +62,13 @@ export default function Header() {
               {/* Desktop Version */}
               <div className="hidden md:flex items-center gap-3">
                 
+                {/* Öffentlicher Eventkalender */}
+                <Link href="/event-calendar" aria-label="Öffentlicher Eventkalender">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" title="Öffentlicher Eventkalender">
+                    <CalendarDays className="h-5 w-5" />
+                  </Button>
+                </Link>
+
                 {/* Notifications */}
                 <div className="relative">
                   <NotificationsWidget />
@@ -160,6 +167,13 @@ export default function Header() {
 
               {/* Mobile Version */}
               <div className="flex md:hidden items-center gap-2">
+                {/* Öffentlicher Eventkalender */}
+                <Link href="/event-calendar" aria-label="Öffentlicher Eventkalender">
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" title="Öffentlicher Eventkalender">
+                    <CalendarDays className="h-5 w-5" />
+                  </Button>
+                </Link>
+
                 {/* Notifications */}
                 <div className="relative">
                   <NotificationsWidget />

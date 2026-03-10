@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -11,18 +10,32 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/hooks/useUser";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
   AlertCircle,
   Ban,
+  CalendarDays,
   Clock,
   Pencil,
-  Trash2,
+  Repeat,
   TrashIcon,
 } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, startOfWeek, endOfWeek, isToday, parseISO } from "date-fns";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  addMonths,
+  subMonths,
+  startOfWeek,
+  endOfWeek,
+  isToday,
+  parseISO,
+  startOfDay,
+} from "date-fns";
 import { de } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 
@@ -59,30 +72,49 @@ interface BlockedDate {
   description?: string;
 }
 
-// FIR Farben
-const FIR_COLORS = {
+// ---------------------------------------------------------------------------
+// FIR colour palette (matches public calendar)
+// ---------------------------------------------------------------------------
+
+const FIR_COLORS: Record<string, { bg: string; text: string; hover: string; border: string; dot: string; badge: string }> = {
   EDMM: {
-    bg: "bg-blue-100 dark:bg-blue-800",
-    text: "text-blue-700 dark:text-blue-300",
-    hover: "hover:bg-blue-200 dark:hover:bg-blue-700",
-    border: "border-blue-200 dark:border-blue-700",
+    bg: "bg-blue-100 dark:bg-blue-900",
+    text: "text-blue-800 dark:text-blue-200",
+    hover: "hover:bg-blue-200 dark:hover:bg-blue-800",
+    border: "border-blue-300 dark:border-blue-700",
+    dot: "bg-blue-600",
     badge: "bg-blue-600 text-white",
   },
   EDGG: {
-    bg: "bg-emerald-50 dark:bg-emerald-950",
-    text: "text-emerald-700 dark:text-emerald-300",
-    hover: "hover:bg-emerald-100 dark:hover:bg-emerald-900",
-    border: "border-emerald-200 dark:border-emerald-800",
+    bg: "bg-emerald-100 dark:bg-emerald-900",
+    text: "text-emerald-800 dark:text-emerald-200",
+    hover: "hover:bg-emerald-200 dark:hover:bg-emerald-800",
+    border: "border-emerald-300 dark:border-emerald-700",
+    dot: "bg-emerald-600",
     badge: "bg-emerald-600 text-white",
   },
   EDWW: {
-    bg: "bg-amber-50 dark:bg-amber-950",
-    text: "text-amber-700 dark:text-amber-300",
-    hover: "hover:bg-amber-100 dark:hover:bg-amber-900",
-    border: "border-amber-200 dark:border-amber-800",
-    badge: "bg-amber-600 text-white",
+    bg: "bg-amber-100 dark:bg-amber-900",
+    text: "text-amber-800 dark:text-amber-200",
+    hover: "hover:bg-amber-200 dark:hover:bg-amber-800",
+    border: "border-amber-300 dark:border-amber-700",
+    dot: "bg-amber-500",
+    badge: "bg-amber-500 text-white",
   },
 };
+
+const DEFAULT_COLORS = {
+  bg: "bg-slate-100 dark:bg-slate-800",
+  text: "text-slate-700 dark:text-slate-300",
+  hover: "hover:bg-slate-200 dark:hover:bg-slate-700",
+  border: "border-slate-300 dark:border-slate-600",
+  dot: "bg-slate-500",
+  badge: "bg-slate-500 text-white",
+};
+
+function firColors(code?: string | null) {
+  return code && FIR_COLORS[code] ? FIR_COLORS[code] : DEFAULT_COLORS;
+}
 
 export default function EventCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -95,13 +127,13 @@ export default function EventCalendar() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingBlockId, setEditingBlockId] = useState<number | null>(null);
-  
+
   // FIR Filter State
   const [visibleFIRs, setVisibleFIRs] = useState<Set<string>>(new Set(["EDMM", "EDGG", "EDWW"]));
-  
+
   // Weekly Events Toggle
   const [showWeeklyEvents, setShowWeeklyEvents] = useState(true);
-  
+
   const { isVATGERLead } = useUser();
   const router = useRouter();
 
@@ -117,14 +149,10 @@ export default function EventCalendar() {
 
   // Toggle FIR visibility
   const toggleFIR = (fir: string) => {
-    setVisibleFIRs(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(fir)) {
-        newSet.delete(fir);
-      } else {
-        newSet.add(fir);
-      }
-      return newSet;
+    setVisibleFIRs((prev) => {
+      const next = new Set(prev);
+      next.has(fir) ? next.delete(fir) : next.add(fir);
+      return next;
     });
   };
 
@@ -134,13 +162,12 @@ export default function EventCalendar() {
     try {
       const monthStart = startOfMonth(currentMonth);
       const monthEnd = endOfMonth(currentMonth);
-      
-      // Fetch events for the current month
+
+      // Fetch events for the current month (admin endpoint – includes DRAFTs)
       const eventsRes = await fetch("/api/events");
       if (eventsRes.ok) {
         const allEvents: Event[] = await eventsRes.json();
-        // Filter events that fall within or overlap the current month
-        const monthEvents = allEvents.filter(event => {
+        const monthEvents = allEvents.filter((event) => {
           const eventStart = parseISO(event.startTime);
           const eventEnd = parseISO(event.endTime);
           return (
@@ -153,15 +180,12 @@ export default function EventCalendar() {
       }
 
       // Fetch weekly event occurrences for the current month
-      const weeklyRes = await fetch("/api/weeklys/upcoming");
+      const weeklyRes = await fetch(
+        `/api/public/weeklys?from=${monthStart.toISOString()}&to=${monthEnd.toISOString()}`
+      );
       if (weeklyRes.ok) {
         const allWeeklyEvents: WeeklyEvent[] = await weeklyRes.json();
-        // Filter to current month
-        const monthWeeklyEvents = allWeeklyEvents.filter(weeklyEvent => {
-          const eventDate = parseISO(weeklyEvent.date);
-          return eventDate >= monthStart && eventDate <= monthEnd;
-        });
-        setWeeklyEvents(monthWeeklyEvents);
+        setWeeklyEvents(allWeeklyEvents);
       }
 
       // Fetch blocked dates for the current month
@@ -184,54 +208,40 @@ export default function EventCalendar() {
     fetchCalendarData();
   }, [fetchCalendarData]);
 
-  // Generate calendar days
+  // Calendar grid
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+  const calendarDays = eachDayOfInterval({ start: calStart, end: calEnd });
 
   // Helper functions
   const getEventsForDay = (day: Date) => {
-    return events.filter(event => {
-      const eventStart = parseISO(event.startTime);
-      const eventEnd = parseISO(event.endTime);
-      const isInRange = day >= new Date(eventStart.toDateString()) && day <= new Date(eventEnd.toDateString());
-      const isVisible = visibleFIRs.has(event.firCode);
-      return isInRange && isVisible;
+    const dayStart = startOfDay(day);
+    return events.filter((event) => {
+      const s = startOfDay(parseISO(event.startTime));
+      const end = startOfDay(parseISO(event.endTime));
+      return s <= dayStart && end >= dayStart && visibleFIRs.has(event.firCode);
     });
   };
 
   const getWeeklyEventsForDay = (day: Date) => {
     if (!showWeeklyEvents) return [];
-    
-    return weeklyEvents.filter(weeklyEvent => {
-      const eventDate = parseISO(weeklyEvent.date);
-      const isSameDay = day.toDateString() === eventDate.toDateString();
+    return weeklyEvents.filter((weeklyEvent) => {
+      const eventDate = startOfDay(parseISO(weeklyEvent.date));
+      const isSameDay = eventDate.toDateString() === day.toDateString();
       const firCode = weeklyEvent.config.fir?.code;
-      const isVisible = firCode ? visibleFIRs.has(firCode) : true;
-      return isSameDay && isVisible;
+      return isSameDay && (firCode ? visibleFIRs.has(firCode) : true);
     });
   };
 
   const getBlockedDatesForDay = (day: Date) => {
-    return blockedDates.filter(blocked => {
-      const blockStart = parseISO(blocked.startDate);
-      const blockEnd = parseISO(blocked.endDate);
-      return day >= new Date(blockStart.toDateString()) && day <= new Date(blockEnd.toDateString());
+    const dayStart = startOfDay(day);
+    return blockedDates.filter((blocked) => {
+      const blockStart = startOfDay(parseISO(blocked.startDate));
+      const blockEnd = startOfDay(parseISO(blocked.endDate));
+      return dayStart >= blockStart && dayStart <= blockEnd;
     });
-  };
-
-  const handlePreviousMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
-
-  const handleToday = () => {
-    setCurrentMonth(new Date());
   };
 
   const handleDayClick = (day: Date) => {
@@ -331,292 +341,346 @@ export default function EventCalendar() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Event Kalender</h1>
-          <p className="text-muted-foreground mt-1">
-            Übersicht über alle geplanten Events und blockierten Daten.
-          </p>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Page header */}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <CalendarDays className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                  Event Kalender
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Übersicht über alle geplanten Events und blockierten Daten.
+                </p>
+              </div>
+            </div>
+            {isVATGERLead() && (
+              <Button onClick={() => setShowBlockDialog(true)} size="sm">
+                <Ban className="mr-2 h-4 w-4" />
+                Datum blockieren
+              </Button>
+            )}
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={handleToday} variant="outline">
-            <Clock className="mr-2 h-4 w-4" />
-            Heute
-          </Button>
-          {isVATGERLead() && (
-            <Button onClick={() => setShowBlockDialog(true)}>
-              <Ban className="mr-2 h-4 w-4" />
-              Datum blockieren
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      
-
-      {/* Calendar Navigation */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <Button onClick={handlePreviousMonth} variant="outline" size="icon">
+        {/* Month navigation + filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Month picker */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
+              aria-label="Vorheriger Monat"
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <CardTitle className="text-2xl">
+            <span className="text-lg font-semibold min-w-[160px] text-center">
               {format(currentMonth, "MMMM yyyy", { locale: de })}
-            </CardTitle>
-            <Button onClick={handleNextMonth} variant="outline" size="icon">
+            </span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
+              aria-label="Nächster Monat"
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentMonth(new Date())}
+              className="ml-1 text-xs"
+            >
+              Heute
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent>
+
+          {/* FIR filter chips + Weekly toggle */}
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+            {Object.keys(FIR_COLORS).map((fir) => {
+              const c = firColors(fir);
+              const active = visibleFIRs.has(fir);
+              return (
+                <button
+                  key={fir}
+                  onClick={() => toggleFIR(fir)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all
+                    ${active ? `${c.bg} ${c.text} ${c.border}` : "bg-muted text-muted-foreground border-transparent opacity-50"}`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${active ? c.dot : "bg-muted-foreground"}`} />
+                  {fir}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setShowWeeklyEvents((v) => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-all
+                ${showWeeklyEvents ? "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700" : "bg-muted text-muted-foreground border-transparent opacity-50"}`}
+            >
+              <Repeat className="h-3 w-3" />
+              Weeklys
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar grid */}
+        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 border-b bg-muted/50">
+            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => (
+              <div
+                key={d}
+                className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+              >
+                {d}
+              </div>
+            ))}
+          </div>
+
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-full" />
+            <div className="grid grid-cols-7 gap-px bg-border">
+              {Array.from({ length: 35 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 sm:h-24 rounded-none" />
               ))}
             </div>
           ) : (
-            <div className="space-y-2">
-              {/* Weekday headers */}
-              <div className="grid grid-cols-7 gap-2 mb-2">
-                {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((day) => (
-                  <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2">
-                    {day}
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-7 gap-px bg-border">
+              {calendarDays.map((day, idx) => {
+                const dayEvents = getEventsForDay(day);
+                const dayWeeklyEvents = getWeeklyEventsForDay(day);
+                const dayBlocked = getBlockedDatesForDay(day);
+                const inMonth = isSameMonth(day, currentMonth);
+                const todayFlag = isToday(day);
+                const totalItems = dayEvents.length + dayWeeklyEvents.length + dayBlocked.length;
 
-              {/* Calendar grid */}
-              <div className="grid grid-cols-7 gap-2">
-                {calendarDays.map((day, index) => {
-                  const dayEvents = getEventsForDay(day);
-                  const dayWeeklyEvents = getWeeklyEventsForDay(day);
-                  const dayBlocked = getBlockedDatesForDay(day);
-                  const isCurrentMonth = isSameMonth(day, currentMonth);
-                  const isCurrentDay = isToday(day);
-
-                  return (
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => handleDayClick(day)}
+                    className={`
+                      min-h-[80px] sm:min-h-[100px] p-1.5 bg-background transition-colors cursor-pointer
+                      ${inMonth ? "" : "bg-muted/30"}
+                      ${totalItems > 0 ? "hover:bg-accent/50" : "hover:bg-muted/20"}
+                      ${todayFlag ? "ring-2 ring-inset ring-primary" : ""}
+                    `}
+                  >
+                    {/* Day number */}
                     <div
-                      key={index}
-                      onClick={() => handleDayClick(day)}
-                      className={`
-                        min-h-24 p-2 border rounded-lg cursor-pointer transition-colors
-                        ${isCurrentMonth ? "bg-background" : "bg-muted/50"}
-                        ${isCurrentDay ? "border-primary border-2" : "border-border"}
-                        hover:bg-accent hover:border-accent-foreground
-                      `}
+                      className={`text-xs sm:text-sm font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full
+                        ${todayFlag ? "bg-primary text-primary-foreground" : inMonth ? "text-foreground" : "text-muted-foreground"}`}
                     >
-                      <div className="flex flex-col h-full">
-                        <div className={`text-sm font-medium mb-1 ${!isCurrentMonth && "text-muted-foreground"}`}>
-                          {format(day, "d")}
-                        </div>
-                        
-                        <div className="flex-1 space-y-1 overflow-hidden">
-                          {dayBlocked.map((blocked) => (
-                            <div
-                              key={blocked.id}
-                              className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate flex items-center"
-                              title={`Blockiert: ${blocked.reason}`}
-                            >
-                              <Ban className="h-3 w-3 mr-1 flex-shrink-0" />
-                              <span className="truncate">{blocked.reason}</span>
-                            </div>
-                          ))}
-                          
-                          {/* Regular Events */}
-                          {dayEvents.slice(0, 2).map((event) => {
-                            const colors = FIR_COLORS[event.firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
-                            return (
-                              <div
-                                key={event.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/admin/events/${event.id}`);
-                                }}
-                                className={`text-xs px-1.5 py-0.5 rounded truncate ${colors.bg} ${colors.text} ${colors.hover} flex items-center gap-1`}
-                                title={event.name}
-                              >
-                                <Badge variant="outline" className={`px-1 py-0 text-[10px] h-4 ${colors.badge} border-0`}>
-                                  {event.firCode}
-                                </Badge>
-                                <span className="truncate">{event.name}</span>
-                              </div>
-                            );
-                          })}
-                          
-                          {/* Weekly Events - Displayed with subdued styling */}
-                          {dayWeeklyEvents.slice(0, 2 - Math.min(dayEvents.length, 2)).map((weeklyEvent) => {
-                            const firCode = weeklyEvent.config.fir?.code || "EDMM";
-                            const colors = FIR_COLORS[firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
-                            return (
-                              <div
-                                key={`weekly-${weeklyEvent.id}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  router.push(`/weeklys/${weeklyEvent.config.id}/occurrences/${weeklyEvent.id}`);
-                                }}
-                                className={`text-xs px-1.5 py-0.5 rounded truncate border border-dashed opacity-60 hover:opacity-100 ${colors.bg} ${colors.text} flex items-center gap-1`}
-                                title={`${weeklyEvent.config.name} (Weekly)`}
-                              >
-                                <Badge variant="outline" className={`px-1 py-0 text-[10px] h-4 ${colors.badge} border-0 opacity-80`}>
-                                  {firCode}
-                                </Badge>
-                                <span className="truncate italic">{weeklyEvent.config.name}</span>
-                              </div>
-                            );
-                          })}
-                          
-                          {(dayEvents.length + dayWeeklyEvents.length) > 2 && (
-                            <div className="text-xs text-muted-foreground px-1.5">
-                              +{dayEvents.length + dayWeeklyEvents.length - 2} weitere
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      {format(day, "d")}
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* Items */}
+                    <div className="space-y-0.5 overflow-hidden">
+                      {/* Blocked dates */}
+                      {dayBlocked.slice(0, 1).map((blocked) => (
+                        <div
+                          key={blocked.id}
+                          className="text-[10px] sm:text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100 rounded truncate flex items-center gap-1"
+                          title={`Blockiert: ${blocked.reason}`}
+                        >
+                          <Ban className="h-2.5 w-2.5 shrink-0" />
+                          <span className="truncate">{blocked.reason}</span>
+                        </div>
+                      ))}
+
+                      {/* Regular Events */}
+                      {dayEvents.slice(0, Math.max(0, 2 - dayBlocked.length)).map((event) => {
+                        const c = firColors(event.firCode);
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/admin/events/${event.id}`);
+                            }}
+                            className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate flex items-center gap-1 ${c.bg} ${c.text} ${c.hover} cursor-pointer`}
+                            title={event.name}
+                          >
+                            <span className={`hidden sm:inline-block shrink-0 text-[9px] font-bold px-1 py-0 rounded ${c.dot} text-white`}>
+                              {event.firCode}
+                            </span>
+                            <span className="truncate leading-none">{event.name}</span>
+                          </div>
+                        );
+                      })}
+
+                      {/* Weekly Events */}
+                      {(() => {
+                        const shownCount = Math.min(dayBlocked.length, 1) + Math.min(dayEvents.length, Math.max(0, 2 - Math.min(dayBlocked.length, 1)));
+                        const remaining = Math.max(0, 2 - shownCount);
+                        return dayWeeklyEvents.slice(0, remaining).map((weeklyEvent) => {
+                          const c = firColors(weeklyEvent.config.fir?.code);
+                          return (
+                            <div
+                              key={`weekly-${weeklyEvent.id}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/weeklys/${weeklyEvent.config.id}/occurrences/${weeklyEvent.id}`);
+                              }}
+                              className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded truncate flex items-center gap-1 border border-dashed opacity-70 hover:opacity-100 ${c.bg} ${c.text} cursor-pointer`}
+                              title={`${weeklyEvent.config.name} (Weekly)`}
+                            >
+                              <Repeat className="h-2.5 w-2.5 shrink-0 hidden sm:block" />
+                              <span className="truncate leading-none italic">{weeklyEvent.config.name}</span>
+                            </div>
+                          );
+                        });
+                      })()}
+
+                      {totalItems > 2 && (
+                        <div className="text-[10px] text-muted-foreground px-1">
+                          +{totalItems - 2} weitere
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* FIR Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filter</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* FIR Filter */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">FIR</h3>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(FIR_COLORS).map(([fir, colors]) => (
-                <Button
-                  key={fir}
-                  variant={visibleFIRs.has(fir) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleFIR(fir)}
-                  className={visibleFIRs.has(fir) ? colors.badge : ""}
-                >
-                  {fir}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          {/* Weekly Events Toggle */}
-          <div>
-            <h3 className="text-sm font-medium mb-2">Event Typen</h3>
-            <div className="flex gap-2">
-              <Button
-                variant={showWeeklyEvents ? "default" : "outline"}
-                size="sm"
-                onClick={() => setShowWeeklyEvents(!showWeeklyEvents)}
-              >
-                Weekly Events
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Legende:</span>
+          {Object.entries(FIR_COLORS).map(([fir, c]) => (
+            <span key={fir} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-sm ${c.dot}`} />
+              {fir}
+            </span>
+          ))}
+          <span className="flex items-center gap-1.5">
+            <Repeat className="h-3 w-3" />
+            Weekly Event
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Ban className="h-3 w-3 text-red-600" />
+            Blockiert
+          </span>
+        </div>
+      </div>
+
       {/* Selected Date Dialog */}
-      {selectedDate && (
-        <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}</DialogTitle>
-              <DialogDescription>
-                Wie schauts an diesem Tag aus?
-              </DialogDescription>
-            </DialogHeader>
+      <Dialog open={!!selectedDate} onOpenChange={() => setSelectedDate(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          {selectedDate && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {format(selectedDate, "EEEE, d. MMMM yyyy", { locale: de })}
+                </DialogTitle>
+                <DialogDescription>
+                  Events und Weeklys an diesem Tag
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className="space-y-4">
-              {/* Show events for this day */}
-              {getEventsForDay(selectedDate).length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Events an diesem Tag:</h4>
+              <div className="space-y-4 pt-2">
+                {/* Regular events */}
+                {getEventsForDay(selectedDate).length > 0 && (
                   <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Events
+                    </h3>
                     {getEventsForDay(selectedDate).map((event) => {
-                      const colors = FIR_COLORS[event.firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                      const c = firColors(event.firCode);
                       return (
                         <div
                           key={event.id}
                           onClick={() => router.push(`/admin/events/${event.id}`)}
-                          className={`p-3 border rounded-lg cursor-pointer ${colors.border} ${colors.bg} ${colors.hover}`}
+                          className={`block p-3 rounded-lg border ${c.border} ${c.bg} ${c.hover} transition-colors cursor-pointer`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className={`font-medium ${colors.text}`}>{event.name}</div>
-                              <div className="text-sm opacity-80">
-                                {(new Date(event.startTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z - 
-                                {(new Date(event.endTime).toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" }))}z
-                              </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`font-medium truncate ${c.text}`}>{event.name}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(event.startTime).toLocaleTimeString("de-DE", {
+                                  timeZone: "UTC",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}z
+                                {" – "}
+                                {new Date(event.endTime).toLocaleTimeString("de-DE", {
+                                  timeZone: "UTC",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}z
+                              </p>
                             </div>
-                            <Badge className={colors.badge}>{event.firCode}</Badge>
+                            <Badge className={`${c.dot} text-white text-[10px] px-1.5 py-0.5 border-0 shrink-0`}>
+                              {event.firCode}
+                            </Badge>
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Show weekly events for this day */}
-              {getWeeklyEventsForDay(selectedDate).length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Weekly Events an diesem Tag:</h4>
+                {/* Weekly events */}
+                {getWeeklyEventsForDay(selectedDate).length > 0 && (
                   <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Repeat className="h-4 w-4" /> Weeklys
+                    </h3>
                     {getWeeklyEventsForDay(selectedDate).map((weeklyEvent) => {
-                      const firCode = weeklyEvent.config.fir?.code || "EDMM";
-                      const colors = FIR_COLORS[firCode as keyof typeof FIR_COLORS] || FIR_COLORS.EDMM;
+                      const firCode = weeklyEvent.config.fir?.code;
+                      const c = firColors(firCode);
                       return (
                         <div
                           key={`weekly-${weeklyEvent.id}`}
                           onClick={() => router.push(`/weeklys/${weeklyEvent.config.id}/occurrences/${weeklyEvent.id}`)}
-                          className={`p-3 border border-dashed rounded-lg cursor-pointer ${colors.border} ${colors.bg} ${colors.hover} opacity-80 hover:opacity-100`}
+                          className={`block p-3 rounded-lg border border-dashed ${c.border} ${c.bg} ${c.hover} transition-colors cursor-pointer`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className={`font-medium ${colors.text} flex items-center gap-2`}>
-                                <span className="italic">{weeklyEvent.config.name}</span>
-                                <span className="text-xs opacity-60">(Weekly)</span>
-                              </div>
-                              {weeklyEvent.config.startTime && weeklyEvent.config.endTime && (
-                                <div className="text-sm opacity-80">
-                                  {weeklyEvent.config.startTime} - {weeklyEvent.config.endTime} Uhr
-                                </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={`font-medium italic truncate ${c.text}`}>{weeklyEvent.config.name}</p>
+                              {(weeklyEvent.config.startTime || weeklyEvent.config.endTime) && (
+                                <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {weeklyEvent.config.startTime}
+                                  {weeklyEvent.config.endTime && ` – ${weeklyEvent.config.endTime}`} Uhr
+                                </p>
                               )}
                             </div>
-                            <Badge className={colors.badge}>{firCode}</Badge>
+                            {firCode && (
+                              <Badge className={`${c.dot} text-white text-[10px] px-1.5 py-0.5 border-0 shrink-0`}>
+                                {firCode}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Show blocked dates for this day */}
-              {getBlockedDatesForDay(selectedDate).length > 0 && (
-                <div>
-                  <h4 className="font-medium mb-2">Blockierungen:</h4>
+                {/* Blocked dates */}
+                {getBlockedDatesForDay(selectedDate).length > 0 && (
                   <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Ban className="h-4 w-4 text-red-600" /> Blockierungen
+                    </h3>
                     {getBlockedDatesForDay(selectedDate).map((blocked) => (
-                      <div key={blocked.id} className="p-3 border border-red-200 bg-red-50 dark:bg-red-950 dark:border-border rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div>
+                      <div key={blocked.id} className="p-3 border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 rounded-lg">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
                             <div className="font-medium text-red-800 dark:text-red-100">{blocked.reason}</div>
                             {blocked.description && (
                               <div className="text-sm text-red-600 dark:text-red-200 mt-1">
@@ -626,13 +690,13 @@ export default function EventCalendar() {
                             <div className="text-xs text-red-500 dark:text-red-300 mt-1">
                               {format(parseISO(blocked.startDate), "dd.MM.yyyy")}
                               {blocked.startTime && ` ${blocked.startTime}z`}
-                              {" - "}
+                              {" – "}
                               {format(parseISO(blocked.endDate), "dd.MM.yyyy")}
                               {blocked.endTime && ` ${blocked.endTime}z`}
                             </div>
                           </div>
                           {isVATGERLead() && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-1 shrink-0">
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -655,28 +719,36 @@ export default function EventCalendar() {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedDate(null)}>
-                Schließen
-              </Button>
-              <Button onClick={handleCreateEvent}>
-                <Plus className="mr-2 h-4 w-4" />
-                Event erstellen
-              </Button>
-              {isVATGERLead() && (
-                <Button onClick={() => setShowBlockDialog(true)}>
-                  <Ban className="mr-2 h-4 w-4" />
-                  Datum blockieren
+                {getEventsForDay(selectedDate).length === 0 &&
+                  getWeeklyEventsForDay(selectedDate).length === 0 &&
+                  getBlockedDatesForDay(selectedDate).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      Keine Events an diesem Tag.
+                    </p>
+                  )}
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button variant="outline" onClick={() => setSelectedDate(null)}>
+                  Schließen
                 </Button>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+                <Button onClick={handleCreateEvent}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Event erstellen
+                </Button>
+                {isVATGERLead() && (
+                  <Button variant="outline" onClick={() => setShowBlockDialog(true)}>
+                    <Ban className="mr-2 h-4 w-4" />
+                    Blockieren
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Block Date Dialog */}
       <Dialog open={showBlockDialog} onOpenChange={(open) => {

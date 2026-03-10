@@ -3,7 +3,7 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, hasAdminAccess } from "@/lib/acl/permissions";
 import { getSessionUser } from "@/lib/getSessionUser";
 
 // --- Validation Schema für Events ---
@@ -31,14 +31,19 @@ const eventSchema = z.object({
   firCode: z.string().nullable().optional(),
 });
 
-// --- GET: Alle Events ---
+// --- GET: Alle Events (Admin-Bereich) ---
 export async function GET(req: Request) {
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
   const user = await getSessionUser();
   if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+  // Restrict to admin-level users (FIR managers, VATGER leads, weekly managers)
+  const isAdmin = await hasAdminAccess(Number(user.cid));
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const { searchParams } = new URL(req.url);
   const firCode = searchParams.get("fir");
