@@ -21,17 +21,19 @@ import { familiarizationRule } from './rules/familiarizationRule';
 type Rule = (input: RuleInput) => RuleResult;
 
 /**
- * Ordered list of gatekeeper rules applied first.
- * If any gatekeeper blocks, all levels are denied immediately.
+ * Gatekeeper rules applied before per-level evaluation.
+ * These rules do not depend on the requested level – they block ALL levels when failed.
+ * Note: rosterRule does not use the level field.
  */
-const GATEKEEPER_RULES: Rule[] = [rosterRule, s1TheoryRule];
+const GATEKEEPER_RULES: Rule[] = [rosterRule];
 
 /**
  * Per-level rules applied after the rating/solo gate.
  * Each rule can block a level or add a restriction string.
  * ratingRule and soloRule are handled separately (OR logic), not included here.
+ * s1TheoryRule is included here so it is evaluated against each level individually.
  */
-const PER_LEVEL_RULES: Rule[] = [tier1Rule, afisRule, coursesRule, familiarizationRule];
+const PER_LEVEL_RULES: Rule[] = [s1TheoryRule, tier1Rule, afisRule, coursesRule, familiarizationRule];
 
 /**
  * Evaluates whether a single level is reachable.
@@ -96,11 +98,11 @@ export class EligibilityEngine {
     policy: AirportPolicy,
     data: EligibilityData
   ): EligibilityResult {
-    const input0: RuleInput = { level: 'GND', user, policy, data };
-
     // --- Gatekeeper rules: block everything if failed ---
+    // Gatekeeper rules are level-agnostic; 'DEL' is used as a neutral placeholder.
+    const gatekeeperInput: RuleInput = { level: 'DEL', user, policy, data };
     for (const rule of GATEKEEPER_RULES) {
-      const result = rule(input0);
+      const result = rule(gatekeeperInput);
       if (!result.allowed) {
         const allLevels: LevelEvaluation[] = LEVEL_ORDER.map((l) => ({
           level: l,
