@@ -10,6 +10,10 @@ import { EndorsementService } from '@/lib/endorsements/endorsementService';
 export function tier1Rule(input: RuleInput): RuleResult {
   const { level, policy, data } = input;
 
+  if(level == "CTR") {
+    return { allowed: true }
+  }
+  
   if (!policy.tier1RequiredFrom) {
     // Airport does not require T1 endorsements – rule does not apply
     return { allowed: true };
