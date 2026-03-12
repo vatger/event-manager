@@ -47,8 +47,8 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
       label: "Besetzungsplan",
     },
     CANCELLED: {
-      variant: "destructive",
-      className: "bg-red-100 text-red-800",
+      variant: "default",
+      className: "bg-red-100 text-red-900",
       label: "Abgesagt",
     },
   };
