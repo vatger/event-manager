@@ -474,7 +474,7 @@ export default function OccurrenceDetailPage() {
               </div>
 
               {/* Deadline */}
-              {deadline && (
+              {occurrence.config.requiresRoster && deadline && (
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500 dark:text-gray-400">Anmeldeschluss</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-gray-100">

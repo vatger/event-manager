@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 import { addWeeks } from "date-fns";
 import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
+import { generateOccurrences } from "@/lib/weeklys/generateOccurrences";
 
 // Validation schema for weekly event configuration
 const weeklyEventConfigSchema = z.object({
@@ -214,83 +215,5 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create weekly event configuration" },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Generate occurrences for a weekly event configuration
- * Creates occurrences for the next 6 months
- */
-async function generateOccurrences(configId: number) {
-  if (!prisma) return;
-
-  const config = await prisma.weeklyEventConfiguration.findUnique({
-    where: { id: configId },
-  });
-
-  if (!config) return;
-
-  const utcStartOfDay = (date: Date): Date => {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  };
-
-  const today = utcStartOfDay(new Date());
-  const sixMonthsFromNow = addWeeks(today, 26);
-
-  // Calculate occurrences based on the pattern
-  const occurrences: Date[] = [];
-  let currentDate = utcStartOfDay(new Date(config.startDate));
-
-  // Adjust to the correct weekday if needed
-  while (currentDate.getUTCDay() !== config.weekday) {
-    currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000); // Add one day
-  }
-
-  let weekCounter = 0;
-  const totalCycleWeeks = config.weeksOn + config.weeksOff;
-  
-  while (currentDate <= sixMonthsFromNow) {
-    // Only add occurrence if we're in the "on" weeks
-    if (weekCounter < config.weeksOn) {
-      if (currentDate >= today) {
-        occurrences.push(new Date(currentDate));
-      }
-    }
-    
-    // Move to next week
-    currentDate = addWeeks(currentDate, 1);
-    weekCounter++;
-    
-    // Reset counter after completing a full cycle
-    if (weekCounter >= totalCycleWeeks) {
-      weekCounter = 0;
-    }
-  }
-
-  // Create occurrences in database
-  for (const date of occurrences) {
-    const signupDeadline = calculateSignupDeadline(
-      date,
-      config.startTime,
-      config.signupDeadlineHours
-    );
-
-    await prisma.weeklyEventOccurrence.upsert({
-      where: {
-        configId_date: {
-          configId: config.id,
-          date: date,
-        },
-      },
-      create: {
-        configId: config.id,
-        date: date,
-        signupDeadline: signupDeadline,
-        eventId: null,
-      },
-      update: {
-        signupDeadline: signupDeadline,
-      },
-    });
   }
 }

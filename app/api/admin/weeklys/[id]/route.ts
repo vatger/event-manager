@@ -4,8 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
-import { addWeeks, startOfDay } from "date-fns";
-import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
+import { generateOccurrences } from "@/lib/weeklys/generateOccurrences";
 
 // Validation schema for updating weekly event configuration
 const weeklyEventConfigUpdateSchema = z.object({
@@ -278,78 +277,5 @@ export async function DELETE(
       { error: "Failed to delete weekly event configuration" },
       { status: 500 }
     );
-  }
-}
-
-/**
- * Generate occurrences for a weekly event configuration
- * Creates occurrences for the next 6 months
- */
-async function generateOccurrences(configId: number) {
-  if (!prisma) return;
-
-  const config = await prisma.weeklyEventConfiguration.findUnique({
-    where: { id: configId },
-  });
-
-  if (!config) return;
-
-  const today = startOfDay(new Date());
-  const sixMonthsFromNow = addWeeks(today, 26);
-
-  // Calculate occurrences based on the pattern
-  const occurrences: Date[] = [];
-  let currentDate = startOfDay(new Date(config.startDate));
-
-  // Adjust to the correct weekday if needed
-  while (currentDate.getDay() !== config.weekday) {
-    currentDate = new Date(currentDate.getTime() + 24 * 60 * 60 * 1000); // Add one day
-  }
-
-  let weekCounter = 0;
-  while (currentDate <= sixMonthsFromNow) {
-    // Only add occurrence if we're in the "on" weeks
-    if (weekCounter < config.weeksOn) {
-      if (currentDate >= today) {
-        occurrences.push(new Date(currentDate));
-      }
-      weekCounter++;
-    } else {
-      weekCounter++;
-      // Skip "off" weeks
-      if (weekCounter >= config.weeksOn + config.weeksOff) {
-        weekCounter = 0;
-      }
-    }
-    currentDate = addWeeks(currentDate, 1);
-  }
-
-  // Create occurrences in database
-  for (const date of occurrences) {
-    await prisma.weeklyEventOccurrence.upsert({
-      where: {
-        configId_date: {
-          configId: config.id,
-          date: date,
-        },
-      },
-      create: {
-        configId: config.id,
-        date: date,
-        signupDeadline: calculateSignupDeadline(
-          date,
-          config.startTime,
-          config.signupDeadlineHours
-        ),
-        eventId: null,
-      },
-      update: {
-        signupDeadline: calculateSignupDeadline(
-          date,
-          config.startTime,
-          config.signupDeadlineHours
-        ),
-      },
-    });
   }
 }

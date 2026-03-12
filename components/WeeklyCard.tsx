@@ -124,7 +124,10 @@ export default function WeeklyCard({ config, showBanner = false }: WeeklyCardPro
 
         <div className="flex justify-between pt-2">
           <Badge variant="secondary" className="text-xs">
-            {config.weeksOn} {config.weeksOn === 1 ? "Woche" : "Wochen"} aktiv
+            {config.weeksOff == 0 ? "wöchentlich" :  (
+              config.weeksOn + 
+              (config.weeksOn === 1 ? " Woche" : " Wochen") + " aktiv"
+            )}
           </Badge>
           {config.weeksOff > 0 && (
             <Badge variant="outline" className="text-xs">
