@@ -21,6 +21,7 @@ interface WeeklyEventConfig {
   weekday: number;
   weeksOn: number;
   weeksOff: number;
+  skipInterval: number;
   startDate: string;
   airports?: string[];
   startTime?: string;
