@@ -273,9 +273,10 @@ model WeeklyEventConfiguration {
 
   // Pattern configuration for recurring events
   // e.g., for "2 weeks on, 1 week off": weeksOn=2, weeksOff=1
-  weeksOn   Int      @default(1) // How many consecutive weeks the event occurs
-  weeksOff  Int      @default(0) // How many weeks off after the "on" period
-  startDate DateTime // When the pattern starts
+  weeksOn      Int      @default(1) // How many consecutive weeks the event occurs
+  weeksOff     Int      @default(0) // How many weeks off after the "on" period
+  skipInterval Int      @default(0) // Skip every Nth occurrence (0 = disabled), e.g. 3 = every 3rd occurrence is skipped
+  startDate    DateTime // When the pattern starts
 
   // Event details
   airports        Json? // Array of ICAO codes

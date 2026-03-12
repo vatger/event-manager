@@ -12,6 +12,7 @@ const weeklyEventConfigUpdateSchema = z.object({
   weekday: z.number().min(0).max(6).optional(),
   weeksOn: z.number().min(1).max(52).optional(),
   weeksOff: z.number().min(0).max(52).optional(),
+  skipInterval: z.number().min(0).max(52).optional(),
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for startDate",
   }).optional(),
@@ -156,6 +157,7 @@ export async function PATCH(
     if (parsed.data.weekday !== undefined) updateData.weekday = parsed.data.weekday;
     if (parsed.data.weeksOn !== undefined) updateData.weeksOn = parsed.data.weeksOn;
     if (parsed.data.weeksOff !== undefined) updateData.weeksOff = parsed.data.weeksOff;
+    if (parsed.data.skipInterval !== undefined) updateData.skipInterval = parsed.data.skipInterval;
     if (parsed.data.startDate !== undefined) updateData.startDate = new Date(parsed.data.startDate);
     if (parsed.data.airports !== undefined) updateData.airports = parsed.data.airports ? JSON.stringify(parsed.data.airports) : null;
     if (parsed.data.startTime !== undefined) updateData.startTime = parsed.data.startTime;
@@ -174,11 +176,12 @@ export async function PATCH(
       data: updateData,
     });
 
-    // If pattern changed (weekday, weeksOn, weeksOff, or startDate), regenerate occurrences
+    // If pattern changed (weekday, weeksOn, weeksOff, skipInterval, or startDate), regenerate occurrences
     if (
       parsed.data.weekday !== undefined ||
       parsed.data.weeksOn !== undefined ||
       parsed.data.weeksOff !== undefined ||
+      parsed.data.skipInterval !== undefined ||
       parsed.data.startDate !== undefined
     ) {
       // Delete future occurrences that don't have signups
