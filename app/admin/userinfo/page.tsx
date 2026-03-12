@@ -361,30 +361,30 @@ export default function UserInfoPage() {
                           {solos.map((solo) => {
                             const expired = isExpired(solo.expiry);
                             return (
-                              <div
+                                <div
                                 key={solo.position}
                                 className={`p-2 rounded border text-sm ${
                                   expired
-                                    ? 'border-destructive/20 bg-destructive/5'
-                                    : 'border-green-200 bg-green-50'
+                                  ? 'border-destructive/30 bg-destructive/10 dark:border-destructive/50 dark:bg-destructive/20'
+                                  : 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900'
                                 }`}
-                              >
+                                >
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="font-medium">{solo.position}</span>
                                   <Badge
-                                    variant={expired ? 'destructive' : 'default'}
-                                    className="text-xs"
+                                  variant={expired ? 'destructive' : 'default'}
+                                  className="text-xs"
                                   >
-                                    {expired ? 'Abgelaufen' : 'Aktiv'}
+                                  {expired ? 'Abgelaufen' : 'Aktiv'}
                                   </Badge>
                                 </div>
                                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                                   <span>Gültig bis:</span>
                                   <span className={expired ? 'text-destructive font-medium' : ''}>
-                                    {formatDate(solo.expiry)}
+                                  {formatDate(solo.expiry)}
                                   </span>
                                 </div>
-                              </div>
+                                </div>
                             );
                           })}
                         </div>
