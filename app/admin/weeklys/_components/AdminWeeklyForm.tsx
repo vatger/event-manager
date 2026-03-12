@@ -26,6 +26,7 @@ interface WeeklyEventConfig {
   weekday: number;
   weeksOn: number;
   weeksOff: number;
+  skipInterval: number;
   startDate: string;
   airports?: string[];
   startTime?: string;
@@ -48,6 +49,7 @@ interface FormData {
   weekday: number;
   weeksOn: number;
   weeksOff: number;
+  skipInterval: number;
   startDate: string;
   airports: string[];
   airportInput: string;
@@ -96,6 +98,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     weekday: 1,
     weeksOn: 1,
     weeksOff: 0,
+    skipInterval: 0,
     startDate: new Date().toISOString().split("T")[0],
     airports: [],
     airportInput: "",
@@ -127,6 +130,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         weekday: config.weekday,
         weeksOn: config.weeksOn,
         weeksOff: config.weeksOff,
+        skipInterval: config.skipInterval ?? 0,
         startDate: config.startDate.split("T")[0],
         airports,
         airportInput: "",
@@ -266,6 +270,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         weekday: formData.weekday,
         weeksOn: formData.weeksOn,
         weeksOff: formData.weeksOff,
+        skipInterval: formData.skipInterval,
         startDate: new Date(formData.startDate).toISOString(),
         airports: formData.airports.length > 0 ? formData.airports : null,
         startTime: formData.startTime || null,
@@ -649,6 +654,25 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
                     0 = jede Woche, 1 = eine Woche Pause, etc.
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="skipInterval">Regelmäßige Aussetzer (optional)</Label>
+                <Input
+                  id="skipInterval"
+                  type="number"
+                  min="0"
+                  value={formData.skipInterval}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      skipInterval: parseInt(e.target.value) || 0,
+                    })
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  0 = deaktiviert. Bei z.B. 3 wird jedes 3. Vorkommen übersprungen (nützlich für regelmäßige Pausen alle N Termine).
+                </p>
               </div>
             </CardContent>
           </Card>

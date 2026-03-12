@@ -15,6 +15,7 @@ const weeklyEventConfigSchema = z.object({
   weekday: z.number().min(0).max(6),
   weeksOn: z.number().min(1).max(52),
   weeksOff: z.number().min(0).max(52),
+  skipInterval: z.number().min(0).max(52).optional(),
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: "Invalid date format for startDate",
   }),
@@ -191,6 +192,7 @@ export async function POST(req: NextRequest) {
         weekday: parsed.data.weekday,
         weeksOn: parsed.data.weeksOn,
         weeksOff: parsed.data.weeksOff,
+        skipInterval: parsed.data.skipInterval ?? 0,
         startDate: new Date(parsed.data.startDate),
         airports: parsed.data.airports ? (JSON.stringify(parsed.data.airports) as any) : null,
         startTime: parsed.data.startTime || null,

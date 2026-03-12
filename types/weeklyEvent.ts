@@ -4,6 +4,7 @@ export interface WeeklyEventConfigurationCreate {
   weekday: number; // 0-6 (Sunday-Saturday)
   weeksOn: number;
   weeksOff: number;
+  skipInterval?: number; // 0 = disabled, N = skip every Nth occurrence
   startDate: Date | string;
   airports?: string[]; // Array of ICAO codes
   startTime?: string; // HH:mm format (UTC)
@@ -22,6 +23,7 @@ export interface WeeklyEventConfigurationUpdate {
   weekday?: number;
   weeksOn?: number;
   weeksOff?: number;
+  skipInterval?: number; // 0 = disabled, N = skip every Nth occurrence
   startDate?: Date | string;
   airports?: string[];
   startTime?: string;

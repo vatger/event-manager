@@ -34,17 +34,22 @@ export async function generateOccurrences(configId: number) {
     // weekCounter auf 0 – cursor ist per Definition Woche 0 des Zyklus
     const weeksOn = config.weeksOn;
     const weeksOff = config.weeksOff;
+    const skipInterval = ("skipInterval" in config ? (config as { skipInterval: number }).skipInterval : 0) ?? 0;
     const cycleLength = weeksOn + weeksOff; // bei weeksOff=0 → cycleLength=weeksOn
   
     const occurrenceDates: Date[] = [];
     let weekCounter = 0;
+    let occurrenceNumber = 0; // counts all candidate occurrences from the startDate for skip logic
   
     while (cursor <= endUTC) {
       const positionInCycle = weekCounter % cycleLength;
   
       // Nur in den ersten weeksOn Positionen des Zyklus ist ein Event
       if (positionInCycle < weeksOn) {
-        if (cursor >= todayUTC) {
+        occurrenceNumber++;
+        // Skip every Nth occurrence when skipInterval is configured
+        const isSkipped = skipInterval > 0 && (occurrenceNumber % skipInterval === 0);
+        if (!isSkipped && cursor >= todayUTC) {
           occurrenceDates.push(new Date(cursor));
         }
       }
