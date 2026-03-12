@@ -385,7 +385,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
           setActiveTab(v);
           if (v === "managers" && isEdit) loadManagers();
         }} className="w-full">
-        <TabsList className={`grid w-full ${isEdit && formData.requiresRoster ? 'grid-cols-4' : isEdit ? 'grid-cols-3' : formData.requiresRoster ? 'grid-cols-3' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${isEdit && formData.requiresRoster ? 'grid-cols-4' : formData.requiresRoster ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="basic">Grunddaten</TabsTrigger>
           <TabsTrigger value="schedule">Zeitplan</TabsTrigger>
           {formData.requiresRoster && (
