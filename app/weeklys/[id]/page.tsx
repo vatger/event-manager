@@ -20,11 +20,14 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   CalendarDays,
   Timer,
   Repeat,
   Plane,
   Check,
+  History,
 } from "lucide-react";
 import { format, isPast, isBefore, isAfter } from "date-fns";
 import { de } from "date-fns/locale";
@@ -65,6 +68,7 @@ interface WeeklyConfig {
   signupDeadlineHours?: number;
   enabled: boolean;
   occurrences: WeeklyOccurrence[];
+  pastOccurrences: WeeklyOccurrence[];
 }
 
 const WEEKDAYS = [
@@ -92,6 +96,7 @@ export default function WeeklyDetailPage() {
   const [config, setConfig] = useState<WeeklyConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showPastOccurrences, setShowPastOccurrences] = useState(false);
 
   useEffect(() => {
     if (params.id) {
@@ -169,6 +174,26 @@ export default function WeeklyDetailPage() {
     }
   
     return result.slice(0, 10);
+  };
+
+  /**
+   * Generates past calendar weeks (already occurred occurrences),
+   * sorted most-recent first.
+   */
+  const generatePastCalendarWeeks = (): CalendarWeek[] => {
+    if (!config || !config.pastOccurrences || config.pastOccurrences.length === 0) return [];
+
+    const toLocalDate = (dateStr: string): Date => {
+      const d = new Date(dateStr);
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    };
+
+    // Already sorted most-recent first by the API
+    return config.pastOccurrences.map((occ) => ({
+      type: "occurrence" as const,
+      date: toLocalDate(occ.date),
+      occurrence: occ,
+    }));
   };
   
 
@@ -566,6 +591,97 @@ export default function WeeklyDetailPage() {
           );
         })()}
       </div>
+      {/* Past Occurrences Archive */}
+      {(() => {
+        const pastWeeks = generatePastCalendarWeeks();
+        if (pastWeeks.length === 0) return null;
+
+        return (
+          <div className="space-y-3">
+            <button
+              onClick={() => setShowPastOccurrences((v) => !v)}
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg border border-dashed text-sm text-muted-foreground hover:text-foreground hover:border-muted-foreground/50 transition-colors"
+            >
+              {showPastOccurrences ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  Vergangene Termine ausblenden
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  <History className="h-4 w-4" />
+                  {pastWeeks.length} vergangene{pastWeeks.length === 1 ? " Termin" : " Termine"} anzeigen
+                </>
+              )}
+            </button>
+
+            {showPastOccurrences && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                    Vergangene Termine
+                  </h3>
+                </div>
+                {pastWeeks.map((week) => {
+                  const occDate = week.date;
+                  const occurrence = week.occurrence!;
+                  const dayOfMonth = format(occDate, "dd");
+                  const month = MONTHS[occDate.getMonth()];
+                  const weekday = WEEKDAYS[occDate.getDay()];
+                  const formattedDate = format(occDate, "dd.MM.yyyy", { locale: de });
+
+                  return (
+                    <Link
+                      key={occurrence.id}
+                      href={`/weeklys/${config!.id}/occurrences/${occurrence.id}`}
+                      className="block group"
+                    >
+                      <div className="flex items-stretch border rounded-lg overflow-hidden opacity-70 hover:opacity-90 transition-all hover:shadow-sm">
+                        {/* Datum-Block */}
+                        <div className="w-24 flex flex-col items-center justify-center py-3 border-r bg-muted/20">
+                          <span className="text-2xl font-bold leading-none text-muted-foreground">{dayOfMonth}</span>
+                          <span className="text-xs font-medium uppercase tracking-wider mt-1 text-muted-foreground">{month}</span>
+                          <span className="text-[10px] text-muted-foreground mt-0.5">{weekday}</span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 p-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-semibold text-base text-muted-foreground">
+                                {formattedDate}
+                              </h3>
+                              {config!.startTime && config!.endTime && (
+                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                  <Clock className="h-3.5 w-3.5" />
+                                  <span>{config!.startTime} - {config!.endTime} Uhr</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {occurrence.rosterPublished && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Roster veröffentlicht
+                                </Badge>
+                              )}
+                              <Button variant="ghost" size="sm" className="h-8 px-3 text-sm gap-1">
+                                Details
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

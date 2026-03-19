@@ -17,6 +17,8 @@ export async function GET(
   try {
     const { id } = await params;
 
+    const yesterday = addDays(new Date(), -1);
+
     const config = await prisma.weeklyEventConfiguration.findUnique({
       where: {
         id: Number(id),
@@ -32,7 +34,7 @@ export async function GET(
         occurrences: {
           where: {
             date: {
-              gte: new Date(addDays( new Date(), -1)),
+              gte: yesterday,
             },
           },
           orderBy: {
@@ -50,9 +52,24 @@ export async function GET(
       );
     }
 
+    // Fetch past occurrences separately (most recent first, last 20)
+    const pastOccurrences = await prisma.weeklyEventOccurrence.findMany({
+      where: {
+        configId: Number(id),
+        date: {
+          lt: yesterday,
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+      take: 15,
+    });
+
     // Parse JSON fields
     const response = {
       ...config,
+      pastOccurrences,
       airports: config.airports
         ? typeof config.airports === "string"
           ? JSON.parse(config.airports)
