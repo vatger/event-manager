@@ -98,7 +98,7 @@ export function resolveDiscordNotification(
   // 1. Weekly-specific config
   if (weeklyConfigId != null) {
     const specific = DISCORD_NOTIFICATIONS.find(
-      (e) => e.firCode === firCode && e.notificationType === type && e.weeklyConfigId === weeklyConfigId
+      (e) => e.firCode === firCode && e.notificationType === type && (e.weeklyConfigId === undefined || e.weeklyConfigId === weeklyConfigId)
     );
     if (specific) return { channelId: specific.channelId, roleId: specific.roleId };
   }
