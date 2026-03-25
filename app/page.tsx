@@ -40,6 +40,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [weeklys, setWeeklys] = useState<WeeklyConfig[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
   const [selectedFIR, setSelectedFIR] = useState(session?.user.fir || "all");
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<"events" | "weeklys">("events");
@@ -143,6 +144,18 @@ export default function EventsPage() {
 
     return { signedUpEvents, openEvents, archivedEvents, firOverviewEvents };
   }, [events, searchQuery, selectedFIR]);
+
+  // Filtered archive events based on archive search query
+  const filteredArchivedEvents = useMemo(() => {
+    if (archiveSearchQuery === "") return archivedEvents;
+    const q = archiveSearchQuery.toLowerCase();
+    return archivedEvents.filter((e: Event) =>
+      e.name.toLowerCase().includes(q) ||
+      (Array.isArray(e.airports) ? e.airports : [e.airports])
+        .some((a: string) => a.toLowerCase().includes(q)) ||
+      e.firCode.toLowerCase().includes(q)
+    );
+  }, [archivedEvents, archiveSearchQuery]);
 
   // Filter weeklys by FIR and search
   const filteredWeeklys = useMemo(() => {
@@ -441,7 +454,10 @@ export default function EventsPage() {
             </div>
             <Button
               variant="outline"
-              onClick={() => setShowArchived(!showArchived)}
+              onClick={() => {
+                setShowArchived(!showArchived);
+                if (showArchived) setArchiveSearchQuery("");
+              }}
               className="flex items-center gap-2"
             >
               {showArchived ? (
@@ -460,9 +476,23 @@ export default function EventsPage() {
 
           {showArchived && (
             <>
-              {archivedEvents.length > 0 ? (
+              {/* Archive Search */}
+              <div className="mb-5">
+                <div className="relative max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="text"
+                    placeholder="Im Archiv suchen..."
+                    value={archiveSearchQuery}
+                    onChange={(e) => setArchiveSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 w-full"
+                  />
+                </div>
+              </div>
+
+              {filteredArchivedEvents.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 opacity-60">
-                  {archivedEvents.map(event => (
+                  {filteredArchivedEvents.map(event => (
                     <EventCard
                       key={`archived-${event.id}`}
                       event={event}
@@ -474,10 +504,13 @@ export default function EventsPage() {
                 <div className="text-center py-8 bg-secondary rounded-lg border border-dashed border-gray-300">
                   <FolderArchive className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-base font-medium text-gray-400 mb-1">
-                    Keine vergangenen Events
+                    {archiveSearchQuery ? "Keine Ergebnisse" : "Keine vergangenen Events"}
                   </h3>
                   <p className="text-gray-400 text-sm">
-                    Es sind noch keine Events im Archiv vorhanden.
+                    {archiveSearchQuery
+                      ? "Keine archivierten Events entsprechen deiner Suche."
+                      : "Es sind noch keine Events im Archiv vorhanden."
+                    }
                   </p>
                 </div>
               )}
