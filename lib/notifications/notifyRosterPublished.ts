@@ -7,7 +7,7 @@ export async function notifyRosterPublished(eventId: number) {
   if (!event) throw new Error("Event not found");
 
   const signups = await prisma.eventSignup.findMany({
-    where: { eventId },
+    where: { eventId, deletedAt: null },
     include: { user: true },
   });
   if (signups.length === 0) return 0;
