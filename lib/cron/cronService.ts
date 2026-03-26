@@ -5,6 +5,7 @@ import { checkUpcomingEventsForReminders } from './eventReminderJob'
 import { checkWeeklyOccurrenceStatus } from './weeklyNotificationsJob'
 import { checkWeeklyStaffing } from './weeklyStaffingJob'
 import { checkWeeklyMyVatsim } from './weeklyMyVatsimJob'
+import { checkEventSignupReminders } from './eventSignupReminderJob'
 
 let isInitialized = false
 
@@ -25,6 +26,14 @@ const CRON_JOBS = [
     envVar: 'EVENT_REMINDER_CRON',
     defaultSchedule: '0 9 * * *',
     handler: checkUpcomingEventsForReminders,
+  },
+  {
+    name: 'event_signup_reminder',
+    displayName: 'Event Anmeldeschluss-Erinnerung',
+    description: 'Erinnert angemeldete Nutzer 1 Tag vor Anmeldeschluss an ihre Eventanmeldung',
+    envVar: 'EVENT_SIGNUP_REMINDER_CRON',
+    defaultSchedule: '0 * * * *',
+    handler: checkEventSignupReminders,
   },
   {
     name: 'weekly_status_check',
