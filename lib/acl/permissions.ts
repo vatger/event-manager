@@ -156,3 +156,12 @@ export async function hasAdminAccess(cid: number) {
   });
   return !!isWeeklyManager;
 }
+
+/** Prüft, ob ein Nutzer FIR-Eventleitung ist */
+export async function isFIRLead(cid: number) {
+  const user = await getUserWithEffectiveData(cid);
+  if (!user) return false;
+  console.log(`Checking FIR lead for CID ${cid}: effective level is ${user.effectiveLevel}`);
+  return user.effectiveLevel == "FIR_EVENTLEITER"
+  
+}

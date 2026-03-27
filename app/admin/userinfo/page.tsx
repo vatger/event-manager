@@ -6,10 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search, BarChart2, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, MapPin, Clock, Building, AlertCircle, CheckCircle2, Search, BarChart2, ChevronDown, ChevronUp, NotebookPen, Trash2, Pencil } from 'lucide-react';
 import { getBadgeClassForEndorsement } from '@/utils/EndorsementBadge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { toast } from 'sonner';
+import { useSession } from 'next-auth/react';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
+import { userAgent } from 'next/server';
+import { isVatgerEventleitung } from '@/lib/acl/permissions';
+import { useUser } from '@/hooks/useUser';
 
 interface UserQualifications {
   cid: number;
@@ -33,10 +42,22 @@ interface StationStat {
   sessions: SessionDetail[];
 }
 
+interface UserComment {
+  id: number;
+  userCID: number;
+  authorCID: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  author: { cid: number; name: string } | null;
+}
+
 export default function UserInfoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlCid = searchParams.get('cid');
+  const { data: session } = useSession();
+  const { isFIRLead, isVATGERLead } = useUser();
   
   const [cid, setCid] = useState(urlCid || '');
   const [data, setData] = useState<UserQualifications | null>(null);
@@ -49,6 +70,14 @@ export default function UserInfoPage() {
   const [stationSearch, setStationSearch] = useState('');
   // Menge der aufgeklappten Stationen (station-Name als Key)
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
+
+  // User comments state
+  const [comments, setComments] = useState<UserComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
 
   // Lade Daten wenn CID in URL-Param vorhanden
   useEffect(() => {
@@ -64,6 +93,9 @@ export default function UserInfoPage() {
     setStats(null);
     setStatsLoading(true);
     setExpandedStations(new Set());
+    setComments([]);
+    setNewComment('');
+    setEditingCommentId(null);
 
     // Endorsements (Hauptdaten)
     fetch(`/api/endorsements/${cidToLoad}`)
@@ -84,6 +116,74 @@ export default function UserInfoPage() {
       .then((d: { stations: StationStat[] }) => setStats(d.stations))
       .catch(() => setStats([]))
       .finally(() => setStatsLoading(false));
+
+    // User comments – parallel
+    setCommentsLoading(true);
+    fetch(`/api/admin/users/${cidToLoad}/comments`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { comments: UserComment[] }) => setComments(d.comments))
+      .catch(() => setComments([]))
+      .finally(() => setCommentsLoading(false));
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !urlCid) return;
+    setCommentSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${urlCid}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: newComment.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const json = await res.json();
+      setComments((prev) => [json.comment, ...prev]);
+      setNewComment('');
+      toast.success('Notiz gespeichert');
+    } catch {
+      toast.error('Notiz konnte nicht gespeichert werden');
+    } finally {
+      setCommentSaving(false);
+    }
+  };
+
+  const handleEditComment = async (commentId: number) => {
+    if (!editCommentText.trim() || !urlCid) return;
+    setCommentSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${urlCid}/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: editCommentText.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const json = await res.json();
+      setComments((prev) => prev.map((c) => (c.id === commentId ? json.comment : c)));
+      setEditingCommentId(null);
+      setEditCommentText('');
+      toast.success('Notiz aktualisiert');
+    } catch {
+      toast.error('Notiz konnte nicht aktualisiert werden');
+    } finally {
+      setCommentSaving(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    if (!urlCid) return;
+    setCommentSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${urlCid}/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed');
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast.success('Notiz gelöscht');
+    } catch {
+      toast.error('Notiz konnte nicht gelöscht werden');
+    } finally {
+      setCommentSaving(false);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -537,6 +637,122 @@ export default function UserInfoPage() {
             <p className="text-muted-foreground">
               Für CID {urlCid} wurden keine Daten gefunden
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notizen (User Comments) – shown whenever a CID is in the URL */}
+      {urlCid && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <NotebookPen className="w-4 h-4" />
+              Interne Notizen
+              {!commentsLoading && (
+                <Badge variant="secondary">{comments.length}</Badge>
+              )}
+            </CardTitle>
+            <CardDescription>
+              Interne Anmerkungen zu diesem Controller
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Existing comments */}
+            {commentsLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                Keine Notizen vorhanden
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((c) => (
+                  <div key={c.id} className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                    {editingCommentId === c.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editCommentText}
+                          onChange={(e) => setEditCommentText(e.target.value)}
+                          className="min-h-[80px] text-sm"
+                          disabled={commentSaving}
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setEditingCommentId(null); setEditCommentText(''); }}
+                            disabled={commentSaving}
+                          >
+                            Abbrechen
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleEditComment(c.id)}
+                            disabled={commentSaving || !editCommentText.trim()}
+                          >
+                            Speichern
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap">{c.comment}</p>
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>
+                            {c.author?.name ?? `CID ${c.authorCID}`} · {format(new Date(c.createdAt), 'dd.MM.yyyy HH:mm', { locale: de })}
+                          </span>
+                          {session?.user?.cid && (Number(session.user.cid) === c.authorCID || isFIRLead() || isVATGERLead()) && (
+                            <div className="flex gap-1">
+                              <button
+                                className="hover:text-foreground transition-colors p-0.5"
+                                onClick={() => { setEditingCommentId(c.id); setEditCommentText(c.comment); }}
+                                title="Bearbeiten"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                className="hover:text-destructive transition-colors p-0.5"
+                                onClick={() => handleDeleteComment(c.id)}
+                                title="Löschen"
+                                disabled={commentSaving}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Separator />
+
+            {/* New comment input */}
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Neue Notiz schreiben..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="min-h-[80px]"
+                disabled={commentSaving}
+              />
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleAddComment}
+                  disabled={commentSaving || !newComment.trim()}
+                >
+                  <NotebookPen className="w-4 h-4" />
+                  Notiz speichern
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

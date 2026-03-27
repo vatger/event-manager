@@ -22,6 +22,9 @@ import {
   Search,
   Plane,
   MessageSquare,
+  NotebookPen,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,6 +51,8 @@ import {
 } from "@/components/ui/popover";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
@@ -92,6 +97,16 @@ interface ATCSessionStats {
   };
 }
 
+interface UserComment {
+  id: number;
+  userCID: number;
+  authorCID: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+  author: { cid: number; name: string } | null;
+}
+
 interface Signup {
   id: number;
   userCID: number;
@@ -105,6 +120,7 @@ interface Signup {
   restrictions: string[];
   history?: UserHistory | null;
   atcStats?: ATCSessionStats | null;
+  commentCount?: number;
 }
 
 interface RosterEntry {
@@ -175,6 +191,27 @@ export default function RosterEditorPage() {
     station: null,
   });
   const [mobileSearchQuery, setMobileSearchQuery] = useState("");
+
+  // User comment dialog state
+  const [commentDialog, setCommentDialog] = useState<{
+    open: boolean;
+    signup: Signup | null;
+    comments: UserComment[];
+    loading: boolean;
+    newComment: string;
+    editingId: number | null;
+    editText: string;
+    saving: boolean;
+  }>({
+    open: false,
+    signup: null,
+    comments: [],
+    loading: false,
+    newComment: "",
+    editingId: null,
+    editText: "",
+    saving: false,
+  });
 
   // Fetch roster data
   useEffect(() => {
@@ -442,6 +479,112 @@ export default function RosterEditorPage() {
   const handleMobileAssign = (station: string) => {
     setMobileSearchQuery("");
     setMobileAssignDialog({ open: true, station });
+  };
+
+  // ── User comment dialog handlers ──────────────────────────────────────────
+
+  const openCommentDialog = async (signup: Signup) => {
+    setCommentDialog((prev) => ({ ...prev, open: true, signup, comments: [], loading: true, newComment: "", editingId: null, editText: "" }));
+    try {
+      const res = await fetch(`/api/admin/users/${signup.userCID}/comments`);
+      if (!res.ok) throw new Error("Failed to load comments");
+      const json = await res.json();
+      setCommentDialog((prev) => ({ ...prev, comments: json.comments, loading: false }));
+    } catch {
+      toast.error("Kommentare konnten nicht geladen werden");
+      setCommentDialog((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  const submitNewComment = async () => {
+    if (!commentDialog.signup || !commentDialog.newComment.trim()) return;
+    setCommentDialog((prev) => ({ ...prev, saving: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${commentDialog.signup.userCID}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: commentDialog.newComment.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to create comment");
+      const json = await res.json();
+      setCommentDialog((prev) => ({
+        ...prev,
+        comments: [json.comment, ...prev.comments],
+        newComment: "",
+        saving: false,
+      }));
+      // Bump the comment count on the signup card
+      if (data) {
+        setData({
+          ...data,
+          signups: data.signups.map((s) =>
+            s.userCID === commentDialog.signup!.userCID
+              ? { ...s, commentCount: (s.commentCount ?? 0) + 1 }
+              : s
+          ),
+        });
+      }
+      toast.success("Kommentar gespeichert");
+    } catch {
+      toast.error("Kommentar konnte nicht gespeichert werden");
+      setCommentDialog((prev) => ({ ...prev, saving: false }));
+    }
+  };
+
+  const submitEditComment = async (commentId: number) => {
+    if (!commentDialog.editText.trim()) return;
+    setCommentDialog((prev) => ({ ...prev, saving: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${commentDialog.signup!.userCID}/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: commentDialog.editText.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed to update comment");
+      const json = await res.json();
+      setCommentDialog((prev) => ({
+        ...prev,
+        comments: prev.comments.map((c) => (c.id === commentId ? json.comment : c)),
+        editingId: null,
+        editText: "",
+        saving: false,
+      }));
+      toast.success("Kommentar aktualisiert");
+    } catch {
+      toast.error("Kommentar konnte nicht aktualisiert werden");
+      setCommentDialog((prev) => ({ ...prev, saving: false }));
+    }
+  };
+
+  const deleteComment = async (commentId: number) => {
+    if (!commentDialog.signup) return;
+    setCommentDialog((prev) => ({ ...prev, saving: true }));
+    try {
+      const res = await fetch(`/api/admin/users/${commentDialog.signup!.userCID}/comments/${commentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete comment");
+      setCommentDialog((prev) => ({
+        ...prev,
+        comments: prev.comments.filter((c) => c.id !== commentId),
+        saving: false,
+      }));
+      // Decrement comment count on signup card
+      if (data) {
+        setData({
+          ...data,
+          signups: data.signups.map((s) =>
+            s.userCID === commentDialog.signup!.userCID
+              ? { ...s, commentCount: Math.max(0, (s.commentCount ?? 1) - 1) }
+              : s
+          ),
+        });
+      }
+      toast.success("Kommentar gelöscht");
+    } catch {
+      toast.error("Kommentar konnte nicht gelöscht werden");
+      setCommentDialog((prev) => ({ ...prev, saving: false }));
+    }
   };
 
   const getAvailableSignupsForStation = (station: string | null, searchQuery: string): Signup[] => {
@@ -1099,6 +1242,23 @@ export default function RosterEditorPage() {
                                     </Popover>
                                   );
                                 })()}
+                                
+                                {/* Add comment button */}
+                                <button
+                                  className={cn(
+                                    "flex items-center gap-0.5 text-[10px] transition-colors ml-auto font-medium",
+                                    signup.commentCount && signup.commentCount > 0
+                                      ? "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300"
+                                      : "text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400"
+                                    )}
+                                    onClick={(e) => { e.stopPropagation(); openCommentDialog(signup); }}
+                                    title="Notiz hinzufügen / anzeigen"
+                                >
+                                  {signup.commentCount && signup.commentCount > 0 ? (
+                                    <span>{signup.commentCount} {signup.commentCount === 1 ? "Notiz" : "Notizen"}</span>
+                                  ) : ("")}
+                                  <NotebookPen className="h-3 w-3" />
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -1282,6 +1442,125 @@ export default function RosterEditorPage() {
               className="bg-blue-900 hover:bg-blue-800 text-white"
             >
               {data.occurrence.rosterPublished ? "Zurückziehen" : "Veröffentlichen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* User Comment Dialog */}
+      <Dialog
+        open={commentDialog.open}
+        onOpenChange={(open) => !open && setCommentDialog((prev) => ({ ...prev, open: false, signup: null, editingId: null, editText: "" }))}
+      >
+        <DialogContent className="sm:max-w-[520px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <NotebookPen className="h-4 w-4" />
+              Notizen – {commentDialog.signup?.user?.name || `CID ${commentDialog.signup?.userCID}`}
+            </DialogTitle>
+            <DialogDescription>
+              Interne Anmerkungen zu diesem Controller
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-3 py-2 min-h-0">
+            {commentDialog.loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+              </div>
+            ) : commentDialog.comments.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-6">
+                Noch keine Notizen vorhanden
+              </p>
+            ) : (
+              commentDialog.comments.map((c) => (
+                <div key={c.id} className="rounded-lg border bg-muted/30 p-3 space-y-1">
+                  {commentDialog.editingId === c.id ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={commentDialog.editText}
+                        onChange={(e) => setCommentDialog((prev) => ({ ...prev, editText: e.target.value }))}
+                        className="min-h-[80px] text-sm"
+                        disabled={commentDialog.saving}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCommentDialog((prev) => ({ ...prev, editingId: null, editText: "" }))}
+                          disabled={commentDialog.saving}
+                        >
+                          Abbrechen
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => submitEditComment(c.id)}
+                          disabled={commentDialog.saving || !commentDialog.editText.trim()}
+                        >
+                          Speichern
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm whitespace-pre-wrap">{c.comment}</p>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>
+                          {c.author?.name ?? `CID ${c.authorCID}`} · {format(new Date(c.createdAt), "dd.MM.yyyy HH:mm", { locale: de })}
+                        </span>
+                        {session?.user?.cid && Number(session.user.cid) === c.authorCID && (
+                          <div className="flex gap-1">
+                            <button
+                              className="hover:text-foreground transition-colors p-0.5"
+                              onClick={() => setCommentDialog((prev) => ({ ...prev, editingId: c.id, editText: c.comment }))}
+                              title="Bearbeiten"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              className="hover:text-destructive transition-colors p-0.5"
+                              onClick={() => deleteComment(c.id)}
+                              title="Löschen"
+                              disabled={commentDialog.saving}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <Separator />
+
+          {/* New comment input */}
+          <div className="space-y-2 pt-1">
+            <Textarea
+              placeholder="Neue Notiz schreiben..."
+              value={commentDialog.newComment}
+              onChange={(e) => setCommentDialog((prev) => ({ ...prev, newComment: e.target.value }))}
+              className="min-h-[80px] text-sm"
+              disabled={commentDialog.saving}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCommentDialog((prev) => ({ ...prev, open: false, signup: null }))}
+            >
+              Schließen
+            </Button>
+            <Button
+              onClick={submitNewComment}
+              disabled={commentDialog.saving || !commentDialog.newComment.trim()}
+            >
+              <NotebookPen className="h-4 w-4" />
+              Notiz speichern
             </Button>
           </DialogFooter>
         </DialogContent>

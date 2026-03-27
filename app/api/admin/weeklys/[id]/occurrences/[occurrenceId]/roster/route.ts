@@ -131,11 +131,22 @@ export async function GET(
       });
     }
 
-    // Enrich signups with history data and ATC stats
+    // Enrich signups with history data, ATC stats, and user comment counts
+    const userCIDsForComments = signupsData.map((s) => s.userCID);
+    const commentCounts = await prisma.userComment.groupBy({
+      by: ["userCID"],
+      where: { userCID: { in: userCIDsForComments } },
+      _count: { id: true },
+    });
+    const commentCountMap = new Map<number, number>(
+      commentCounts.map((c) => [c.userCID, c._count.id])
+    );
+
     const signupsWithHistory = signupsData.map((signup) => ({
       ...signup,
       history: historyMap.get(signup.userCID) || null,
       atcStats: atcStatsWithObjects.get(signup.userCID) || null,
+      commentCount: commentCountMap.get(signup.userCID) ?? 0,
     }));
 
     return NextResponse.json({

@@ -58,6 +58,9 @@ model User {
   vatgerLeitung       VATGERLeitung?
   blockedDatesCreated CalendarBlockedDate[] @relation("BlockedDateCreator")
   weeklyEventManagers WeeklyEventManager[]
+
+  commentsReceived    UserComment[]         @relation("CommentTarget")
+  commentsWritten     UserComment[]         @relation("CommentAuthor")
 }
 
 model FIR {
@@ -397,5 +400,21 @@ model WeeklyEventManager {
   @@unique([userCID, configId])
   @@index([userCID])
   @@index([configId])
+}
+
+// Persistent admin notes/comments about a specific user
+model UserComment {
+  id        Int      @id @default(autoincrement())
+  userCID   Int
+  authorCID Int
+  comment   String   
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User @relation("CommentTarget", fields: [userCID], references: [cid], onDelete: Cascade)
+  author User @relation("CommentAuthor", fields: [authorCID], references: [cid], onDelete: Cascade)
+
+  @@index([userCID])
+  @@index([authorCID])
 }
 

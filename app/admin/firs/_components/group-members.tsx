@@ -69,7 +69,7 @@ export function GroupMembers({ group, firCode, canManage, VATGERStaff, onUpdate 
   // Filter members based on search
   const filteredMembers = group.members?.filter(member => 
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    member.cid.includes(searchTerm) ||
+    member.cid.toString().includes(searchTerm) ||
     member.rating.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
