@@ -24,6 +24,10 @@ export async function notifySignupDeadlineReminder(eventId: number) {
     where: {
       eventId,
       deletedAt: null,
+      //notifications should only be sent to users who haven't updated their signup in the last 7 days
+      updatedAt: {
+        lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
     },
     include: {
       user: {
