@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import EventsSection from "@/components/EventsSection";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
@@ -9,6 +9,7 @@ import { Calendar, ChevronDown, ChevronUp, Filter, FolderArchive, Search, User, 
 import EventCard from "@/components/EventCard";
 import WeeklyCard from "@/components/WeeklyCard";
 import { Input } from "@/components/ui/input";
+import { useRouter, useSearchParams } from "next/navigation";
 
 
 interface FIR {
@@ -41,9 +42,16 @@ export default function EventsPage() {
   const [weeklys, setWeeklys] = useState<WeeklyConfig[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [archiveSearchQuery, setArchiveSearchQuery] = useState("");
-  const [selectedFIR, setSelectedFIR] = useState(session?.user.fir || "all");
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<"events" | "weeklys">("events");
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const firSectionRef = useRef<HTMLDivElement>(null);
+
+  const [selectedFIR, setSelectedFIR] = useState(
+    searchParams.get("fir") || session?.user.fir || "all"
+  );
   
   useEffect(() => {
     async function loadEvents() {
@@ -108,6 +116,17 @@ export default function EventsPage() {
       }
     }
   }, [events]);
+
+  useEffect(() => {
+    const firParam = searchParams.get("fir");
+    if (firParam) {
+      setSelectedFIR(firParam);
+      // Kurze Verzögerung damit der DOM gerendert ist
+      setTimeout(() => {
+        firSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [searchParams]);
 
   // Event-Kategorien
   const { signedUpEvents, openEvents, archivedEvents, firOverviewEvents } = useMemo(() => {
@@ -295,7 +314,7 @@ export default function EventsPage() {
         </section>
 
         {/* FIR Filter & Suche */}
-        <section className="mb-12">
+        <section className="mb-12" ref={firSectionRef}>
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-foreground mb-1">
               {viewMode === "events" ? "Events nach FIR" : "Weeklys nach FIR"}
@@ -326,6 +345,7 @@ export default function EventsPage() {
                 onClick={() => {
                   setSearchQuery("");
                   setSelectedFIR("all");
+                  router.replace("?", { scroll: false });
                 }}
                 className="sm:w-32"
               >
@@ -359,7 +379,16 @@ export default function EventsPage() {
                 <Button
                   key={fir.value}
                   variant={selectedFIR === fir.value ? "default" : "outline"}
-                  onClick={() => setSelectedFIR(fir.value)}
+                  onClick={() => {
+                    setSelectedFIR(fir.value);
+                    const params = new URLSearchParams(searchParams.toString());
+                    if (fir.value === "all") {
+                      params.delete("fir");
+                    } else {
+                      params.set("fir", fir.value);
+                    }
+                    router.replace(`?${params.toString()}`, { scroll: false });
+                  }}
                   className="flex items-center gap-2"
                 >
                   <Filter className="w-4 h-4" />
