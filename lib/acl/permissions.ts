@@ -139,6 +139,60 @@ export async function userCanManageWeekly(cid: number, configId: number): Promis
 }
 
 /**
+ * Prüft, ob ein Nutzer ein FIR-Team-Mitglied ist (FIR_LEITUNG oder FIR_TEAM) für das Event.
+ * Eventler in der FIR können sich Tasks claimen und als erledigt markieren.
+ */
+export async function isEventFirTeamMember(cid: number, eventId: number): Promise<boolean> {
+  const user = await getUserWithEffectiveData(cid);
+  if (!user) return false;
+  if (user.effectiveLevel === "MAIN_ADMIN") return true;
+  if (user.effectiveLevel === "VATGER_LEITUNG") return true;
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { firCode: true },
+  });
+  if (!event?.firCode) return false;
+
+  // Check if user is in any FIR group (FIR_LEITUNG or FIR_TEAM)
+  return user.firLevels[event.firCode] !== undefined;
+}
+
+/**
+ * Prüft, ob ein Nutzer Verantwortlicher des Events ist.
+ */
+export async function isEventResponsible(cid: number, eventId: number): Promise<boolean> {
+  const entry = await prisma.eventResponsible.findUnique({
+    where: { eventId_userCID: { eventId, userCID: cid } },
+  });
+  return !!entry;
+}
+
+/**
+ * Prüft, ob ein Nutzer Tasks für ein Event verwalten darf.
+ * Event-Verantwortliche und FIR-Eventleiter können:
+ *   - Tasks erstellen, bearbeiten, löschen
+ *   - Tasks anderen zuweisen
+ *   - Tasks als erledigt/übersprungen markieren
+ */
+export async function canManageEventTasks(cid: number, eventId: number): Promise<boolean> {
+  if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
+  if (await isEventResponsible(cid, eventId)) return true;
+  return false;
+}
+
+/**
+ * Prüft, ob ein Nutzer den Banner eines Events verwalten darf (show/hide).
+ * Benötigt event.banner permission ODER ist Event-Verantwortlicher.
+ */
+export async function canManageEventBanner(cid: number, eventId: number): Promise<boolean> {
+  if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
+  if (await userhasPermissiononEvent(cid, eventId, "event.banner")) return true;
+  if (await isEventResponsible(cid, eventId)) return true;
+  return false;
+}
+
+/**
  * Prüft, ob ein Nutzer Admin-Zugriff hat
  * (d. h. in einer Gruppe ist, MAIN_ADMIN ist, oder Weekly-Manager)
  */

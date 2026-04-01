@@ -9,6 +9,7 @@ import {
     Image,
     TowerControl,
     Repeat,
+    ClipboardList,
   } from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
@@ -37,6 +38,11 @@ import {
           href: "/admin/events", 
           label: "Events", 
           icon: Calendar,
+        },
+        {
+          href: "/admin/tasks",
+          label: "Meine Aufgaben",
+          icon: ClipboardList,
         },
       ]
     },

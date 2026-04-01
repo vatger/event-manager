@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
-import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner } from "@/lib/acl/permissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
 
@@ -47,11 +47,24 @@ export async function GET(request: Request,
   const { eventId } = await params;
   const event = await prisma.event.findUnique({
     where: { id: Number(eventId) },
-    include: { signups: true }
+    include: {
+      signups: true,
+      responsibles: { include: { user: { select: { cid: true, name: true } } } },
+    }
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  return NextResponse.json(event);
+  const flatResponsibles = event.responsibles.map((r) => r.user);
+
+  // Hide bannerUrl when bannerVisible is false, unless user can manage the banner
+  if (!event.bannerVisible) {
+    const canBanner = await canManageEventBanner(Number(user.cid), event.id);
+    if (!canBanner) {
+      return NextResponse.json({ ...event, responsibles: flatResponsibles, bannerUrl: null });
+    }
+  }
+
+  return NextResponse.json({ ...event, responsibles: flatResponsibles });
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
@@ -152,7 +165,8 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
 const updateEventSchema = z.object({
   name: z.string().min(3).optional(),
   description: z.string().optional(),
-  bannerUrl: z.string().optional(),
+  bannerUrl: z.string().optional().nullable(),
+  bannerVisible: z.boolean().optional(),
   startTime: z.string().datetime().optional(),
   endTime: z.string().datetime().optional(),
   airports: z.array(z.string().length(4, "ICAO must be 4 letters")).optional(),
@@ -167,7 +181,7 @@ const updateEventSchema = z.object({
   staffedStations: z.array(z.string()).optional(),
   rosterlink: z.string().url("Rosterlink ist keine gültige URL").nullable().optional(),
   status: z.enum(["PLANNING", "SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED", "DRAFT", "CANCELLED"]).optional(),
-  firCode: z.string().optional()
+  firCode: z.string().optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
@@ -212,8 +226,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
   const fir = parsed.data.firCode || firbyevent.firCode
   if(!fir) return NextResponse.json({ error: "Invalid FIR" }, { status: 401 });
   
-  if (!await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
-    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
+  // Determine required permission level based on what's being changed
+  const evId = Number(eventId);
+  const isBannerOnlyChange = Object.keys(parsed.data).every(k => ["bannerVisible", "bannerUrl"].includes(k));
+  
+  if (isBannerOnlyChange) {
+    // Banner-only changes require event.banner permission (or event responsible)
+    if (!await canManageEventBanner(user.cid, evId)) {
+      return NextResponse.json({ error: "Unauthorized", message: "You need event.banner permission to manage the banner" }, { status: 403 });
+    }
+  } else {
+    // Everything else requires event.edit
+    if (!await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
+      return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
+    }
   }
 
   try {
@@ -226,14 +252,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     }
     
     if(parsed.data.status === "ROSTER_PUBLISHED"){
-      if(!await userHasFirPermission(user.cid, fir, "roster.publish")) {
-        return NextResponse.json({ error: "Insufficient permissions", message: "You need roster.publish in your FIR for this action"}, { status: 403})
+      if(!await userHasFirPermission(user.cid, fir, "roster.publish") && !await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
+        return NextResponse.json({ error: "Insufficient permissions", message: "You need roster.publish or event.edit permission for this action"}, { status: 403})
       }
     }
 
     const updatedEvent = await prisma.event.update({
       where: { id },
-      data: parsed.data
+      data: parsed.data,
+      include: {
+        responsibles: { include: { user: { select: { cid: true, name: true } } } },
+      },
     });
 
     // Notifications: wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
@@ -243,7 +272,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
     }
 
     await invalidateSignupTable(Number(eventId))
-    return NextResponse.json(updatedEvent, { status: 200 }, );
+    return NextResponse.json({ ...updatedEvent, responsibles: updatedEvent.responsibles.map((r) => r.user) }, { status: 200 });
   } catch (err) {
     if(err instanceof z.ZodError){
       console.error("Error updating event:", err);

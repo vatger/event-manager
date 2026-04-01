@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon } from "lucide-react";
+import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon, ClipboardList } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -35,6 +35,12 @@ const eventAdminTabs: {
     href: "/candidates", 
     icon: UserCheck,
     badge: "count"
+  },
+  {
+    id: "tasks",
+    label: "Aufgaben",
+    href: "/tasks",
+    icon: ClipboardList,
   },
   {
     id: "notify",

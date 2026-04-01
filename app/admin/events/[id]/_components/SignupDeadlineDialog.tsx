@@ -95,7 +95,7 @@ export function SignupDeadlineDialog({ event, onUpdate, children }: SignupDeadli
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="w-full justify-start">
             <Calendar className="h-4 w-4 mr-2" />
             Anmeldefrist {event.signupDeadline ? "bearbeiten" : "festlegen"}
           </Button>

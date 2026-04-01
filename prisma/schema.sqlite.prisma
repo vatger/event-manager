@@ -40,6 +40,21 @@ enum GroupKind {
   CUSTOM
 }
 
+enum TaskType {
+  CREATE_BANNER
+  CREATE_TEXT
+  SUBMIT_CLEARING
+  REGISTER_MYVATSIM
+  CUSTOM
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  SKIPPED
+}
+
 model User {
   id                        Int      @id @default(autoincrement())
   cid                       Int      @unique
@@ -58,6 +73,8 @@ model User {
   vatgerLeitung       VATGERLeitung?
   blockedDatesCreated CalendarBlockedDate[] @relation("BlockedDateCreator")
   weeklyEventManagers WeeklyEventManager[]
+  assignedTasks       EventTask[]
+  responsibleEvents   EventResponsible[]
 
   commentsReceived    UserComment[]         @relation("CommentTarget")
   commentsWritten     UserComment[]         @relation("CommentAuthor")
@@ -80,6 +97,7 @@ model Event {
   name            String
   description     String
   bannerUrl       String?
+  bannerVisible   Boolean     @default(false) // Banner only shown publicly after clearing approval
   startTime       DateTime
   endTime         DateTime
   airports        Json // Array of ICAO codes
@@ -96,8 +114,24 @@ model Event {
   firCode String?
   fir     FIR?    @relation(fields: [firCode], references: [code])
 
+  responsibles EventResponsible[]
   signups      EventSignup[]
   Notification Notification[]
+  tasks        EventTask[]
+}
+
+model EventResponsible {
+  id        Int      @id @default(autoincrement())
+  eventId   Int
+  userCID   Int
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userCID], references: [cid], onDelete: Cascade)
+
+  @@unique([eventId, userCID])
+  @@index([eventId])
+  @@index([userCID])
 }
 
 model EventSignup {
@@ -277,15 +311,16 @@ model WeeklyEventConfiguration {
 
   // Pattern configuration for recurring events
   // e.g., for "2 weeks on, 1 week off": weeksOn=2, weeksOff=1
-  weeksOn   Int      @default(1) // How many consecutive weeks the event occurs
-  weeksOff  Int      @default(0) // How many weeks off after the "on" period
-  startDate DateTime // When the pattern starts
+  weeksOn      Int      @default(1) // How many consecutive weeks the event occurs
+  weeksOff     Int      @default(0) // How many weeks off after the "on" period
+  skipInterval Int      @default(0) // Skip every Nth occurrence (0 = disabled), e.g. 3 = every 3rd occurrence is skipped
+  startDate    DateTime // When the pattern starts
 
   // Event details
   airports        Json? // Array of ICAO codes
   startTime       String? // Event start time in HH:mm format (local time Europe/Berlin)
   endTime         String? // Event end time in HH:mm format (local time Europe/Berlin)
-  description     String?
+  description     String? 
   
   // Staffing configuration
   minStaffing      Int?     @default(0) // Minimum required staff
@@ -294,7 +329,7 @@ model WeeklyEventConfiguration {
   signupDeadlineHours Int?  @default(24) // Hours before event when signup closes
 
   // Display
-  bannerUrl   String?  // Optional banner image URL for public display
+  bannerUrl   String?   // Optional banner image URL for public display
 
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -339,7 +374,7 @@ model WeeklyEventSignup {
   occurrenceId      Int
   occurrence        WeeklyEventOccurrence @relation(fields: [occurrenceId], references: [id], onDelete: Cascade)
   userCID           Int
-  remarks           String?
+  remarks           String? 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -370,13 +405,13 @@ model CronJobStatus {
   id              Int      @id @default(autoincrement())
   jobName         String   @unique // Unique identifier for the cron job
   displayName     String   // Human-readable name
-  description     String   // What the job does
+  description     String    // What the job does
   schedule        String   // Cron schedule expression
   isActive        Boolean  @default(true)
   lastRunAt       DateTime? // When the job last ran
   lastRunStatus   String?  // "success" or "error"
   lastRunDuration Int?     // Duration in milliseconds
-  lastError       String?  // Error message if failed
+  lastError       String?   // Error message if failed
   runCount        Int      @default(0) // Total number of runs
   errorCount      Int      @default(0) // Total number of errors
   createdAt       DateTime @default(now())
@@ -417,3 +452,33 @@ model UserComment {
   @@index([authorCID])
 }
 
+// Event tasks for tracking event preparation steps
+model EventTask {
+  id          Int        @id @default(autoincrement())
+  eventId     Int
+  type        TaskType   @default(CUSTOM)
+  title       String
+  description String?    
+  status      TaskStatus @default(OPEN)
+  dueDate     DateTime?
+  assigneeCID Int?
+  sortOrder   Int        @default(0)
+
+  // For REGISTER_MYVATSIM task: manual confirmation + API check
+  myVatsimManualCheck Boolean  @default(false)
+  myVatsimRegistered  Boolean?
+
+  // Notification tracking
+  deadlineNotified Boolean @default(false)
+
+  completedAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignee User? @relation(fields: [assigneeCID], references: [cid])
+
+  @@index([eventId])
+  @@index([assigneeCID])
+  @@index([dueDate])
+}

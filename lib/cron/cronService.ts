@@ -6,6 +6,7 @@ import { checkWeeklyOccurrenceStatus } from './weeklyNotificationsJob'
 import { checkWeeklyStaffing } from './weeklyStaffingJob'
 import { checkWeeklyMyVatsim } from './weeklyMyVatsimJob'
 import { checkEventSignupReminders } from './eventSignupReminderJob'
+import { checkTaskDeadlines } from './taskDeadlineJob'
 
 let isInitialized = false
 
@@ -58,6 +59,14 @@ const CRON_JOBS = [
     envVar: 'WEEKLY_MYVATSIM_CHECK_CRON',
     defaultSchedule: '0 10 * * *',
     handler: checkWeeklyMyVatsim,
+  },
+  {
+    name: 'task_deadline_check',
+    displayName: 'Aufgaben-Deadline Erinnerung',
+    description: 'Benachrichtigt zugewiesene Personen per Forum-Ping wenn eine Event-Aufgabe in 2 Tagen fällig ist',
+    envVar: 'TASK_DEADLINE_CHECK_CRON',
+    defaultSchedule: '0 8 * * *',
+    handler: checkTaskDeadlines,
   },
 ] as const
 

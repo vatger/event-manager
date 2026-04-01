@@ -42,6 +42,7 @@ export async function GET(req: Request) {
         name: true,
         description: true,
         bannerUrl: true,
+        bannerVisible: true,
         airports: true,
         startTime: true,
         endTime: true,
@@ -80,8 +81,10 @@ export async function GET(req: Request) {
       }
     }
 
-    const result = events.map(({ _count, ...event }) => ({
+    const result = events.map(({ _count, bannerVisible, ...event }) => ({
       ...event,
+      // Only expose bannerUrl publicly when banner is approved/visible
+      bannerUrl: bannerVisible ? event.bannerUrl : null,
       registrations: _count?.signups ?? 0,
       isSignedUp: signedSet !== null ? signedSet.has(event.id) : false,
     }));

@@ -52,7 +52,7 @@ export function RosterLinkDialog({ event, onUpdate, children }: RosterLinkDialog
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button variant="outline" size="sm" disabled={!canInOwnFIR("roster.publish")}>
+          <Button variant="outline" className="justify-start w-full" size="sm" disabled={!canInOwnFIR("roster.publish")}>
             <Link className="h-4 w-4 mr-2" />
             Roster-Link {event.rosterlink ? "bearbeiten" : "hinzufügen"}
           </Button>

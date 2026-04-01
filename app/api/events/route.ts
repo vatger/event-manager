@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, hasAdminAccess } from "@/lib/acl/permissions";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { getTaskTemplatesForFir, calculateDeadline } from "@/config/taskTemplates";
 
 // --- Validation Schema für Events ---
 const eventSchema = z.object({
@@ -148,6 +149,25 @@ export async function POST(req: Request) {
         firCode: fir,
       },
     });
+
+    // Auto-create standard tasks from FIR templates
+    const templates = getTaskTemplatesForFir(fir);
+    if (templates.length > 0) {
+      await prisma.$transaction(
+        templates.map((tmpl) =>
+          prisma.eventTask.create({
+            data: {
+              eventId: event.id,
+              type: tmpl.type,
+              title: tmpl.title,
+              description: tmpl.description,
+              dueDate: calculateDeadline(event.startTime, tmpl.deadlineDaysBefore),
+              sortOrder: tmpl.sortOrder,
+            },
+          })
+        )
+      );
+    }
 
     return NextResponse.json(event, { status: 201 });
   } catch (err) {

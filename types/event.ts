@@ -3,6 +3,7 @@ export interface Event {
     name: string;
     description: string;
     bannerUrl: string;
+    bannerVisible: boolean;
     airports: string | string[]; // Support both single and multiple airports
     startTime: string;
     endTime: string;
@@ -14,4 +15,8 @@ export interface Event {
     isSignedUp?: boolean;
     rosterlink?: string;
     firCode: string;
+    responsibles: {
+        cid: number;
+        name: string;
+    }[];
 }
