@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import EventsSection from "@/components/EventsSection";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
