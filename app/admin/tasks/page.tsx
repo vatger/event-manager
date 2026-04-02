@@ -56,13 +56,34 @@ export default function MyTasksPage() {
   // Filters for "all" tab
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "done">("all");
   const [assignFilter, setAssignFilter] = useState<"all" | "assigned" | "unassigned">("all");
+  // FIR filter for "all" tab
+  const [firFilter, setFirFilter] = useState<string | null>(null);
+  const [availableFirs, setAvailableFirs] = useState<{ code: string; name: string }[]>([]);
 
   const { user } = useUser();
   const currentCID = user?.cid;
 
+  // Determine the default FIR: use the user's own FIR if available.
+  // VATGER leads without a FIR may pick from a selector.
+  useEffect(() => {
+    if (!user) return;
+    if (user.fir?.code) {
+      setFirFilter(user.fir.code);
+    }
+    if (user.effectiveLevel === "VATGER_LEITUNG" || user.effectiveLevel === "MAIN_ADMIN") {
+      // Load available FIRs for the selector
+      fetch("/api/firs")
+        .then((r) => r.json())
+        .then((firs: { code: string; name: string }[]) => setAvailableFirs(firs))
+        .catch(() => {/* ignore */});
+    }
+  }, [user]);
+
   const loadTasks = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tasks/my?view=${tab}`);
+      const params = new URLSearchParams({ view: tab });
+      if (tab === "all" && firFilter) params.set("firCode", firFilter);
+      const res = await fetch(`/api/tasks/my?${params.toString()}`);
       if (!res.ok) throw new Error("Fehler beim Laden");
       const result = await res.json();
       setData(result);
@@ -72,7 +93,7 @@ export default function MyTasksPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab]);
+  }, [tab, firFilter]);
 
   useEffect(() => {
     setLoading(true);
@@ -372,7 +393,24 @@ export default function MyTasksPage() {
 
         <TabsContent value="all" className="space-y-4 mt-4">
           {/* Filters */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* FIR selector: only shown for VATGER leads / MAIN_ADMINs without a fixed FIR */}
+            {(user?.effectiveLevel === "VATGER_LEITUNG" || user?.effectiveLevel === "MAIN_ADMIN") && (
+              <Select
+                value={firFilter ?? "ALL"}
+                onValueChange={(v) => setFirFilter(v === "ALL" ? null : v)}
+              >
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="FIR auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">Alle FIRs</SelectItem>
+                  {availableFirs.map((f) => (
+                    <SelectItem key={f.code} value={f.code}>{f.code} – {f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}  
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "open" | "done")}>
               <SelectTrigger className="w-[160px] h-8 text-xs">
                 <SelectValue />

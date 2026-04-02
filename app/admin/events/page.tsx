@@ -133,13 +133,11 @@ export default function AdminEventsPage() {
         setLoading(false);
         return;
       }
-      if (isVATGERLead()) {
-        setSelectedFir("ALL");
-        refreshEvents("ALL");
-      } else if (user.fir?.code) {
+      if (user.fir?.code) {
         setSelectedFir(user.fir.code);
         refreshEvents(user.fir.code);
       } else {
+        setSelectedFir("ALL");
         refreshEvents("ALL");
       }
     }

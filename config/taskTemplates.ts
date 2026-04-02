@@ -28,7 +28,7 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     title: "Banner erstellen",
     description:
       "Erstelle einen Banner für das Event. Nach Fertigstellung kann die Banner-URL hinterlegt werden. Der Banner darf erst veröffentlicht werden, nachdem er im Clearing approved wurde.",
-    deadlineDaysBefore: 35,
+    deadlineDaysBefore: 33,
     sortOrder: 1,
   },
   {
@@ -36,7 +36,7 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     title: "Bewerbungstext erstellen",
     description:
       "Schreibe einen Bewerbungstext für das Event. Der Text wird im internen Forum gepostet und ist anschließend fürs Clearing erforderlich.",
-    deadlineDaysBefore: 35,
+    deadlineDaysBefore: 33,
     sortOrder: 2,
   },
   {
@@ -52,7 +52,7 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     title: "In myVATSIM eintragen",
     description:
       "Trage das Event im myVATSIM Admin Panel ein, damit es öffentlich sichtbar wird. Nach dem Eintragen muss myVATSIM das Event noch genehmigen.",
-    deadlineDaysBefore: 7,
+    deadlineDaysBefore: 8,
     sortOrder: 4,
   },
 ];

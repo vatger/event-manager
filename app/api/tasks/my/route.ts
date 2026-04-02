@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
   }
 
   const view = req.nextUrl.searchParams.get("view") || "mine";
+  const firCode = req.nextUrl.searchParams.get("firCode") || null;
 
   const eventInclude = {
     select: { id: true, name: true, startTime: true, firCode: true },
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
     where: {
       event: {
         status: { notIn: ["CANCELLED"] },
+        ...(firCode ? { firCode } : {}),
       },
     },
     include: {
