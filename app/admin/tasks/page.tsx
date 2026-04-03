@@ -216,105 +216,133 @@ export default function MyTasksPage() {
     const isAssignedToMe = task.assigneeCID === currentCID;
 
     return (
-      <div
-        className={`px-4 py-2.5 group transition-colors ${
-          isCompleted && !isPending ? "opacity-50" : ""
-        } ${
-          deadlineState === "overdue" ? "bg-destructive/5" : ""
-        } ${
-          deadlineState === "approaching" ? "bg-yellow-50 dark:bg-yellow-950/10" : ""
-        } ${
-          isPending ? "bg-amber-50/50 dark:bg-amber-950/10" : ""
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          {/* Checkbox — show loading spinner for myVATSIM pending */}
-          {isPending ? (
-            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-600" />
-          ) : (
-            <Checkbox
-              checked={isDone}
-              disabled={isSkipped || !isAssignedToMe}
-              onCheckedChange={() => handleToggleDone(task)}
-              className="flex-shrink-0"
-            />
-          )}
-
-          {/* Type icon */}
-          <div className={`flex-shrink-0 ${isCompleted && !isPending ? "text-muted-foreground" : "text-primary"}`}>
-            <Icon className="h-4 w-4" />
-          </div>
-
-          {/* Title */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={`text-sm flex-1 min-w-0 truncate ${isCompleted && !isPending ? "line-through text-muted-foreground" : "font-medium"}`}>
-                {task.title}
-              </span>
-              {isSkipped && (
-                <Badge variant="outline" className="text-xs shrink-0">Übersprungen</Badge>
+        <div
+            className={`px-3 py-2.5 sm:px-4 group transition-colors ${
+                isCompleted && !isPending ? "opacity-50" : ""
+            } ${
+                deadlineState === "overdue" ? "bg-destructive/5" : ""
+            } ${
+                deadlineState === "approaching" ? "bg-yellow-50 dark:bg-yellow-950/10" : ""
+            } ${
+                isPending ? "bg-amber-50/50 dark:bg-amber-950/10" : ""
+            }`}
+        >
+          {/* Main row */}
+          <div className="flex items-start gap-2.5 sm:gap-3">
+            {/* Checkbox / Spinner */}
+            <div className="flex-shrink-0 mt-0.5">
+              {isPending ? (
+                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => handleToggleDone(task)}>
+                    <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                  </Button>
+              ) : (
+                  <Checkbox
+                      checked={isDone}
+                      disabled={isSkipped || !isAssignedToMe}
+                      onCheckedChange={() => handleToggleDone(task)}
+                  />
               )}
             </div>
-            {/* Description */}
-            {task.description && !isCompleted && (
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{task.description}</p>
-            )}
+
+            {/* Type icon */}
+            <div className={`flex-shrink-0 mt-0.5 ${isCompleted && !isPending ? "text-muted-foreground" : "text-primary"}`}>
+              <Icon className="h-4 w-4" />
+            </div>
+
+            {/* Title + description + meta */}
+            <div className="flex-1 min-w-0">
+              {/* Title line */}
+              <div className="flex items-start gap-2 flex-wrap">
+              <span className={`text-sm leading-5 break-words ${
+                  isCompleted && !isPending
+                      ? "line-through text-muted-foreground"
+                      : "font-medium"
+              }`}>
+                {task.title}
+              </span>
+                {isSkipped && (
+                    <Badge variant="outline" className="text-xs shrink-0 self-start">
+                      Übersprungen
+                    </Badge>
+                )}
+              </div>
+
+              {/* Description */}
+              {task.description && !isCompleted && (
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:line-clamp-1">
+                    {task.description}
+                  </p>
+              )}
+
+              {/* Meta line — deadline + assignee/claim stacked below on mobile */}
+              {!isCompleted && (
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    {/* Deadline */}
+                    {task.dueDate && (
+                        <span className={`text-xs tabular-nums flex items-center gap-1 ${
+                            deadlineState === "overdue"
+                                ? "text-destructive font-medium"
+                                : deadlineState === "approaching"
+                                    ? "text-yellow-600 dark:text-yellow-400"
+                                    : "text-muted-foreground"
+                        }`}>
+                    <Clock className="h-3 w-3" />
+                          {formatDate(task.dueDate)}
+                  </span>
+                    )}
+
+                    {/* Assignee / Claim */}
+                    {isAssignedToMe ? (
+                        <Badge variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                          {task.assignee?.name}
+                          <button
+                              onClick={() => handleRelease(task)}
+                              className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                              title="Zuweisung aufheben"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                    ) : !task.assigneeCID ? (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => handleClaim(task)}
+                        >
+                          <Hand className="h-3 w-3" />
+                          <span className="hidden md:block ml-1">Übernehmen</span>
+                        </Button>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">
+                    {task.assignee?.name}
+                  </span>
+                    )}
+
+                    {/* External link */}
+                    {task.event && (
+                        <Link
+                            href={`/admin/events/${task.event.id}/tasks`}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Link>
+                    )}
+                  </div>
+              )}
+            </div>
           </div>
 
-          {/* Deadline */}
-          {task.dueDate && !isCompleted && (
-            <span className={`text-xs tabular-nums flex-shrink-0 flex items-center gap-1 ${
-              deadlineState === "overdue" ? "text-destructive font-medium" :
-              deadlineState === "approaching" ? "text-yellow-600 dark:text-yellow-400" :
-              "text-muted-foreground"
-            }`}>
-              <Clock className="h-3 w-3" />
-              {formatDate(task.dueDate)}
-            </span>
-          )}
-
-          {/* Assignee / Claim — Badge with X to release, button to claim */}
-          {!isCompleted && (
-            isAssignedToMe ? (
-              <Badge variant="secondary" className="text-xs flex items-center gap-1 pr-1 flex-shrink-0">
-                {task.assignee?.name}
-                <button
-                  onClick={() => handleRelease(task)}
-                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
-                  title="Zuweisung aufheben"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ) : !task.assigneeCID ? (
-              <Button variant="outline" size="sm" className="h-7 text-xs flex-shrink-0" onClick={() => handleClaim(task)}>
-                <Hand className="h-3 w-3 mr-1" />Übernehmen
-              </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground flex-shrink-0">{task.assignee?.name}</span>
-            )
-          )}
-
-          {/* Link to event tasks */}
-          {task.event && (
-            <Link
-              href={`/admin/events/${task.event.id}/tasks`}
-              className="text-xs text-primary hover:underline flex items-center gap-1 flex-shrink-0"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </Link>
+          {/* myVATSIM pending note */}
+          {task.type === "REGISTER_MYVATSIM" && isPending && (
+              <div className="flex items-center gap-2 mt-1.5 ml-[46px]">
+                <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Noch nicht in myVATSIM erkannt
+                </Badge>
+              </div>
           )}
         </div>
-
-        {/* myVATSIM status row */}
-        {task.type === "REGISTER_MYVATSIM" && isPending && (
-          <div className="flex items-center gap-2 mt-1 ml-10">
-            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-3 w-3 mr-1" />Noch nicht in myVATSIM erkannt
-            </Badge>
-          </div>
-        )}
-      </div>
     );
   };
 
@@ -400,23 +428,23 @@ export default function MyTasksPage() {
                 value={firFilter ?? "ALL"}
                 onValueChange={(v) => setFirFilter(v === "ALL" ? null : v)}
               >
-                <SelectTrigger className="w-[180px] h-8 text-xs">
+                <SelectTrigger className="w-[100px] h-8 text-xs">
                   <SelectValue placeholder="FIR auswählen" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">Alle FIRs</SelectItem>
                   {availableFirs.map((f) => (
-                    <SelectItem key={f.code} value={f.code}>{f.code} – {f.name}</SelectItem>
+                    <SelectItem key={f.code} value={f.code}>{f.code}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}  
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as "all" | "open" | "done")}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
+              <SelectTrigger className="w-[100px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle Status</SelectItem>
+                <SelectItem value="all">Alle</SelectItem>
                 <SelectItem value="open">Offen</SelectItem>
                 <SelectItem value="done">Erledigt</SelectItem>
               </SelectContent>
@@ -431,9 +459,6 @@ export default function MyTasksPage() {
                 <SelectItem value="unassigned">Nicht zugewiesen</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-xs text-muted-foreground">
-              {filteredAllTasks.length} Aufgaben
-            </span>
           </div>
 
           {filteredAllTasks.length === 0 ? (

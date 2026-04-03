@@ -431,12 +431,12 @@ export default function AdminEventsPage() {
                 
                 <div className="flex gap-2 flex-wrap">
                   <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[160px]">
                       <Filter className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Status filtern" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ALL">Alle Status</SelectItem>
+                      <SelectItem value="ALL">Alle Events</SelectItem>
                       <SelectItem value="DRAFT">Entwurf</SelectItem>
                       <SelectItem value="PLANNING">Planning</SelectItem>
                       <SelectItem value="SIGNUP_OPEN">Signup offen</SelectItem>
@@ -455,7 +455,7 @@ export default function AdminEventsPage() {
                         refreshEvents(value);
                       }}
                     >
-                      <SelectTrigger className="w-[200px]">
+                      <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="FIR auswählen" />
                       </SelectTrigger>
                       <SelectContent>

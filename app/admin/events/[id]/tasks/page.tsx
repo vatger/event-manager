@@ -347,186 +347,195 @@ export default function EventTasksPage() {
 
         {/* Task list */}
         {tasks.length > 0 && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {tasks.map((task) => {
-                  const Icon = TASK_TYPE_ICONS[task.type] || CircleDot;
-                  const deadlineState = getDeadlineState(task.dueDate, task.status);
-                  const isDone = task.status === "DONE";
-                  const isSkipped = task.status === "SKIPPED";
-                  const isCompleted = isDone || isSkipped;
-                  const isPending = isMyVatsimPending(task);
+            <Card>
+              <CardContent className="p-0">
+                <div className="divide-y">
+                  {tasks.map((task) => {
+                    const Icon = TASK_TYPE_ICONS[task.type] || CircleDot;
+                    const deadlineState = getDeadlineState(task.dueDate, task.status);
+                    const isDone = task.status === "DONE";
+                    const isSkipped = task.status === "SKIPPED";
+                    const isCompleted = isDone || isSkipped;
+                    const isPending = isMyVatsimPending(task);
 
-                  return (
-                    <div
-                      key={task.id}
-                      className={`px-4 py-3 group transition-colors ${
-                        isCompleted && !isPending ? "opacity-60" : ""
-                      } ${
-                        deadlineState === "overdue" ? "bg-destructive/5" : ""
-                      } ${
-                        deadlineState === "approaching" ? "bg-yellow-50 dark:bg-yellow-950/10" : ""
-                      } ${
-                        isPending ? "bg-amber-50/50 dark:bg-amber-950/10" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {/* Checkbox — show loading spinner for myVATSIM pending */}
-                        {isPending ? (
-                          <Button variant={"ghost"} size="sm" className="h-4 w-4 p-0 flex-shrink-0" onClick={() => handleToggleDone(task)}>
-                            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-600" />
-                          </Button>
-                        ) : (
-                          <Checkbox
-                            checked={isDone}
-                            disabled={isSkipped || !canInteract || (!canManageTasks && task.assigneeCID !== currentCID)}
-                            onCheckedChange={() => handleToggleDone(task)}
-                            className="flex-shrink-0"
-                          />
-                        )}
+                    return (
+                        <div
+                            key={task.id}
+                            className={`px-3 sm:px-4 py-2.5 group transition-colors ${
+                                isCompleted && !isPending ? "opacity-60" : ""
+                            } ${
+                                deadlineState === "overdue" ? "bg-destructive/5" : ""
+                            } ${
+                                deadlineState === "approaching" ? "bg-yellow-50 dark:bg-yellow-950/10" : ""
+                            } ${
+                                isPending ? "bg-amber-50/50 dark:bg-amber-950/10" : ""
+                            }`}
+                        >
+                          {/* Main row */}
+                          <div className="flex items-start gap-2.5 sm:gap-3">
+                            {/* Checkbox / Spinner */}
+                            <div className="flex-shrink-0 mt-0.5">
+                              {isPending ? (
+                                  <Button variant="ghost" size="sm" className="h-4 w-4 p-0" onClick={() => handleToggleDone(task)}>
+                                    <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                                  </Button>
+                              ) : (
+                                  <Checkbox
+                                      checked={isDone}
+                                      disabled={isSkipped || !canInteract || (!canManageTasks && task.assigneeCID !== currentCID)}
+                                      onCheckedChange={() => handleToggleDone(task)}
+                                  />
+                              )}
+                            </div>
 
-                        {/* Type icon */}
-                        <div className={`flex-shrink-0 ${isCompleted && !isPending ? "text-muted-foreground" : "text-primary"}`}>
-                          <Icon className="h-4 w-4" />
-                        </div>
+                            {/* Type icon */}
+                            <div className={`flex-shrink-0 mt-0.5 ${isCompleted && !isPending ? "text-muted-foreground" : "text-primary"}`}>
+                              <Icon className="h-4 w-4" />
+                            </div>
 
-                        {/* Title + meta */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-sm font-medium truncate ${isCompleted && !isPending ? "line-through text-muted-foreground" : ""}`}>
-                              {task.title}
-                            </span>
-                            {isSkipped && (
-                              <Badge variant="outline" className="text-xs shrink-0">Übersprungen</Badge>
-                            )}
-                            {deadlineState === "overdue" && (
-                              <Badge variant="destructive" className="text-xs shrink-0">Überfällig</Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Deadline */}
-                        {task.dueDate && !isCompleted && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className={`text-xs tabular-nums flex-shrink-0 flex items-center gap-1 ${
-                                deadlineState === "overdue" ? "text-destructive font-medium" :
-                                deadlineState === "approaching" ? "text-yellow-600 dark:text-yellow-400" :
-                                "text-muted-foreground"
-                              }`}>
-                                <Clock className="h-3 w-3" />
-                                {formatDate(task.dueDate)}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>Deadline</TooltipContent>
-                          </Tooltip>
-                        )}
-
-                        {/* Assignee — Badge with X to release, managers get "Zuweisen" link */}
-                        {!isCompleted && (
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            {task.assigneeCID ? (
-                              <Badge variant="secondary" className="text-xs flex items-center gap-1 pr-1">
-                                {task.assignee?.name}
-                                {/* X to release: team members can release own, managers can release anyone */}
-                                {(canManageTasks || task.assigneeCID === currentCID) && (
-                                  <button
-                                    onClick={() => handleRelease(task)}
-                                    className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
-                                    title="Zuweisung aufheben"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
+                            {/* Title + description + meta */}
+                            <div className="flex-1 min-w-0">
+                              {/* Title line */}
+                              <div className="flex items-start gap-2 flex-wrap">
+                    <span className={`text-sm leading-5 break-words ${
+                        isCompleted && !isPending
+                            ? "line-through text-muted-foreground"
+                            : "font-medium"
+                    }`}>
+                      {task.title}
+                    </span>
+                                {isSkipped && (
+                                    <Badge variant="outline" className="text-xs shrink-0 self-start">Übersprungen</Badge>
                                 )}
-                              </Badge>
-                            ) : canInteract && (
-                              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleClaim(task)}>
-                                <Hand className="h-3 w-3 mr-1" />Übernehmen
-                              </Button>
-                            )}
-                            
-                          </div>
-                        )}
+                                {deadlineState === "overdue" && !isCompleted && (
+                                    <Badge variant="destructive" className="text-xs shrink-0 self-start">Überfällig</Badge>
+                                )}
+                              </div>
 
-                        {/* Actions menu */}
-                        {canManageTasks && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                              {/* Description */}
+                              {task.description && (
+                                  <p className={`text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:line-clamp-1 ${
+                                      isCompleted && !isPending ? "line-through" : ""
+                                  }`}>
+                                    {task.description}
+                                  </p>
+                              )}
+
+                              {/* Meta line — deadline + assignee below title on mobile */}
                               {!isCompleted && (
-                                <DropdownMenuItem onClick={() => setAssignTask(task)}>
-                                  <UserPlus className="h-4 w-4 mr-2" />Zuweisen
-                                </DropdownMenuItem>
-                              )}
-                              {isCompleted && (
-                                <DropdownMenuItem onClick={() => handleReopen(task)}>
-                                  <RefreshCw className="h-4 w-4 mr-2" />Wieder öffnen
-                                </DropdownMenuItem>
-                              )}
-                              {canManageTasks && (
-                                <DropdownMenuItem onClick={() => setEditTask(task)}>
-                                  <Pencil className="h-4 w-4 mr-2" />Bearbeiten
-                                </DropdownMenuItem>
-                              )}
-                              {canManageTasks && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => handleDelete(task)} className="text-destructive">
-                                    <Trash2 className="h-4 w-4 mr-2" />Löschen
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
+                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    {/* Deadline */}
+                                    {task.dueDate && (
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                            <span className={`text-xs tabular-nums flex items-center gap-1 ${
+                                deadlineState === "overdue"
+                                    ? "text-destructive font-medium"
+                                    : deadlineState === "approaching"
+                                        ? "text-yellow-600 dark:text-yellow-400"
+                                        : "text-muted-foreground"
+                            }`}>
+                              <Clock className="h-3 w-3" />
+                              {formatDate(task.dueDate)}
+                            </span>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Deadline</TooltipContent>
+                                        </Tooltip>
+                                    )}
 
-                      {/* Description */}
-                      {task.description && (
-                        <p className={`text-xs text-muted-foreground mt-1 ml-10 line-clamp-2 ${isCompleted && !isPending ? "line-through" : ""}`}>
-                          {task.description}
-                        </p>
-                      )}
+                                    {/* Assignee / Claim */}
+                                    {task.assigneeCID ? (
+                                        <Badge variant="secondary" className="text-xs flex items-center gap-1 pr-1">
+                                          {task.assignee?.name}
+                                          {(canManageTasks || task.assigneeCID === currentCID) && (
+                                              <button
+                                                  onClick={() => handleRelease(task)}
+                                                  className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                                                  title="Zuweisung aufheben"
+                                              >
+                                                <X className="h-3 w-3" />
+                                              </button>
+                                          )}
+                                        </Badge>
+                                    ) : canInteract && (
+                                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleClaim(task)}>
+                                          <Hand className="h-3 w-3" />
+                                          <span className="hidden md:block ml-1">Übernehmen</span>
+                                        </Button>
+                                    )}
+                                  </div>
+                              )}
+                            </div>
 
-                      {/* myVATSIM inline status */}
-                      {task.type === "REGISTER_MYVATSIM" && (
-                        <div className="flex items-center gap-2 mt-1.5 ml-10">
-                          {task.myVatsimRegistered === true && task.status === "DONE" && (
-                            <Badge variant="default" className="text-xs bg-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />myVATSIM bestätigt
-                            </Badge>
+                            {/* Actions menu */}
+                            {canManageTasks && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-7 p-0 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity mt-0.5"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {!isCompleted && (
+                                        <DropdownMenuItem onClick={() => setAssignTask(task)}>
+                                          <UserPlus className="h-4 w-4 mr-2" />Zuweisen
+                                        </DropdownMenuItem>
+                                    )}
+                                    {isCompleted && (
+                                        <DropdownMenuItem onClick={() => handleReopen(task)}>
+                                          <RefreshCw className="h-4 w-4 mr-2" />Wieder öffnen
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => setEditTask(task)}>
+                                      <Pencil className="h-4 w-4 mr-2" />Bearbeiten
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => handleDelete(task)} className="text-destructive">
+                                      <Trash2 className="h-4 w-4 mr-2" />Löschen
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                          </div>
+
+                          {/* myVATSIM inline status */}
+                          {task.type === "REGISTER_MYVATSIM" && (
+                              <div className="flex items-center gap-2 mt-1.5 ml-[46px] flex-wrap">
+                                {task.myVatsimRegistered === true && task.status === "DONE" && (
+                                    <Badge variant="default" className="text-xs bg-green-600">
+                                      <CheckCircle2 className="h-3 w-3 mr-1" />myVATSIM bestätigt
+                                    </Badge>
+                                )}
+                                {task.myVatsimRegistered === false && task.status !== "DONE" && task.status !== "SKIPPED" && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />Nicht in myVATSIM
+                                    </Badge>
+                                )}
+                                {isPending && (
+                                    <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
+                                      <AlertTriangle className="h-3 w-3 mr-1" />Noch nicht in myVATSIM erkannt
+                                    </Badge>
+                                )}
+                                {canInteract && (
+                                    <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5" onClick={handleCheckMyVatsim} disabled={checkingMyVatsim}>
+                                      <RefreshCw className={`h-3 w-3 mr-1 ${checkingMyVatsim ? "animate-spin" : ""}`} />Status prüfen
+                                    </Button>
+                                )}
+                                <a href="https://my.vatsim.net/events/admin" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
+                                  <ExternalLink className="h-3 w-3" />Admin
+                                </a>
+                              </div>
                           )}
-                          {task.myVatsimRegistered === false && task.status !== "DONE" && task.status !== "SKIPPED" && (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertTriangle className="h-3 w-3 mr-1" />Nicht in myVATSIM
-                            </Badge>
-                          )}
-                          {isPending && (
-                            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700 dark:text-amber-400">
-                              <AlertTriangle className="h-3 w-3 mr-1" />Noch nicht in myVATSIM erkannt
-                            </Badge>
-                          )}
-                          {canInteract && (
-                            <Button variant="ghost" size="sm" className="h-5 text-xs px-1.5" onClick={handleCheckMyVatsim} disabled={checkingMyVatsim}>
-                              <RefreshCw className={`h-3 w-3 mr-1 ${checkingMyVatsim ? "animate-spin" : ""}`} />Status prüfen
-                            </Button>
-                          )}
-                          <a href="https://my.vatsim.net/events/admin" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
-                            <ExternalLink className="h-3 w-3" />Admin
-                          </a>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
         )}
 
         {/* Dialogs */}

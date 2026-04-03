@@ -328,9 +328,16 @@ export default function EventOverviewPage() {
         {/* Event Details Card */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <CardTitle className="text-lg">Event Informationen</CardTitle>
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                  <CardTitle className="text-lg">Event Informationen</CardTitle>
+                </div>
+                {!event.bannerUrl && (
+                    <p className="text-sm text-muted-foreground pl-3.5">{event.name}</p>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
