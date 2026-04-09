@@ -5,7 +5,7 @@
 
 */
 -- AlterTable
-ALTER TABLE `eventtask` DROP COLUMN `sortOrder`;
+ALTER TABLE `EventTask` DROP COLUMN `sortOrder`;
 
 -- AlterTable
-ALTER TABLE `usercomment` MODIFY `comment` VARCHAR(191) NOT NULL;
+ALTER TABLE `UserComment` MODIFY `comment` VARCHAR(191) NOT NULL;
