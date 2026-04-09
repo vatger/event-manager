@@ -13,12 +13,12 @@ import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
 import AirportSignupTabs, { AirportSignupTabsRef } from "@/components/AirportSignupTabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Calendar, Clock, MapPin, RotateCcw, Tags, Users } from "lucide-react";
+import { AlertCircle, Calendar, Clock, ExternalLink, MapPin, RotateCcw, Tags, Users } from "lucide-react";
 import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
-import { useUser } from "@/hooks/useUser";
+import { useUser,  } from "@/hooks/useUser";
 
 const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
@@ -37,7 +37,7 @@ export default function EventPage() {
   const [eventError, setEventError] = useState("");
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const {canInFIR} = useUser();
+  const {canInFIR, isEventFirTeamMember} = useUser();
 
   const tableRef = useRef<SignupsTableRef>(null);
   const tabsRef = useRef<AirportSignupTabsRef>(null);
@@ -177,12 +177,18 @@ export default function EventPage() {
         <Card className="md:col-span-1 order-2 md:order-1 h-fit">
           <CardHeader className="relative">
             <CardTitle>Event Informationen</CardTitle>
-            <div className="absolute right-4">
+            <div className="absolute right-4 flex items-center gap-2">
               <Badge variant={getStatusBadgeVariant(event.status)}>
                 {event.status.replace("_", " ").toLowerCase()}
               </Badge>
+              {isEventFirTeamMember(event.firCode) && (
+              <Link href={`/admin/events/${event.id}`} title="Zum Event im Admin Panel">
+                <ExternalLink className="h-4 w-4 mr-1" />
+              </Link>
+            )}
             </div>
-          </CardHeader>
+              
+            </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">

@@ -77,6 +77,15 @@ export function useUser() {
     return false
 
   }
+
+  //Returns true if the user is assigned to the FIR-Team of the given FIR code or is main admin. Used to determine if FIR team features should be shown.
+  const isEventFirTeamMember = (firCode: string): boolean => {
+    if(data?.effectiveLevel == "MAIN_ADMIN") return true;
+    if (data?.effectiveLevel === "VATGER_LEITUNG") return true;
+    if(!data?.fir) return false;
+    return data.firLevels[firCode] !== undefined;
+  }
+  
   // ---------- RETURN ----------
   return {
     user: data,
@@ -93,5 +102,6 @@ export function useUser() {
     hasAdminAcess,
     isWeeklyManager,
     isPureWeeklyManager,
+    isEventFirTeamMember
   };
 }
