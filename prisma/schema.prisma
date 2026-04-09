@@ -446,7 +446,6 @@ model EventTask {
   status      TaskStatus @default(OPEN)
   dueDate     DateTime?
   assigneeCID Int?
-  sortOrder   Int        @default(0)
 
   // For REGISTER_MYVATSIM task: manual confirmation + API check
   myVatsimManualCheck Boolean  @default(false)

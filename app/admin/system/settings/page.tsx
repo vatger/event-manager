@@ -30,6 +30,7 @@ interface MainAdmin {
 
 export default function SystemSettingsPage() {
   const [members, setMembers] = useState<VATGERMember[]>([]);
+  const [userStats, setUserStats] = useState<{ totalUsers: number; recentUsers: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -38,9 +39,25 @@ export default function SystemSettingsPage() {
   const [loadingAdmins, setLoadingAdmins] = useState(true);
 
   useEffect(() => {
+    loadUserStats();
     loadMembers();
     loadMainAdmins();
   }, []);
+
+  const loadUserStats = async () => {
+    try {
+      const response = await fetch('/api/admin/users');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Fehler beim Laden' }));
+        throw new Error(errorData.error || 'Nutzer konnten nicht geladen werden');
+      }
+      const data = await response.json();
+      setUserStats(data);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      toast.error(error instanceof Error ? error.message : 'Fehler beim Laden der Nutzer');
+    }
+  };
 
   const loadMembers = async () => {
     try {
@@ -152,6 +169,31 @@ export default function SystemSettingsPage() {
           <p className="text-muted-foreground">Verwaltung der VATGER Eventleiter</p>
         </div>
       </div>
+
+      {/* Statscard mit aktuellen Zahlen zu Nutzern, Events, etc. könnte hier auch noch rein */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Systemübersicht
+          </CardTitle>
+          <CardDescription>
+            Aktuelle Statistiken zum System (z.B. Anzahl Nutzer, Events, etc.)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-muted rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">Gesamt Nutzer</p>
+              <p className="text-2xl font-bold">{userStats?.totalUsers}</p>
+            </div>
+            <div className="p-4 bg-muted rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">Neue Nutzer (in den letzten 7 Tagen angemeldet)</p>
+              <p className="text-2xl font-bold">{userStats?.recentUsers}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Main Admins Card (read-only, from env) */}
       <Card>

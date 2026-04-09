@@ -6,7 +6,7 @@ import { z } from "zod";
 
 /**
  * GET /api/events/[eventId]/tasks
- * List all tasks for an event, ordered by sortOrder.
+ * List all tasks for an event, ordered by dueDate.
  */
 export async function GET(
   _request: Request,
@@ -80,12 +80,6 @@ export async function POST(
     );
   }
 
-  // Determine the next sortOrder
-  const maxSort = await prisma.eventTask.aggregate({
-    where: { eventId: id },
-    _max: { sortOrder: true },
-  });
-
   const task = await prisma.eventTask.create({
     data: {
       eventId: id,
@@ -94,7 +88,6 @@ export async function POST(
       description: parsed.data.description ?? null,
       dueDate: parsed.data.dueDate ? new Date(parsed.data.dueDate) : null,
       assigneeCID: parsed.data.assigneeCID ?? null,
-      sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
     },
     include: {
       assignee: { select: { cid: true, name: true } },

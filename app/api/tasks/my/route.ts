@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       event: eventInclude,
       assignee: assigneeInclude,
     },
-    orderBy: [{ dueDate: "asc" }, { sortOrder: "asc" }],
+    orderBy: [{ dueDate: "asc" }],
   });
 
   if (view === "mine") {
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     },
     orderBy: [
       { event: { startTime: "asc" } },
-      { sortOrder: "asc" },
+      { dueDate: "asc" },
     ],
   });
 

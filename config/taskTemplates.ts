@@ -13,12 +13,11 @@
  */
 
 export interface TaskTemplate {
-  type: "CREATE_BANNER" | "CREATE_TEXT" | "SUBMIT_CLEARING" | "REGISTER_MYVATSIM";
+  type: "CREATE_BANNER" | "CREATE_TEXT" | "SUBMIT_CLEARING" | "REGISTER_MYVATSIM" | "CUSTOM";
   title: string;
   description: string;
   /** Days before event start for the deadline (positive number). */
   deadlineDaysBefore: number;
-  sortOrder: number;
 }
 
 /** Default templates applied to all FIRs unless overridden below. */
@@ -29,7 +28,6 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     description:
       "Erstelle einen Banner für das Event. Nach Fertigstellung kann die Banner-URL hinterlegt werden. Der Banner darf erst veröffentlicht werden, nachdem er im Clearing approved wurde.",
     deadlineDaysBefore: 33,
-    sortOrder: 1,
   },
   {
     type: "CREATE_TEXT",
@@ -37,7 +35,6 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     description:
       "Schreibe einen Bewerbungstext für das Event. Der Text wird im internen Forum gepostet und ist anschließend fürs Clearing erforderlich.",
     deadlineDaysBefore: 33,
-    sortOrder: 2,
   },
   {
     type: "SUBMIT_CLEARING",
@@ -45,7 +42,6 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     description:
       "Reiche das Event mit fertigem Banner und Text in der Clearingstelle (Forum) ein. Erst nach Freigabe darf das Event öffentlich beworben werden.",
     deadlineDaysBefore: 30,
-    sortOrder: 3,
   },
   {
     type: "REGISTER_MYVATSIM",
@@ -53,7 +49,13 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
     description:
       "Trage das Event im myVATSIM Admin Panel ein, damit es öffentlich sichtbar wird. Nach dem Eintragen muss myVATSIM das Event noch genehmigen.",
     deadlineDaysBefore: 8,
-    sortOrder: 4,
+  },
+  {
+    type: "CUSTOM",
+    title: "Controller Briefing",
+    description:
+      "Erstelle ein Controller Briefing mit allen wichtigen Informationen für die Controller, z.B. besondere Ereignisse, erwartete Verkehrslage, Slotbelegung, etc.",
+    deadlineDaysBefore: 2,
   },
 ];
 
@@ -72,7 +74,6 @@ export const DEFAULT_TASK_TEMPLATES: TaskTemplate[] = [
  *     title: "Banner erstellen",
  *     description: "FIR-spezifische Beschreibung …",
  *     deadlineDaysBefore: 40,
- *     sortOrder: 1,
  *   },
  *   // …weitere Aufgaben
  * ],

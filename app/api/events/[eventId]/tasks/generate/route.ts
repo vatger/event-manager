@@ -61,7 +61,6 @@ export async function POST(
           title: tmpl.title,
           description: tmpl.description,
           dueDate: calculateDeadline(event.startTime, tmpl.deadlineDaysBefore),
-          sortOrder: tmpl.sortOrder,
         },
       })
     )

@@ -16,7 +16,6 @@ export interface EventTask {
   status: TaskStatus;
   dueDate: string | null;
   assigneeCID: number | null;
-  sortOrder: number;
   myVatsimManualCheck: boolean;
   myVatsimRegistered: boolean | null;
   deadlineNotified: boolean;
