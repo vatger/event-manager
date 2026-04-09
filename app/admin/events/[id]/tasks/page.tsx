@@ -474,7 +474,7 @@ export default function EventTasksPage() {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 w-7 p-0 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity mt-0.5"
+                                        className="h-7 w-7 p-0 flex-shrink-0 mt-0.5"
                                     >
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>

@@ -28,7 +28,7 @@ export async function GET(
     include: {
       assignee: { select: { cid: true, name: true } },
     },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ dueDate: "asc" }],
   });
 
   return NextResponse.json(tasks);
