@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
-import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner } from "@/lib/acl/permissions";
+import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
 
@@ -54,6 +54,9 @@ export async function GET(request: Request,
   });
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  if(!(await hasAdminAccess(Number(user.cid))) && event.status == "DRAFT"){
+    return NextResponse.json({error: "This Event is not public yet"}, { status: 403 });
+  }
   const flatResponsibles = event.responsibles.map((r) => r.user);
 
   // Hide bannerUrl when bannerVisible is false, unless user can manage the banner
