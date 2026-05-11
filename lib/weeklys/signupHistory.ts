@@ -92,7 +92,7 @@ export async function getUsersHistoryBatch(
   userCIDs: number[],
   configId: number,
   currentOccurrenceId: number,
-  limit: number = 3
+  limit: number = 6
 ): Promise<Map<number, UserHistory>> {
   if (userCIDs.length === 0) {
     return new Map();
