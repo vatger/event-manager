@@ -101,12 +101,12 @@ export async function GET(
           : config.staffedStations)
       : [];
 
-    // Get historical signup/roster data for all signed-up users (last 3 occurrences)
+    // Get historical signup/roster data for all signed-up users (last 6 occurrences)
     const userCIDs = signupsData.map((s) => s.userCID);
     let historyMap = new Map<number, any>();
     let historyLoadError = false;
     try {
-      historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 3);
+      historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 6);
     } catch (err) {
       console.error("[GET roster] Failed to load history:", err);
       historyLoadError = true;
