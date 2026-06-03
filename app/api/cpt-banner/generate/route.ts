@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate template type
-    if (!['EDDMTWR', 'EDDNTWR', 'APP', 'CTR'].includes(template)) {
+    if (!['EDDMTWR', 'EDDNTWR', 'EDDPTWR', 'APP', 'CTR'].includes(template)) {
       return new NextResponse(`Invalid template: ${template}. Must be one of: EDDMTWR, EDDNTWR, APP, CTR`, {
         status: 400,
       });

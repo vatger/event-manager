@@ -13,7 +13,7 @@
  * 3. Update the TemplateType union type
  */
 
-export type TemplateType = "EDDMTWR" | "EDDNTWR" | "APP" | "CTR";
+export type TemplateType = "EDDMTWR" | "EDDNTWR" | "EDDPTWR" | "APP" | "CTR";
 
 export interface TextStyle {
   font: string;
@@ -140,6 +140,61 @@ export const TemplateConfig: Record<TemplateType, TemplateSettings> = {
     Templatename: "TWR EDDN",
     displayName: "Tower (EDDN)",
     templatePath: "/banner/cpt-template/EDDN/TWR/EmptyTemplateV1.png",
+    
+    name: {
+      position: { x: 428, y: 692, align: "left" },
+      style: {
+        font: "Arial",
+        size: 62,
+        color: "#FFFFFF",
+        bold: true,
+      },
+      prefix: "feat. ",
+    },
+    
+    weekday: {
+      position: { x: 1438, y: 47, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+    },
+    
+    date: {
+      position: { x: 1437, y: 100, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+      format: "DD.MM.YYYY",
+    },
+    
+    time: {
+      position: { x: 1437, y: 100, align: "left" },
+      style: {
+        font: "MontserratBold",
+        size: 50,
+        color: "#b4bcc9",
+        bold: true,
+      },
+      format: "HHMMz",
+      separator: " | ",
+    },
+    
+    fallbackGradient: {
+      start: "#1e3a8a",
+      end: "#3b82f6",
+    },
+  },
+
+  EDDPTWR: {
+    Templatename: "TWR EDDP",
+    displayName: "Tower (EDDP)",
+    templatePath: "/banner/cpt-template/EDDP/TWR/EmptyTemplateV1.png",
     
     name: {
       position: { x: 428, y: 692, align: "left" },
