@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { userHasFirPermission } from '@/lib/acl/permissions';
+import { invalidateWeeklySignupCache } from '@/lib/cache/weeklySignupCache';
 
 /**
  * POST /api/weeklys/[id]/occurrences/[occurrenceId]/signup-by-cid
@@ -102,6 +103,9 @@ export async function POST(
         user: true,
       },
     });
+
+    // Invalidate cache so new signup with endorsement is calculated
+    await invalidateWeeklySignupCache(Number(occurrenceId));
 
     return NextResponse.json({
       message: 'Signup created successfully',
