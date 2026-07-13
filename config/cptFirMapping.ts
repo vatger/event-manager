@@ -21,6 +21,7 @@ export const CPT_AIRPORT_TO_FIR: Record<string, string> = {
   EDDH: 'EDWW',
   EDDB: 'EDWW',
   EDDV: 'EDWW',
+	EDDW: 'EDWW',
 };
 
 /** Human-readable FIR display names. */
