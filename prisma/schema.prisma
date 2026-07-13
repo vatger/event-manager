@@ -118,6 +118,54 @@ model Event {
   signups      EventSignup[]
   Notification Notification[]
   tasks        EventTask[]
+  roster       EventRoster?
+}
+
+// Roster editor for non-recurring (large) events:
+// per-event staffing plan built from signups on a 15/30-minute grid
+model EventRoster {
+  id          Int      @id @default(autoincrement())
+  eventId     Int      @unique
+  slotMinutes Int      @default(30) // Grid size in minutes (15 or 30)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event       Event                   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  stations    EventRosterStation[]
+  assignments EventRosterAssignment[]
+}
+
+// Confirmed stations of a roster (imported from Event.staffedStations, then editable)
+model EventRosterStation {
+  id        Int    @id @default(autoincrement())
+  rosterId  Int
+  callsign  String
+  sortOrder Int    @default(0)
+
+  roster      EventRoster             @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  assignments EventRosterAssignment[]
+
+  @@unique([rosterId, callsign])
+  @@index([rosterId])
+}
+
+// A controller staffing a station for a time range within the event
+model EventRosterAssignment {
+  id        Int      @id @default(autoincrement())
+  rosterId  Int
+  stationId Int
+  userCID   Int
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roster  EventRoster        @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  station EventRosterStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([rosterId])
+  @@index([stationId])
+  @@index([userCID])
 }
 
 model EventResponsible {
