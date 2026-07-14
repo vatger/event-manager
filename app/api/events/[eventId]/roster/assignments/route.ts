@@ -7,6 +7,7 @@ import {
   getRosterForEvent,
   validateAssignment,
 } from "@/lib/roster/eventRosterService";
+import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 
 const createSchema = z.object({
   stationId: z.number().int(),
@@ -64,5 +65,6 @@ export async function POST(
     data: { rosterId: roster.id, ...input },
   });
 
+  broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ assignment }, { status: 201 });
 }

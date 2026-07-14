@@ -7,6 +7,7 @@ import {
   getRosterForEvent,
   validateAssignment,
 } from "@/lib/roster/eventRosterService";
+import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 
 const updateSchema = z.object({
   stationId: z.number().int().optional(),
@@ -83,6 +84,7 @@ export async function PATCH(
     data: input,
   });
 
+  broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ assignment });
 }
 
@@ -112,5 +114,6 @@ export async function DELETE(
   }
 
   await prisma.eventRosterAssignment.delete({ where: { id: assignmentId } });
+  broadcastRosterChange(eventId, _req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true });
 }

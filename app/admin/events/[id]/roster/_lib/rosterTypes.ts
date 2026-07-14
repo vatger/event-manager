@@ -17,11 +17,21 @@ export interface ApiAssignment {
   endTime: string;
 }
 
+/** Interne Planungsnotiz zu einem Controller */
+export interface ApiRosterNote {
+  id: number;
+  userCID: number;
+  note: string;
+  authorCID: number | null;
+  updatedAt: string;
+}
+
 export interface ApiRoster {
   id: number;
   slotMinutes: number;
   stations: RosterStation[];
   assignments: ApiAssignment[];
+  notes: ApiRosterNote[];
 }
 
 /** Client-Modell: Zeiten als Minuten seit Event-Start (raster-freundlich) */
@@ -96,4 +106,10 @@ export type DragState =
       stationId: number | null;
       start: number | null;
       end: number | null;
+    }
+  | {
+      kind: "reorder-station";
+      stationId: number;
+      /** Station, über der aktuell geschwebt wird */
+      overStationId: number | null;
     };

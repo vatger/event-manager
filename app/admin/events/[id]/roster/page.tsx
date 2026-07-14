@@ -95,6 +95,19 @@ export default function EventRosterPage() {
     if (!isNaN(eventId)) load();
   }, [eventId, load]);
 
+  // Leichtgewichtiger Reload nur des Rosters (Realtime-Sync, Dialog-Updates)
+  const reloadRoster = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/events/${eventId}/roster`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setRoster(data.roster);
+      setCanEdit(Boolean(data.canEdit));
+    } catch (err) {
+      console.error("[Roster] Reload fehlgeschlagen:", err);
+    }
+  }, [eventId]);
+
   const eventAirports = useMemo(
     () => (event ? parseEventAirports(event.airports) : []),
     [event]
@@ -172,7 +185,7 @@ export default function EventRosterPage() {
           signups={signups}
           stationMetaMap={stationMetaMap}
           canEdit={canEdit}
-          onReload={load}
+          onReload={reloadRoster}
           onEventStatusChanged={(status) => setEvent((e) => (e ? { ...e, status } : e))}
         />
       )}

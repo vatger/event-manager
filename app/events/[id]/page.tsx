@@ -18,6 +18,7 @@ import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
+import PublicRoster from "./_components/PublicRoster";
 import { useUser,  } from "@/hooks/useUser";
 
 const formatTimeZ = (dateIso?: string | Date): string => {
@@ -37,6 +38,7 @@ export default function EventPage() {
   const [eventError, setEventError] = useState("");
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [hasInternalRoster, setHasInternalRoster] = useState(false);
   const {canInFIR, isEventFirTeamMember} = useUser();
 
   const tableRef = useRef<SignupsTableRef>(null);
@@ -261,11 +263,17 @@ export default function EventPage() {
                 </Button>
               )
             ) : event.status === "ROSTER_PUBLISHED" ? (
-              <Button className="w-full" disabled={!event.rosterlink}>
-                <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
-                  {event.rosterlink ? "Besetzungsplan anzeigen" : "Kein Besetzungsplan verfügbar"}
-                </Link>
-              </Button>
+              hasInternalRoster ? (
+                <Button className="w-full" asChild>
+                  <a href="#besetzungsplan">Besetzungsplan anzeigen</a>
+                </Button>
+              ) : (
+                <Button className="w-full" disabled={!event.rosterlink}>
+                  <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
+                    {event.rosterlink ? "Besetzungsplan anzeigen" : "Kein Besetzungsplan verfügbar"}
+                  </Link>
+                </Button>
+              )
             ) : event.status === "CANCELLED" ? (
               <Button className="w-full" variant="destructive" disabled>
                 Event abgesagt
@@ -300,6 +308,15 @@ export default function EventPage() {
         </div>
       {(event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED" || event.status === "ROSTER_PUBLISHED") && (
         <StaffedStations callsigns={event.staffedStations} />
+      )}
+
+      {/* Interner Besetzungsplan (sobald veröffentlicht) */}
+      {event.status === "ROSTER_PUBLISHED" && (
+        <PublicRoster
+          eventId={Number(event.id)}
+          userCID={session?.user.cid ? Number(session.user.cid) : null}
+          onLoaded={setHasInternalRoster}
+        />
       )}
 
       {/* Teilnehmer Tabelle */}
@@ -346,7 +363,7 @@ export default function EventPage() {
           )}
         </CardContent>
 
-        {event.status === "ROSTER_PUBLISHED" && (
+        {event.status === "ROSTER_PUBLISHED" && !hasInternalRoster && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center flex-col gap-4 p-6">
             <div className="text-center">
               <h3 className="text-lg font-semibold mb-2">Besetzungsplan ist verfügbar!</h3>

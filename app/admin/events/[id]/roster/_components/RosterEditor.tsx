@@ -40,8 +40,13 @@ import {
   Copy,
   Eye,
   GripVertical,
+  MessageSquare,
   Search,
   Settings2,
+  Star,
+  StickyNote,
+  Wifi,
+  WifiOff,
   X,
   ZoomIn,
   ZoomOut,
@@ -75,6 +80,7 @@ import {
 } from "../_lib/rosterUtils";
 import { AssignDialog } from "./AssignDialog";
 import { StationsDialog } from "./StationsDialog";
+import { ControllerInfoPopover } from "./ControllerInfoPopover";
 
 // Layout-Konstanten
 const LABEL_W = 224; // Breite der linken Beschriftungsspalte
@@ -97,6 +103,7 @@ interface RosterEditorProps {
   signups: SignupTableEntry[];
   stationMetaMap: Map<string, StationMeta>;
   canEdit: boolean;
+  /** Nur das Roster neu laden (Realtime-Sync, Dialog-Updates) */
   onReload: () => void;
   onEventStatusChanged: (status: string) => void;
 }
@@ -148,8 +155,14 @@ export function RosterEditor({
   const pxPerMinute = pxPerSlot / slotMinutes;
   const timelineWidth = slotCount * pxPerSlot;
 
+  // Eindeutige Client-ID: eigene Realtime-Events werden damit ausgefiltert
+  const clientId = useMemo(
+    () => `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+    []
+  );
+
   // ------------------------------------------------------------------
-  // Lokale (optimistische) Zuweisungen
+  // Lokale (optimistische) Zuweisungen + Stationen
   // ------------------------------------------------------------------
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   useEffect(() => {
@@ -164,7 +177,19 @@ export function RosterEditor({
     );
   }, [roster.assignments, eventStart]);
 
-  const stations = roster.stations;
+  // Stationen als lokaler State (für optimistisches Umsortieren per DnD)
+  const [stations, setStations] = useState(roster.stations);
+  useEffect(() => {
+    setStations(roster.stations);
+  }, [roster.stations]);
+
+  // Interne Notizen pro Controller
+  const noteByCid = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const n of roster.notes ?? []) map.set(n.userCID, n.note);
+    return map;
+  }, [roster.notes]);
+
   const stationById = useMemo(
     () => new Map(stations.map((s) => [s.id, s])),
     [stations]
@@ -199,11 +224,47 @@ export function RosterEditor({
   const [controllerSearch, setControllerSearch] = useState("");
   const [controllerSort, setControllerSort] = useState<"name" | "assigned">("name");
   const [warningsOpen, setWarningsOpen] = useState(true);
+  const [liveConnected, setLiveConnected] = useState(false);
+
+  // ------------------------------------------------------------------
+  // Realtime-Sync: SSE-Stream abonnieren, bei fremden Änderungen neu laden
+  // ------------------------------------------------------------------
+  const onReloadRef = useRef(onReload);
+  onReloadRef.current = onReload;
+
+  useEffect(() => {
+    const es = new EventSource(`/api/events/${event.id}/roster/stream`);
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+
+    es.onopen = () => setLiveConnected(true);
+    es.onerror = () => setLiveConnected(false);
+    es.addEventListener("change", (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as { sourceClientId: string | null };
+        if (data.sourceClientId === clientId) return; // eigene Änderung
+      } catch {
+        // im Zweifel neu laden
+      }
+      // Mehrere schnelle Änderungen zu einem Reload bündeln
+      if (reloadTimer) clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => onReloadRef.current(), 250);
+    });
+
+    return () => {
+      if (reloadTimer) clearTimeout(reloadTimer);
+      es.close();
+    };
+  }, [event.id, clientId]);
 
   // ------------------------------------------------------------------
   // API-Operationen (optimistisch, Rollback bei Fehler)
   // ------------------------------------------------------------------
   const tempIdRef = useRef(-1);
+
+  const apiHeaders = useMemo(
+    () => ({ "Content-Type": "application/json", "x-roster-client": clientId }),
+    [clientId]
+  );
 
   const createAssignment = useCallback(
     async (stationId: number, userCID: number, start: number, end: number) => {
@@ -213,7 +274,7 @@ export function RosterEditor({
       try {
         const res = await fetch(`/api/events/${event.id}/roster/assignments`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiHeaders,
           body: JSON.stringify({
             stationId,
             userCID,
@@ -226,15 +287,22 @@ export function RosterEditor({
           throw new Error(j.error || "Zuweisung fehlgeschlagen");
         }
         const j = await res.json();
-        setAssignments((prev) =>
-          prev.map((a) => (a.id === tempId ? { ...a, id: j.assignment.id } : a))
-        );
+        const realId = j.assignment.id as number;
+        setAssignments((prev) => {
+          // Falls ein Realtime-Reload den optimistischen Eintrag entfernt hat,
+          // die gespeicherte Zuweisung wieder anhängen
+          if (!prev.some((a) => a.id === tempId)) {
+            if (prev.some((a) => a.id === realId)) return prev;
+            return [...prev, { ...optimistic, id: realId }];
+          }
+          return prev.map((a) => (a.id === tempId ? { ...a, id: realId } : a));
+        });
       } catch (err) {
         setAssignments((prev) => prev.filter((a) => a.id !== tempId));
         toast.error(err instanceof Error ? err.message : "Zuweisung fehlgeschlagen");
       }
     },
-    [event.id, eventStart]
+    [event.id, eventStart, apiHeaders]
   );
 
   const updateAssignment = useCallback(
@@ -257,7 +325,7 @@ export function RosterEditor({
           body.endTime = minuteToDate(eventStart, patch.end).toISOString();
         const res = await fetch(`/api/events/${event.id}/roster/assignments/${id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: apiHeaders,
           body: JSON.stringify(body),
         });
         if (!res.ok) {
@@ -272,7 +340,7 @@ export function RosterEditor({
         toast.error(err instanceof Error ? err.message : "Änderung fehlgeschlagen");
       }
     },
-    [event.id, eventStart]
+    [event.id, eventStart, apiHeaders]
   );
 
   const deleteAssignment = useCallback(
@@ -284,6 +352,7 @@ export function RosterEditor({
       try {
         const res = await fetch(`/api/events/${event.id}/roster/assignments/${id}`, {
           method: "DELETE",
+          headers: apiHeaders,
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -294,7 +363,51 @@ export function RosterEditor({
         toast.error(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
       }
     },
-    [assignments, event.id]
+    [assignments, event.id, apiHeaders]
+  );
+
+  /** Interne Notiz zu einem Controller speichern (leer = löschen) */
+  const saveNote = useCallback(
+    async (userCID: number, note: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/events/${event.id}/roster/notes`, {
+          method: "PUT",
+          headers: apiHeaders,
+          body: JSON.stringify({ userCID, note }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "Speichern fehlgeschlagen");
+        }
+        onReloadRef.current();
+        return true;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Speichern fehlgeschlagen");
+        return false;
+      }
+    },
+    [event.id, apiHeaders]
+  );
+
+  /** Stationsreihenfolge speichern (nach DnD-Umsortierung) */
+  const persistStationOrder = useCallback(
+    async (ordered: typeof stations) => {
+      try {
+        const res = await fetch(`/api/events/${event.id}/roster`, {
+          method: "PATCH",
+          headers: apiHeaders,
+          body: JSON.stringify({ stations: ordered.map((s) => s.callsign) }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "Reihenfolge speichern fehlgeschlagen");
+        }
+      } catch (err) {
+        setStations(roster.stations);
+        toast.error(err instanceof Error ? err.message : "Reihenfolge speichern fehlgeschlagen");
+      }
+    },
+    [event.id, apiHeaders, roster.stations]
   );
 
   // Entf-Taste löscht die ausgewählte Zuweisung
@@ -406,6 +519,7 @@ export function RosterEditor({
 
   const dragValidity: DragValidity | null = useMemo(() => {
     if (!drag) return null;
+    if (drag.kind === "reorder-station") return null;
     if (drag.kind === "create") return { valid: true, warn: false, reason: null };
     if (drag.kind === "assign-controller") {
       if (drag.stationId === null || drag.start === null || drag.end === null) {
@@ -734,12 +848,93 @@ export function RosterEditor({
     [canEdit, trackPointer, hitTest, defaultRangeAt, validate, createAssignment, applyDrag]
   );
 
+  /** Station (per Griff am Zeilenkopf) vertikal umsortieren */
+  const stationsRef = useRef(stations);
+  stationsRef.current = stations;
+  const startReorder = useCallback(
+    (e: React.PointerEvent, stationId: number) => {
+      if (!canEdit) return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      gestureRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
+      applyDrag({ kind: "reorder-station", stationId, overStationId: null });
+      trackPointer(
+        (ev) => {
+          const g = gestureRef.current;
+          if (!g) return;
+          if (Math.abs(ev.clientY - g.startY) > 4) g.moved = true;
+          const hit = hitTest(ev.clientX, ev.clientY);
+          applyDrag({
+            kind: "reorder-station",
+            stationId,
+            overStationId: hit?.kind === "station" ? hit.id : null,
+          });
+        },
+        () => {
+          const g = gestureRef.current;
+          const current = dragRef.current;
+          gestureRef.current = null;
+          applyDrag(null);
+          if (
+            !g?.moved ||
+            !current ||
+            current.kind !== "reorder-station" ||
+            current.overStationId === null ||
+            current.overStationId === stationId
+          ) {
+            return;
+          }
+          const prev = stationsRef.current;
+          const from = prev.findIndex((s) => s.id === stationId);
+          const to = prev.findIndex((s) => s.id === current.overStationId);
+          if (from < 0 || to < 0) return;
+          const next = [...prev];
+          const [moved] = next.splice(from, 1);
+          next.splice(to, 0, moved);
+          setStations(next);
+          persistStationOrder(next);
+        }
+      );
+    },
+    [canEdit, trackPointer, hitTest, applyDrag, persistStationOrder]
+  );
+
   // ------------------------------------------------------------------
   // Abgeleitete Anzeige-Daten
   // ------------------------------------------------------------------
+  /** Stationen inkl. Reorder-Vorschau */
+  const displayStations = useMemo(() => {
+    if (drag?.kind !== "reorder-station" || drag.overStationId === null) return stations;
+    const from = stations.findIndex((s) => s.id === drag.stationId);
+    const to = stations.findIndex((s) => s.id === drag.overStationId);
+    if (from < 0 || to < 0) return stations;
+    const next = [...stations];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  }, [stations, drag]);
+
+  /** Beim Controller-Drag: Verfügbarkeits-/Belegungs-Overlay für Stationszeilen */
+  const dragControllerOverlay = useMemo(() => {
+    if (drag?.kind !== "assign-controller") return null;
+    const c = controllerByCid.get(drag.userCID);
+    if (!c) return null;
+    return {
+      unavailable: c.unavailable,
+      busy: assignments
+        .filter((a) => a.userCID === drag.userCID)
+        .map((a) => ({ start: a.start, end: a.end })),
+      prefers: (callsign: string) =>
+        c.preferredStations.toUpperCase().includes(callsign.toUpperCase()),
+    };
+  }, [drag, controllerByCid, assignments]);
   /** Zuweisungen inkl. Drag-Vorschau */
   const displayAssignments = useMemo(() => {
-    if (!drag || drag.kind === "create" || drag.kind === "assign-controller") {
+    if (
+      !drag ||
+      (drag.kind !== "move" && drag.kind !== "resize-start" && drag.kind !== "resize-end")
+    ) {
       return assignments;
     }
     return assignments.map((a) =>
@@ -880,8 +1075,7 @@ export function RosterEditor({
     const meta = station ? stationMetaFor(station.callsign) : null;
     const isDragTarget =
       drag !== null &&
-      drag.kind !== "create" &&
-      drag.kind !== "assign-controller" &&
+      (drag.kind === "move" || drag.kind === "resize-start" || drag.kind === "resize-end") &&
       drag.assignmentId === a.id;
     const blockWarnings = warningsByAssignment.get(a.id) ?? [];
     const selected = selectedId === a.id;
@@ -967,6 +1161,25 @@ export function RosterEditor({
           <Badge variant="outline">{slotMinutes}-min-Raster</Badge>
           <Badge variant="outline">{stations.length} Stationen</Badge>
           <Badge variant="outline">{controllers.length} Anmeldungen</Badge>
+          <Badge
+            variant="outline"
+            className={liveConnected ? "text-emerald-600 border-emerald-300" : "text-muted-foreground"}
+            title={
+              liveConnected
+                ? "Live verbunden – Änderungen anderer erscheinen automatisch"
+                : "Live-Verbindung getrennt – wird automatisch neu aufgebaut"
+            }
+          >
+            {liveConnected ? (
+              <>
+                <Wifi className="h-3 w-3 mr-1" /> Live
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3 w-3 mr-1" /> Offline
+              </>
+            )}
+          </Badge>
           {warnings.length > 0 && (
             <button onClick={() => setWarningsOpen((o) => !o)}>
               <Badge className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer">
@@ -1091,21 +1304,52 @@ export function RosterEditor({
             </div>
 
             {/* Stationen-Board */}
-            {stations.map((station) => {
+            {displayStations.map((station) => {
               const meta = stationMetaFor(station.callsign);
               const coverage = stationCoverage(displayAssignments, station.id, totalMinutes);
               const isDropTarget =
                 drag?.kind === "assign-controller" && drag.stationId === station.id;
+              const isReordering =
+                drag?.kind === "reorder-station" && drag.stationId === station.id;
+              const dragPrefersHere =
+                dragControllerOverlay?.prefers(station.callsign) ?? false;
               return (
-                <div key={station.id} className="flex border-b last:border-b-0 group/row">
+                <div
+                  key={station.id}
+                  className={`flex border-b last:border-b-0 group/row ${
+                    isReordering ? "opacity-60" : ""
+                  }`}
+                >
                   <div
-                    className="sticky left-0 z-20 bg-background border-r px-3 shrink-0 flex items-center justify-between gap-2"
+                    className={`sticky left-0 z-20 bg-background border-r pr-3 pl-1 shrink-0 flex items-center justify-between gap-1.5 ${
+                      isReordering ? "ring-2 ring-inset ring-primary rounded-sm" : ""
+                    }`}
                     style={{ width: LABEL_W, height: ROW_H }}
                   >
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium truncate">{station.callsign}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {Math.round(coverage * 100)}% besetzt
+                    <div className="flex items-center gap-1 min-w-0">
+                      {canEdit && (
+                        <button
+                          className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                          style={{ touchAction: "none" }}
+                          onPointerDown={(e) => startReorder(e, station.id)}
+                          aria-label={`${station.callsign} umsortieren`}
+                          title="Reihenfolge ändern (ziehen)"
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium truncate flex items-center gap-1">
+                          {station.callsign}
+                          {dragPrefersHere && (
+                            <span title="Wunsch-Station des gezogenen Controllers">
+                              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {Math.round(coverage * 100)}% besetzt
+                        </div>
                       </div>
                     </div>
                     <Badge className={`${getBadgeClassForEndorsement(meta.group)} shrink-0 text-[10px]`}>
@@ -1135,6 +1379,33 @@ export function RosterEditor({
                         }}
                       />
                     ))}
+                    {/* Beim Controller-Drag: dessen Nichtverfügbarkeit + Belegung einblenden */}
+                    {dragControllerOverlay && (
+                      <>
+                        {dragControllerOverlay.unavailable.map((r, i) => (
+                          <div
+                            key={`unav-${i}`}
+                            className="absolute top-0 bottom-0 pointer-events-none z-10"
+                            style={{
+                              left: r.start * pxPerMinute,
+                              width: (r.end - r.start) * pxPerMinute,
+                              backgroundImage:
+                                "repeating-linear-gradient(45deg, rgba(239,68,68,0.25) 0 4px, transparent 4px 8px)",
+                            }}
+                          />
+                        ))}
+                        {dragControllerOverlay.busy.map((r, i) => (
+                          <div
+                            key={`busy-${i}`}
+                            className="absolute top-0 bottom-0 pointer-events-none z-10 bg-slate-500/25"
+                            style={{
+                              left: r.start * pxPerMinute,
+                              width: (r.end - r.start) * pxPerMinute,
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
                     {/* Zuweisungen */}
                     {displayAssignments
                       .filter((a) => a.stationId === station.id)
@@ -1232,7 +1503,7 @@ export function RosterEditor({
                   className={`flex border-b last:border-b-0 ${isDragSource ? "bg-primary/5" : ""}`}
                 >
                   <div
-                    className={`sticky left-0 z-20 bg-background border-r px-2 shrink-0 flex items-center gap-1.5 select-none ${
+                    className={`sticky left-0 z-20 bg-background border-r px-2 shrink-0 flex items-center gap-1 select-none ${
                       canEdit ? "cursor-grab active:cursor-grabbing" : ""
                     }`}
                     style={{ width: LABEL_W, height: ROW_H, touchAction: "none" }}
@@ -1242,12 +1513,38 @@ export function RosterEditor({
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate leading-tight">{c.name}</div>
+                      <div className="text-sm font-medium truncate leading-tight flex items-center gap-1">
+                        <span className="truncate">{c.name}</span>
+                        {c.preferredStations && (
+                          <span title={`Wunschstationen: ${c.preferredStations}`}>
+                            <Star className="h-3 w-3 text-amber-500 fill-amber-400 shrink-0" />
+                          </span>
+                        )}
+                        {c.remarks && (
+                          <span title={`Remarks: ${c.remarks}`}>
+                            <MessageSquare className="h-3 w-3 text-sky-500 shrink-0" />
+                          </span>
+                        )}
+                        {noteByCid.has(c.cid) && (
+                          <span title={`Interne Notiz: ${noteByCid.get(c.cid)}`}>
+                            <StickyNote className="h-3 w-3 text-amber-500 shrink-0" />
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-muted-foreground leading-tight">
                         {c.cid} • {c.rating}
                         {minutes > 0 ? ` • ${formatDuration(minutes)}` : " • frei"}
                       </div>
                     </div>
+                    <ControllerInfoPopover
+                      controller={c}
+                      bestGroup={bestGroup}
+                      assignedMinutes={minutes}
+                      eventStart={eventStart}
+                      note={noteByCid.get(c.cid) ?? ""}
+                      canEdit={canEdit}
+                      onSaveNote={(n) => saveNote(c.cid, n)}
+                    />
                     <Badge
                       className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
                     >
@@ -1300,8 +1597,9 @@ export function RosterEditor({
           <strong>Bedienung:</strong> Auf einer Stationszeile klicken oder ziehen, um einen
           Zeitraum zu besetzen • Controller von unten auf eine Station ziehen • Blöcke
           verschieben (auch zwischen Stationen/Controllern) • An den Rändern ziehen zum
-          Verlängern/Kürzen • Block anklicken und <kbd className="border rounded px-1">Entf</kbd>{" "}
-          zum Löschen. Alle Zeiten UTC.
+          Verlängern/Kürzen • Stationen am Griff umsortieren • Info-Symbol am Controller für
+          Wunschstationen, Remarks & interne Notizen • Block anklicken und{" "}
+          <kbd className="border rounded px-1">Entf</kbd> zum Löschen. Alle Zeiten UTC.
         </p>
       )}
 

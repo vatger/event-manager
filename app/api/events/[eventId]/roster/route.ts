@@ -7,6 +7,7 @@ import {
   canManageEventRoster,
   getRosterForEvent,
 } from "@/lib/roster/eventRosterService";
+import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 
 const createSchema = z.object({
   slotMinutes: z.number().int().refine((v) => [15, 30].includes(v), {
@@ -109,6 +110,7 @@ export async function POST(
     },
   });
 
+  broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   const roster = await getRosterForEvent(eventId);
   return NextResponse.json({ roster, canEdit: true }, { status: 201 });
 }
@@ -180,6 +182,7 @@ export async function PATCH(
     }
   });
 
+  broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   const updated = await getRosterForEvent(eventId);
   return NextResponse.json({ roster: updated, canEdit: true });
 }
@@ -204,5 +207,6 @@ export async function DELETE(
   if (!roster) return NextResponse.json({ error: "Roster not found" }, { status: 404 });
 
   await prisma.eventRoster.delete({ where: { id: roster.id } });
+  broadcastRosterChange(eventId, _req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true });
 }

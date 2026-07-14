@@ -13,11 +13,18 @@ import {
   userhasPermissiononEvent,
   isEventResponsible,
 } from "@/lib/acl/permissions";
-import type { Event, EventRoster, EventRosterAssignment, EventRosterStation } from "@prisma/client";
+import type {
+  Event,
+  EventRoster,
+  EventRosterAssignment,
+  EventRosterNote,
+  EventRosterStation,
+} from "@prisma/client";
 
 export type RosterWithRelations = EventRoster & {
   stations: EventRosterStation[];
   assignments: EventRosterAssignment[];
+  notes: EventRosterNote[];
 };
 
 /**
@@ -198,6 +205,7 @@ export async function getRosterForEvent(eventId: number): Promise<RosterWithRela
     include: {
       stations: { orderBy: { sortOrder: "asc" } },
       assignments: { orderBy: { startTime: "asc" } },
+      notes: true,
     },
   });
 }
