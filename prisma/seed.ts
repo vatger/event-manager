@@ -12,6 +12,7 @@ async function ensureBasePermissions() {
     { key: "event.delete", description: "Events löschen" },
     { key: "event.export", description: "Signups der Events Exportieren"},
     { key: "roster.publish", description: "Roster veröffentlichen" },
+    { key: "roster.edit", description: "Besetzungsplan bearbeiten" },
     { key: "signups.manage", description: "Anmeldungen verwalten" },
     { key: "user.notif", description: "Benutzer benachrichtigen" },
   ];
@@ -46,6 +47,7 @@ async function createStandardGroups(firId: number, firCode: string) {
     "event.delete",
     "event.export",
     "roster.publish",
+    "roster.edit",
     "signups.manage",
     "user.notif",
   ];

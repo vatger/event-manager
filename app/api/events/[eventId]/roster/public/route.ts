@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { isEventFirTeamMember } from "@/lib/acl/permissions";
-import { canManageEventRoster, getRosterForEvent } from "@/lib/roster/eventRosterService";
+import { canViewEventRoster, getRosterForEvent } from "@/lib/roster/eventRosterService";
 
 /**
  * Öffentliche (Teilnehmer-)Ansicht des Besetzungsplans.
@@ -29,9 +28,7 @@ export async function GET(
   const published = event.status === "ROSTER_PUBLISHED";
   if (!published) {
     const cid = Number(user.cid);
-    const isTeam =
-      (await canManageEventRoster(cid, eventId)) || (await isEventFirTeamMember(cid, eventId));
-    if (!isTeam) {
+    if (!(await canViewEventRoster(cid, eventId))) {
       return NextResponse.json({ published: false, roster: null });
     }
   }
@@ -41,8 +38,14 @@ export async function GET(
     return NextResponse.json({ published, roster: null });
   }
 
-  // Namen der eingeplanten Controller auflösen
-  const cids = [...new Set(roster.assignments.map((a) => a.userCID))];
+  // Namen der eingeplanten Controller auflösen (Custom-Blöcke haben keine CID)
+  const cids = [
+    ...new Set(
+      roster.assignments
+        .map((a) => a.userCID)
+        .filter((c): c is number => typeof c === "number")
+    ),
+  ];
   const users = await prisma.user.findMany({
     where: { cid: { in: cids } },
     select: { cid: true, name: true },
@@ -63,8 +66,13 @@ export async function GET(
       assignments: roster.assignments.map((a) => ({
         id: a.id,
         stationId: a.stationId,
+        type: a.type,
         userCID: a.userCID,
-        name: nameByCid.get(a.userCID) ?? `CID ${a.userCID}`,
+        label: a.label,
+        name:
+          a.type === "custom"
+            ? a.label ?? "Custom"
+            : nameByCid.get(a.userCID ?? -1) ?? `CID ${a.userCID}`,
         startTime: a.startTime,
         endTime: a.endTime,
       })),

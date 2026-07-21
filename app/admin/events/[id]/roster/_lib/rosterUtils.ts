@@ -217,8 +217,10 @@ export function computeWarnings(
   const stationById = new Map(stations.map((s) => [s.id, s]));
   const controllerByCid = new Map(controllers.map((c) => [c.cid, c]));
 
+  // Nur Controller-Blöcke erzeugen Warnungen; Custom-Blöcke (userCID null) ausschließen
   const byUser = new Map<number, Assignment[]>();
   for (const a of assignments) {
+    if (a.userCID == null) continue;
     (byUser.get(a.userCID) ?? byUser.set(a.userCID, []).get(a.userCID)!).push(a);
   }
 
@@ -331,6 +333,7 @@ export function suggestControllers(
 ): ControllerSuggestion[] {
   const assignedByCid = new Map<number, number>();
   for (const a of assignments) {
+    if (a.userCID == null) continue;
     assignedByCid.set(a.userCID, (assignedByCid.get(a.userCID) ?? 0) + (a.end - a.start));
   }
 
@@ -392,9 +395,16 @@ export function stationCoverage(
 export function assignedMinutesByController(assignments: Assignment[]): Map<number, number> {
   const map = new Map<number, number>();
   for (const a of assignments) {
+    if (a.userCID == null) continue;
     map.set(a.userCID, (map.get(a.userCID) ?? 0) + (a.end - a.start));
   }
   return map;
+}
+
+/** Anzeigename eines Blocks: Controller-Name oder Custom-Label */
+function blockLabel(a: Assignment, controllerByCid: Map<number, RosterController>): string {
+  if (a.type === "custom") return a.label ?? "Custom";
+  return a.userCID != null ? controllerByCid.get(a.userCID)?.name ?? `CID ${a.userCID}` : "?";
 }
 
 /** Roster als CSV (Station;Von;Bis;CID;Name) */
@@ -415,13 +425,12 @@ export function rosterToCsv(
     })
     .map((a) => {
       const station = stationById.get(a.stationId)?.callsign ?? "?";
-      const c = controllerByCid.get(a.userCID);
       return [
         station,
         `${minuteToHM(eventStart, a.start)}z`,
         `${minuteToHM(eventStart, a.end)}z`,
-        String(a.userCID),
-        c?.name ?? "",
+        a.userCID != null ? String(a.userCID) : "",
+        blockLabel(a, controllerByCid),
       ].join(";");
     });
   return ["Station;Von;Bis;CID;Name", ...rows].join("\n");
@@ -443,10 +452,11 @@ export function rosterToText(
     if (list.length === 0) continue;
     lines.push(`**${station.callsign}**`);
     for (const a of list) {
-      const c = controllerByCid.get(a.userCID);
-      lines.push(
-        `${minuteToHM(eventStart, a.start)}z - ${minuteToHM(eventStart, a.end)}z: ${c?.name ?? a.userCID} (${a.userCID})`
-      );
+      const who =
+        a.type === "custom"
+          ? a.label ?? "Custom"
+          : `${blockLabel(a, controllerByCid)} (${a.userCID})`;
+      lines.push(`${minuteToHM(eventStart, a.start)}z - ${minuteToHM(eventStart, a.end)}z: ${who}`);
     }
     lines.push("");
   }

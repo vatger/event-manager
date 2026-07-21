@@ -20,7 +20,9 @@ interface PublicRosterStation {
 interface PublicRosterAssignment {
   id: number;
   stationId: number;
-  userCID: number;
+  type: "controller" | "custom";
+  userCID: number | null;
+  label: string | null;
   name: string;
   startTime: string;
   endTime: string;
@@ -219,12 +221,15 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                         const start = toMin(a.startTime);
                         const end = toMin(a.endTime);
                         const own = userCID !== null && a.userCID === userCID;
+                        const isCustom = a.type === "custom";
                         return (
                           <div
                             key={a.id}
                             className={`absolute top-1 bottom-1 rounded-md border px-1.5 flex items-center overflow-hidden text-[11px] font-medium ${
                               own
                                 ? "bg-primary text-primary-foreground border-primary ring-2 ring-primary/40 z-10"
+                                : isCustom
+                                ? "bg-muted/40 text-muted-foreground border-dashed"
                                 : "bg-muted text-foreground border-border"
                             }`}
                             style={{

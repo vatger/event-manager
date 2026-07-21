@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { isEventFirTeamMember } from "@/lib/acl/permissions";
-import { canManageEventRoster } from "@/lib/roster/eventRosterService";
+import { canViewEventRoster } from "@/lib/roster/eventRosterService";
 import { subscribeRosterChanges } from "@/lib/roster/rosterEvents";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +21,7 @@ export async function GET(
   if (isNaN(eventId)) return new Response("Invalid event id", { status: 400 });
 
   const cid = Number(user.cid);
-  if (!(await canManageEventRoster(cid, eventId)) && !(await isEventFirTeamMember(cid, eventId))) {
+  if (!(await canViewEventRoster(cid, eventId))) {
     return new Response("Forbidden", { status: 403 });
   }
 

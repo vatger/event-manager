@@ -9,34 +9,31 @@ import {
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import type { SignupTableEntry } from "@/lib/cache/types";
 import { parseEventAirports } from "@/lib/multiAirport";
-import {
-  userhasPermissiononEvent,
-  isEventResponsible,
-} from "@/lib/acl/permissions";
 import type {
   Event,
   EventRoster,
   EventRosterAssignment,
+  EventRosterEditor,
   EventRosterNote,
+  EventRosterSnapshot,
   EventRosterStation,
 } from "@prisma/client";
+
+// Re-export der zentralen Berechtigungslogik für bestehende Aufrufer
+export {
+  canEditEventRoster,
+  canViewEventRoster,
+  canManageRosterEditors,
+  canManageEventSignups,
+} from "./rosterPermissions";
 
 export type RosterWithRelations = EventRoster & {
   stations: EventRosterStation[];
   assignments: EventRosterAssignment[];
   notes: EventRosterNote[];
+  editors: EventRosterEditor[];
+  snapshots: EventRosterSnapshot[];
 };
-
-/**
- * Wer darf den Besetzungsplan eines Events bearbeiten?
- * event.edit ODER roster.publish (FIR-scoped) ODER Event-Verantwortlicher
- */
-export async function canManageEventRoster(cid: number, eventId: number): Promise<boolean> {
-  if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
-  if (await userhasPermissiononEvent(cid, eventId, "roster.publish")) return true;
-  if (await isEventResponsible(cid, eventId)) return true;
-  return false;
-}
 
 export interface StationRequirement {
   callsign: string;
@@ -109,7 +106,11 @@ export function getUserGroupForStation(
 
 export interface AssignmentInput {
   stationId: number;
-  userCID: number;
+  /** "controller" = Controller-Zuweisung (userCID gesetzt), "custom" = Label-Block */
+  type?: "controller" | "custom";
+  userCID?: number | null;
+  label?: string | null;
+  color?: string | null;
   startTime: Date;
   endTime: Date;
 }
@@ -120,9 +121,12 @@ export interface ValidationError {
 }
 
 /**
- * Serverseitige Validierung einer (neuen oder geänderten) Zuweisung.
- * Harte Regeln: Zeitfenster, Station gehört zum Roster, aktive Anmeldung,
- * Eligibility (Endorsement-Gruppe), keine zeitliche Doppelbelegung.
+ * Serverseitige Validierung eines (neuen oder geänderten) Blocks.
+ *
+ * Gemeinsam: gültiges Zeitfenster, innerhalb des Events, Station gehört zum Roster,
+ * Station nicht doppelt belegt.
+ * Controller-Blöcke zusätzlich: aktive Anmeldung, Eligibility, keine Doppelbelegung.
+ * Custom-Blöcke: nur Label erforderlich.
  */
 export async function validateAssignment(
   event: Event,
@@ -130,18 +134,48 @@ export async function validateAssignment(
   input: AssignmentInput,
   ignoreAssignmentId?: number
 ): Promise<ValidationError | null> {
-  const { stationId, userCID, startTime, endTime } = input;
+  const { stationId, startTime, endTime } = input;
+  const type = input.type ?? "controller";
 
   if (!(startTime < endTime)) {
     return { code: "invalid_range", message: "Startzeit muss vor der Endzeit liegen" };
   }
   if (startTime < event.startTime || endTime > event.endTime) {
-    return { code: "outside_event", message: "Zuweisung liegt außerhalb des Event-Zeitraums" };
+    return { code: "outside_event", message: "Block liegt außerhalb des Event-Zeitraums" };
   }
 
   const station = roster.stations.find((s) => s.id === stationId);
   if (!station) {
     return { code: "unknown_station", message: "Station gehört nicht zu diesem Roster" };
+  }
+
+  // Station kann nur einen Block gleichzeitig haben (Controller oder Custom)
+  const stationOverlap = roster.assignments.find(
+    (a) =>
+      a.id !== ignoreAssignmentId &&
+      a.stationId === stationId &&
+      a.startTime < endTime &&
+      startTime < a.endTime
+  );
+  if (stationOverlap) {
+    return {
+      code: "station_occupied",
+      message: `${station.callsign} ist in diesem Zeitraum bereits belegt`,
+    };
+  }
+
+  // Custom-Block: nur Label erforderlich, keine Controller-Prüfungen
+  if (type === "custom") {
+    if (!input.label || input.label.trim() === "") {
+      return { code: "missing_label", message: "Für einen Custom-Block wird eine Bezeichnung benötigt" };
+    }
+    return null;
+  }
+
+  // Ab hier Controller-Block
+  const userCID = input.userCID;
+  if (!userCID) {
+    return { code: "missing_user", message: "Kein Controller angegeben" };
   }
 
   // Aktive Anmeldung erforderlich
@@ -180,25 +214,10 @@ export async function validateAssignment(
     };
   }
 
-  // Station kann nur von einem Controller gleichzeitig besetzt werden
-  const stationOverlap = roster.assignments.find(
-    (a) =>
-      a.id !== ignoreAssignmentId &&
-      a.stationId === stationId &&
-      a.startTime < endTime &&
-      startTime < a.endTime
-  );
-  if (stationOverlap) {
-    return {
-      code: "station_occupied",
-      message: `${station.callsign} ist in diesem Zeitraum bereits besetzt`,
-    };
-  }
-
   return null;
 }
 
-/** Roster inkl. Stationen und Zuweisungen laden */
+/** Roster inkl. Stationen, Zuweisungen, Notizen, Bearbeitern und Snapshot-Metadaten laden */
 export async function getRosterForEvent(eventId: number): Promise<RosterWithRelations | null> {
   return prisma.eventRoster.findUnique({
     where: { eventId },
@@ -206,6 +225,94 @@ export async function getRosterForEvent(eventId: number): Promise<RosterWithRela
       stations: { orderBy: { sortOrder: "asc" } },
       assignments: { orderBy: { startTime: "asc" } },
       notes: true,
+      editors: true,
+      snapshots: { orderBy: { createdAt: "desc" } },
     },
+  });
+}
+
+// ===================================================================
+// Snapshots (gespeicherte Zwischenstände)
+// ===================================================================
+
+/** JSON-Form eines Snapshots (Stationen + Zuweisungen zum Zeitpunkt des Speicherns) */
+export interface RosterSnapshotData {
+  slotMinutes: number;
+  stations: { callsign: string; sortOrder: number }[];
+  assignments: {
+    stationCallsign: string;
+    type: string;
+    userCID: number | null;
+    label: string | null;
+    color: string | null;
+    startTime: string;
+    endTime: string;
+  }[];
+}
+
+/** Aktuellen Roster-Zustand in ein serialisierbares Snapshot-Objekt fassen */
+export function serializeRoster(roster: RosterWithRelations): RosterSnapshotData {
+  const stationById = new Map(roster.stations.map((s) => [s.id, s]));
+  return {
+    slotMinutes: roster.slotMinutes,
+    stations: roster.stations.map((s) => ({ callsign: s.callsign, sortOrder: s.sortOrder })),
+    assignments: roster.assignments.map((a) => ({
+      stationCallsign: stationById.get(a.stationId)?.callsign ?? "",
+      type: a.type,
+      userCID: a.userCID,
+      label: a.label,
+      color: a.color,
+      startTime: a.startTime.toISOString(),
+      endTime: a.endTime.toISOString(),
+    })),
+  };
+}
+
+/**
+ * Roster auf einen Snapshot zurücksetzen: Stationen und Zuweisungen werden
+ * vollständig durch den gespeicherten Zustand ersetzt (Notizen/Bearbeiter bleiben).
+ */
+export async function restoreSnapshot(
+  rosterId: number,
+  data: RosterSnapshotData
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    if (data.slotMinutes) {
+      await tx.eventRoster.update({
+        where: { id: rosterId },
+        data: { slotMinutes: data.slotMinutes },
+      });
+    }
+
+    // Alles Löschen (Zuweisungen cascaden über Station-Delete, zur Sicherheit explizit)
+    await tx.eventRosterAssignment.deleteMany({ where: { rosterId } });
+    await tx.eventRosterStation.deleteMany({ where: { rosterId } });
+
+    // Stationen neu anlegen und Callsign→ID-Map aufbauen
+    const callsignToId = new Map<string, number>();
+    for (const s of data.stations) {
+      const created = await tx.eventRosterStation.create({
+        data: { rosterId, callsign: s.callsign, sortOrder: s.sortOrder },
+      });
+      callsignToId.set(s.callsign, created.id);
+    }
+
+    // Zuweisungen neu anlegen (nur wenn die Station noch existiert)
+    for (const a of data.assignments) {
+      const stationId = callsignToId.get(a.stationCallsign);
+      if (!stationId) continue;
+      await tx.eventRosterAssignment.create({
+        data: {
+          rosterId,
+          stationId,
+          type: a.type,
+          userCID: a.userCID,
+          label: a.label,
+          color: a.color,
+          startTime: new Date(a.startTime),
+          endTime: new Date(a.endTime),
+        },
+      });
+    }
   });
 }

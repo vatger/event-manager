@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
+import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { invalidateCache } from "@/lib/cache/cacheManager";
 import { getSessionUser } from "@/lib/getSessionUser";
@@ -47,9 +48,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
   const eventdata = await prisma.event.findUnique({where: {id: Number(eventid)}})
   if(!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
   
-  const isAdmin = await userHasFirPermission(Number(session.user.cid), eventdata.firCode!, "signups.manage")
+  // signups.manage ODER Roster-Bearbeitungsrecht erlauben die Verwaltung fremder Anmeldungen
+  const isAdmin =
+    (await userHasFirPermission(Number(session.user.cid), eventdata.firCode!, "signups.manage")) ||
+    (await canManageEventSignups(Number(session.user.cid), eventid))
 
-  if(eventdata.status !== "SIGNUP_OPEN" && !isAdmin && !(await isVatgerEventleitung(Number(session.user.cid)))) 
+  if(eventdata.status !== "SIGNUP_OPEN" && !isAdmin && !(await isVatgerEventleitung(Number(session.user.cid))))
     return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen"}, {status: 500})
 
   try {

@@ -134,6 +134,8 @@ model EventRoster {
   stations    EventRosterStation[]
   assignments EventRosterAssignment[]
   notes       EventRosterNote[]
+  editors     EventRosterEditor[]
+  snapshots   EventRosterSnapshot[]
 }
 
 // Interne Planungsnotiz des Event-Teams zu einem Controller (pro Roster)
@@ -149,6 +151,34 @@ model EventRosterNote {
   roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
 
   @@unique([rosterId, userCID])
+  @@index([rosterId])
+}
+
+// Explizit berechtigte Bearbeiter eines Rosters (von Verantwortlichen eingetragen)
+model EventRosterEditor {
+  id        Int      @id @default(autoincrement())
+  rosterId  Int
+  userCID   Int
+  addedByCID Int?
+  createdAt DateTime @default(now())
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@unique([rosterId, userCID])
+  @@index([rosterId])
+}
+
+// Gespeicherter Zwischenstand eines Rosters (Snapshot zum Zurueckkehren)
+model EventRosterSnapshot {
+  id           Int      @id @default(autoincrement())
+  rosterId     Int
+  name         String
+  data         Json
+  createdByCID Int?
+  createdAt    DateTime @default(now())
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
   @@index([rosterId])
 }
 
@@ -171,7 +201,10 @@ model EventRosterAssignment {
   id        Int      @id @default(autoincrement())
   rosterId  Int
   stationId Int
-  userCID   Int
+  type      String   @default("controller")
+  userCID   Int?
+  label     String?
+  color     String?
   startTime DateTime
   endTime   DateTime
   createdAt DateTime @default(now())

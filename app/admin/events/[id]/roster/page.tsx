@@ -21,6 +21,7 @@ interface ApiEvent {
   airports: unknown;
   staffedStations: unknown;
   signupSlotMinutes?: number | null;
+  firCode?: string | null;
   status: string;
 }
 
@@ -40,6 +41,8 @@ export default function EventRosterPage() {
   const [event, setEvent] = useState<ApiEvent | null>(null);
   const [roster, setRoster] = useState<ApiRoster | null>(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [canManageEditors, setCanManageEditors] = useState(false);
+  const [canManageSignups, setCanManageSignups] = useState(false);
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [stationMetaMap, setStationMetaMap] = useState<Map<string, StationMeta>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -65,6 +68,8 @@ export default function EventRosterPage() {
       setEvent(eventData);
       setRoster(rosterData.roster);
       setCanEdit(Boolean(rosterData.canEdit));
+      setCanManageEditors(Boolean(rosterData.canManageEditors));
+      setCanManageSignups(Boolean(rosterData.canManageSignups));
 
       if (signupsRes.ok) {
         const s = await signupsRes.json();
@@ -103,10 +108,17 @@ export default function EventRosterPage() {
       const data = await res.json();
       setRoster(data.roster);
       setCanEdit(Boolean(data.canEdit));
+      setCanManageEditors(Boolean(data.canManageEditors));
+      setCanManageSignups(Boolean(data.canManageSignups));
     } catch (err) {
       console.error("[Roster] Reload fehlgeschlagen:", err);
     }
   }, [eventId]);
+
+  // Roster + Signups neu laden (nach Signup-Änderungen)
+  const reloadAll = useCallback(async () => {
+    await load();
+  }, [load]);
 
   const eventAirports = useMemo(
     () => (event ? parseEventAirports(event.airports) : []),
@@ -139,6 +151,34 @@ export default function EventRosterPage() {
     );
   }
 
+  // Full-Screen-Editor sobald ein Roster existiert (rendert eigenes Overlay)
+  if (roster) {
+    return (
+      <RosterEditor
+        event={{
+          id: event.id,
+          name: event.name,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          airports: eventAirports,
+          firCode: event.firCode ?? undefined,
+          signupSlotMinutes: event.signupSlotMinutes ?? undefined,
+          status: event.status,
+        }}
+        roster={roster}
+        signups={signups}
+        stationMetaMap={stationMetaMap}
+        canEdit={canEdit}
+        canManageEditors={canManageEditors}
+        canManageSignups={canManageSignups}
+        onReload={reloadRoster}
+        onReloadAll={reloadAll}
+        onEventStatusChanged={(status) => setEvent((e) => (e ? { ...e, status } : e))}
+      />
+    );
+  }
+
+  // Setup-Schritt (kein Roster) innerhalb des Admin-Layouts
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -154,40 +194,21 @@ export default function EventRosterPage() {
         <Badge variant="outline">{statusLabels[event.status] ?? event.status}</Badge>
       </div>
 
-      {!roster ? (
-        canEdit ? (
-          <RosterSetup
-            eventId={event.id}
-            eventAirports={eventAirports}
-            staffedStations={staffedStations}
-            defaultSlotMinutes={event.signupSlotMinutes ?? 30}
-            onCreated={load}
-          />
-        ) : (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Für dieses Event wurde noch kein Besetzungsplan angelegt.
-            </AlertDescription>
-          </Alert>
-        )
-      ) : (
-        <RosterEditor
-          event={{
-            id: event.id,
-            name: event.name,
-            startTime: event.startTime,
-            endTime: event.endTime,
-            airports: eventAirports,
-            status: event.status,
-          }}
-          roster={roster}
-          signups={signups}
-          stationMetaMap={stationMetaMap}
-          canEdit={canEdit}
-          onReload={reloadRoster}
-          onEventStatusChanged={(status) => setEvent((e) => (e ? { ...e, status } : e))}
+      {canEdit ? (
+        <RosterSetup
+          eventId={event.id}
+          eventAirports={eventAirports}
+          staffedStations={staffedStations}
+          defaultSlotMinutes={event.signupSlotMinutes ?? 30}
+          onCreated={load}
         />
+      ) : (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Für dieses Event wurde noch kein Besetzungsplan angelegt.
+          </AlertDescription>
+        </Alert>
       )}
     </div>
   );

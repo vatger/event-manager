@@ -2,12 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { isEventFirTeamMember } from "@/lib/acl/permissions";
 import {
-  canManageEventRoster,
+  canEditEventRoster,
+  canViewEventRoster,
+  canManageRosterEditors,
+  canManageEventSignups,
   getRosterForEvent,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+
+/** Berechtigungs-Flags für den Client bündeln */
+async function computeCapabilities(cid: number, eventId: number) {
+  const [canEdit, canManageEditors, canManageSignups] = await Promise.all([
+    canEditEventRoster(cid, eventId),
+    canManageRosterEditors(cid, eventId),
+    canManageEventSignups(cid, eventId),
+  ]);
+  return { canEdit, canManageEditors, canManageSignups };
+}
 
 const createSchema = z.object({
   slotMinutes: z.number().int().refine((v) => [15, 30].includes(v), {
@@ -58,13 +70,13 @@ export async function GET(
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
   const cid = Number(user.cid);
-  const canEdit = await canManageEventRoster(cid, eventId);
-  if (!canEdit && !(await isEventFirTeamMember(cid, eventId))) {
+  if (!(await canViewEventRoster(cid, eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const caps = await computeCapabilities(cid, eventId);
   const roster = await getRosterForEvent(eventId);
-  return NextResponse.json({ roster, canEdit });
+  return NextResponse.json({ roster, ...caps });
 }
 
 // POST: Roster anlegen (Stationen bestätigen + Rastergröße wählen)
@@ -82,7 +94,7 @@ export async function POST(
   const event = await loadEvent(eventId);
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
-  if (!(await canManageEventRoster(Number(user.cid), eventId))) {
+  if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -127,7 +139,7 @@ export async function PATCH(
   const eventId = Number(idParam);
   if (isNaN(eventId)) return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
 
-  if (!(await canManageEventRoster(Number(user.cid), eventId))) {
+  if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -199,7 +211,7 @@ export async function DELETE(
   const eventId = Number(idParam);
   if (isNaN(eventId)) return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
 
-  if (!(await canManageEventRoster(Number(user.cid), eventId))) {
+  if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -12,9 +12,28 @@ export interface RosterStation {
 export interface ApiAssignment {
   id: number;
   stationId: number;
-  userCID: number;
+  type: "controller" | "custom";
+  userCID: number | null;
+  label: string | null;
+  color: string | null;
   startTime: string;
   endTime: string;
+}
+
+/** Explizit eingetragener Roster-Bearbeiter */
+export interface ApiRosterEditor {
+  userCID: number;
+  name: string;
+  rating: string | null;
+  addedByCID: number | null;
+}
+
+/** Snapshot-Metadaten (ohne data-Blob) */
+export interface ApiSnapshot {
+  id: number;
+  name: string;
+  createdByName: string | null;
+  createdAt: string;
 }
 
 /** Interne Planungsnotiz zu einem Controller */
@@ -38,7 +57,10 @@ export interface ApiRoster {
 export interface Assignment {
   id: number;
   stationId: number;
-  userCID: number;
+  type: "controller" | "custom";
+  userCID: number | null;
+  label: string | null;
+  color: string | null;
   start: number; // Minuten seit Event-Start
   end: number;   // Minuten seit Event-Start (exklusiv)
 }
@@ -83,7 +105,8 @@ export type DragState =
       start: number;
       end: number;
       stationId: number;
-      userCID: number;
+      /** null = Custom-Block */
+      userCID: number | null;
     }
   | {
       kind: "resize-start" | "resize-end";
@@ -91,7 +114,7 @@ export type DragState =
       start: number;
       end: number;
       stationId: number;
-      userCID: number;
+      userCID: number | null;
     }
   | {
       kind: "create";

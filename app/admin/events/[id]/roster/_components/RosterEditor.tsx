@@ -33,18 +33,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowLeft,
   Coffee,
   Download,
   Copy,
   Eye,
   GripVertical,
+  History,
   MessageSquare,
   Search,
   Settings2,
+  ShieldCheck,
   Star,
   StickyNote,
+  UserPlus,
   Wifi,
   WifiOff,
   X,
@@ -57,6 +62,7 @@ import type {
   ApiRoster,
   Assignment,
   DragState,
+  RosterController,
   RosterWarning,
   StationMeta,
 } from "../_lib/rosterTypes";
@@ -80,7 +86,12 @@ import {
 } from "../_lib/rosterUtils";
 import { AssignDialog } from "./AssignDialog";
 import { StationsDialog } from "./StationsDialog";
-import { ControllerInfoPopover } from "./ControllerInfoPopover";
+import { ControllerSidePanel } from "./ControllerSidePanel";
+import { SnapshotsDialog } from "./SnapshotsDialog";
+import { EditorsDialog } from "./EditorsDialog";
+import SignupEditDialog from "../../_components/SignupEditDialog";
+
+// (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
 
 // Layout-Konstanten
 const LABEL_W = 224; // Breite der linken Beschriftungsspalte
@@ -94,6 +105,8 @@ interface EditorEvent {
   startTime: string;
   endTime: string;
   airports: string[];
+  firCode?: string;
+  signupSlotMinutes?: number;
   status: string;
 }
 
@@ -103,8 +116,12 @@ interface RosterEditorProps {
   signups: SignupTableEntry[];
   stationMetaMap: Map<string, StationMeta>;
   canEdit: boolean;
+  canManageEditors: boolean;
+  canManageSignups: boolean;
   /** Nur das Roster neu laden (Realtime-Sync, Dialog-Updates) */
   onReload: () => void;
+  /** Roster + Signups neu laden (nach Signup-Änderungen) */
+  onReloadAll: () => void;
   onEventStatusChanged: (status: string) => void;
 }
 
@@ -132,15 +149,22 @@ function blockColor(group: string | null): string {
   }
 }
 
+// Custom-Blöcke (Combined, Training, …) heben sich klar von Controllern ab
+const CUSTOM_BLOCK_COLOR = "bg-zinc-500/80 border-zinc-600 [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.12)_0_6px,transparent_6px_12px)]";
+
 export function RosterEditor({
   event,
   roster,
   signups,
   stationMetaMap,
   canEdit,
+  canManageEditors,
+  canManageSignups,
   onReload,
+  onReloadAll,
   onEventStatusChanged,
 }: RosterEditorProps) {
+  const router = useRouter();
   const eventStart = useMemo(() => new Date(event.startTime), [event.startTime]);
   const eventEnd = useMemo(() => new Date(event.endTime), [event.endTime]);
   const totalMinutes = useMemo(
@@ -170,7 +194,10 @@ export function RosterEditor({
       roster.assignments.map((a) => ({
         id: a.id,
         stationId: a.stationId,
+        type: a.type,
         userCID: a.userCID,
+        label: a.label,
+        color: a.color,
         start: minutesBetween(eventStart, new Date(a.startTime)),
         end: minutesBetween(eventStart, new Date(a.endTime)),
       }))
@@ -223,14 +250,22 @@ export function RosterEditor({
   const [publishing, setPublishing] = useState(false);
   const [controllerSearch, setControllerSearch] = useState("");
   const [controllerSort, setControllerSort] = useState<"name" | "assigned">("name");
-  const [warningsOpen, setWarningsOpen] = useState(true);
+  const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
+  // Ausgewählter Controller für die Seitenleiste
+  const [selectedCID, setSelectedCID] = useState<number | null>(null);
+  const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+  const [editorsOpen, setEditorsOpen] = useState(false);
+  // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
+  const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
 
   // ------------------------------------------------------------------
   // Realtime-Sync: SSE-Stream abonnieren, bei fremden Änderungen neu laden
   // ------------------------------------------------------------------
   const onReloadRef = useRef(onReload);
   onReloadRef.current = onReload;
+  const onReloadAllRef = useRef(onReloadAll);
+  onReloadAllRef.current = onReloadAll;
 
   useEffect(() => {
     const es = new EventSource(`/api/events/${event.id}/roster/stream`);
@@ -266,10 +301,26 @@ export function RosterEditor({
     [clientId]
   );
 
+  /** Controller-Zuweisung oder Custom-Block anlegen (optimistisch) */
   const createAssignment = useCallback(
-    async (stationId: number, userCID: number, start: number, end: number) => {
+    async (
+      stationId: number,
+      start: number,
+      end: number,
+      opts: { userCID?: number; label?: string }
+    ) => {
+      const isCustom = !!opts.label;
       const tempId = tempIdRef.current--;
-      const optimistic: Assignment = { id: tempId, stationId, userCID, start, end };
+      const optimistic: Assignment = {
+        id: tempId,
+        stationId,
+        type: isCustom ? "custom" : "controller",
+        userCID: isCustom ? null : opts.userCID ?? null,
+        label: isCustom ? opts.label ?? null : null,
+        color: null,
+        start,
+        end,
+      };
       setAssignments((prev) => [...prev, optimistic]);
       try {
         const res = await fetch(`/api/events/${event.id}/roster/assignments`, {
@@ -277,20 +328,22 @@ export function RosterEditor({
           headers: apiHeaders,
           body: JSON.stringify({
             stationId,
-            userCID,
+            type: isCustom ? "custom" : "controller",
+            userCID: isCustom ? undefined : opts.userCID,
+            label: isCustom ? opts.label : undefined,
             startTime: minuteToDate(eventStart, start).toISOString(),
             endTime: minuteToDate(eventStart, end).toISOString(),
           }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || "Zuweisung fehlgeschlagen");
+          throw new Error(j.error || "Block fehlgeschlagen");
         }
         const j = await res.json();
         const realId = j.assignment.id as number;
         setAssignments((prev) => {
           // Falls ein Realtime-Reload den optimistischen Eintrag entfernt hat,
-          // die gespeicherte Zuweisung wieder anhängen
+          // den gespeicherten Block wieder anhängen
           if (!prev.some((a) => a.id === tempId)) {
             if (prev.some((a) => a.id === realId)) return prev;
             return [...prev, { ...optimistic, id: realId }];
@@ -299,7 +352,7 @@ export function RosterEditor({
         });
       } catch (err) {
         setAssignments((prev) => prev.filter((a) => a.id !== tempId));
-        toast.error(err instanceof Error ? err.message : "Zuweisung fehlgeschlagen");
+        toast.error(err instanceof Error ? err.message : "Block fehlgeschlagen");
       }
     },
     [event.id, eventStart, apiHeaders]
@@ -318,7 +371,8 @@ export function RosterEditor({
       try {
         const body: Record<string, unknown> = {};
         if (patch.stationId !== undefined) body.stationId = patch.stationId;
-        if (patch.userCID !== undefined) body.userCID = patch.userCID;
+        // userCID nur senden, wenn es ein echter Controller ist (Custom-Blöcke: null → weglassen)
+        if (patch.userCID !== undefined && patch.userCID !== null) body.userCID = patch.userCID;
         if (patch.start !== undefined)
           body.startTime = minuteToDate(eventStart, patch.start).toISOString();
         if (patch.end !== undefined)
@@ -470,15 +524,34 @@ export function RosterEditor({
   const validate = useCallback(
     (
       stationId: number,
-      userCID: number,
+      userCID: number | null,
       start: number,
       end: number,
       ignoreId?: number
     ): DragValidity => {
       const station = stationById.get(stationId);
+      if (!station) {
+        return { valid: false, warn: false, reason: "Unbekannte Station" };
+      }
+
+      // Station darf nur einen Block gleichzeitig haben (Controller oder Custom)
+      const occupied = stationOccupied(assignments, stationId, start, end, ignoreId);
+      if (occupied) {
+        return {
+          valid: false,
+          warn: false,
+          reason: `${station.callsign} ist in diesem Zeitraum bereits belegt`,
+        };
+      }
+
+      // Custom-Block: keine Controller-Prüfungen
+      if (userCID == null) {
+        return { valid: true, warn: false, reason: null };
+      }
+
       const controller = controllerByCid.get(userCID);
-      if (!station || !controller) {
-        return { valid: false, warn: false, reason: "Unbekannte Station / Controller" };
+      if (!controller) {
+        return { valid: false, warn: false, reason: "Unbekannter Controller" };
       }
       const meta = stationMetaFor(station.callsign);
       if (!isEligible(controller, meta, event.airports)) {
@@ -495,14 +568,6 @@ export function RosterEditor({
           valid: false,
           warn: false,
           reason: `${controller.name} ist dann bereits auf ${other?.callsign ?? "?"} eingeplant`,
-        };
-      }
-      const occupied = stationOccupied(assignments, stationId, start, end, ignoreId);
-      if (occupied) {
-        return {
-          valid: false,
-          warn: false,
-          reason: `${station.callsign} ist in diesem Zeitraum bereits besetzt`,
         };
       }
       if (isUnavailable(controller, start, end)) {
@@ -605,10 +670,12 @@ export function RosterEditor({
           const deltaMin = snap((ev.clientX - g.startX) / pxPerMinute);
           const start = clamp(g.original.start + deltaMin, 0, totalMinutes - dur);
           const hit = hitTest(ev.clientX, ev.clientY);
+          const isCustom = g.original.type === "custom";
           let stationId = g.original.stationId;
           let userCID = g.original.userCID;
           if (hit?.kind === "station") stationId = hit.id;
-          if (hit?.kind === "controller") userCID = hit.id;
+          // Nur Controller-Blöcke lassen sich auf eine andere Controller-Zeile ziehen
+          if (hit?.kind === "controller" && !isCustom) userCID = hit.id;
           applyDrag({
             kind: "move",
             assignmentId: g.original.id,
@@ -625,8 +692,9 @@ export function RosterEditor({
           applyDrag(null);
           if (!g?.original) return;
           if (!g.moved || !current || current.kind !== "move") {
-            // Klick ohne Bewegung → Auswahl umschalten
+            // Klick ohne Bewegung → Block auswählen + zugehörigen Controller in die Seitenleiste
             setSelectedId((sel) => (sel === g.original!.id ? null : g.original!.id));
+            if (g.original.userCID != null) setSelectedCID(g.original.userCID);
             return;
           }
           const changed =
@@ -826,8 +894,12 @@ export function RosterEditor({
           const current = dragRef.current;
           gestureRef.current = null;
           applyDrag(null);
+          // Klick ohne Bewegung → Controller in der Seitenleiste auswählen
+          if (!g?.moved) {
+            setSelectedCID((sel) => (sel === userCID ? null : userCID));
+            return;
+          }
           if (
-            g?.moved &&
             current &&
             current.kind === "assign-controller" &&
             current.stationId !== null &&
@@ -839,7 +911,9 @@ export function RosterEditor({
               if (v.reason) toast.error(v.reason);
             } else {
               if (v.warn && v.reason) toast.warning(v.reason);
-              createAssignment(current.stationId, current.userCID, current.start, current.end);
+              createAssignment(current.stationId, current.start, current.end, {
+                userCID: current.userCID,
+              });
             }
           }
         }
@@ -963,6 +1037,22 @@ export function RosterEditor({
     [assignments]
   );
 
+  // Ausgewählter Controller für die Seitenleiste
+  const selectedController: RosterController | null = useMemo(
+    () => (selectedCID != null ? controllerByCid.get(selectedCID) ?? null : null),
+    [selectedCID, controllerByCid]
+  );
+  const selectedShiftLabels = useMemo(() => {
+    if (selectedCID == null) return [];
+    return assignments
+      .filter((a) => a.userCID === selectedCID)
+      .sort((a, b) => a.start - b.start)
+      .map((a) => {
+        const st = stationById.get(a.stationId)?.callsign ?? "?";
+        return `${st} ${minuteToHM(eventStart, a.start)}–${minuteToHM(eventStart, a.end)}z`;
+      });
+  }, [selectedCID, assignments, stationById, eventStart]);
+
   const visibleControllers = useMemo(() => {
     const q = controllerSearch.trim().toLowerCase();
     let list = controllers;
@@ -1071,8 +1161,9 @@ export function RosterEditor({
     board: "station" | "controller"
   ): React.ReactNode => {
     const station = stationById.get(a.stationId);
-    const controller = controllerByCid.get(a.userCID);
+    const controller = a.userCID != null ? controllerByCid.get(a.userCID) : undefined;
     const meta = station ? stationMetaFor(station.callsign) : null;
+    const isCustom = a.type === "custom";
     const isDragTarget =
       drag !== null &&
       (drag.kind === "move" || drag.kind === "resize-start" || drag.kind === "resize-end") &&
@@ -1080,13 +1171,14 @@ export function RosterEditor({
     const blockWarnings = warningsByAssignment.get(a.id) ?? [];
     const selected = selectedId === a.id;
 
-    let colorCls = blockColor(meta?.group ?? null);
+    let colorCls = isCustom ? CUSTOM_BLOCK_COLOR : blockColor(meta?.group ?? null);
     if (isDragTarget && dragValidity) {
       if (!dragValidity.valid) colorCls = "bg-destructive/80 border-destructive";
       else if (dragValidity.warn) colorCls = "bg-amber-500/85 border-amber-600";
     }
 
-    const label = board === "station" ? controller?.name ?? `CID ${a.userCID}` : station?.callsign ?? "?";
+    const who = isCustom ? a.label ?? "Custom" : controller?.name ?? `CID ${a.userCID}`;
+    const label = board === "station" ? who : station?.callsign ?? "?";
 
     return (
       <div
@@ -1102,7 +1194,7 @@ export function RosterEditor({
           touchAction: "none",
         }}
         onPointerDown={(e) => startMove(e, a)}
-        title={`${station?.callsign ?? "?"} • ${controller?.name ?? a.userCID}\n${minuteToHM(eventStart, a.start)}z – ${minuteToHM(eventStart, a.end)}z (${formatDuration(a.end - a.start)})${
+        title={`${station?.callsign ?? "?"} • ${who}\n${minuteToHM(eventStart, a.start)}z – ${minuteToHM(eventStart, a.end)}z (${formatDuration(a.end - a.start)})${
           blockWarnings.length > 0 ? "\n⚠ " + blockWarnings.map((w) => w.message).join("\n⚠ ") : ""
         }`}
       >
@@ -1151,16 +1243,34 @@ export function RosterEditor({
   const statusPublished = event.status === "ROSTER_PUBLISHED";
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Kopfzeile mit Zurück-Option und Aktionen */}
+      <header className="border-b px-3 py-2 shrink-0 flex items-center gap-2 flex-wrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/admin/events/${event.id}`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Zurück
+        </Button>
+        <div className="min-w-0 hidden md:block border-r pr-3 mr-1">
+          <p className="text-sm font-semibold truncate max-w-48">{event.name}</p>
+          <p className="text-xs text-muted-foreground">Besetzungsplan</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap flex-1">
           <Badge variant="outline">
             {minuteToHM(eventStart, 0)}z – {minuteToHM(eventStart, totalMinutes)}z
           </Badge>
-          <Badge variant="outline">{slotMinutes}-min-Raster</Badge>
-          <Badge variant="outline">{stations.length} Stationen</Badge>
-          <Badge variant="outline">{controllers.length} Anmeldungen</Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {slotMinutes}-min
+          </Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {stations.length} Stat.
+          </Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {controllers.length} Anm.
+          </Badge>
           <Badge
             variant="outline"
             className={liveConnected ? "text-emerald-600 border-emerald-300" : "text-muted-foreground"}
@@ -1170,25 +1280,18 @@ export function RosterEditor({
                 : "Live-Verbindung getrennt – wird automatisch neu aufgebaut"
             }
           >
-            {liveConnected ? (
-              <>
-                <Wifi className="h-3 w-3 mr-1" /> Live
-              </>
-            ) : (
-              <>
-                <WifiOff className="h-3 w-3 mr-1" /> Offline
-              </>
-            )}
+            {liveConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
           </Badge>
           {warnings.length > 0 && (
             <button onClick={() => setWarningsOpen((o) => !o)}>
               <Badge className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer">
                 <AlertTriangle className="h-3 w-3 mr-1" />
-                {warnings.length} {warnings.length === 1 ? "Warnung" : "Warnungen"}
+                {warnings.length}
               </Badge>
             </button>
           )}
         </div>
+
         <div className="flex items-center gap-1.5 flex-wrap">
           <Button
             variant="outline"
@@ -1210,15 +1313,37 @@ export function RosterEditor({
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setSnapshotsOpen(true)}>
+            <History className="h-4 w-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Snapshots</span>
+          </Button>
+          {canManageSignups && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSignupDialog({ signup: null })}
+            >
+              <UserPlus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Anmeldung</span>
+            </Button>
+          )}
           {canEdit && (
             <Button variant="outline" size="sm" onClick={() => setStationsDialogOpen(true)}>
-              <Settings2 className="h-4 w-4 mr-1.5" /> Stationen
+              <Settings2 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Stationen</span>
+            </Button>
+          )}
+          {canManageEditors && (
+            <Button variant="outline" size="sm" onClick={() => setEditorsOpen(true)}>
+              <ShieldCheck className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Bearbeiter</span>
             </Button>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 mr-1.5" /> Export
+                <Download className="h-4 w-4 sm:mr-1.5" />
+                <span className="hidden sm:inline">Export</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -1232,15 +1357,20 @@ export function RosterEditor({
           </DropdownMenu>
           {canEdit && !statusPublished && (
             <Button size="sm" onClick={() => setPublishDialogOpen(true)}>
-              <Eye className="h-4 w-4 mr-1.5" /> Veröffentlichen
+              <Eye className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Veröffentlichen</span>
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Warnungen */}
-      {warnings.length > 0 && warningsOpen && (
-        <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+      {/* Hauptbereich: Board links, Seitenleiste rechts */}
+      <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Warnungen */}
+          {warnings.length > 0 && warningsOpen && (
+            <div className="p-3 pb-0">
+            <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
           <AlertTriangle className="h-4 w-4 text-amber-600" />
           <AlertTitle className="flex items-center justify-between">
             <span>Planungshinweise</span>
@@ -1272,12 +1402,12 @@ export function RosterEditor({
             </ul>
           </AlertDescription>
         </Alert>
-      )}
+            </div>
+          )}
 
-      {/* Gemeinsamer Scroll-Container für beide Boards */}
-      <div className="border rounded-xl overflow-hidden bg-background">
-        <div className="overflow-x-auto overflow-y-visible">
-          <div style={{ width: LABEL_W + timelineWidth, minWidth: "100%" }}>
+          {/* Gemeinsamer Scroll-Container für beide Boards (füllt den Bereich) */}
+          <div className="flex-1 min-h-0 overflow-auto m-3 border rounded-xl bg-background">
+            <div style={{ width: LABEL_W + timelineWidth, minWidth: "100%" }}>
             {/* Zeit-Header */}
             <div className="flex sticky top-0 z-40 bg-background border-b">
               <div
@@ -1497,17 +1627,25 @@ export function RosterEditor({
               const bestGroup = getControllerGroupForStation(c.entry, null, event.airports);
               const isDragSource =
                 drag?.kind === "assign-controller" && drag.userCID === c.cid;
+              const isSelectedRow = selectedCID === c.cid;
               return (
                 <div
                   key={c.cid}
-                  className={`flex border-b last:border-b-0 ${isDragSource ? "bg-primary/5" : ""}`}
+                  className={`flex border-b last:border-b-0 ${
+                    isSelectedRow ? "bg-primary/10" : isDragSource ? "bg-primary/5" : ""
+                  }`}
                 >
                   <div
-                    className={`sticky left-0 z-20 bg-background border-r px-2 shrink-0 flex items-center gap-1 select-none ${
-                      canEdit ? "cursor-grab active:cursor-grabbing" : ""
-                    }`}
+                    className={`sticky left-0 z-20 border-r px-2 shrink-0 flex items-center gap-1 select-none ${
+                      isSelectedRow ? "bg-primary/10" : "bg-background"
+                    } ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
                     style={{ width: LABEL_W, height: ROW_H, touchAction: "none" }}
                     onPointerDown={(e) => startAssignDrag(e, c.cid)}
+                    onClick={
+                      canEdit
+                        ? undefined
+                        : () => setSelectedCID((sel) => (sel === c.cid ? null : c.cid))
+                    }
                   >
                     {canEdit && (
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
@@ -1536,15 +1674,6 @@ export function RosterEditor({
                         {minutes > 0 ? ` • ${formatDuration(minutes)}` : " • frei"}
                       </div>
                     </div>
-                    <ControllerInfoPopover
-                      controller={c}
-                      bestGroup={bestGroup}
-                      assignedMinutes={minutes}
-                      eventStart={eventStart}
-                      note={noteByCid.get(c.cid) ?? ""}
-                      canEdit={canEdit}
-                      onSaveNote={(n) => saveNote(c.cid, n)}
-                    />
                     <Badge
                       className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
                     >
@@ -1588,20 +1717,46 @@ export function RosterEditor({
                 Keine Controller gefunden.
               </div>
             )}
+            </div>
           </div>
-        </div>
-      </div>
 
-      {canEdit && (
-        <p className="text-xs text-muted-foreground">
-          <strong>Bedienung:</strong> Auf einer Stationszeile klicken oder ziehen, um einen
-          Zeitraum zu besetzen • Controller von unten auf eine Station ziehen • Blöcke
-          verschieben (auch zwischen Stationen/Controllern) • An den Rändern ziehen zum
-          Verlängern/Kürzen • Stationen am Griff umsortieren • Info-Symbol am Controller für
-          Wunschstationen, Remarks & interne Notizen • Block anklicken und{" "}
-          <kbd className="border rounded px-1">Entf</kbd> zum Löschen. Alle Zeiten UTC.
-        </p>
-      )}
+          {canEdit && (
+            <p className="text-[11px] text-muted-foreground px-3 pb-2 shrink-0 hidden md:block">
+              <strong>Bedienung:</strong> Stationszeile ziehen/klicken zum Besetzen (Dialog bietet
+              auch Custom-Blöcke wie Combined/Training) • Controller von unten auf eine Station
+              ziehen • Blöcke verschieben & an den Rändern verlängern • Stationen am Griff
+              umsortieren • Controller anklicken für Infos in der Seitenleiste •{" "}
+              <kbd className="border rounded px-1">Entf</kbd> löscht den gewählten Block. Zeiten UTC.
+            </p>
+          )}
+        </div>
+
+        {/* Immer sichtbare Seitenleiste zum ausgewählten Controller */}
+        <aside className="w-80 xl:w-96 border-l shrink-0 hidden lg:block bg-muted/10">
+          <ControllerSidePanel
+            eventId={event.id}
+            controller={selectedController}
+            bestGroup={
+              selectedController
+                ? getControllerGroupForStation(selectedController.entry, null, event.airports)
+                : null
+            }
+            assignedMinutes={selectedCID != null ? assignedMinutes.get(selectedCID) ?? 0 : 0}
+            shiftLabels={selectedShiftLabels}
+            eventStart={eventStart}
+            note={selectedCID != null ? noteByCid.get(selectedCID) ?? "" : ""}
+            canEdit={canEdit}
+            canManageSignups={canManageSignups}
+            onClose={() => setSelectedCID(null)}
+            onSaveNote={(n) => (selectedCID != null ? saveNote(selectedCID, n) : Promise.resolve(false))}
+            onEditSignup={() => {
+              const entry = selectedController?.entry ?? null;
+              if (entry) setSignupDialog({ signup: entry });
+            }}
+            apiHeaders={apiHeaders}
+          />
+        </aside>
+      </div>
 
       {/* Dialog: Controller für Zeitraum auswählen */}
       <AssignDialog
@@ -1623,7 +1778,21 @@ export function RosterEditor({
               return;
             }
             if (v.warn && v.reason) toast.warning(v.reason);
-            createAssignment(assignDialog.stationId, cid, assignDialog.start, assignDialog.end);
+            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
+              userCID: cid,
+            });
+            setSelectedCID(cid);
+            setAssignDialog(null);
+          }
+        }}
+        onCustom={(label) => {
+          if (assignDialog) {
+            const v = validate(assignDialog.stationId, null, assignDialog.start, assignDialog.end);
+            if (!v.valid) {
+              if (v.reason) toast.error(v.reason);
+              return;
+            }
+            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, { label });
             setAssignDialog(null);
           }
         }}
@@ -1669,6 +1838,69 @@ export function RosterEditor({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Snapshots */}
+      <SnapshotsDialog
+        open={snapshotsOpen}
+        onOpenChange={setSnapshotsOpen}
+        eventId={event.id}
+        canEdit={canEdit}
+        apiHeaders={apiHeaders}
+        onRestored={onReload}
+      />
+
+      {/* Dialog: Bearbeiter verwalten */}
+      {canManageEditors && (
+        <EditorsDialog
+          open={editorsOpen}
+          onOpenChange={setEditorsOpen}
+          eventId={event.id}
+          apiHeaders={apiHeaders}
+        />
+      )}
+
+      {/* Dialog: Anmeldung bearbeiten / hinzufügen */}
+      {signupDialog && (
+        <SignupEditDialog
+          open={true}
+          onClose={() => setSignupDialog(null)}
+          event={{
+            id: event.id,
+            name: event.name,
+            startTime: event.startTime,
+            endTime: event.endTime,
+            airports: event.airports,
+            firCode: event.firCode,
+            signupSlotMinutes: event.signupSlotMinutes,
+          }}
+          signup={
+            signupDialog.signup
+              ? {
+                  id: signupDialog.signup.id,
+                  userCID: signupDialog.signup.user.cid,
+                  user: {
+                    cid: signupDialog.signup.user.cid,
+                    name: signupDialog.signup.user.name,
+                    rating: signupDialog.signup.user.rating,
+                  },
+                  availability: signupDialog.signup.availability,
+                  preferredStations: signupDialog.signup.preferredStations,
+                  remarks: signupDialog.signup.remarks,
+                  excludedAirports: signupDialog.signup.excludedAirports,
+                  deletedAt: signupDialog.signup.deletedAt,
+                }
+              : null
+          }
+          onSaved={() => {
+            setSignupDialog(null);
+            onReloadAllRef.current();
+          }}
+          onDeleted={() => {
+            setSignupDialog(null);
+            onReloadAllRef.current();
+          }}
+        />
+      )}
     </div>
   );
 }

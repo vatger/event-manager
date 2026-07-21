@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
 import { userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
 
@@ -19,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
   }
   const { eventId, userId } = await params;
 
-  const hasManagePermission = await userhasPermissiononEvent(Number(user.cid), Number(eventId), "signups.manage");
+  const hasManagePermission = (await userhasPermissiononEvent(Number(user.cid), Number(eventId), "signups.manage")) || (await canManageEventSignups(Number(user.cid), Number(eventId)));
   const isOwnSignup = Number(user.cid) === Number(userId);
   if (!isOwnSignup && !hasManagePermission) {
     return NextResponse.json({ error: "Keine Berechtigung für dieses Signup" }, { status: 403 });
@@ -60,7 +61,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
-  const hasManagePermission = await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage");
+  const hasManagePermission = (await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage")) || (await canManageEventSignups(Number(session.user.cid), Number(eventId)));
   const isOwnSignup = Number(session.user.cid) === Number(userId);
   if (!isOwnSignup && !hasManagePermission) {
     return NextResponse.json({ 
@@ -266,7 +267,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
   if (!eventdata) return NextResponse.json({error: "Das Event existiert nicht mehr"}, {status: 500})
   if(!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
-  const hasManagePermission = await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage");
+  const hasManagePermission = (await userhasPermissiononEvent(Number(session.user.cid), Number(eventId), "signups.manage")) || (await canManageEventSignups(Number(session.user.cid), Number(eventId)));
   
   const isOwnSignup = Number(session.user.cid) === Number(userId);
   

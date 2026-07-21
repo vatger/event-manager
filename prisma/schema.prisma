@@ -134,6 +134,8 @@ model EventRoster {
   stations    EventRosterStation[]
   assignments EventRosterAssignment[]
   notes       EventRosterNote[]
+  editors     EventRosterEditor[]
+  snapshots   EventRosterSnapshot[]
 }
 
 // Interne Planungsnotiz des Event-Teams zu einem Controller (pro Roster)
@@ -152,6 +154,34 @@ model EventRosterNote {
   @@index([rosterId])
 }
 
+// Explizit berechtigte Bearbeiter eines Rosters (von Verantwortlichen eingetragen)
+model EventRosterEditor {
+  id        Int      @id @default(autoincrement())
+  rosterId  Int
+  userCID   Int
+  addedByCID Int?
+  createdAt DateTime @default(now())
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@unique([rosterId, userCID])
+  @@index([rosterId])
+}
+
+// Gespeicherter Zwischenstand eines Rosters (Snapshot zum Zurückkehren)
+model EventRosterSnapshot {
+  id           Int      @id @default(autoincrement())
+  rosterId     Int
+  name         String
+  data         Json // { slotMinutes, stations: [...], assignments: [...] }
+  createdByCID Int?
+  createdAt    DateTime @default(now())
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@index([rosterId])
+}
+
 // Confirmed stations of a roster (imported from Event.staffedStations, then editable)
 model EventRosterStation {
   id        Int    @id @default(autoincrement())
@@ -166,12 +196,17 @@ model EventRosterStation {
   @@index([rosterId])
 }
 
-// A controller staffing a station for a time range within the event
+// A block on a station timeline within the event.
+// type = "controller": a signed-up controller staffs the station (userCID set)
+// type = "custom":     a custom label block, e.g. "Combined (MGN)" or "Training" (label set)
 model EventRosterAssignment {
   id        Int      @id @default(autoincrement())
   rosterId  Int
   stationId Int
-  userCID   Int
+  type      String   @default("controller") // "controller" | "custom"
+  userCID   Int? // null for custom blocks
+  label     String? // custom block label, e.g. "Combined (MGN)"
+  color     String? // optional color hint for custom blocks
   startTime DateTime
   endTime   DateTime
   createdAt DateTime @default(now())

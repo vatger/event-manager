@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import {
-  canManageEventRoster,
+  canEditEventRoster,
   getRosterForEvent,
   validateAssignment,
 } from "@/lib/roster/eventRosterService";
@@ -12,6 +12,8 @@ import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 const updateSchema = z.object({
   stationId: z.number().int().optional(),
   userCID: z.number().int().optional(),
+  label: z.string().max(60).optional(),
+  color: z.string().max(30).optional(),
   startTime: z
     .string()
     .refine((v) => !isNaN(Date.parse(v)), { message: "Invalid startTime" })
@@ -29,7 +31,7 @@ async function authorize(eventId: number) {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) return { error: NextResponse.json({ error: "Event not found" }, { status: 404 }) };
 
-  if (!(await canManageEventRoster(Number(user.cid), eventId))) {
+  if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { event };
@@ -66,7 +68,10 @@ export async function PATCH(
 
   const input = {
     stationId: parsed.data.stationId ?? existing.stationId,
+    type: existing.type as "controller" | "custom",
     userCID: parsed.data.userCID ?? existing.userCID,
+    label: parsed.data.label !== undefined ? parsed.data.label.trim() : existing.label,
+    color: parsed.data.color !== undefined ? parsed.data.color : existing.color,
     startTime: parsed.data.startTime ? new Date(parsed.data.startTime) : existing.startTime,
     endTime: parsed.data.endTime ? new Date(parsed.data.endTime) : existing.endTime,
   };
@@ -81,7 +86,14 @@ export async function PATCH(
 
   const assignment = await prisma.eventRosterAssignment.update({
     where: { id: assignmentId },
-    data: input,
+    data: {
+      stationId: input.stationId,
+      userCID: input.userCID,
+      label: input.label,
+      color: input.color,
+      startTime: input.startTime,
+      endTime: input.endTime,
+    },
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { canManageEventRoster } from "@/lib/roster/eventRosterService";
+import { canEditEventRoster } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 
 const putSchema = z.object({
@@ -22,7 +22,7 @@ export async function PUT(
   const eventId = Number(idParam);
   if (isNaN(eventId)) return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
 
-  if (!(await canManageEventRoster(Number(user.cid), eventId))) {
+  if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

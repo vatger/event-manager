@@ -11,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
-import { Ban, CalendarX2, Clock, Search, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Ban, CalendarX2, Clock, Plus, Search, Star } from "lucide-react";
 import type { RosterController, RosterStation, StationMeta, Assignment } from "../_lib/rosterTypes";
 import {
   formatDuration,
@@ -19,6 +20,9 @@ import {
   minuteToHM,
   suggestControllers,
 } from "../_lib/rosterUtils";
+
+/** Häufige Custom-Block-Vorlagen */
+const CUSTOM_PRESETS = ["Combined", "Training", "Sweatbox", "Mentoring", "Pause"];
 
 interface AssignDialogProps {
   open: boolean;
@@ -32,6 +36,7 @@ interface AssignDialogProps {
   controllers: RosterController[];
   assignments: Assignment[];
   onAssign: (cid: number) => void;
+  onCustom: (label: string) => void;
 }
 
 /**
@@ -51,8 +56,10 @@ export function AssignDialog({
   controllers,
   assignments,
   onAssign,
+  onCustom,
 }: AssignDialogProps) {
   const [search, setSearch] = useState("");
+  const [customLabel, setCustomLabel] = useState("");
 
   const suggestions = useMemo(() => {
     if (!station || !stationMeta) return [];
@@ -173,6 +180,54 @@ export function AssignDialog({
               );
             })
           )}
+        </div>
+
+        {/* Custom-Block statt Controller eintragen */}
+        <div className="border-t pt-3 space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Oder benutzerdefinierten Block eintragen
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {CUSTOM_PRESETS.map((preset) => (
+              <Button
+                key={preset}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  onCustom(preset);
+                  setCustomLabel("");
+                }}
+              >
+                {preset}
+              </Button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="z. B. Combined (MGN)"
+              value={customLabel}
+              onChange={(e) => setCustomLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && customLabel.trim()) {
+                  onCustom(customLabel.trim());
+                  setCustomLabel("");
+                }
+              }}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => {
+                if (customLabel.trim()) {
+                  onCustom(customLabel.trim());
+                  setCustomLabel("");
+                }
+              }}
+              disabled={!customLabel.trim()}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Eintragen
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
