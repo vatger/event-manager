@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/BrandLogo";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ChevronDown, LogOut } from "lucide-react";
@@ -161,19 +161,11 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
     <Sidebar className="border-r bg-background">
       <SidebarHeader className="border-b p-4">
       <Link href="/">
-        <div className="flex items-center gap-2 px-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-900">
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={36}
-              height={36}
-              className="p-1 m-2 rounded-lg"
-            />
-            </div>
-            <div className="flex flex-col">
-                <span className="font-bold">Eventmanager</span>
-                <span className="text-xs text-muted-foreground">Adminpanel</span>
+        <div className="flex items-center gap-2.5 px-2 py-1">
+            <BrandLogo variant="auto" height={28} />
+            <div className="flex flex-col border-l pl-2.5">
+                <span className="font-semibold leading-tight">Eventmanager</span>
+                <span className="text-xs text-muted-foreground leading-tight">Adminpanel</span>
             </div>
         </div>
         </Link>

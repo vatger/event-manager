@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import Image from "next/image";
+import { BrandLogo } from "@/components/BrandLogo";
 import { CodesandboxIcon, LogInIcon, Plane } from "lucide-react";
 import Link from "next/link";
 import { Session } from "next-auth";
@@ -17,7 +17,7 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
   // Wenn bereits angemeldet
   if (session) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="shadow-2xl border-0 dark:border max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Bereits angemeldet</CardTitle>
@@ -40,23 +40,15 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-2xl border-0 dark:border">
           <CardHeader className="space-y-4 pb-2">
-            <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-900 shadow-lg">
-                <Image
-                  src="/logo.png"
-                  alt="VATGER Logo"
-                  width={64}
-                  height={64}
-                  className="p-2 rounded-2xl"
-                />
-              </div>
+            <div className="flex justify-center py-2">
+              <BrandLogo variant="auto" height={56} priority />
             </div>
             <div className="space-y-2 text-center">
-              <CardTitle className="text-2xl font-bold tracking-tight">
+              <CardTitle className="text-2xl font-semibold tracking-tight">
                 Willkommen zurück
               </CardTitle>
               <CardDescription className="text-base">
@@ -68,12 +60,10 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
             {isDevMode && (
               <Button 
                 onClick={() => signIn("vatsim-sandbox", { callbackUrl: "/" })}
+                variant="outline"
                 className="
                   w-full h-12
-                  bg-blue-900
-                  text-white
-                  transition-all duration-400
-                  dark:hover:text-black
+                  transition-all duration-200
                 "
                 size="lg"
               >
@@ -85,10 +75,7 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
               onClick={() => signIn("vatsim", { callbackUrl: "/" })}
               className="
                 w-full h-12
-                bg-blue-900
-                text-white
-                transition-all duration-400
-                dark:hover:text-black
+                transition-all duration-200
               "
               size="lg"
             >

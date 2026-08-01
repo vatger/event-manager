@@ -56,7 +56,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { getBadgeClassForEndorsement, getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
 import type { SignupTableEntry } from "@/lib/cache/types";
 import type {
   ApiRoster,
@@ -132,25 +132,14 @@ interface DragValidity {
 }
 
 // Farbschema pro Stationsgruppe für Zuweisungsblöcke
+// (kategoriale Stations-Palette aus globals.css, siehe utils/EndorsementBadge)
 function blockColor(group: string | null): string {
-  switch (group) {
-    case "DEL":
-      return "bg-emerald-600/85 border-emerald-700";
-    case "GND":
-      return "bg-blue-600/85 border-blue-700";
-    case "TWR":
-      return "bg-amber-600/85 border-amber-700";
-    case "APP":
-      return "bg-purple-600/85 border-purple-700";
-    case "CTR":
-      return "bg-red-600/85 border-red-700";
-    default:
-      return "bg-slate-600/85 border-slate-700";
-  }
+  return getSolidClassForStationGroup(group);
 }
 
 // Custom-Blöcke (Combined, Training, …) heben sich klar von Controllern ab
-const CUSTOM_BLOCK_COLOR = "bg-zinc-500/80 border-zinc-600 [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.12)_0_6px,transparent_6px_12px)]";
+const CUSTOM_BLOCK_COLOR =
+  "bg-station-none border-station-none [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.12)_0_6px,transparent_6px_12px)]";
 
 export function RosterEditor({
   event,

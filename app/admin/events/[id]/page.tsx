@@ -62,6 +62,7 @@ import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import type { EventTask } from "@/types/task";
+import { getEventStatusStyle } from "@/utils/eventStatus";
 
 interface TeamMember {
   cid: number;
@@ -70,15 +71,6 @@ interface TeamMember {
   role: string;
 }
 
-const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive"; color: string }> = {
-  DRAFT: { label: "Entwurf", variant: "outline", color: "bg-gray-100 text-gray-700 border-gray-300" },
-  PLANNING: { label: "Planung", variant: "secondary", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  SIGNUP_OPEN: { label: "Anmeldung offen", variant: "default", color: "bg-green-100 text-green-700 border-green-200" },
-  SIGNUP_CLOSED: { label: "Anmeldung geschlossen", variant: "secondary", color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  ROSTER_PUBLISHED: { label: "Roster veröffentlicht", variant: "default", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  COMPLETED: { label: "Abgeschlossen", variant: "secondary", color: "bg-gray-100 text-gray-700 border-gray-300" },
-  CANCELLED: { label: "Abgesagt", variant: "destructive", color: "bg-red-100 text-red-700 border-red-200" },
-};
 
 export default function EventOverviewPage() {
   const params = useParams();
@@ -147,7 +139,7 @@ export default function EventOverviewPage() {
       if (!res.ok) throw new Error("Fehler beim Aktualisieren");
       const updatedEvent = await res.json();
       setEvent(updatedEvent);
-      toast.success(`Event Status geändert zu ${statusConfig[newStatus]?.label || newStatus}`);
+      toast.success(`Event Status geändert zu ${getEventStatusStyle(newStatus).label}`);
     } catch (error) {
       console.error("Fehler:", error);
       toast.error("Fehler beim Aktualisieren des Status");
@@ -270,7 +262,7 @@ export default function EventOverviewPage() {
     );
   }
 
-  const status = statusConfig[event.status] || { label: event.status, variant: "secondary", color: "" };
+  const status = getEventStatusStyle(event.status);
 
   return (
     <div className="space-y-6">

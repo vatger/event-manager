@@ -11,9 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
-import Image from "next/image";
 import { LogOut, ChevronDown, CalendarRange, CalendarDays, Monitor, Moon, Sun } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
+import { BrandLogo } from "@/components/BrandLogo";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 import { ModeToggle } from "@/components/ModeToggle";
 import { useTheme } from "next-themes";
@@ -38,21 +38,15 @@ export default function Header() {
     <header className="w-full border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
       <div className="px-4 sm:px-6">
         <div className="flex justify-between items-center h-16">
-          {/* Logo Bereich - unverändert */}
+          {/* Markenbereich: Logo unverändert auf neutralem Grund, mit Schutzraum */}
           <Link href="/">
-            <div className="flex items-center gap-3 px-2 hover:bg-accent rounded-lg transition-colors duration-200">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-900 shadow-sm">
-              <Image
-                src="/logo.png"
-                alt="Logo"
-                width={40}
-                height={40}
-                className="p-1 m-2 rounded-lg"
-              />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-foreground tracking-tight">Eventmanager</span>
-                <span className="text-xs text-muted-foreground">VATSIM Germany</span>
+            <div className="flex items-center gap-3 px-2 py-1.5 hover:bg-accent rounded-lg transition-colors duration-200">
+              <BrandLogo variant="auto" height={32} priority />
+              <div className="hidden sm:flex flex-col border-l pl-3">
+                <span className="font-semibold text-foreground tracking-tight leading-tight">
+                  Eventmanager
+                </span>
+                <span className="text-xs text-muted-foreground leading-tight">VATSIM Germany</span>
               </div>
             </div>
           </Link>
@@ -138,7 +132,7 @@ export default function Header() {
                     <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center">
-                          <Moon className="w-4 h-4 mr-3 text-indigo-400" />
+                          <Moon className="w-4 h-4 mr-3 text-muted-foreground" />
                           <span className="text-sm font-medium">Dark Mode</span>
                         </div>
                         
@@ -154,7 +148,7 @@ export default function Header() {
                     {/* Sign Out */}
                     <DropdownMenuItem 
                       onClick={() => signOut()}
-                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950"
+                      className="px-3 py-2.5 rounded-lg cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       <div className="flex flex-col">
@@ -227,7 +221,7 @@ export default function Header() {
                     <DropdownMenuItem asChild className="px-3 py-2.5 rounded-lg cursor-pointer">
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center">
-                          <Moon className="w-4 h-4 mr-3 text-indigo-400" />
+                          <Moon className="w-4 h-4 mr-3 text-muted-foreground" />
                           <span className="text-sm font-medium">Dark Mode</span>
                         </div>
                         
@@ -243,7 +237,7 @@ export default function Header() {
                     {/* Sign Out */}
                     <DropdownMenuItem 
                       onClick={() => signOut()}
-                      className="px-3 py-2.5 rounded-lg cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-50 dark:focus:bg-red-950"
+                      className="px-3 py-2.5 rounded-lg cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
                     >
                       <LogOut className="w-4 h-4 mr-3" />
                       <span className="text-sm font-medium">Abmelden</span>

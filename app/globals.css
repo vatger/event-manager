@@ -1,13 +1,21 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Offizielle VATGER-Markenfarben (Brandbook → npm-Paket @vatger/basecss).
+   Liefert die Skalen primary/secondary/accent/success/warning/danger (50–950)
+   sowie die vatger-* Semantik-Aliase. Nicht lokal überschreiben – Updates
+   kommen über das Paket. */
+@import "@vatger/basecss/vars.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Hausschrift laut Brandbook: Vatger (Basis: Plus Jakarta Sans).
+     Monospace ist ausdrücklich ausgenommen und nutzt den System-Stack. */
+  --font-sans: var(--font-vatger);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -37,79 +45,178 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* Kategoriale Stationsfarben (siehe Block "Stationsgruppen" unten).
+     Erzeugt u. a. bg-station-twr, bg-station-twr-soft, text-station-twr-text */
+  --color-station-del: var(--station-del);
+  --color-station-del-soft: var(--station-del-soft);
+  --color-station-del-text: var(--station-del-text);
+  --color-station-gnd: var(--station-gnd);
+  --color-station-gnd-soft: var(--station-gnd-soft);
+  --color-station-gnd-text: var(--station-gnd-text);
+  --color-station-twr: var(--station-twr);
+  --color-station-twr-soft: var(--station-twr-soft);
+  --color-station-twr-text: var(--station-twr-text);
+  --color-station-app: var(--station-app);
+  --color-station-app-soft: var(--station-app-soft);
+  --color-station-app-text: var(--station-app-text);
+  --color-station-ctr: var(--station-ctr);
+  --color-station-ctr-soft: var(--station-ctr-soft);
+  --color-station-ctr-text: var(--station-ctr-text);
+  --color-station-none: var(--station-none);
+  --color-station-none-soft: var(--station-none-soft);
+  --color-station-none-text: var(--station-none-text);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* =====================================================================
+   Light Mode
+   Brandbook (Web-Design): Seitenhintergrund secondary-50, Karten weiß mit
+   shadow-md, Primärtext primary(-900), Sekundärtext secondary-600.
+   ===================================================================== */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.13 0.028 261.692);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.21 0.034 264.665);
-  --primary-foreground: oklch(0.985 0.002 247.839);
-  --secondary: oklch(0.967 0.003 264.542);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.967 0.003 264.542);
-  --accent-foreground: oklch(0.21 0.034 264.665);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.928 0.006 264.531);
-  --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.707 0.022 261.325);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.002 247.839);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.21 0.034 264.665);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.967 0.003 264.542);
-  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.707 0.022 261.325);
+  /* Ergibt exakt die Radien-Skala der Marke: sm .25 / md .375 / lg .5 / xl .75 */
+  --radius: 0.5rem;
+
+  --background: var(--color-secondary-50);
+  --foreground: var(--color-primary-900);
+  --card: var(--color-white);
+  --card-foreground: var(--color-primary-900);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-primary-900);
+
+  --primary: var(--color-primary-900);
+  --primary-foreground: var(--color-secondary-50);
+  --secondary: var(--color-secondary-100);
+  --secondary-foreground: var(--color-primary-900);
+  --muted: var(--color-secondary-100);
+  --muted-foreground: var(--color-secondary-600);
+
+  /* Achtung: --accent ist die dezente shadcn-Hover-/Aktivfläche, NICHT der
+     Markenakzent. Der Markenakzent (Koralle) ist accent-500 bzw. die
+     Utilities text-vatger-accent / bg-vatger-accent und ist laut Brandbook
+     Links, Fokus, Auswahl und gezielter Betonung vorbehalten. */
+  --accent: var(--color-secondary-100);
+  --accent-foreground: var(--color-primary-900);
+
+  --destructive: var(--color-danger-700);
+  --border: var(--color-secondary-200);
+  --input: var(--color-secondary-200);
+  /* Fokusring in Akzentfarbe (Brandbook: accent für Fokus/Auswahl) */
+  --ring: var(--color-accent-500);
+
+  --chart-1: var(--color-primary-700);
+  --chart-2: var(--color-accent-500);
+  --chart-3: var(--color-success-700);
+  --chart-4: var(--color-warning-700);
+  --chart-5: var(--color-secondary-500);
+
+  --sidebar: var(--color-white);
+  --sidebar-foreground: var(--color-primary-900);
+  --sidebar-primary: var(--color-primary-900);
+  --sidebar-primary-foreground: var(--color-secondary-50);
+  --sidebar-accent: var(--color-secondary-100);
+  --sidebar-accent-foreground: var(--color-primary-900);
+  --sidebar-border: var(--color-secondary-200);
+  --sidebar-ring: var(--color-accent-500);
+
+  /* Stationsgruppen – hell */
+  --station-del-soft: oklch(0.94 0.035 165);
+  --station-del-text: oklch(0.42 0.09 165);
+  --station-gnd-soft: oklch(0.94 0.03 250);
+  --station-gnd-text: oklch(0.4 0.08 250);
+  --station-twr-soft: oklch(0.95 0.045 80);
+  --station-twr-text: oklch(0.45 0.1 80);
+  --station-app-soft: oklch(0.94 0.035 305);
+  --station-app-text: oklch(0.4 0.1 305);
+  --station-ctr-soft: oklch(0.94 0.04 20);
+  --station-ctr-text: oklch(0.42 0.13 20);
+  --station-none-soft: var(--color-secondary-100);
+  --station-none-text: var(--color-secondary-700);
 }
 
+/* =====================================================================
+   Dark Mode
+   Brandbook: Seitenhintergrund secondary-950, Karten secondary-900,
+   Ränder secondary-800, Fließtext secondary-300. Tonale Abstufungen
+   statt reinem Schwarz oder zu hellen Rändern.
+   ===================================================================== */
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.928 0.006 264.531);
-  --primary-foreground: oklch(0.21 0.034 264.665);
-  --secondary: oklch(0.278 0.033 256.848);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.278 0.033 256.848);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: var(--color-secondary-950);
+  --foreground: var(--color-secondary-50);
+  --card: var(--color-secondary-900);
+  --card-foreground: var(--color-secondary-50);
+  --popover: var(--color-secondary-900);
+  --popover-foreground: var(--color-secondary-50);
+
+  /* Brandbook Dark Mode: Primary = secondary-50 */
+  --primary: var(--color-secondary-50);
+  --primary-foreground: var(--color-secondary-900);
+  --secondary: var(--color-secondary-800);
+  --secondary-foreground: var(--color-secondary-50);
+  --muted: var(--color-secondary-800);
+  --muted-foreground: var(--color-secondary-300);
+
+  --accent: var(--color-secondary-800);
+  --accent-foreground: var(--color-secondary-50);
+
+  /* Auf dunklem Grund eine Stufe heller für ausreichenden Kontrast */
+  --destructive: var(--color-danger-600);
+  --border: var(--color-secondary-800);
+  --input: var(--color-secondary-800);
+  --ring: var(--color-accent-500);
+
+  --chart-1: var(--color-primary-400);
+  --chart-2: var(--color-accent-500);
+  --chart-3: var(--color-success-500);
+  --chart-4: var(--color-warning-600);
+  --chart-5: var(--color-secondary-400);
+
+  /* Eigener Sidebar-Ton aus dem Markenpaket */
+  --sidebar: var(--color-sidebar-dark);
+  --sidebar-foreground: var(--color-secondary-50);
+  --sidebar-primary: var(--color-secondary-50);
+  --sidebar-primary-foreground: var(--color-secondary-900);
+  --sidebar-accent: var(--color-secondary-800);
+  --sidebar-accent-foreground: var(--color-secondary-50);
+  --sidebar-border: var(--color-secondary-800);
+  --sidebar-ring: var(--color-accent-500);
+
+  /* Stationsgruppen – dunkel */
+  --station-del-soft: oklch(0.3 0.05 165);
+  --station-del-text: oklch(0.85 0.09 165);
+  --station-gnd-soft: oklch(0.3 0.045 250);
+  --station-gnd-text: oklch(0.84 0.07 250);
+  --station-twr-soft: oklch(0.32 0.055 80);
+  --station-twr-text: oklch(0.88 0.09 80);
+  --station-app-soft: oklch(0.3 0.05 305);
+  --station-app-text: oklch(0.85 0.08 305);
+  --station-ctr-soft: oklch(0.3 0.06 20);
+  --station-ctr-text: oklch(0.85 0.09 20);
+  --station-none-soft: var(--color-secondary-800);
+  --station-none-text: var(--color-secondary-300);
+}
+
+/* =====================================================================
+   Stationsgruppen (DEL/GND/TWR/APP/CTR)
+   Die Marke kennt bewusst nur sechs Skalen; success/warning/danger sind
+   laut Brandbook ausschließlich ihrer semantischen Rolle vorbehalten.
+   Für die fünf Stationsgruppen gibt es daher eine eigene kategoriale
+   Palette: vertraute Farbtöne, aber auf Helligkeit und Buntheit der Marke
+   abgestimmt. Die Volltöne sind in beiden Themes identisch (sie tragen
+   weiße Schrift), nur die weichen Flächen wechseln (siehe oben).
+   ===================================================================== */
+:root {
+  --station-del: oklch(0.63 0.105 165);
+  --station-gnd: oklch(0.58 0.095 250);
+  --station-twr: oklch(0.68 0.125 80);
+  --station-app: oklch(0.55 0.115 305);
+  --station-ctr: oklch(0.58 0.15 20);
+  --station-none: var(--color-secondary-600);
 }
 
 @layer base {
@@ -118,5 +225,26 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Brandbook: Überschriften in font-semibold statt schwererer Schnitte.
+     Explizite Utility-Klassen an einzelnen Elementen gewinnen weiterhin. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: var(--font-weight-semibold, 600);
+  }
+}
+
+@layer components {
+  /* Brandbook: Links in Akzentfarbe, Unterstreichung erst bei Hover.
+     Für externe Ziele zusätzlich ein External-Link-Icon setzen. */
+  .link {
+    color: var(--color-accent-500);
+  }
+  .link:hover {
+    text-decoration: underline;
   }
 }
