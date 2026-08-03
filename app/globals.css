@@ -247,4 +247,39 @@
   .link:hover {
     text-decoration: underline;
   }
+
+  /* Auszeichnungszeile über Überschriften – das prägende Akzentmuster der
+     VATGER-Plattformen ("LIVE NETWORK", "PROFILE", "MEMBERSHIP" …).
+     Trägt den Markenakzent in die Fläche, ohne ihn für Interaktion zu
+     verbrauchen. */
+  .eyebrow {
+    color: var(--color-accent-500);
+    font-size: var(--text-xs);
+    line-height: 1.4;
+    font-weight: 600;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  /* Dunkle Markenfläche, die in beiden Themes dunkel bleibt – wie die
+     Kartenpanels auf vatsim-germany.org. Für herausgehobene Bereiche
+     (Countdown, Banner-Ersatz) statt bunter Verläufe. */
+  .surface-brand {
+    background-color: var(--color-primary-900);
+    color: var(--color-secondary-50);
+  }
+  /* Feines Raster als Textur auf Markenflächen, angelehnt an die Live-Map */
+  .surface-brand-grid {
+    background-image:
+      repeating-linear-gradient(
+        to right,
+        color-mix(in oklab, var(--color-secondary-50) 7%, transparent) 0 1px,
+        transparent 1px 40px
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--color-secondary-50) 7%, transparent) 0 1px,
+        transparent 1px 40px
+      );
+  }
 }

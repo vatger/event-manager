@@ -129,8 +129,9 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
         href={href}
         className={cn(
           "group relative flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200",
+          // Aktiver Tab: Markenfläche mit coralem Unterstrich als Akzent
           isActive
-            ? "bg-primary text-primary-foreground shadow-sm"
+            ? "bg-primary text-primary-foreground shadow-sm after:absolute after:inset-x-2 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-accent-500 after:content-['']"
             : "text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
         onClick={() => setIsMobileMenuOpen(false)}
@@ -262,9 +263,9 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
                         key={tab.id}
                         href={href}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-200",
+                          "relative flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-200",
                           isActive
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-primary text-primary-foreground before:absolute before:left-0 before:top-2 before:bottom-2 before:w-0.5 before:rounded-full before:bg-accent-500 before:content-['']"
                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
                         )}
                         onClick={() => setIsMobileMenuOpen(false)}

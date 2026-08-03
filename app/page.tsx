@@ -224,20 +224,26 @@ export default function EventsPage() {
   return (
     <div className="container mx-auto py-8 space-y-12 p-3">
       {/* Subheader mit Countdown */}
-      <div className="text-center space-y-4 mb-8">
-        <h1 className="text-4xl font-bold tracking-tight">
+      <div className="text-center space-y-3 mb-8">
+        <p className="eyebrow">Eventmanager</p>
+        <h1 className="text-4xl font-semibold tracking-tight">
           Willkommen{session?.user?.name && `, ${session.user.name.split(' ')[0]}`}
         </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-7">
           Melde dich hier für Events der einzelnen FIRs an.
         </p>
-        
-        {/* Quick Stats mit Countdown */}
+
+        {/* Countdown auf dunkler Markenfläche – in beiden Themes gleich */}
         <div className="flex justify-center gap-6 pt-4 flex-wrap">
           {signedUpEvents.length > 0 && timeUntilNextEvent && (
-            <div className="bg-gradient-to-br from-blue-900 to-blue-300 dark:via-blue-800/60 dark:to-black text-white px-6 py-3 rounded-lg shadow-lg">
-              <div className="text-sm font-medium">Dein nächstes Event in</div>
-              <div className="text-2xl font-bold">{timeUntilNextEvent}</div>
+            <div className="surface-brand relative overflow-hidden rounded-2xl px-6 py-4 text-left shadow-md">
+              <div className="surface-brand-grid absolute inset-0 opacity-60" aria-hidden />
+              <div className="relative">
+                <div className="eyebrow">Dein nächstes Event in</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums text-secondary-50">
+                  {timeUntilNextEvent}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -254,9 +260,9 @@ export default function EventsPage() {
                   {signedUpEvents.length} angemeldet{signedUpEvents.length !== 1 ? 'e' : 'es'} Event{signedUpEvents.length !== 1 ? 's' : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-md">
-                <User className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-blue-700">{signedUpEvents.length}</span>
+              <div className="flex items-center gap-1.5 rounded-full border bg-secondary px-3 py-1">
+                <User className="h-4 w-4 text-accent-500" />
+                <span className="text-sm font-medium text-secondary-foreground">{signedUpEvents.length}</span>
               </div>
             </div>
 
@@ -282,9 +288,9 @@ export default function EventsPage() {
               </p>
             </div>
             {openEvents.length > 0 && (
-              <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 rounded-md">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                <span className="text-sm font-medium text-blue-700">{openEvents.length}</span>
+              <div className="flex items-center gap-1.5 rounded-full border bg-secondary px-3 py-1">
+                <span className="h-2 w-2 rounded-full bg-accent-500" />
+                <span className="text-sm font-medium text-secondary-foreground">{openEvents.length}</span>
               </div>
             )}
           </div>

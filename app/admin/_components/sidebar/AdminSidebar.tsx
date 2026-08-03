@@ -40,16 +40,20 @@ const NavItem = ({
   const Icon = item.icon;
   
   return (
+    // Aktiver Zustand mit Akzentbalken und coralem Icon – gleiches Muster
+    // wie die Profil-Navigation auf vatsim-germany.org
     <Link
       href={item.href}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent group",
-        isActive 
-          ? "bg-accent text-accent-foreground font-medium" 
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-accent",
+        isActive
+          ? "bg-accent font-medium text-accent-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-full before:bg-accent-500 before:content-['']"
           : "text-muted-foreground"
       )}
     >
-      <Icon className="h-4 w-4 flex-shrink-0" />
+      <Icon
+        className={cn("h-4 w-4 flex-shrink-0", isActive && "text-accent-500")}
+      />
       <div className="flex-1 min-w-0">
         <div className="truncate">{item.label}</div>
       </div>
