@@ -242,7 +242,7 @@ export default function PublicEventCalendar() {
                 Event Kalender
               </h1>
               <p className="text-sm text-muted-foreground">
-                Alle Events von VATSIM Germany
+                Alle Events von VATGER
               </p>
             </div>
           </div>

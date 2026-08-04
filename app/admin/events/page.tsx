@@ -341,7 +341,7 @@ export default function AdminEventsPage() {
                 <Button 
                   onClick={() => router.push("/admin/events/create")} 
                   disabled={!canInOwnFIR("event.create")}
-                  className="bg-blue-900 hover:bg-blue-800 text-white"
+                  className="dark:bg-accent-700 bg-accent-600 hover:dark:bg-accent-600 hover:bg-accent-700 text-white"
                 >
                   <CalendarPlus className="mr-2 h-4 w-4" />
                   Neues Event

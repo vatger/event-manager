@@ -116,11 +116,11 @@ export default function NotificationsWidget() {
       case 'OTHER':
         return <AlertCircle className="w-4 h-4 text-yellow-500" />;
       case 'SYSTEM':
-        return <AlertTriangle className="w-4 h-4 text-red-500" />;
+        return <AlertTriangle className="w-4 h-4 text-danger-500" />;
       case 'INFO':
-        return <InfoIcon className="w-4 h-4 text-green-500" />;
+        return <InfoIcon className="w-4 h-4 text-success-500" />;
       case 'EVENT':
-        return <TowerControl className="w-4 h-4 text-blue-500" />;
+        return <TowerControl className="w-4 h-4 text-accent-500" />;
       default:
         return <Info className="w-4 h-4 text-blue-400" />;
     }

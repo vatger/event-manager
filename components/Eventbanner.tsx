@@ -20,7 +20,7 @@ function EventBanner({ bannerUrl, eventName, className = "" }: {
     if (imgError || !bannerUrl) {
       return (
         <div
-          className={`surface-brand relative flex items-center justify-center overflow-hidden aspect-video ${className}`}
+          className={`surface-brand relative flex items-center justify-center overflow-hidden ${className}`}
         >
           {/* Rastertextur */}
           <div className="surface-brand-grid absolute inset-0 opacity-70" aria-hidden />
@@ -38,12 +38,12 @@ function EventBanner({ bannerUrl, eventName, className = "" }: {
         </div>
       );
     }
-
+    
     return (
-      <div className={`overflow-hidden ${className} aspect-video`}>
+      <div className={`overflow-hidden ${className}`}>
         <img
           src={bannerUrl}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover object-center"
           alt={`${eventName} Banner`}
           onError={() => setImgError(true)}
         />

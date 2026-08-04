@@ -105,7 +105,7 @@ export function AdminHeader({ title, user }: AdminHeaderProps) {
                         {currentUser.name || "User N/A"}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {currentUser.rating} • {currentUser.fir ? ("FIR: " + currentUser.fir.code) : "VATSIM Germany"}
+                        {currentUser.rating} • {currentUser.fir ? ("FIR: " + currentUser.fir.code) : "VATGER"}
                       </p>
                       <Badge 
                         variant="secondary" 

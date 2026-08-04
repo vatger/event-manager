@@ -143,7 +143,7 @@ model EventRosterNote {
   id        Int      @id @default(autoincrement())
   rosterId  Int
   userCID   Int
-  note      String
+  note      String   
   authorCID Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -168,12 +168,12 @@ model EventRosterEditor {
   @@index([rosterId])
 }
 
-// Gespeicherter Zwischenstand eines Rosters (Snapshot zum Zurueckkehren)
+// Gespeicherter Zwischenstand eines Rosters (Snapshot zum Zurückkehren)
 model EventRosterSnapshot {
   id           Int      @id @default(autoincrement())
   rosterId     Int
   name         String
-  data         Json
+  data         Json // { slotMinutes, stations: [...], assignments: [...] }
   createdByCID Int?
   createdAt    DateTime @default(now())
 
@@ -196,15 +196,17 @@ model EventRosterStation {
   @@index([rosterId])
 }
 
-// A controller staffing a station for a time range within the event
+// A block on a station timeline within the event.
+// type = "controller": a signed-up controller staffs the station (userCID set)
+// type = "custom":     a custom label block, e.g. "Combined (MGN)" or "Training" (label set)
 model EventRosterAssignment {
   id        Int      @id @default(autoincrement())
   rosterId  Int
   stationId Int
-  type      String   @default("controller")
-  userCID   Int?
-  label     String?
-  color     String?
+  type      String   @default("controller") // "controller" | "custom"
+  userCID   Int? // null for custom blocks
+  label     String? // custom block label, e.g. "Combined (MGN)"
+  color     String? // optional color hint for custom blocks
   startTime DateTime
   endTime   DateTime
   createdAt DateTime @default(now())
@@ -427,7 +429,7 @@ model WeeklyEventConfiguration {
   signupDeadlineHours Int?  @default(24) // Hours before event when signup closes
 
   // Display
-  bannerUrl   String?   // Optional banner image URL for public display
+  bannerUrl   String?  
 
   enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -503,13 +505,13 @@ model CronJobStatus {
   id              Int      @id @default(autoincrement())
   jobName         String   @unique // Unique identifier for the cron job
   displayName     String   // Human-readable name
-  description     String    // What the job does
+  description     String   
   schedule        String   // Cron schedule expression
   isActive        Boolean  @default(true)
   lastRunAt       DateTime? // When the job last ran
   lastRunStatus   String?  // "success" or "error"
   lastRunDuration Int?     // Duration in milliseconds
-  lastError       String?   // Error message if failed
+  lastError       String?  
   runCount        Int      @default(0) // Total number of runs
   errorCount      Int      @default(0) // Total number of errors
   createdAt       DateTime @default(now())
@@ -534,27 +536,11 @@ model WeeklyEventManager {
   @@index([configId])
 }
 
-// Persistent admin notes/comments about a specific user
-model UserComment {
-  id        Int      @id @default(autoincrement())
-  userCID   Int
-  authorCID Int
-  comment   String   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User @relation("CommentTarget", fields: [userCID], references: [cid], onDelete: Cascade)
-  author User @relation("CommentAuthor", fields: [authorCID], references: [cid], onDelete: Cascade)
-
-  @@index([userCID])
-  @@index([authorCID])
-}
-
 // Event tasks for tracking event preparation steps
 model EventTask {
   id          Int        @id @default(autoincrement())
   eventId     Int
-  type        TaskType   @default(CUSTOM)
+  type        TaskType
   title       String
   description String?    
   status      TaskStatus @default(OPEN)
@@ -579,3 +565,20 @@ model EventTask {
   @@index([assigneeCID])
   @@index([dueDate])
 }
+
+// Persistent admin notes/comments about a specific user
+model UserComment {
+  id        Int      @id @default(autoincrement())
+  userCID   Int
+  authorCID Int
+  comment   String   
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User @relation("CommentTarget", fields: [userCID], references: [cid], onDelete: Cascade)
+  author User @relation("CommentAuthor", fields: [authorCID], references: [cid], onDelete: Cascade)
+
+  @@index([userCID])
+  @@index([authorCID])
+}
+

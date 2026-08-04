@@ -236,7 +236,7 @@ export default function EventsPage() {
         {/* Countdown auf dunkler Markenfläche – in beiden Themes gleich */}
         <div className="flex justify-center gap-6 pt-4 flex-wrap">
           {signedUpEvents.length > 0 && timeUntilNextEvent && (
-            <div className="surface-brand relative overflow-hidden rounded-2xl px-6 py-4 text-left shadow-md">
+            <div className="surface-brand relative overflow-hidden rounded-2xl px-6 py-4 text-center shadow-md">
               <div className="surface-brand-grid absolute inset-0 opacity-60" aria-hidden />
               <div className="relative">
                 <div className="eyebrow">Dein nächstes Event in</div>

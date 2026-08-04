@@ -77,7 +77,7 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
               <EventBanner 
               bannerUrl={event.bannerUrl} 
               eventName={event.name}
-              className="rounded-sm w-full object-cover"
+              className="rounded-sm w-full aspect-video object-cover"
             />
           )}
 

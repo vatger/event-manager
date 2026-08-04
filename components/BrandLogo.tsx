@@ -22,8 +22,8 @@ import { cn } from "@/lib/utils";
  */
 
 const LOGO_SRC = {
-  light: "/brand/v1_vatger_logo_light_color.svg",
-  dark: "/brand/v1_vatger_logo_dark_color.svg",
+  light: "/brand/logo_color_dark.svg",
+  dark: "/brand/logo_color_light.svg",
   lightMono: "/brand/v1_vatger_logo_light_mono.svg",
   darkMono: "/brand/v1_vatger_logo_dark_mono.svg",
 } as const;
@@ -78,25 +78,17 @@ export function BrandLogo({
   const image =
     variant === "auto" ? (
       <>
-        <Image {...common} alt="VATSIM Germany" src={src(true)} className="dark:hidden" />
+        <Image {...common} alt="VATGER" src={src(true)} className="dark:hidden" />
         <Image {...common} alt="" aria-hidden src={src(false)} className="hidden dark:block" />
       </>
     ) : (
-      <Image {...common} alt="VATSIM Germany" src={src(variant === "light")} />
+      <Image {...common} alt="VATGER" src={src(variant === "light")} />
     );
 
   if (!plate) return <span className={cn("inline-flex", className)}>{image}</span>;
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-1",
-        PLATE_BG[variant],
-        className
-      )}
-    >
-      {image}
-    </span>
+      image
   );
 }
 

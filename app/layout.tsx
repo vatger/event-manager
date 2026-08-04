@@ -24,7 +24,7 @@ const vatger = localFont({
 
 export const metadata: Metadata = {
   title: "VATGER Eventmanager",
-  description: "VATSIM Germany",
+  description: "VATGER",
   icons: {
     icon: '/favicon.ico',
   },

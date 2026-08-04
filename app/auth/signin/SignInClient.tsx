@@ -90,7 +90,7 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
             VATGER Eventmanager
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            © {new Date().getFullYear()} VATSIM Germany
+            © {new Date().getFullYear()} VATGER
           </p>
         </div>
       </div>

@@ -11,6 +11,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-header: var(--header);
   /* Hausschrift laut Brandbook: Vatger (Basis: Plus Jakarta Sans).
      Monospace ist ausdrücklich ausgenommen und nutzt den System-Stack. */
   --font-sans: var(--font-vatger);
@@ -88,6 +89,7 @@
   --card-foreground: var(--color-primary-900);
   --popover: var(--color-white);
   --popover-foreground: var(--color-primary-900);
+  --header: var(--background);
 
   --primary: var(--color-primary-900);
   --primary-foreground: var(--color-secondary-50);
@@ -152,6 +154,7 @@
   --card-foreground: var(--color-secondary-50);
   --popover: var(--color-secondary-900);
   --popover-foreground: var(--color-secondary-50);
+  --header: var(--background);
 
   /* Brandbook Dark Mode: Primary = secondary-50 */
   --primary: var(--color-secondary-50);

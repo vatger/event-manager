@@ -35,19 +35,13 @@ export default function Header() {
 
   
   return (
-    <header className="w-full border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
+    <header className="w-full border-b bg-header">
       <div className="px-4 sm:px-6">
         <div className="flex justify-between items-center h-16">
           {/* Markenbereich: Logo unverändert auf neutralem Grund, mit Schutzraum */}
           <Link href="/">
             <div className="flex items-center gap-3 px-2 py-1.5 hover:bg-accent rounded-lg transition-colors duration-200">
-              <BrandLogo variant="auto" height={32} priority />
-              <div className="hidden sm:flex flex-col border-l pl-3">
-                <span className="font-semibold text-foreground tracking-tight leading-tight">
-                  Eventmanager
-                </span>
-                <span className="text-xs text-muted-foreground leading-tight">VATSIM Germany</span>
-              </div>
+              <BrandLogo variant="auto" height={40} priority />
             </div>
           </Link>
 
@@ -110,7 +104,7 @@ export default function Header() {
                           {session.user?.name || "User N/A"}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                        {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATSIM Germany"}
+                        {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATGER"}
                         </p>
                       </div>
                     </div>
@@ -200,7 +194,7 @@ export default function Header() {
                           {session.user?.name || "User N/A"}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATSIM Germany"}
+                          {session.user?.rating} • {session.user.fir ? ("FIR: " + session.user.fir) : "VATGER"}
                         </p>
                       </div>
                     </div>
