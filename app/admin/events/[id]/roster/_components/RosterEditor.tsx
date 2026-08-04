@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -44,12 +45,14 @@ import {
   GripVertical,
   History,
   MessageSquare,
+  RotateCcw,
   Search,
   Settings2,
   ShieldCheck,
   Star,
   StickyNote,
   UserPlus,
+  UserX,
   Wifi,
   WifiOff,
   X,
@@ -57,6 +60,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { getBadgeClassForEndorsement, getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
+import { cn } from "@/lib/utils";
 import type { SignupTableEntry } from "@/lib/cache/types";
 import type {
   ApiRoster,
@@ -118,6 +122,8 @@ interface RosterEditorProps {
   canEdit: boolean;
   canManageEditors: boolean;
   canManageSignups: boolean;
+  /** Weicht der Arbeitsstand von der veröffentlichten Fassung ab? */
+  hasUnpublishedChanges: boolean;
   /** Nur das Roster neu laden (Realtime-Sync, Dialog-Updates) */
   onReload: () => void;
   /** Roster + Signups neu laden (nach Signup-Änderungen) */
@@ -149,6 +155,7 @@ export function RosterEditor({
   canEdit,
   canManageEditors,
   canManageSignups,
+  hasUnpublishedChanges,
   onReload,
   onReloadAll,
   onEventStatusChanged,
@@ -237,6 +244,8 @@ export function RosterEditor({
   const [stationsDialogOpen, setStationsDialogOpen] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [controllerSearch, setControllerSearch] = useState("");
   const [controllerSort, setControllerSort] = useState<"name" | "assigned">("name");
   const [warningsOpen, setWarningsOpen] = useState(false);
@@ -542,14 +551,6 @@ export function RosterEditor({
       if (!controller) {
         return { valid: false, warn: false, reason: "Unbekannter Controller" };
       }
-      const meta = stationMetaFor(station.callsign);
-      if (!isEligible(controller, meta, event.airports)) {
-        return {
-          valid: false,
-          warn: false,
-          reason: `${controller.name} darf ${station.callsign} nicht besetzen`,
-        };
-      }
       const overlap = hasOverlap(assignments, userCID, start, end, ignoreId);
       if (overlap) {
         const other = stationById.get(overlap.stationId);
@@ -557,6 +558,22 @@ export function RosterEditor({
           valid: false,
           warn: false,
           reason: `${controller.name} ist dann bereits auf ${other?.callsign ?? "?"} eingeplant`,
+        };
+      }
+      // Ab hier: erlaubt, aber im Plan sichtbar zu markieren
+      const meta = stationMetaFor(station.callsign);
+      if (!isEligible(controller, meta, event.airports)) {
+        return {
+          valid: true,
+          warn: true,
+          reason: `${controller.name} hat keine Freigabe für ${station.callsign} – wird markiert`,
+        };
+      }
+      if (controller.withdrawn) {
+        return {
+          valid: true,
+          warn: true,
+          reason: `${controller.name} hat die Anmeldung zurückgezogen – wird markiert`,
         };
       }
       if (isUnavailable(controller, start, end)) {
@@ -921,17 +938,51 @@ export function RosterEditor({
       e.preventDefault();
       e.stopPropagation();
       gestureRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
+
+      // Zeilengeometrie beim Start einfrieren. Würde man während des Ziehens
+      // das DOM abfragen, läse man die bereits umsortierte Vorschau – der
+      // Zielindex spränge dadurch zurück und die Zeilen flackerten.
+      const frozen = stationsRef.current
+        .map((st) => {
+          const row = rowRefs.current.get(`station-${st.id}`);
+          if (!row) return null;
+          const r = row.el.getBoundingClientRect();
+          return { id: st.id, top: r.top, bottom: r.bottom };
+        })
+        .filter((x): x is { id: number; top: number; bottom: number } => x !== null);
+
+      // Scrollt der Nutzer während des Ziehens, verschieben sich die
+      // eingefrorenen Werte – deshalb den Versatz mitrechnen.
+      const scroller = (() => {
+        let el: HTMLElement | null = rowRefs.current.get(`station-${stationId}`)?.el ?? null;
+        while (el) {
+          const oy = getComputedStyle(el).overflowY;
+          if (oy === "auto" || oy === "scroll") return el;
+          el = el.parentElement;
+        }
+        return null;
+      })();
+      const scrollStart = scroller?.scrollTop ?? 0;
+
+      const targetAt = (clientY: number): number | null => {
+        if (frozen.length === 0) return null;
+        const y = clientY + ((scroller?.scrollTop ?? 0) - scrollStart);
+        if (y <= frozen[0].top) return frozen[0].id;
+        const last = frozen[frozen.length - 1];
+        if (y >= last.bottom) return last.id;
+        return frozen.find((f) => y >= f.top && y < f.bottom)?.id ?? null;
+      };
+
       applyDrag({ kind: "reorder-station", stationId, overStationId: null });
       trackPointer(
         (ev) => {
           const g = gestureRef.current;
           if (!g) return;
           if (Math.abs(ev.clientY - g.startY) > 4) g.moved = true;
-          const hit = hitTest(ev.clientX, ev.clientY);
           applyDrag({
             kind: "reorder-station",
             stationId,
-            overStationId: hit?.kind === "station" ? hit.id : null,
+            overStationId: targetAt(ev.clientY),
           });
         },
         () => {
@@ -960,7 +1011,7 @@ export function RosterEditor({
         }
       );
     },
-    [canEdit, trackPointer, hitTest, applyDrag, persistStationOrder]
+    [canEdit, trackPointer, applyDrag, persistStationOrder]
   );
 
   // ------------------------------------------------------------------
@@ -1008,8 +1059,16 @@ export function RosterEditor({
   }, [assignments, drag]);
 
   const warnings = useMemo(
-    () => computeWarnings(assignments, stations, controllers, eventStart),
-    [assignments, stations, controllers, eventStart]
+    () =>
+      computeWarnings(
+        assignments,
+        stations,
+        controllers,
+        eventStart,
+        stationMetaFor,
+        event.airports
+      ),
+    [assignments, stations, controllers, eventStart, stationMetaFor, event.airports]
   );
   const warningsByAssignment = useMemo(() => {
     const map = new Map<number, RosterWarning[]>();
@@ -1050,13 +1109,18 @@ export function RosterEditor({
         (c) => c.name.toLowerCase().includes(q) || String(c.cid).includes(q)
       );
     }
+    // Abgemeldete ohne Zuweisung sind für die Planung irrelevant und würden
+    // die Liste nur aufblähen – abgemeldete MIT Zuweisung müssen sichtbar sein.
+    list = list.filter(
+      (c) => !c.withdrawn || assignments.some((a) => a.userCID === c.cid)
+    );
     if (controllerSort === "assigned") {
       list = [...list].sort(
         (a, b) => (assignedMinutes.get(b.cid) ?? 0) - (assignedMinutes.get(a.cid) ?? 0)
       );
     }
     return list;
-  }, [controllers, controllerSearch, controllerSort, assignedMinutes]);
+  }, [controllers, controllerSearch, controllerSort, assignedMinutes, assignments]);
 
   // Header-Slots
   const slots = useMemo(() => {
@@ -1120,25 +1184,64 @@ export function RosterEditor({
     }
   };
 
+  /**
+   * Friert den aktuellen Arbeitsstand als veröffentlichte Fassung ein.
+   * Beim ersten Mal wechselt zusätzlich der Event-Status und die
+   * Teilnehmer werden benachrichtigt; danach gehen nur noch die Änderungen
+   * live, ohne erneute Benachrichtigung.
+   */
   const publish = async () => {
     setPublishing(true);
     try {
-      const res = await fetch(`/api/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ROSTER_PUBLISHED" }),
+      const res = await fetch(`/api/events/${event.id}/roster/publish`, {
+        method: "POST",
+        headers: apiHeaders,
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
-        throw new Error(j.message || j.error || "Veröffentlichen fehlgeschlagen");
+        throw new Error(j.error || "Veröffentlichen fehlgeschlagen");
       }
-      toast.success("Roster veröffentlicht – die Teilnehmer wurden benachrichtigt");
-      onEventStatusChanged("ROSTER_PUBLISHED");
+      const j = await res.json();
+      if (j.firstPublish) {
+        toast.success("Roster veröffentlicht – die Teilnehmer wurden benachrichtigt");
+        onEventStatusChanged("ROSTER_PUBLISHED");
+      } else {
+        toast.success("Änderungen sind jetzt für die Teilnehmer sichtbar");
+      }
       setPublishDialogOpen(false);
+      onReloadRef.current();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Veröffentlichen fehlgeschlagen");
     } finally {
       setPublishing(false);
+    }
+  };
+
+  /** Setzt die Besetzung zurück, auf Wunsch mit vorherigem Snapshot */
+  const resetRoster = async (withSnapshot: boolean) => {
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/roster/reset`, {
+        method: "POST",
+        headers: apiHeaders,
+        body: JSON.stringify({ snapshot: withSnapshot }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || "Zurücksetzen fehlgeschlagen");
+      }
+      toast.success(
+        withSnapshot
+          ? "Besetzung zurückgesetzt – ein Snapshot wurde vorher gespeichert"
+          : "Besetzung zurückgesetzt"
+      );
+      setSelectedId(null);
+      setResetDialogOpen(false);
+      onReloadRef.current();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Zurücksetzen fehlgeschlagen");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -1159,8 +1262,15 @@ export function RosterEditor({
       drag.assignmentId === a.id;
     const blockWarnings = warningsByAssignment.get(a.id) ?? [];
     const selected = selectedId === a.id;
+    const hasWithdrawn = blockWarnings.some((w) => w.type === "withdrawn");
+    const hasIneligible = blockWarnings.some((w) => w.type === "not_eligible");
 
     let colorCls = isCustom ? CUSTOM_BLOCK_COLOR : blockColor(meta?.group ?? null);
+    // Problemfälle bekommen einen deutlichen Rahmen, behalten aber die
+    // Stationsfarbe – so bleibt die Zuordnung erkennbar.
+    if (!isDragTarget && (hasWithdrawn || hasIneligible)) {
+      colorCls += " ring-2 ring-inset ring-danger-500";
+    }
     if (isDragTarget && dragValidity) {
       if (!dragValidity.valid) colorCls = "bg-destructive/80 border-destructive";
       else if (dragValidity.warn) colorCls = "bg-amber-500/85 border-amber-600";
@@ -1188,10 +1298,25 @@ export function RosterEditor({
         }`}
       >
         <div className="flex items-center gap-1 h-full px-1.5 text-[11px] font-medium">
-          {blockWarnings.length > 0 && (
-            <AlertTriangle className="h-3 w-3 text-yellow-200 shrink-0" />
+          {/* Fehlende Freigabe: rotes Ausrufezeichen. Zurückgezogene Anmeldung:
+              durchgestrichenes Nutzersymbol. Sonstige Hinweise: Warndreieck. */}
+          {blockWarnings.some((w) => w.type === "not_eligible") && (
+            <span
+              title="Keine Freigabe für diese Station"
+              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-danger-600 text-[9px] font-bold leading-none text-white"
+            >
+              !
+            </span>
           )}
-          <span className="truncate">{label}</span>
+          {blockWarnings.some((w) => w.type === "withdrawn") && (
+            <UserX className="h-3 w-3 shrink-0 text-danger-200" />
+          )}
+          {blockWarnings.some(
+            (w) => w.type !== "not_eligible" && w.type !== "withdrawn"
+          ) && <AlertTriangle className="h-3 w-3 text-yellow-200 shrink-0" />}
+          <span className={cn("truncate", hasWithdrawn && "line-through decoration-2")}>
+            {label}
+          </span>
           <span className="hidden sm:inline text-[9px] opacity-75 truncate">
             {minuteToHM(eventStart, a.start)}–{minuteToHM(eventStart, a.end)}
           </span>
@@ -1279,6 +1404,23 @@ export function RosterEditor({
               </Badge>
             </button>
           )}
+          {statusPublished && (
+            <Badge
+              variant="outline"
+              className={
+                hasUnpublishedChanges
+                  ? "border-accent-300 text-accent-600"
+                  : "border-success-300 text-success-800"
+              }
+              title={
+                hasUnpublishedChanges
+                  ? "Der Arbeitsstand weicht von der veröffentlichten Fassung ab"
+                  : "Arbeitsstand und veröffentlichte Fassung sind identisch"
+              }
+            >
+              {hasUnpublishedChanges ? "Unveröffentlichte Änderungen" : "Veröffentlicht"}
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1342,12 +1484,36 @@ export function RosterEditor({
               <DropdownMenuItem onClick={copyText}>
                 <Copy className="h-4 w-4 mr-2" /> Als Text kopieren
               </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setResetDialogOpen(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" /> Besetzung zurücksetzen
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
-          {canEdit && !statusPublished && (
-            <Button size="sm" onClick={() => setPublishDialogOpen(true)}>
+          {canEdit && (
+            <Button
+              size="sm"
+              onClick={() => setPublishDialogOpen(true)}
+              // Nach der Erstveröffentlichung nur aktiv, wenn es auch etwas
+              // zu veröffentlichen gibt.
+              disabled={statusPublished && !hasUnpublishedChanges}
+              variant={statusPublished && !hasUnpublishedChanges ? "outline" : "default"}
+            >
               <Eye className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Veröffentlichen</span>
+              <span className="hidden sm:inline">
+                {statusPublished
+                  ? hasUnpublishedChanges
+                    ? "Änderungen veröffentlichen"
+                    : "Veröffentlicht"
+                  : "Veröffentlichen"}
+              </span>
             </Button>
           )}
         </div>
@@ -1641,7 +1807,14 @@ export function RosterEditor({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="text-sm font-medium truncate leading-tight flex items-center gap-1">
-                        <span className="truncate">{c.name}</span>
+                        <span className={cn("truncate", c.withdrawn && "line-through")}>
+                          {c.name}
+                        </span>
+                        {c.withdrawn && (
+                          <span title="Anmeldung zurückgezogen">
+                            <UserX className="h-3 w-3 shrink-0 text-danger-600" />
+                          </span>
+                        )}
                         {c.preferredStations && (
                           <span title={`Wunschstationen: ${c.preferredStations}`}>
                             <Star className="h-3 w-3 text-amber-500 fill-amber-400 shrink-0" />
@@ -1802,10 +1975,13 @@ export function RosterEditor({
       <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Roster veröffentlichen?</DialogTitle>
+            <DialogTitle>
+              {statusPublished ? "Änderungen veröffentlichen?" : "Roster veröffentlichen?"}
+            </DialogTitle>
             <DialogDescription>
-              Das Event wird auf „Roster veröffentlicht“ gesetzt und alle angemeldeten
-              Controller werden benachrichtigt.
+              {statusPublished
+                ? "Der aktuelle Arbeitsstand ersetzt die bisher sichtbare Fassung. Es werden keine neuen Benachrichtigungen verschickt."
+                : "Das Event wird auf „Roster veröffentlicht“ gesetzt und alle angemeldeten Controller werden benachrichtigt. Danach kannst du weiter am Plan arbeiten, ohne dass Zwischenstände sichtbar werden."}
             </DialogDescription>
           </DialogHeader>
           {warnings.length > 0 && (
@@ -1823,6 +1999,46 @@ export function RosterEditor({
             </Button>
             <Button onClick={publish} disabled={publishing}>
               {publishing ? "Wird veröffentlicht…" : "Jetzt veröffentlichen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Besetzung zurücksetzen */}
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Besetzung zurücksetzen?</DialogTitle>
+            <DialogDescription>
+              Alle {assignments.length} Blöcke werden entfernt. Stationen, Notizen und
+              Bearbeiter bleiben erhalten.
+            </DialogDescription>
+          </DialogHeader>
+          <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+            <History className="h-4 w-4 text-amber-600" />
+            <AlertDescription>
+              Empfehlung: vorher einen Snapshot speichern – damit lässt sich der jetzige
+              Stand jederzeit wiederherstellen.
+            </AlertDescription>
+          </Alert>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              onClick={() => setResetDialogOpen(false)}
+              disabled={resetting}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => resetRoster(false)}
+              disabled={resetting}
+              className="text-destructive"
+            >
+              Ohne Snapshot zurücksetzen
+            </Button>
+            <Button onClick={() => resetRoster(true)} disabled={resetting}>
+              {resetting ? "Wird zurückgesetzt…" : "Snapshot speichern & zurücksetzen"}
             </Button>
           </DialogFooter>
         </DialogContent>

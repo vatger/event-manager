@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { Button } from "@/components/ui/button";
-import { Ban, CalendarX2, Clock, Plus, Search, Star } from "lucide-react";
+import { Ban, CalendarX2, Clock, Plus, Search, Star, TriangleAlert, UserX } from "lucide-react";
 import type { RosterController, RosterStation, StationMeta, Assignment } from "../_lib/rosterTypes";
 import {
   formatDuration,
@@ -97,7 +97,8 @@ export function AssignDialog({
             </Badge>
           </DialogTitle>
           <DialogDescription>
-            Verfügbare Controller mit passender Freigabe ({formatDuration(end - start)})
+            Controller für diesen Zeitraum ({formatDuration(end - start)}) – ohne
+            passende Freigabe markiert
           </DialogDescription>
         </DialogHeader>
 
@@ -115,7 +116,7 @@ export function AssignDialog({
         <div className="max-h-80 overflow-y-auto space-y-1 -mx-1 px-1">
           {filtered.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              Kein Controller darf diese Station besetzen.
+              Keine Anmeldungen gefunden.
             </p>
           ) : (
             filtered.map((s) => {
@@ -124,6 +125,8 @@ export function AssignDialog({
                 stationMeta.airport,
                 eventAirports
               );
+              // Belegte Zeiten bleiben gesperrt; fehlende Freigabe und
+              // zurückgezogene Anmeldung sind nur Warnungen.
               const blocked = !s.free;
               return (
                 <button
@@ -161,6 +164,24 @@ export function AssignDialog({
                     {blocked && (
                       <Badge variant="outline" className="text-[10px] gap-1">
                         <Ban className="h-3 w-3" /> belegt
+                      </Badge>
+                    )}
+                    {!s.eligible && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-danger-300 text-[10px] text-danger-700"
+                        title="Keine Freigabe für diese Station – Zuweisung wird im Plan markiert"
+                      >
+                        <TriangleAlert className="h-3 w-3" /> keine Freigabe
+                      </Badge>
+                    )}
+                    {s.controller.withdrawn && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-danger-300 text-[10px] text-danger-700"
+                        title="Anmeldung wurde zurückgezogen"
+                      >
+                        <UserX className="h-3 w-3" /> abgemeldet
                       </Badge>
                     )}
                     {!s.available && (

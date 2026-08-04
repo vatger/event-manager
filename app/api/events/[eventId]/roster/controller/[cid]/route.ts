@@ -35,16 +35,19 @@ export async function GET(
     include: { author: { select: { cid: true, name: true } } },
   });
 
-  // ATC-Statistiken laden (externe API – bei Fehler leer)
+  // ATC-Statistiken laden (externe API – bei Fehler leer).
+  // Alle Stationen mitgeben, damit im Editor über sie gesucht werden kann;
+  // die Liste ist pro Nutzer klein genug.
   let atcStations: ReturnType<typeof getTopStations> = [];
   let statsError = false;
   try {
     const stats = await getUserATCStats(cid);
-    atcStations = getTopStations(stats, 12);
+    atcStations = getTopStations(stats);
   } catch (err) {
     console.error("[ROSTER] ATC-Stats für", cid, "fehlgeschlagen:", err);
     statsError = true;
   }
+  const atcTotalMinutes = atcStations.reduce((sum, s) => sum + s.totalMinutes, 0);
 
   return NextResponse.json({
     comments: comments.map((c) => ({
@@ -54,6 +57,7 @@ export async function GET(
       createdAt: c.createdAt,
     })),
     atcStations,
+    atcTotalMinutes,
     statsError,
   });
 }

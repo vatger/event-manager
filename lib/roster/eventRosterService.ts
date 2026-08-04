@@ -125,7 +125,12 @@ export interface ValidationError {
  *
  * Gemeinsam: gültiges Zeitfenster, innerhalb des Events, Station gehört zum Roster,
  * Station nicht doppelt belegt.
- * Controller-Blöcke zusätzlich: aktive Anmeldung, Eligibility, keine Doppelbelegung.
+ * Controller-Blöcke zusätzlich: keine Doppelbelegung desselben Controllers.
+ *
+ * Bewusst NICHT hart geprüft: die Endorsement-Eignung und eine
+ * zurückgezogene Anmeldung. Beides kann in der Praxis nötig sein (kurzfristige
+ * Absprachen, Trainings) und wird stattdessen im Editor sichtbar markiert –
+ * siehe computeWarnings im Client.
  * Custom-Blöcke: nur Label erforderlich.
  */
 export async function validateAssignment(
@@ -178,24 +183,12 @@ export async function validateAssignment(
     return { code: "missing_user", message: "Kein Controller angegeben" };
   }
 
-  // Aktive Anmeldung erforderlich
+  // Der Controller muss dem Event überhaupt bekannt sein. Eine zurückgezogene
+  // Anmeldung blockiert bewusst nicht – der Editor markiert solche Zuweisungen.
   const signups = await getCachedSignupTable(event.id);
-  const entry = signups.find((s) => s.user.cid === userCID && !s.deletedAt);
+  const entry = signups.find((s) => s.user.cid === userCID);
   if (!entry) {
-    return { code: "no_signup", message: "Controller hat keine aktive Anmeldung für dieses Event" };
-  }
-
-  // Eligibility: Endorsement-Gruppe muss die Station abdecken
-  const requirement = await getStationRequirement(station.callsign);
-  if (requirement.group) {
-    const eventAirports = parseEventAirports(event.airports);
-    const userGroup = getUserGroupForStation(entry, requirement.airport, eventAirports);
-    if (!canStaffStation(userGroup, requirement.group, requirement.s1Twr)) {
-      return {
-        code: "not_eligible",
-        message: `${entry.user.name} darf ${station.callsign} nicht besetzen (Freigabe: ${userGroup ?? "keine"}, benötigt: ${requirement.group})`,
-      };
-    }
+    return { code: "no_signup", message: "Controller ist für dieses Event nicht angemeldet" };
   }
 
   // Keine zeitliche Doppelbelegung desselben Controllers
@@ -266,6 +259,31 @@ export function serializeRoster(roster: RosterWithRelations): RosterSnapshotData
       endTime: a.endTime.toISOString(),
     })),
   };
+}
+
+/**
+ * Weicht der Arbeitsstand von der veröffentlichten Fassung ab?
+ * Vergleicht die serialisierten Stände; Reihenfolge der Zuweisungen wird
+ * normalisiert, damit reines Neuladen keinen Unterschied erzeugt.
+ */
+export function hasUnpublishedChanges(roster: RosterWithRelations): boolean {
+  if (!roster.publishedData) return roster.assignments.length > 0;
+  const norm = (d: RosterSnapshotData) =>
+    JSON.stringify({
+      slotMinutes: d.slotMinutes,
+      stations: [...d.stations].sort((a, b) => a.callsign.localeCompare(b.callsign)),
+      assignments: [...d.assignments]
+        .map((a) => ({ ...a }))
+        .sort((a, b) =>
+          (a.stationCallsign + a.startTime + String(a.userCID ?? a.label)).localeCompare(
+            b.stationCallsign + b.startTime + String(b.userCID ?? b.label)
+          )
+        ),
+    });
+  return (
+    norm(serializeRoster(roster)) !==
+    norm(roster.publishedData as unknown as RosterSnapshotData)
+  );
 }
 
 /**

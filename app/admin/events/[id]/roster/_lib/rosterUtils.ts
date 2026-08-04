@@ -87,8 +87,9 @@ export function buildControllers(
   eventStart: Date,
   totalMinutes: number
 ): RosterController[] {
+  // Zurückgezogene Anmeldungen bleiben erhalten und werden markiert – sonst
+  // verschwänden bereits eingeplante Controller kommentarlos aus dem Plan.
   return signups
-    .filter((s) => !s.deletedAt)
     .map((s) => {
       const unavailableRaw = s.availability?.unavailable ?? [];
       const availableRaw = s.availability?.available ?? [];
@@ -105,6 +106,7 @@ export function buildControllers(
         hasAvailability,
         preferredStations: s.preferredStations ?? "",
         remarks: s.remarks,
+        withdrawn: !!s.deletedAt,
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -211,7 +213,10 @@ export function computeWarnings(
   assignments: Assignment[],
   stations: RosterStation[],
   controllers: RosterController[],
-  eventStart: Date
+  eventStart: Date,
+  /** Für die Eignungsprüfung; fehlt sie, entfällt nur diese eine Warnung */
+  stationMetaFor?: (callsign: string) => StationMeta,
+  eventAirports: string[] = []
 ): RosterWarning[] {
   const warnings: RosterWarning[] = [];
   const stationById = new Map(stations.map((s) => [s.id, s]));
@@ -304,6 +309,38 @@ export function computeWarnings(
         }
       }
     }
+
+    // 5) Anmeldung zurückgezogen, Zuweisungen bestehen aber weiter
+    if (controller?.withdrawn) {
+      warnings.push({
+        type: "withdrawn",
+        userCID: cid,
+        assignmentIds: sorted.map((a) => a.id),
+        message: `${name} hat die Anmeldung zurückgezogen, ist aber noch ${sorted.length}× eingeplant`,
+      });
+    }
+
+    // 6) Fehlende Freigabe für die Station – erlaubt, aber sichtbar markiert
+    if (controller && stationMetaFor) {
+      for (const a of sorted) {
+        const station = stationById.get(a.stationId);
+        if (!station) continue;
+        const meta = stationMetaFor(station.callsign);
+        if (!isEligible(controller, meta, eventAirports)) {
+          const group = getControllerGroupForStation(
+            controller.entry,
+            meta.airport,
+            eventAirports
+          );
+          warnings.push({
+            type: "not_eligible",
+            userCID: cid,
+            assignmentIds: [a.id],
+            message: `${name} hat keine Freigabe für ${station.callsign} (${group ?? "keine"}, benötigt: ${meta.group})`,
+          });
+        }
+      }
+    }
   }
 
   return warnings;
@@ -354,12 +391,18 @@ export function suggestControllers(
     };
   });
 
+  // Nicht-berechtigte werden nicht mehr ausgeblendet, sondern nach hinten
+  // sortiert und im Dialog markiert – die Zuweisung bleibt möglich.
   return suggestions
-    .filter((s) => s.eligible)
     .sort((a, b) => {
-      // frei & verfügbar zuerst, dann Wunsch-Station, dann wenigste eingeplante Zeit
+      // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station,
+      // dann wenigste eingeplante Zeit
       const score = (s: ControllerSuggestion) =>
-        (s.free ? 0 : 4) + (s.available ? 0 : 2) + (s.prefersStation ? 0 : 1);
+        (s.eligible ? 0 : 16) +
+        (s.controller.withdrawn ? 8 : 0) +
+        (s.free ? 0 : 4) +
+        (s.available ? 0 : 2) +
+        (s.prefersStation ? 0 : 1);
       const d = score(a) - score(b);
       if (d !== 0) return d;
       if (a.assignedMinutes !== b.assignedMinutes) return a.assignedMinutes - b.assignedMinutes;

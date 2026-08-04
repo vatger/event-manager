@@ -127,6 +127,11 @@ model EventRoster {
   id          Int      @id @default(autoincrement())
   eventId     Int      @unique
   slotMinutes Int      @default(30) // Grid size in minutes (15 or 30)
+  // Veröffentlichte Fassung: der Stand, den Teilnehmer sehen. Der Editor
+  // arbeitet weiter am Live-Stand; erst "Änderungen veröffentlichen"
+  // schreibt ihn hierher.
+  publishedAt   DateTime?
+  publishedData Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

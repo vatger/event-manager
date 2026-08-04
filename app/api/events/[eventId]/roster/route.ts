@@ -8,6 +8,7 @@ import {
   canManageRosterEditors,
   canManageEventSignups,
   getRosterForEvent,
+  hasUnpublishedChanges,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 
@@ -76,7 +77,13 @@ export async function GET(
 
   const caps = await computeCapabilities(cid, eventId);
   const roster = await getRosterForEvent(eventId);
-  return NextResponse.json({ roster, ...caps });
+  return NextResponse.json({
+    roster,
+    ...caps,
+    // Für den Editor: gibt es Änderungen, die noch nicht veröffentlicht sind?
+    publishedAt: roster?.publishedAt ?? null,
+    hasUnpublishedChanges: roster ? hasUnpublishedChanges(roster) : false,
+  });
 }
 
 // POST: Roster anlegen (Stationen bestätigen + Rastergröße wählen)

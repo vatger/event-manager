@@ -85,9 +85,17 @@ export interface RosterController {
   /** Wunsch-Stationen (Freitext) */
   preferredStations: string;
   remarks: string | null;
+  /** Anmeldung wurde zurückgezogen, Controller aber ggf. noch eingeplant */
+  withdrawn: boolean;
 }
 
-export type WarningType = "no_break_switch" | "long_stretch" | "unavailable" | "overlap";
+export type WarningType =
+  | "no_break_switch"
+  | "long_stretch"
+  | "unavailable"
+  | "overlap"
+  | "not_eligible"
+  | "withdrawn";
 
 export interface RosterWarning {
   type: WarningType;

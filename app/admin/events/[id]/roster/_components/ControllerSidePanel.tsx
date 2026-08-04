@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,6 +15,7 @@ import {
   Loader2,
   MessageSquare,
   Pencil,
+  Search,
   Send,
   Star,
   StickyNote,
@@ -41,6 +43,8 @@ interface InternalComment {
 interface ControllerInfoResponse {
   comments: InternalComment[];
   atcStations: AtcStation[];
+  /** Summe über alle Stationen – für die Kopfzeile */
+  atcTotalMinutes: number;
   statsError: boolean;
 }
 
@@ -59,6 +63,9 @@ interface ControllerSidePanelProps {
   onEditSignup: () => void;
   apiHeaders: Record<string, string>;
 }
+
+/** So viele Positionen werden ohne Suche direkt gezeigt */
+const STATION_PREVIEW = 8;
 
 function formatHours(minutes: number): string {
   const h = minutes / 60;
@@ -94,6 +101,8 @@ export function ControllerSidePanel({
   const [loadingInfo, setLoadingInfo] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [postingComment, setPostingComment] = useState(false);
+  const [stationQuery, setStationQuery] = useState("");
+  const [showAllStations, setShowAllStations] = useState(false);
 
   const cid = controller?.cid ?? null;
 
@@ -110,6 +119,8 @@ export function ControllerSidePanel({
     let cancelled = false;
     setLoadingInfo(true);
     setInfo(null);
+    setStationQuery("");
+    setShowAllStations(false);
     (async () => {
       try {
         const res = await fetch(`/api/events/${eventId}/roster/controller/${cid}`);
@@ -117,7 +128,8 @@ export function ControllerSidePanel({
         const data = (await res.json()) as ControllerInfoResponse;
         if (!cancelled) setInfo(data);
       } catch {
-        if (!cancelled) setInfo({ comments: [], atcStations: [], statsError: true });
+        if (!cancelled)
+          setInfo({ comments: [], atcStations: [], atcTotalMinutes: 0, statsError: true });
       } finally {
         if (!cancelled) setLoadingInfo(false);
       }
@@ -160,6 +172,22 @@ export function ControllerSidePanel({
     }
   };
 
+  // Stationsliste nach Suchbegriff filtern; ohne Suche nur die Top-Einträge
+  const matchingStations = useMemo(() => {
+    const all = info?.atcStations ?? [];
+    const q = stationQuery.trim().toUpperCase();
+    if (!q) return all;
+    return all.filter((s) => s.station.toUpperCase().includes(q));
+  }, [info, stationQuery]);
+
+  const visibleStations = useMemo(
+    () =>
+      stationQuery.trim() || showAllStations
+        ? matchingStations
+        : matchingStations.slice(0, STATION_PREVIEW),
+    [matchingStations, stationQuery, showAllStations]
+  );
+
   const availabilityText = useMemo(() => {
     if (!controller) return null;
     if (!controller.hasAvailability) return "Keine Angabe (ganzes Event)";
@@ -195,6 +223,14 @@ export function ControllerSidePanel({
             {controller.cid} • {controller.rating}
             {assignedMinutes > 0 ? ` • ${formatDuration(assignedMinutes)} geplant` : " • frei"}
           </p>
+          {/* Gesamte ATC-Erfahrung direkt im Kopf – wichtigste Kennzahl beim Planen */}
+          {info && !info.statsError && info.atcTotalMinutes > 0 && (
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium">
+              <BarChart3 className="h-3.5 w-3.5 text-accent-500" />
+              <span>{formatHours(info.atcTotalMinutes)}</span>
+              <span className="font-normal text-muted-foreground">ATC gesamt</span>
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
@@ -379,19 +415,48 @@ export function ControllerSidePanel({
             ) : info?.statsError ? (
               <p className="text-xs text-muted-foreground">Statistiken nicht verfügbar.</p>
             ) : info && info.atcStations.length > 0 ? (
-              <div className="space-y-1">
-                {info.atcStations.map((s) => (
-                  <div
-                    key={s.station}
-                    className="flex items-center justify-between text-sm gap-2"
-                  >
-                    <span className="font-mono text-xs truncate">{s.station}</span>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {formatHours(s.totalMinutes)} • {s.sessionCount}×
-                    </span>
+              <>
+                {/* Positionssuche: bei erfahrenen Controllern sind es schnell
+                    dutzende Stationen – gezielt nachschlagen statt scrollen. */}
+                <div className="relative">
+                  <Input
+                    value={stationQuery}
+                    onChange={(e) => setStationQuery(e.target.value)}
+                    placeholder="Position suchen, z. B. EDDF oder TWR…"
+                    className="h-7 pl-7 text-xs"
+                  />
+                  <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                {visibleStations.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Keine Position passt zu „{stationQuery}“.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {visibleStations.map((s) => (
+                      <div
+                        key={s.station}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
+                        <span className="truncate font-mono text-xs">{s.station}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {formatHours(s.totalMinutes)} • {s.sessionCount}×
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+                {matchingStations.length > STATION_PREVIEW && !stationQuery && (
+                  <button
+                    onClick={() => setShowAllStations((v) => !v)}
+                    className="text-xs text-accent-500 hover:underline"
+                  >
+                    {showAllStations
+                      ? "Weniger anzeigen"
+                      : `Alle ${matchingStations.length} Positionen anzeigen`}
+                  </button>
+                )}
+              </>
             ) : (
               <p className="text-xs text-muted-foreground">Keine ATC-Sessions gefunden.</p>
             )}

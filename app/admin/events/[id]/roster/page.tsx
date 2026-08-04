@@ -43,6 +43,7 @@ export default function EventRosterPage() {
   const [canEdit, setCanEdit] = useState(false);
   const [canManageEditors, setCanManageEditors] = useState(false);
   const [canManageSignups, setCanManageSignups] = useState(false);
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [stationMetaMap, setStationMetaMap] = useState<Map<string, StationMeta>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,7 @@ export default function EventRosterPage() {
       setCanEdit(Boolean(rosterData.canEdit));
       setCanManageEditors(Boolean(rosterData.canManageEditors));
       setCanManageSignups(Boolean(rosterData.canManageSignups));
+      setHasUnpublishedChanges(Boolean(rosterData.hasUnpublishedChanges));
 
       if (signupsRes.ok) {
         const s = await signupsRes.json();
@@ -110,6 +112,7 @@ export default function EventRosterPage() {
       setCanEdit(Boolean(data.canEdit));
       setCanManageEditors(Boolean(data.canManageEditors));
       setCanManageSignups(Boolean(data.canManageSignups));
+      setHasUnpublishedChanges(Boolean(data.hasUnpublishedChanges));
     } catch (err) {
       console.error("[Roster] Reload fehlgeschlagen:", err);
     }
@@ -171,6 +174,7 @@ export default function EventRosterPage() {
         canEdit={canEdit}
         canManageEditors={canManageEditors}
         canManageSignups={canManageSignups}
+        hasUnpublishedChanges={hasUnpublishedChanges}
         onReload={reloadRoster}
         onReloadAll={reloadAll}
         onEventStatusChanged={(status) => setEvent((e) => (e ? { ...e, status } : e))}
