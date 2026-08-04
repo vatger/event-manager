@@ -232,10 +232,10 @@ export default function PublicEventCalendar() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
           <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 cursor-pointer"
+          className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 cursor-pointer"
           onClick={() => router.push("/")}
           >
-              <CalendarDays className="h-5 w-5 text-primary" />
+              <CalendarDays className="h-8 w-8 text-accent-500" />
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
