@@ -37,11 +37,11 @@ export default function Header() {
   return (
     <header className="w-full border-b bg-header">
       <div className="px-4 sm:px-6">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-18">
           {/* Markenbereich: Logo unverändert auf neutralem Grund, mit Schutzraum */}
           <Link href="/">
             <div className="flex items-center px-2 py-1.5 hover:bg-accent rounded-lg transition-colors duration-200">
-              <BrandLogo variant="auto" height={32} service="eventmanager" priority />
+              <BrandLogo variant="auto" height={48} service="event" priority />
             </div>
           </Link>
 

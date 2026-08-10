@@ -95,8 +95,7 @@ export function BrandLogo({
   const logo = plate ? (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-1",
-        PLATE_BG[variant],
+        "inline-flex items-center rounded-md py-1",
         !service && className
       )}
     >
@@ -112,13 +111,13 @@ export function BrandLogo({
   // wird daher als echter Text in der Hausschrift ergänzt. Größe an der
   // Logohöhe ausgerichtet, damit beides auf einer Grundlinie sitzt.
   return (
-    <span className={cn("inline-flex items-baseline gap-1.5", className)}>
+    <span className={cn("inline-flex items-center gap-1.5", className)}>
       {logo}
       <span
-        className="font-normal leading-none tracking-tight"
-        style={{ fontSize: Math.round(height * 0.62) }}
+        className="font-light leading-none tracking-tight"
+        style={{ fontSize: Math.round(height * 0.40) }}
       >
-        <span className="text-accent-500">/</span>{" "}
+        <span className="text-accent-500 text-3xl">/</span>{" "}
         <span className="text-foreground/80">{service}</span>
       </span>
     </span>
