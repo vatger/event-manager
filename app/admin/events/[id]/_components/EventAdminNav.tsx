@@ -38,7 +38,7 @@ const eventAdminTabs: {
   },
   {
     id: "roster",
-    label: "Roster",
+    label: " (WIP)",
     href: "/roster",
     icon: CalendarClock,
   },

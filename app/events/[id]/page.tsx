@@ -19,6 +19,7 @@ import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
 import PublicRoster from "./_components/PublicRoster";
+import { PUBLIC_ROSTER_VIEW_ENABLED } from "@/config/features";
 import { useUser,  } from "@/hooks/useUser";
 
 const formatTimeZ = (dateIso?: string | Date): string => {
@@ -38,6 +39,8 @@ export default function EventPage() {
   const [eventError, setEventError] = useState("");
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  // Solange die öffentliche Roster-Ansicht deaktiviert ist, bleibt das false –
+  // die Seite verhält sich dann wie vor dem Umbau und nutzt den rosterlink.
   const [hasInternalRoster, setHasInternalRoster] = useState(false);
   const {canInFIR, isEventFirTeamMember} = useUser();
 
@@ -310,8 +313,9 @@ export default function EventPage() {
         <StaffedStations callsigns={event.staffedStations} />
       )}
 
-      {/* Interner Besetzungsplan (sobald veröffentlicht) */}
-      {event.status === "ROSTER_PUBLISHED" && (
+      {/* Interner Besetzungsplan (sobald veröffentlicht).
+          Noch nicht freigegeben – siehe config/features.ts */}
+      {PUBLIC_ROSTER_VIEW_ENABLED && event.status === "ROSTER_PUBLISHED" && (
         <PublicRoster
           eventId={Number(event.id)}
           userCID={session?.user.cid ? Number(session.user.cid) : null}

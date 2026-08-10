@@ -40,8 +40,8 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
           {/* Markenbereich: Logo unverändert auf neutralem Grund, mit Schutzraum */}
           <Link href="/">
-            <div className="flex items-center gap-3 px-2 py-1.5 hover:bg-accent rounded-lg transition-colors duration-200">
-              <BrandLogo variant="auto" height={40} priority />
+            <div className="flex items-center px-2 py-1.5 hover:bg-accent rounded-lg transition-colors duration-200">
+              <BrandLogo variant="auto" height={32} service="eventmanager" priority />
             </div>
           </Link>
 

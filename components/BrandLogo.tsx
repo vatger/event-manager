@@ -57,6 +57,12 @@ interface BrandLogoProps {
    * Untergrund bereits exakt secondary-50 bzw. primary-900 ist.
    */
   plate?: boolean;
+  /**
+   * Name des Dienstes, der als „/ name“ hinter dem Logo steht – so wie bei
+   * den anderen VATGER-Diensten (vatger / forum, vatger / branding).
+   * Der Schrägstrich trägt die Akzentfarbe.
+   */
+  service?: string;
   className?: string;
   priority?: boolean;
 }
@@ -66,6 +72,7 @@ export function BrandLogo({
   mono = false,
   height = 32,
   plate = true,
+  service,
   className,
   priority = false,
 }: BrandLogoProps) {
@@ -85,10 +92,36 @@ export function BrandLogo({
       <Image {...common} alt="VATGER" src={src(variant === "light")} />
     );
 
-  if (!plate) return <span className={cn("inline-flex", className)}>{image}</span>;
+  const logo = plate ? (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-1.5 py-1",
+        PLATE_BG[variant],
+        !service && className
+      )}
+    >
+      {image}
+    </span>
+  ) : (
+    <span className={cn("inline-flex", !service && className)}>{image}</span>
+  );
 
+  if (!service) return logo;
+
+  // Dienst-Lockup: Der Schriftzug im Logo ist als Pfad hinterlegt, „/ name“
+  // wird daher als echter Text in der Hausschrift ergänzt. Größe an der
+  // Logohöhe ausgerichtet, damit beides auf einer Grundlinie sitzt.
   return (
-      image
+    <span className={cn("inline-flex items-baseline gap-1.5", className)}>
+      {logo}
+      <span
+        className="font-normal leading-none tracking-tight"
+        style={{ fontSize: Math.round(height * 0.62) }}
+      >
+        <span className="text-accent-500">/</span>{" "}
+        <span className="text-foreground/80">{service}</span>
+      </span>
+    </span>
   );
 }
 

@@ -165,12 +165,9 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
     <Sidebar className="border-r bg-background">
       <SidebarHeader className="border-b p-4">
       <Link href="/">
-        <div className="flex items-center gap-2.5 px-2 py-1">
-            <BrandLogo variant="auto" height={28} />
-            <div className="flex flex-col border-l pl-2.5">
-                <span className="font-semibold leading-tight">Eventmanager</span>
-                <span className="text-xs text-muted-foreground leading-tight">Adminpanel</span>
-            </div>
+        <div className="flex flex-col gap-1 px-2 py-1">
+            <BrandLogo variant="auto" height={26} service="eventmanager" />
+            <span className="pl-0.5 text-xs text-muted-foreground">Adminpanel</span>
         </div>
         </Link>
       </SidebarHeader>
