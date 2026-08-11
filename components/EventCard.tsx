@@ -115,7 +115,7 @@ export default function EventCard({ event, showBanner }: EventCardProps) {
         
         <div className="flex items-start gap-2 min-w-0 w-full">
           <MapPin className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-          <span className="break-words block min-w-0 flex-1">
+          <span className="break-normal block min-w-0 flex-1">
             {Array(event.airports).join(', ')}
           </span>
         </div>
