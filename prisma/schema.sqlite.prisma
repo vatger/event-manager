@@ -148,7 +148,8 @@ model EventRosterNote {
   id        Int      @id @default(autoincrement())
   rosterId  Int
   userCID   Int
-  note      String   
+  note      String
+  flag      String?
   authorCID Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

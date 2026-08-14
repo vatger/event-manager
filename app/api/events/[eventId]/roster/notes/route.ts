@@ -4,13 +4,18 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canEditEventRoster } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { ROSTER_FLAGS } from "@/lib/roster/rosterFlags";
 
 const putSchema = z.object({
   userCID: z.number().int(),
-  note: z.string().max(2000),
+  // Beide Felder sind optional: Notiz und Markierung lassen sich einzeln
+  // ändern, ohne das jeweils andere zu überschreiben.
+  note: z.string().max(2000).optional(),
+  flag: z.enum(ROSTER_FLAGS).nullable().optional(),
 });
 
-// PUT: Interne Notiz zu einem Controller setzen (leer = löschen)
+// PUT: Interne Notiz und/oder Ampel-Markierung setzen.
+// Der Datensatz verschwindet, sobald weder Notiz noch Markierung übrig sind.
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
@@ -37,18 +42,31 @@ export async function PUT(
     );
   }
 
-  const { userCID, note } = parsed.data;
-  const trimmed = note.trim();
+  const { userCID, note, flag } = parsed.data;
 
-  if (trimmed === "") {
+  const existing = await prisma.eventRosterNote.findUnique({
+    where: { rosterId_userCID: { rosterId: roster.id, userCID } },
+  });
+
+  // Nicht mitgeschickte Felder behalten ihren bisherigen Wert.
+  const nextNote = note !== undefined ? note.trim() : existing?.note ?? "";
+  const nextFlag = flag !== undefined ? flag : existing?.flag ?? null;
+
+  if (nextNote === "" && nextFlag === null) {
     await prisma.eventRosterNote.deleteMany({
       where: { rosterId: roster.id, userCID },
     });
   } else {
     await prisma.eventRosterNote.upsert({
       where: { rosterId_userCID: { rosterId: roster.id, userCID } },
-      create: { rosterId: roster.id, userCID, note: trimmed, authorCID: Number(user.cid) },
-      update: { note: trimmed, authorCID: Number(user.cid) },
+      create: {
+        rosterId: roster.id,
+        userCID,
+        note: nextNote,
+        flag: nextFlag,
+        authorCID: Number(user.cid),
+      },
+      update: { note: nextNote, flag: nextFlag, authorCID: Number(user.cid) },
     });
   }
 

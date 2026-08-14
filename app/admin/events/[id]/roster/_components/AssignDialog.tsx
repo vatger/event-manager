@@ -13,7 +13,14 @@ import { Input } from "@/components/ui/input";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { Button } from "@/components/ui/button";
 import { Ban, CalendarX2, Clock, Plus, Search, Star, TriangleAlert, UserX } from "lucide-react";
-import type { RosterController, RosterStation, StationMeta, Assignment } from "../_lib/rosterTypes";
+import type {
+  RosterController,
+  RosterStation,
+  StationMeta,
+  Assignment,
+  ControllerMark,
+} from "../_lib/rosterTypes";
+import { ROSTER_FLAG_DOT, ROSTER_FLAG_LABEL } from "@/lib/roster/rosterFlags";
 import {
   formatDuration,
   getControllerGroupForStation,
@@ -35,6 +42,8 @@ interface AssignDialogProps {
   eventAirports: string[];
   controllers: RosterController[];
   assignments: Assignment[];
+  /** Interne Notiz + Ampel-Markierung, damit die Auswahl sie berücksichtigt */
+  markByCid: Map<number, ControllerMark>;
   onAssign: (cid: number) => void;
   onCustom: (label: string) => void;
 }
@@ -55,6 +64,7 @@ export function AssignDialog({
   eventAirports,
   controllers,
   assignments,
+  markByCid,
   onAssign,
   onCustom,
 }: AssignDialogProps) {
@@ -80,7 +90,9 @@ export function AssignDialog({
     return suggestions.filter(
       (s) =>
         s.controller.name.toLowerCase().includes(q) ||
-        String(s.controller.cid).includes(q)
+        String(s.controller.cid).includes(q) ||
+        s.controller.preferredStations.toLowerCase().includes(q) ||
+        (s.controller.remarks ?? "").toLowerCase().includes(q)
     );
   }, [suggestions, search]);
 
@@ -128,6 +140,7 @@ export function AssignDialog({
               // Belegte Zeiten bleiben gesperrt; fehlende Freigabe und
               // zurückgezogene Anmeldung sind nur Warnungen.
               const blocked = !s.free;
+              const mark = markByCid.get(s.controller.cid);
               return (
                 <button
                   key={s.controller.cid}
@@ -141,6 +154,12 @@ export function AssignDialog({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
+                      {mark?.flag && (
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${ROSTER_FLAG_DOT[mark.flag]}`}
+                          title={`Interne Markierung: ${ROSTER_FLAG_LABEL[mark.flag]}`}
+                        />
+                      )}
                       <span className="font-medium text-sm truncate">
                         {s.controller.name}
                       </span>
@@ -159,6 +178,33 @@ export function AssignDialog({
                         {formatDuration(s.assignedMinutes)} eingeplant
                       </span>
                     </div>
+                    {/* Wünsche, Remarks und interne Notiz direkt in der Auswahl –
+                        so muss beim Besetzen niemand erst ein Profil öffnen. */}
+                    {(s.controller.preferredStations || s.controller.remarks || mark?.note) && (
+                      <div className="mt-0.5 space-y-0.5">
+                        {s.controller.preferredStations && (
+                          <p className="text-[11px] leading-tight text-amber-700 dark:text-amber-300 truncate">
+                            Wunsch: {s.controller.preferredStations}
+                          </p>
+                        )}
+                        {s.controller.remarks && (
+                          <p
+                            className="text-[11px] leading-tight text-foreground/70 line-clamp-2"
+                            title={s.controller.remarks}
+                          >
+                            {s.controller.remarks}
+                          </p>
+                        )}
+                        {mark?.note && (
+                          <p
+                            className="text-[11px] leading-tight text-sky-700 dark:text-sky-300 line-clamp-2"
+                            title={mark.note}
+                          >
+                            Notiz: {mark.note}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {blocked && (

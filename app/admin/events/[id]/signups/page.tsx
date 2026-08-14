@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Event } from "@/types";
 import EventHeader from "../_components/EventHeader";
@@ -15,6 +15,8 @@ import { Users, RotateCcw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { parseEventAirports } from "@/lib/multiAirport";
 import { SignupTableEntry } from "@/lib/cache/types";
+import PlanningPanel from "./_components/PlanningPanel";
+import type { RosterFlag } from "@/lib/roster/rosterFlags";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +25,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/** Ausschnitt aus der Roster-API, den der Planungsbereich braucht */
+interface PlanningRoster {
+  stations: { id: number; callsign: string }[];
+  assignments: {
+    stationId: number;
+    userCID: number | null;
+    startTime: string;
+    endTime: string;
+  }[];
+  notes?: { userCID: number; flag: RosterFlag | null }[];
+}
 
 export default function AdminEventSignupsPage() {
   const params = useParams();
@@ -33,9 +47,15 @@ export default function AdminEventSignupsPage() {
   const [eventError, setEventError] = useState<string>("");
   const [selectedAirport, setSelectedAirport] = useState<string | undefined>(undefined);
 
+  // Anmeldungen und Besetzungsplan für den Planungsbereich. Die Tabelle lädt
+  // ihre Daten weiterhin selbst – hier geht es nur um die Verknüpfung beider.
+  const [signups, setSignups] = useState<SignupTableEntry[]>([]);
+  const [roster, setRoster] = useState<PlanningRoster | null>(null);
+  const [canEditRoster, setCanEditRoster] = useState(false);
+
   const tableRef = useRef<SignupsTableRef>(null);
   const tabsRef = useRef<AirportSignupTabsRef>(null);
-  
+
   const timelineRef = useRef<AvailabilityTimelineHandle>(null);
   const statsRef = useRef<StatsCardHandle>(null);
   const { canInFIR } = useUser();
@@ -59,7 +79,38 @@ export default function AdminEventSignupsPage() {
       .finally(() => setEventLoading(false));
   }, [eventId]);
 
-  
+  /**
+   * Anmeldungen und Plan für den Planungsbereich holen. Der Roster-Abruf darf
+   * fehlschlagen (fehlende Berechtigung oder noch kein Plan) – dann bleibt der
+   * Bereich auf die Anmeldedaten beschränkt.
+   */
+  const loadPlanningData = useCallback(async () => {
+    if (!eventId) return;
+    try {
+      const [signupRes, rosterRes] = await Promise.all([
+        fetch(`/api/events/${eventId}/signup/full`),
+        fetch(`/api/events/${eventId}/roster`),
+      ]);
+      if (signupRes.ok) {
+        const data = await signupRes.json();
+        if (Array.isArray(data.signups)) setSignups(data.signups);
+      }
+      if (rosterRes.ok) {
+        const data = await rosterRes.json();
+        setRoster(data.roster ?? null);
+        setCanEditRoster(Boolean(data.canEdit));
+      } else {
+        setRoster(null);
+        setCanEditRoster(false);
+      }
+    } catch {
+      // Der Planungsbereich ist Zusatzinfo – ein Fehler darf die Seite nicht blockieren
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    loadPlanningData();
+  }, [loadPlanningData]);
 
   // Slots für Timeline generieren
   const slots = useMemo(() => generateSlotsUTC(event?.startTime, event?.endTime, event?.signupSlotMinutes ?? 30), [event?.startTime, event?.endTime, event?.signupSlotMinutes]);
@@ -72,6 +123,27 @@ export default function AdminEventSignupsPage() {
 
   const isMultiAirport = eventAirports.length > 1;
 
+  // Eventfenster in Minuten – Grundlage für Schichten und Verfügbarkeiten
+  const eventStart = useMemo(
+    () => (event?.startTime ? new Date(event.startTime) : null),
+    [event?.startTime]
+  );
+  const totalMinutes = useMemo(() => {
+    if (!eventStart || !event?.endTime) return 0;
+    return Math.max(
+      0,
+      Math.round((new Date(event.endTime).getTime() - eventStart.getTime()) / 60000)
+    );
+  }, [eventStart, event?.endTime]);
+
+  const flagByCid = useMemo(() => {
+    const map = new Map<number, RosterFlag>();
+    for (const n of roster?.notes ?? []) {
+      if (n.flag) map.set(n.userCID, n.flag);
+    }
+    return map;
+  }, [roster?.notes]);
+
   if (eventLoading) return <div className="flex justify-center items-center h-64 text-muted-foreground">Lade Event...</div>;
   if (eventError || !event) return <div className="p-6 text-center text-red-500">{eventError || "Event nicht gefunden"}</div>;
 
@@ -83,6 +155,8 @@ export default function AdminEventSignupsPage() {
     }
     timelineRef.current?.reload()
     statsRef.current?.reload()
+    // Planungsbereich mitziehen, damit Änderungen sofort im Plan-Bezug stehen
+    loadPlanningData()
   };
 
   const handleExport = (airport?: string) => {
@@ -145,7 +219,24 @@ export default function AdminEventSignupsPage() {
       />
       
       <StatsCard ref={statsRef} eventId={Number(eventId)} />
-      
+
+      {/* Planung: Verbindung zwischen Anmeldeliste und Besetzungsplan */}
+      {eventStart && signups.length > 0 && (
+        <PlanningPanel
+          eventId={Number(eventId)}
+          signups={signups}
+          eventStart={eventStart}
+          totalMinutes={totalMinutes}
+          assignments={roster?.assignments ?? []}
+          stations={roster?.stations ?? []}
+          flagByCid={flagByCid}
+          hasRoster={roster !== null}
+          canOpenRoster={canEditRoster}
+          canAcknowledge={canInFIR(event.firCode, "signups.manage")}
+          onChanged={handleSignupChanged}
+        />
+      )}
+
       <AvailabilityTimeline
         ref={timelineRef}
         eventId={Number(eventId)}

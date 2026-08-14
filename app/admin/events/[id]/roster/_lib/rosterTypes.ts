@@ -1,5 +1,6 @@
 import type { SignupTableEntry } from "@/lib/cache/types";
 import type { StationGroup } from "@/lib/weeklys/stationUtils";
+import type { RosterFlag } from "@/lib/roster/rosterFlags";
 
 /** Station wie vom Roster-API geliefert */
 export interface RosterStation {
@@ -36,13 +37,20 @@ export interface ApiSnapshot {
   createdAt: string;
 }
 
-/** Interne Planungsnotiz zu einem Controller */
+/** Interne Planungsnotiz + Markierung zu einem Controller */
 export interface ApiRosterNote {
   id: number;
   userCID: number;
   note: string;
+  flag: RosterFlag | null;
   authorCID: number | null;
   updatedAt: string;
+}
+
+/** Zusammengefasste Planungsinfo zu einem Controller */
+export interface ControllerMark {
+  note: string;
+  flag: RosterFlag | null;
 }
 
 export interface ApiRoster {

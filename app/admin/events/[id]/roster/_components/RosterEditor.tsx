@@ -45,6 +45,8 @@ import {
   GripVertical,
   History,
   MessageSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
   RotateCcw,
   Search,
   Settings2,
@@ -65,11 +67,20 @@ import type { SignupTableEntry } from "@/lib/cache/types";
 import type {
   ApiRoster,
   Assignment,
+  ControllerMark,
   DragState,
   RosterController,
   RosterWarning,
   StationMeta,
 } from "../_lib/rosterTypes";
+import {
+  ROSTER_FLAGS,
+  ROSTER_FLAG_BAR,
+  ROSTER_FLAG_DOT,
+  ROSTER_FLAG_HINT,
+  ROSTER_FLAG_LABEL,
+  type RosterFlag,
+} from "@/lib/roster/rosterFlags";
 import {
   assignedMinutesByController,
   buildControllers,
@@ -89,6 +100,7 @@ import {
   stationOccupied,
 } from "../_lib/rosterUtils";
 import { AssignDialog } from "./AssignDialog";
+import { FlagPicker } from "./FlagPicker";
 import { StationsDialog } from "./StationsDialog";
 import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
@@ -99,9 +111,15 @@ import SignupEditDialog from "../../_components/SignupEditDialog";
 
 // Layout-Konstanten
 const LABEL_W = 224; // Breite der linken Beschriftungsspalte
+// Mit eingeblendeter Infospalte wandert der Zeitstrahl nach rechts: Die
+// Beschriftungsspalte wird breiter, weil Stationen- und Controller-Board
+// denselben Nullpunkt teilen müssen.
+const INFO_W = 250; // Zusatzbreite für Wünsche/Remarks/Notiz
 const ROW_H = 44; // Zeilenhöhe
+const ROW_H_INFO = 62; // Zeilenhöhe im Controller-Board mit Infospalte
 const ZOOM_LEVELS = [28, 40, 56, 76]; // Pixel pro Slot
 const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
+const REMARKS_PREF_KEY = "roster:showRemarks";
 
 interface EditorEvent {
   id: number;
@@ -206,12 +224,22 @@ export function RosterEditor({
     setStations(roster.stations);
   }, [roster.stations]);
 
-  // Interne Notizen pro Controller
-  const noteByCid = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const n of roster.notes ?? []) map.set(n.userCID, n.note);
+  // Interne Notiz + Ampel-Markierung pro Controller
+  const markByCid = useMemo(() => {
+    const map = new Map<number, ControllerMark>();
+    for (const n of roster.notes ?? []) {
+      map.set(n.userCID, { note: n.note ?? "", flag: n.flag ?? null });
+    }
     return map;
   }, [roster.notes]);
+  const noteFor = useCallback(
+    (cid: number) => markByCid.get(cid)?.note ?? "",
+    [markByCid]
+  );
+  const flagFor = useCallback(
+    (cid: number) => markByCid.get(cid)?.flag ?? null,
+    [markByCid]
+  );
 
   const stationById = useMemo(
     () => new Map(stations.map((s) => [s.id, s])),
@@ -247,7 +275,11 @@ export function RosterEditor({
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [controllerSearch, setControllerSearch] = useState("");
-  const [controllerSort, setControllerSort] = useState<"name" | "assigned">("name");
+  const [controllerSort, setControllerSort] = useState<"name" | "assigned" | "flag">("name");
+  // Infospalte: Wünsche, Remarks und interne Notiz aller Controller nebeneinander
+  const [showRemarks, setShowRemarks] = useState(true);
+  // Filter auf Ampel-Markierungen (leer = alle zeigen)
+  const [flagFilter, setFlagFilter] = useState<Set<RosterFlag>>(new Set());
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   // Ausgewählter Controller für die Seitenleiste
@@ -256,6 +288,21 @@ export function RosterEditor({
   const [editorsOpen, setEditorsOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
+
+  // Die Wahl der Infospalte überdauert Seitenwechsel – wer mit Remarks plant,
+  // will sie beim nächsten Öffnen wiederhaben.
+  useEffect(() => {
+    const stored = window.localStorage.getItem(REMARKS_PREF_KEY);
+    if (stored !== null) setShowRemarks(stored === "1");
+  }, []);
+  useEffect(() => {
+    window.localStorage.setItem(REMARKS_PREF_KEY, showRemarks ? "1" : "0");
+  }, [showRemarks]);
+
+  // Beide Boards teilen sich den Nullpunkt des Zeitstrahls, deshalb gilt die
+  // Breite der Beschriftungsspalte auch für die Stationen.
+  const labelWidth = showRemarks ? LABEL_W + INFO_W : LABEL_W;
+  const controllerRowH = showRemarks ? ROW_H_INFO : ROW_H;
 
   // ------------------------------------------------------------------
   // Realtime-Sync: SSE-Stream abonnieren, bei fremden Änderungen neu laden
@@ -418,14 +465,21 @@ export function RosterEditor({
     [assignments, event.id, apiHeaders]
   );
 
-  /** Interne Notiz zu einem Controller speichern (leer = löschen) */
-  const saveNote = useCallback(
-    async (userCID: number, note: string): Promise<boolean> => {
+  /**
+   * Interne Notiz und/oder Ampel-Markierung speichern. Nicht übergebene Felder
+   * lässt der Server unverändert; sind am Ende beide leer, verschwindet der
+   * Eintrag.
+   */
+  const saveMark = useCallback(
+    async (
+      userCID: number,
+      patch: { note?: string; flag?: RosterFlag | null }
+    ): Promise<boolean> => {
       try {
         const res = await fetch(`/api/events/${event.id}/roster/notes`, {
           method: "PUT",
           headers: apiHeaders,
-          body: JSON.stringify({ userCID, note }),
+          body: JSON.stringify({ userCID, ...patch }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
@@ -1105,9 +1159,24 @@ export function RosterEditor({
     const q = controllerSearch.trim().toLowerCase();
     let list = controllers;
     if (q) {
-      list = list.filter(
-        (c) => c.name.toLowerCase().includes(q) || String(c.cid).includes(q)
-      );
+      // Auch Wünsche, Remarks und interne Notiz durchsuchen – damit lässt sich
+      // etwa "Training" oder "nur bis 20" direkt finden.
+      list = list.filter((c) => {
+        const mark = markByCid.get(c.cid);
+        return (
+          c.name.toLowerCase().includes(q) ||
+          String(c.cid).includes(q) ||
+          c.preferredStations.toLowerCase().includes(q) ||
+          (c.remarks ?? "").toLowerCase().includes(q) ||
+          (mark?.note ?? "").toLowerCase().includes(q)
+        );
+      });
+    }
+    if (flagFilter.size > 0) {
+      list = list.filter((c) => {
+        const flag = markByCid.get(c.cid)?.flag ?? null;
+        return flag !== null && flagFilter.has(flag);
+      });
     }
     // Abgemeldete ohne Zuweisung sind für die Planung irrelevant und würden
     // die Liste nur aufblähen – abgemeldete MIT Zuweisung müssen sichtbar sein.
@@ -1118,9 +1187,46 @@ export function RosterEditor({
       list = [...list].sort(
         (a, b) => (assignedMinutes.get(b.cid) ?? 0) - (assignedMinutes.get(a.cid) ?? 0)
       );
+    } else if (controllerSort === "flag") {
+      // Markierte zuerst (grün → orange → rot), Unmarkierte ans Ende
+      const rank = (cid: number) => {
+        const flag = markByCid.get(cid)?.flag ?? null;
+        return flag === null ? ROSTER_FLAGS.length : ROSTER_FLAGS.indexOf(flag);
+      };
+      list = [...list].sort((a, b) => {
+        const d = rank(a.cid) - rank(b.cid);
+        return d !== 0 ? d : a.name.localeCompare(b.name);
+      });
     }
     return list;
-  }, [controllers, controllerSearch, controllerSort, assignedMinutes, assignments]);
+  }, [
+    controllers,
+    controllerSearch,
+    controllerSort,
+    assignedMinutes,
+    assignments,
+    markByCid,
+    flagFilter,
+  ]);
+
+  /** Wie viele Controller tragen welche Markierung? (für die Filter-Chips) */
+  const flagCounts = useMemo(() => {
+    const counts: Record<RosterFlag, number> = { green: 0, amber: 0, red: 0 };
+    for (const c of controllers) {
+      const flag = markByCid.get(c.cid)?.flag ?? null;
+      if (flag) counts[flag] += 1;
+    }
+    return counts;
+  }, [controllers, markByCid]);
+
+  const toggleFlagFilter = useCallback((flag: RosterFlag) => {
+    setFlagFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(flag)) next.delete(flag);
+      else next.add(flag);
+      return next;
+    });
+  }, []);
 
   // Header-Slots
   const slots = useMemo(() => {
@@ -1562,12 +1668,12 @@ export function RosterEditor({
 
           {/* Gemeinsamer Scroll-Container für beide Boards (füllt den Bereich) */}
           <div className="flex-1 min-h-0 overflow-auto m-3 border rounded-xl bg-background">
-            <div style={{ width: LABEL_W + timelineWidth, minWidth: "100%" }}>
+            <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
             {/* Zeit-Header */}
             <div className="flex sticky top-0 z-40 bg-background border-b">
               <div
                 className="sticky left-0 z-50 bg-background border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0 flex items-end"
-                style={{ width: LABEL_W }}
+                style={{ width: labelWidth }}
               >
                 Stationen
               </div>
@@ -1606,40 +1712,48 @@ export function RosterEditor({
                   }`}
                 >
                   <div
-                    className={`sticky left-0 z-20 bg-background border-r pr-3 pl-1 shrink-0 flex items-center justify-between gap-1.5 ${
+                    className={`sticky left-0 z-20 bg-background border-r pl-1 shrink-0 flex items-center ${
                       isReordering ? "ring-2 ring-inset ring-primary rounded-sm" : ""
                     }`}
-                    style={{ width: LABEL_W, height: ROW_H }}
+                    style={{ width: labelWidth, height: ROW_H }}
                   >
-                    <div className="flex items-center gap-1 min-w-0">
-                      {canEdit && (
-                        <button
-                          className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
-                          style={{ touchAction: "none" }}
-                          onPointerDown={(e) => startReorder(e, station.id)}
-                          aria-label={`${station.callsign} umsortieren`}
-                          title="Reihenfolge ändern (ziehen)"
-                        >
-                          <GripVertical className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium truncate flex items-center gap-1">
-                          {station.callsign}
-                          {dragPrefersHere && (
-                            <span title="Wunsch-Station des gezogenen Controllers">
-                              <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {Math.round(coverage * 100)}% besetzt
+                    {/* Der Stationsname bleibt auf Grundbreite, auch wenn die
+                        Infospalte die Beschriftung insgesamt verbreitert –
+                        sonst driften Name und Freigabe-Badge auseinander. */}
+                    <div
+                      className="flex items-center justify-between gap-1.5 pr-3 min-w-0"
+                      style={{ width: LABEL_W }}
+                    >
+                      <div className="flex items-center gap-1 min-w-0">
+                        {canEdit && (
+                          <button
+                            className="cursor-grab active:cursor-grabbing p-0.5 text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                            style={{ touchAction: "none" }}
+                            onPointerDown={(e) => startReorder(e, station.id)}
+                            aria-label={`${station.callsign} umsortieren`}
+                            title="Reihenfolge ändern (ziehen)"
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate flex items-center gap-1">
+                            {station.callsign}
+                            {dragPrefersHere && (
+                              <span title="Wunsch-Station des gezogenen Controllers">
+                                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {Math.round(coverage * 100)}% besetzt
+                          </div>
                         </div>
                       </div>
+                      <Badge className={`${getBadgeClassForEndorsement(meta.group)} shrink-0 text-[10px]`}>
+                        {meta.group ?? "?"}
+                      </Badge>
                     </div>
-                    <Badge className={`${getBadgeClassForEndorsement(meta.group)} shrink-0 text-[10px]`}>
-                      {meta.group ?? "?"}
-                    </Badge>
                   </div>
                   <div
                     ref={registerRow("station", station.id)}
@@ -1736,29 +1850,65 @@ export function RosterEditor({
             {/* Trenner + Controller-Header */}
             <div className="flex bg-muted/50 border-y">
               <div
-                className="sticky left-0 z-20 bg-muted/50 border-r px-3 py-2 shrink-0"
-                style={{ width: LABEL_W }}
+                className="sticky left-0 z-20 bg-muted/50 border-r px-3 py-2 shrink-0 flex items-center justify-between gap-2"
+                style={{ width: labelWidth }}
               >
                 <span className="text-xs font-semibold text-muted-foreground">
                   Controller ({visibleControllers.length})
                 </span>
+                <div className="flex items-center gap-1">
+                  {/* Filter nach Ampel-Markierung */}
+                  {ROSTER_FLAGS.map((flag) => {
+                    const active = flagFilter.has(flag);
+                    return (
+                      <button
+                        key={flag}
+                        type="button"
+                        onClick={() => toggleFlagFilter(flag)}
+                        title={`${ROSTER_FLAG_LABEL[flag]} – ${ROSTER_FLAG_HINT[flag]} (${flagCounts[flag]})`}
+                        className={cn(
+                          "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] leading-none transition-colors",
+                          active
+                            ? "border-foreground/40 bg-background"
+                            : "border-transparent text-muted-foreground hover:bg-background/60"
+                        )}
+                      >
+                        <span className={cn("h-2 w-2 rounded-full", ROSTER_FLAG_DOT[flag])} />
+                        {flagCounts[flag]}
+                      </button>
+                    );
+                  })}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    title={showRemarks ? "Infospalte ausblenden" : "Wünsche & Remarks einblenden"}
+                    onClick={() => setShowRemarks((v) => !v)}
+                  >
+                    {showRemarks ? (
+                      <PanelLeftClose className="h-3.5 w-3.5" />
+                    ) : (
+                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
               </div>
               <div
                 className="sticky z-20 flex items-center gap-2 px-3 py-1.5 w-fit"
-                style={{ left: LABEL_W }}
+                style={{ left: labelWidth }}
               >
                 <div className="relative">
                   <Input
                     value={controllerSearch}
                     onChange={(e) => setControllerSearch(e.target.value)}
-                    placeholder="Suchen…"
-                    className="h-7 w-44 pl-7 text-xs"
+                    placeholder="Name, CID, Remarks…"
+                    className="h-7 w-52 pl-7 text-xs"
                   />
                   <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <Select
                   value={controllerSort}
-                  onValueChange={(v) => setControllerSort(v as "name" | "assigned")}
+                  onValueChange={(v) => setControllerSort(v as "name" | "assigned" | "flag")}
                 >
                   <SelectTrigger size="sm" className="h-7 w-44 text-xs">
                     <SelectValue />
@@ -1766,6 +1916,7 @@ export function RosterEditor({
                   <SelectContent>
                     <SelectItem value="name">Nach Name</SelectItem>
                     <SelectItem value="assigned">Nach eingeplanter Zeit</SelectItem>
+                    <SelectItem value="flag">Nach Markierung</SelectItem>
                   </SelectContent>
                 </Select>
                 {canEdit && (
@@ -1783,6 +1934,8 @@ export function RosterEditor({
               const isDragSource =
                 drag?.kind === "assign-controller" && drag.userCID === c.cid;
               const isSelectedRow = selectedCID === c.cid;
+              const mark = markByCid.get(c.cid);
+              const flag = mark?.flag ?? null;
               return (
                 <div
                   key={c.cid}
@@ -1791,61 +1944,124 @@ export function RosterEditor({
                   }`}
                 >
                   <div
-                    className={`sticky left-0 z-20 border-r px-2 shrink-0 flex items-center gap-1 select-none ${
+                    className={`sticky left-0 z-20 border-r pr-2 shrink-0 flex items-stretch select-none ${
                       isSelectedRow ? "bg-primary/10" : "bg-background"
-                    } ${canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`}
-                    style={{ width: LABEL_W, height: ROW_H, touchAction: "none" }}
-                    onPointerDown={(e) => startAssignDrag(e, c.cid)}
-                    onClick={
-                      canEdit
-                        ? undefined
-                        : () => setSelectedCID((sel) => (sel === c.cid ? null : c.cid))
-                    }
+                    }`}
+                    style={{ width: labelWidth, height: controllerRowH }}
                   >
-                    {canEdit && (
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate leading-tight flex items-center gap-1">
-                        <span className={cn("truncate", c.withdrawn && "line-through")}>
-                          {c.name}
-                        </span>
-                        {c.withdrawn && (
-                          <span title="Anmeldung zurückgezogen">
-                            <UserX className="h-3 w-3 shrink-0 text-danger-600" />
-                          </span>
-                        )}
-                        {c.preferredStations && (
-                          <span title={`Wunschstationen: ${c.preferredStations}`}>
-                            <Star className="h-3 w-3 text-amber-500 fill-amber-400 shrink-0" />
-                          </span>
-                        )}
-                        {c.remarks && (
-                          <span title={`Remarks: ${c.remarks}`}>
-                            <MessageSquare className="h-3 w-3 text-sky-500 shrink-0" />
-                          </span>
-                        )}
-                        {noteByCid.has(c.cid) && (
-                          <span title={`Interne Notiz: ${noteByCid.get(c.cid)}`}>
-                            <StickyNote className="h-3 w-3 text-amber-500 shrink-0" />
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground leading-tight">
-                        {c.cid} • {c.rating}
-                        {minutes > 0 ? ` • ${formatDuration(minutes)}` : " • frei"}
-                      </div>
-                    </div>
-                    <Badge
-                      className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
+                    {/* Ampel-Streifen: Markierung auf einen Blick über alle Zeilen */}
+                    <span
+                      className={cn(
+                        "w-1 shrink-0",
+                        flag ? ROSTER_FLAG_BAR[flag] : "bg-transparent"
+                      )}
+                    />
+                    <div
+                      className={cn(
+                        "flex items-center gap-1 min-w-0 pl-1",
+                        showRemarks ? "w-[218px] shrink-0" : "flex-1",
+                        canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+                      )}
+                      style={{ touchAction: "none" }}
+                      onPointerDown={(e) => startAssignDrag(e, c.cid)}
+                      onClick={
+                        canEdit
+                          ? undefined
+                          : () => setSelectedCID((sel) => (sel === c.cid ? null : c.cid))
+                      }
                     >
-                      {bestGroup ?? "?"}
-                    </Badge>
+                      {canEdit && (
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium truncate leading-tight flex items-center gap-1">
+                          <span className={cn("truncate", c.withdrawn && "line-through")}>
+                            {c.name}
+                          </span>
+                          {c.withdrawn && (
+                            <span title="Anmeldung zurückgezogen">
+                              <UserX className="h-3 w-3 shrink-0 text-danger-600" />
+                            </span>
+                          )}
+                          {/* Ohne Infospalte bleiben die Symbole die Kurzform */}
+                          {!showRemarks && c.preferredStations && (
+                            <span title={`Wunschstationen: ${c.preferredStations}`}>
+                              <Star className="h-3 w-3 text-amber-500 fill-amber-400 shrink-0" />
+                            </span>
+                          )}
+                          {!showRemarks && c.remarks && (
+                            <span title={`Remarks: ${c.remarks}`}>
+                              <MessageSquare className="h-3 w-3 text-sky-500 shrink-0" />
+                            </span>
+                          )}
+                          {!showRemarks && mark?.note && (
+                            <span title={`Interne Notiz: ${mark.note}`}>
+                              <StickyNote className="h-3 w-3 text-amber-500 shrink-0" />
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground leading-tight truncate">
+                          {c.cid} • {c.rating}
+                          {minutes > 0 ? ` • ${formatDuration(minutes)}` : " • frei"}
+                        </div>
+                      </div>
+                      <Badge
+                        className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
+                      >
+                        {bestGroup ?? "?"}
+                      </Badge>
+                    </div>
+
+                    {/* Infospalte: Wünsche, Remarks und interne Notiz */}
+                    {showRemarks && (
+                      <div
+                        className="flex-1 min-w-0 border-l pl-2 pr-1 py-1 flex items-start gap-1 cursor-pointer"
+                        onClick={() => setSelectedCID((sel) => (sel === c.cid ? null : c.cid))}
+                        title="Für Details und Bearbeiten anklicken"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          {c.preferredStations && (
+                            <p className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate">
+                              <Star className="inline h-2.5 w-2.5 mb-0.5 mr-0.5 fill-current" />
+                              {c.preferredStations}
+                            </p>
+                          )}
+                          {c.remarks && (
+                            <p
+                              className="text-[10px] leading-tight text-foreground/80 line-clamp-2"
+                              title={c.remarks}
+                            >
+                              {c.remarks}
+                            </p>
+                          )}
+                          {mark?.note && (
+                            <p
+                              className="text-[10px] leading-tight text-sky-700 dark:text-sky-300 line-clamp-2"
+                              title={mark.note}
+                            >
+                              <StickyNote className="inline h-2.5 w-2.5 mb-0.5 mr-0.5" />
+                              {mark.note}
+                            </p>
+                          )}
+                          {!c.preferredStations && !c.remarks && !mark?.note && (
+                            <p className="text-[10px] leading-tight text-muted-foreground/60">
+                              keine Angaben
+                            </p>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <FlagPicker
+                            flag={flag}
+                            onChange={(next) => saveMark(c.cid, { flag: next })}
+                          />
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div
                     ref={registerRow("controller", c.cid)}
                     className="relative shrink-0"
-                    style={{ width: timelineWidth, height: ROW_H, ...gridBackground }}
+                    style={{ width: timelineWidth, height: controllerRowH, ...gridBackground }}
                   >
                     {/* Verfügbarkeits-Hintergrund */}
                     <div
@@ -1906,11 +2122,17 @@ export function RosterEditor({
             assignedMinutes={selectedCID != null ? assignedMinutes.get(selectedCID) ?? 0 : 0}
             shiftLabels={selectedShiftLabels}
             eventStart={eventStart}
-            note={selectedCID != null ? noteByCid.get(selectedCID) ?? "" : ""}
+            note={selectedCID != null ? noteFor(selectedCID) : ""}
+            flag={selectedCID != null ? flagFor(selectedCID) : null}
             canEdit={canEdit}
             canManageSignups={canManageSignups}
             onClose={() => setSelectedCID(null)}
-            onSaveNote={(n) => (selectedCID != null ? saveNote(selectedCID, n) : Promise.resolve(false))}
+            onSaveNote={(n) =>
+              selectedCID != null ? saveMark(selectedCID, { note: n }) : Promise.resolve(false)
+            }
+            onSetFlag={(f) => {
+              if (selectedCID != null) void saveMark(selectedCID, { flag: f });
+            }}
             onEditSignup={() => {
               const entry = selectedController?.entry ?? null;
               if (entry) setSignupDialog({ signup: entry });
@@ -1932,6 +2154,7 @@ export function RosterEditor({
         eventAirports={event.airports}
         controllers={controllers}
         assignments={assignments}
+        markByCid={markByCid}
         onAssign={(cid) => {
           if (assignDialog) {
             const v = validate(assignDialog.stationId, cid, assignDialog.start, assignDialog.end);

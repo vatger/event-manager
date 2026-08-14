@@ -23,8 +23,16 @@ import {
   X,
 } from "lucide-react";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
+import { cn } from "@/lib/utils";
+import {
+  ROSTER_FLAG_DOT,
+  ROSTER_FLAG_LABEL,
+  ROSTER_FLAG_SOFT,
+  type RosterFlag,
+} from "@/lib/roster/rosterFlags";
 import type { RosterController } from "../_lib/rosterTypes";
 import { formatDuration, minuteToHM } from "../_lib/rosterUtils";
+import { FlagPicker } from "./FlagPicker";
 
 interface AtcStation {
   station: string;
@@ -56,10 +64,13 @@ interface ControllerSidePanelProps {
   shiftLabels: string[];
   eventStart: Date;
   note: string;
+  /** Interne Ampel-Markierung des ausgewählten Controllers */
+  flag: RosterFlag | null;
   canEdit: boolean;
   canManageSignups: boolean;
   onClose: () => void;
   onSaveNote: (note: string) => Promise<boolean>;
+  onSetFlag: (flag: RosterFlag | null) => void;
   onEditSignup: () => void;
   apiHeaders: Record<string, string>;
 }
@@ -88,10 +99,12 @@ export function ControllerSidePanel({
   shiftLabels,
   eventStart,
   note,
+  flag,
   canEdit,
   canManageSignups,
   onClose,
   onSaveNote,
+  onSetFlag,
   onEditSignup,
   apiHeaders,
 }: ControllerSidePanelProps) {
@@ -311,11 +324,28 @@ export function ControllerSidePanel({
             </div>
           </div>
 
-          {/* Interne Planungsnotiz (pro Roster) */}
+          {/* Interne Planungsnotiz + Ampel-Markierung (pro Roster) */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-              <StickyNote className="h-3.5 w-3.5 text-amber-500" /> Notiz für diese Planung
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5 text-amber-500" /> Notiz für diese Planung
+              </p>
+              {canEdit ? (
+                <FlagPicker flag={flag} onChange={onSetFlag} withLabel />
+              ) : (
+                flag && (
+                  <span
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs",
+                      ROSTER_FLAG_SOFT[flag]
+                    )}
+                  >
+                    <span className={cn("h-2.5 w-2.5 rounded-full", ROSTER_FLAG_DOT[flag])} />
+                    {ROSTER_FLAG_LABEL[flag]}
+                  </span>
+                )
+              )}
+            </div>
             {canEdit ? (
               <>
                 <Textarea
