@@ -1,14 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,26 +11,31 @@ import { AlertTriangle, Loader2, Plus, X } from "lucide-react";
 import type { Station } from "@/lib/stations/types";
 import type { ApiRoster, Assignment } from "../_lib/rosterTypes";
 
-interface StationsDialogProps {
+interface StationsSectionProps {
+  /** Beim Öffnen des Dialogs die Eingaben auf den gespeicherten Stand setzen */
   open: boolean;
-  onOpenChange: (open: boolean) => void;
   eventId: number;
   eventAirports: string[];
   roster: ApiRoster;
   assignments: Assignment[];
   onUpdated: () => void;
+  /** Schließt den umgebenden Dialog nach dem Speichern */
+  onDone: () => void;
 }
 
-/** Stationen und Rastergröße eines bestehenden Rosters bearbeiten */
-export function StationsDialog({
+/**
+ * Stationen und Zeitraster eines bestehenden Rosters bearbeiten.
+ * Abschnitt der Roster-Einstellungen – die Dialoghülle liegt beim Aufrufer.
+ */
+export function StationsSection({
   open,
-  onOpenChange,
   eventId,
   eventAirports,
   roster,
   assignments,
   onUpdated,
-}: StationsDialogProps) {
+  onDone,
+}: StationsSectionProps) {
   const [stations, setStations] = useState<string[]>([]);
   const [slotMinutes, setSlotMinutes] = useState(roster.slotMinutes);
   const [customStation, setCustomStation] = useState("");
@@ -122,8 +119,8 @@ export function StationsDialog({
         throw new Error(j.error || "Fehler beim Speichern");
       }
       toast.success("Roster aktualisiert");
-      onOpenChange(false);
       onUpdated();
+      onDone();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Fehler beim Speichern");
     } finally {
@@ -132,16 +129,7 @@ export function StationsDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Stationen & Raster bearbeiten</DialogTitle>
-          <DialogDescription>
-            Stationen hinzufügen oder entfernen und das Zeitraster anpassen.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4">
+    <div className="space-y-4">
           <div>
             <Label className="text-sm font-medium mb-2 block">
               Stationen ({stations.length})
@@ -217,18 +205,12 @@ export function StationsDialog({
               ))}
             </div>
           </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
-          </Button>
-          <Button onClick={save} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Speichern
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <div className="flex justify-end gap-2 pt-1">
+        <Button onClick={save} disabled={saving}>
+          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Stationen & Raster speichern
+        </Button>
+      </div>
+    </div>
   );
 }

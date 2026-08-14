@@ -132,6 +132,7 @@ model EventRoster {
   // schreibt ihn hierher.
   publishedAt   DateTime?
   publishedData Json?
+  dismissedWarnings Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

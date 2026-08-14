@@ -1,24 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Loader2, ShieldCheck, UserPlus, X } from "lucide-react";
+import { Loader2, UserPlus, X } from "lucide-react";
 import type { ApiRosterEditor } from "../_lib/rosterTypes";
 
-interface EditorsDialogProps {
+interface EditorsSectionProps {
+  /** Beim Öffnen die Liste frisch laden */
   open: boolean;
-  onOpenChange: (open: boolean) => void;
   eventId: number;
   apiHeaders: Record<string, string>;
 }
@@ -26,8 +19,9 @@ interface EditorsDialogProps {
 /**
  * Verwaltung der expliziten Roster-Bearbeiter. Nur für Nutzer, die
  * Bearbeiter verwalten dürfen (Verantwortliche / event.edit / VATGER).
+ * Abschnitt der Roster-Einstellungen – die Dialoghülle liegt beim Aufrufer.
  */
-export function EditorsDialog({ open, onOpenChange, eventId, apiHeaders }: EditorsDialogProps) {
+export function EditorsSection({ open, eventId, apiHeaders }: EditorsSectionProps) {
   const [editors, setEditors] = useState<ApiRosterEditor[]>([]);
   const [loading, setLoading] = useState(false);
   const [cidInput, setCidInput] = useState("");
@@ -96,20 +90,14 @@ export function EditorsDialog({ open, onOpenChange, eventId, apiHeaders }: Edito
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" /> Bearbeiter des Besetzungsplans
-          </DialogTitle>
-          <DialogDescription>
-            Diese Nutzer dürfen den Besetzungsplan bearbeiten – zusätzlich zu
-            Event-Verantwortlichen und Personen mit der Berechtigung
-            &bdquo;roster.edit&ldquo;.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Diese Nutzer dürfen den Besetzungsplan bearbeiten – zusätzlich zu
+        Event-Verantwortlichen und Personen mit der Berechtigung
+        &bdquo;roster.edit&ldquo;.
+      </p>
 
-        <div className="flex gap-2">
+      <div className="flex gap-2">
           <Input
             placeholder="CID hinzufügen…"
             value={cidInput}
@@ -163,11 +151,10 @@ export function EditorsDialog({ open, onOpenChange, eventId, apiHeaders }: Edito
             ))
           )}
         </div>
-        <Badge variant="secondary" className="w-fit text-[10px]">
-          Tipp: Verantwortliche und roster.edit-Berechtigte sind hier nicht aufgeführt,
-          dürfen aber ebenfalls bearbeiten.
-        </Badge>
-      </DialogContent>
-    </Dialog>
+      <Badge variant="secondary" className="w-fit text-[10px]">
+        Tipp: Verantwortliche und roster.edit-Berechtigte sind hier nicht aufgeführt,
+        dürfen aber ebenfalls bearbeiten.
+      </Badge>
+    </div>
   );
 }

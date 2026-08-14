@@ -22,6 +22,13 @@ import type {
 } from "../_lib/rosterTypes";
 import { ROSTER_FLAG_DOT, ROSTER_FLAG_LABEL } from "@/lib/roster/rosterFlags";
 import {
+  CUSTOM_BLOCK_COLORS,
+  CUSTOM_BLOCK_COLOR_DOT,
+  CUSTOM_BLOCK_COLOR_LABEL,
+  type CustomBlockColor,
+} from "@/lib/roster/blockColors";
+import { cn } from "@/lib/utils";
+import {
   formatDuration,
   getControllerGroupForStation,
   minuteToHM,
@@ -45,7 +52,7 @@ interface AssignDialogProps {
   /** Interne Notiz + Ampel-Markierung, damit die Auswahl sie berücksichtigt */
   markByCid: Map<number, ControllerMark>;
   onAssign: (cid: number) => void;
-  onCustom: (label: string) => void;
+  onCustom: (label: string, color: CustomBlockColor | null) => void;
 }
 
 /**
@@ -70,6 +77,7 @@ export function AssignDialog({
 }: AssignDialogProps) {
   const [search, setSearch] = useState("");
   const [customLabel, setCustomLabel] = useState("");
+  const [customColor, setCustomColor] = useState<CustomBlockColor | null>(null);
 
   const suggestions = useMemo(() => {
     if (!station || !stationMeta) return [];
@@ -262,7 +270,7 @@ export function AssignDialog({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={() => {
-                  onCustom(preset);
+                  onCustom(preset, customColor);
                   setCustomLabel("");
                 }}
               >
@@ -277,7 +285,7 @@ export function AssignDialog({
               onChange={(e) => setCustomLabel(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && customLabel.trim()) {
-                  onCustom(customLabel.trim());
+                  onCustom(customLabel.trim(), customColor);
                   setCustomLabel("");
                 }
               }}
@@ -286,7 +294,7 @@ export function AssignDialog({
               variant="secondary"
               onClick={() => {
                 if (customLabel.trim()) {
-                  onCustom(customLabel.trim());
+                  onCustom(customLabel.trim(), customColor);
                   setCustomLabel("");
                 }
               }}
@@ -294,6 +302,35 @@ export function AssignDialog({
             >
               <Plus className="h-4 w-4 mr-1" /> Eintragen
             </Button>
+          </div>
+          {/* Farbe des Blocks – hilft, eigene Systematik sichtbar zu machen
+              (etwa alle Trainings in derselben Farbe). */}
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <span className="text-xs text-muted-foreground mr-0.5">Farbe:</span>
+            <button
+              type="button"
+              onClick={() => setCustomColor(null)}
+              aria-label="Standardfarbe"
+              title="Standard"
+              className={cn(
+                "h-5 w-5 rounded-full border border-dashed border-muted-foreground/60 transition-transform",
+                customColor === null && "ring-2 ring-foreground/40 scale-110"
+              )}
+            />
+            {CUSTOM_BLOCK_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCustomColor(c)}
+                aria-label={CUSTOM_BLOCK_COLOR_LABEL[c]}
+                title={CUSTOM_BLOCK_COLOR_LABEL[c]}
+                className={cn(
+                  "h-5 w-5 rounded-full transition-transform",
+                  CUSTOM_BLOCK_COLOR_DOT[c],
+                  customColor === c && "ring-2 ring-foreground/40 scale-110"
+                )}
+              />
+            ))}
           </div>
         </div>
       </DialogContent>

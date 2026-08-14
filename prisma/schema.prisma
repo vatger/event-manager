@@ -132,6 +132,9 @@ model EventRoster {
   // schreibt ihn hierher.
   publishedAt   DateTime?
   publishedData Json?
+  // Bewusst ignorierte Planungshinweise (Liste stabiler Warnungs-Schlüssel).
+  // Gilt für alle Bearbeiter, damit niemand denselben Hinweis erneut wegklickt.
+  dismissedWarnings Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

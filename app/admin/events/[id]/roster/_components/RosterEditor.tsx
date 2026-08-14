@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -35,9 +36,11 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  Check,
   Coffee,
   Download,
   Copy,
@@ -45,14 +48,16 @@ import {
   GripVertical,
   History,
   MessageSquare,
+  MoreHorizontal,
+  Palette,
   PanelLeftClose,
   PanelLeftOpen,
   RotateCcw,
   Search,
   Settings2,
-  ShieldCheck,
   Star,
   StickyNote,
+  Undo2,
   UserPlus,
   UserX,
   Wifi,
@@ -63,15 +68,24 @@ import {
 } from "lucide-react";
 import { getBadgeClassForEndorsement, getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
 import { cn } from "@/lib/utils";
+import {
+  CUSTOM_BLOCK_COLORS,
+  CUSTOM_BLOCK_COLOR_DOT,
+  CUSTOM_BLOCK_COLOR_LABEL,
+  customBlockClass,
+} from "@/lib/roster/blockColors";
 import type { SignupTableEntry } from "@/lib/cache/types";
+import type { RosterPresenceUser } from "@/lib/roster/rosterEvents";
 import type {
   ApiRoster,
   Assignment,
   ControllerMark,
   DragState,
   RosterController,
+  RosterStation,
   RosterWarning,
   StationMeta,
+  UndoEntry,
 } from "../_lib/rosterTypes";
 import {
   ROSTER_FLAGS,
@@ -98,13 +112,14 @@ import {
   rosterToText,
   stationCoverage,
   stationOccupied,
+  warningKey,
 } from "../_lib/rosterUtils";
 import { AssignDialog } from "./AssignDialog";
 import { FlagPicker } from "./FlagPicker";
-import { StationsDialog } from "./StationsDialog";
+import { PresenceBar } from "./PresenceBar";
+import { RosterSettingsDialog } from "./RosterSettingsDialog";
 import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
-import { EditorsDialog } from "./EditorsDialog";
 import SignupEditDialog from "../../_components/SignupEditDialog";
 
 // (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
@@ -120,6 +135,7 @@ const ROW_H_INFO = 62; // Zeilenhöhe im Controller-Board mit Infospalte
 const ZOOM_LEVELS = [28, 40, 56, 76]; // Pixel pro Slot
 const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
 const REMARKS_PREF_KEY = "roster:showRemarks";
+const UNDO_LIMIT = 40; // so viele Schritte lassen sich zurücknehmen
 
 interface EditorEvent {
   id: number;
@@ -161,10 +177,6 @@ function blockColor(group: string | null): string {
   return getSolidClassForStationGroup(group);
 }
 
-// Custom-Blöcke (Combined, Training, …) heben sich klar von Controllern ab
-const CUSTOM_BLOCK_COLOR =
-  "bg-station-none border-station-none [background-image:repeating-linear-gradient(45deg,rgba(255,255,255,0.12)_0_6px,transparent_6px_12px)]";
-
 export function RosterEditor({
   event,
   roster,
@@ -179,6 +191,9 @@ export function RosterEditor({
   onEventStatusChanged,
 }: RosterEditorProps) {
   const router = useRouter();
+  // Eigene CID: markiert die eigene Kachel in der Anwesenheitsanzeige
+  const { data: session } = useSession();
+  const selfCID = session?.user?.cid ? Number(session.user.cid) : null;
   const eventStart = useMemo(() => new Date(event.startTime), [event.startTime]);
   const eventEnd = useMemo(() => new Date(event.endTime), [event.endTime]);
   const totalMinutes = useMemo(
@@ -250,6 +265,21 @@ export function RosterEditor({
     [stationMetaMap]
   );
 
+  /**
+   * Zu welchem Airport gehört eine Station? Bei Events über mehrere Airports
+   * ist das die wichtigste Gliederung – EDDF_TWR und EDDM_TWR nebeneinander zu
+   * sehen hilft niemandem beim Planen.
+   */
+  const airportOf = useCallback(
+    (callsign: string): string => stationMetaFor(callsign).airport ?? "Weitere",
+    [stationMetaFor]
+  );
+  // Für die Drag-Logik, die außerhalb des Renderzyklus läuft
+  const airportOfRef = useRef(airportOf);
+  airportOfRef.current = airportOf;
+  const groupByAirport = event.airports.length > 1;
+
+
   const controllers = useMemo(
     () => buildControllers(signups, eventStart, totalMinutes),
     [signups, eventStart, totalMinutes]
@@ -269,7 +299,7 @@ export function RosterEditor({
     start: number;
     end: number;
   } | null>(null);
-  const [stationsDialogOpen, setStationsDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -282,10 +312,11 @@ export function RosterEditor({
   const [flagFilter, setFlagFilter] = useState<Set<RosterFlag>>(new Set());
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
+  // Wer den Plan gerade offen hat (aus dem SSE-Stream)
+  const [presence, setPresence] = useState<RosterPresenceUser[]>([]);
   // Ausgewählter Controller für die Seitenleiste
   const [selectedCID, setSelectedCID] = useState<number | null>(null);
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
-  const [editorsOpen, setEditorsOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
 
@@ -304,6 +335,53 @@ export function RosterEditor({
   const labelWidth = showRemarks ? LABEL_W + INFO_W : LABEL_W;
   const controllerRowH = showRemarks ? ROW_H_INFO : ROW_H;
 
+  /**
+   * Ob es unveröffentlichte Änderungen gibt, weiß nur der Server. Da eigene
+   * Änderungen bewusst kein vollständiges Neuladen auslösen (optimistischer
+   * Stand), fragen wir nach jeder Mutation gebündelt nur diesen Stand ab –
+   * sonst erschiene „Änderungen veröffentlichen" erst nach einem Seitenreload.
+   */
+  const [unpublished, setUnpublished] = useState(hasUnpublishedChanges);
+  useEffect(() => setUnpublished(hasUnpublishedChanges), [hasUnpublishedChanges]);
+  // ------------------------------------------------------------------
+  // Rückgängig: Stapel mit den Gegenoperationen der letzten Änderungen
+  // ------------------------------------------------------------------
+  // Jede Mutation legt hier ab, wie sie sich zurücknehmen lässt. Der Stapel
+  // liegt bewusst nur im Client: Er beschreibt die eigene Arbeitsspur, nicht
+  // den gemeinsamen Zustand. Ändert jemand anders denselben Block, schlägt das
+  // Rückgängigmachen sauber fehl, statt fremde Arbeit zu überschreiben.
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
+  const [undoing, setUndoing] = useState(false);
+  const pushUndo = useCallback((entry: UndoEntry) => {
+    setUndoStack((prev) => [...prev, entry].slice(-UNDO_LIMIT));
+  }, []);
+
+  // Aktueller Stand für Gegenoperationen, ohne die Mutationen bei jeder
+  // Änderung neu zu erzeugen
+  const assignmentsRef = useRef<Assignment[]>(assignments);
+  assignmentsRef.current = assignments;
+
+  const publishStateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshPublishState = useCallback(() => {
+    if (publishStateTimer.current) clearTimeout(publishStateTimer.current);
+    publishStateTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/events/${event.id}/roster/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setUnpublished(Boolean(data.hasUnpublishedChanges));
+      } catch {
+        // Anzeigezustand – ein Fehlschlag darf die Bearbeitung nicht stören
+      }
+    }, 500);
+  }, [event.id]);
+  useEffect(
+    () => () => {
+      if (publishStateTimer.current) clearTimeout(publishStateTimer.current);
+    },
+    []
+  );
+
   // ------------------------------------------------------------------
   // Realtime-Sync: SSE-Stream abonnieren, bei fremden Änderungen neu laden
   // ------------------------------------------------------------------
@@ -317,7 +395,10 @@ export function RosterEditor({
     let reloadTimer: ReturnType<typeof setTimeout> | null = null;
 
     es.onopen = () => setLiveConnected(true);
-    es.onerror = () => setLiveConnected(false);
+    es.onerror = () => {
+      setLiveConnected(false);
+      setPresence([]);
+    };
     es.addEventListener("change", (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data) as { sourceClientId: string | null };
@@ -328,6 +409,15 @@ export function RosterEditor({
       // Mehrere schnelle Änderungen zu einem Reload bündeln
       if (reloadTimer) clearTimeout(reloadTimer);
       reloadTimer = setTimeout(() => onReloadRef.current(), 250);
+    });
+
+    es.addEventListener("presence", (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data) as { users: RosterPresenceUser[] };
+        setPresence(Array.isArray(data.users) ? data.users : []);
+      } catch {
+        // fehlerhafte Nachricht ignorieren
+      }
     });
 
     return () => {
@@ -352,9 +442,10 @@ export function RosterEditor({
       stationId: number,
       start: number,
       end: number,
-      opts: { userCID?: number; label?: string }
+      opts: { userCID?: number; label?: string; color?: string | null; track?: boolean }
     ) => {
       const isCustom = !!opts.label;
+      const track = opts.track !== false;
       const tempId = tempIdRef.current--;
       const optimistic: Assignment = {
         id: tempId,
@@ -362,7 +453,7 @@ export function RosterEditor({
         type: isCustom ? "custom" : "controller",
         userCID: isCustom ? null : opts.userCID ?? null,
         label: isCustom ? opts.label ?? null : null,
-        color: null,
+        color: isCustom ? opts.color ?? null : null,
         start,
         end,
       };
@@ -376,6 +467,7 @@ export function RosterEditor({
             type: isCustom ? "custom" : "controller",
             userCID: isCustom ? undefined : opts.userCID,
             label: isCustom ? opts.label : undefined,
+            color: isCustom ? opts.color ?? undefined : undefined,
             startTime: minuteToDate(eventStart, start).toISOString(),
             endTime: minuteToDate(eventStart, end).toISOString(),
           }),
@@ -395,16 +487,24 @@ export function RosterEditor({
           }
           return prev.map((a) => (a.id === tempId ? { ...a, id: realId } : a));
         });
+        if (track) pushUndo({ kind: "created", assignmentId: realId });
+        refreshPublishState();
       } catch (err) {
         setAssignments((prev) => prev.filter((a) => a.id !== tempId));
         toast.error(err instanceof Error ? err.message : "Block fehlgeschlagen");
       }
     },
-    [event.id, eventStart, apiHeaders]
+    [event.id, eventStart, apiHeaders, refreshPublishState, pushUndo]
   );
 
   const updateAssignment = useCallback(
-    async (id: number, patch: Partial<Pick<Assignment, "stationId" | "userCID" | "start" | "end">>) => {
+    async (
+      id: number,
+      patch: Partial<Pick<Assignment, "stationId" | "userCID" | "start" | "end" | "color">>,
+      track = true
+    ) => {
+      // Zustand vor der Änderung für Rollback und Rückgängig festhalten
+      const before = assignmentsRef.current.find((a) => a.id === id);
       let previous: Assignment | undefined;
       setAssignments((prev) =>
         prev.map((a) => {
@@ -416,6 +516,7 @@ export function RosterEditor({
       try {
         const body: Record<string, unknown> = {};
         if (patch.stationId !== undefined) body.stationId = patch.stationId;
+        if (patch.color !== undefined) body.color = patch.color;
         // userCID nur senden, wenn es ein echter Controller ist (Custom-Blöcke: null → weglassen)
         if (patch.userCID !== undefined && patch.userCID !== null) body.userCID = patch.userCID;
         if (patch.start !== undefined)
@@ -431,6 +532,19 @@ export function RosterEditor({
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || "Änderung fehlgeschlagen");
         }
+        if (track && before) {
+          pushUndo({
+            kind: "updated",
+            assignmentId: id,
+            before: {
+              stationId: before.stationId,
+              start: before.start,
+              end: before.end,
+              color: before.color,
+            },
+          });
+        }
+        refreshPublishState();
       } catch (err) {
         if (previous) {
           const restore = previous;
@@ -439,11 +553,12 @@ export function RosterEditor({
         toast.error(err instanceof Error ? err.message : "Änderung fehlgeschlagen");
       }
     },
-    [event.id, eventStart, apiHeaders]
+    [event.id, eventStart, apiHeaders, refreshPublishState, pushUndo]
   );
 
   const deleteAssignment = useCallback(
-    async (id: number) => {
+    async (id: number, track = true) => {
+      const removed = assignmentsRef.current.find((a) => a.id === id);
       const previous = assignments;
       setAssignments((prev) => prev.filter((a) => a.id !== id));
       setSelectedId((sel) => (sel === id ? null : sel));
@@ -457,13 +572,47 @@ export function RosterEditor({
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || "Löschen fehlgeschlagen");
         }
+        if (track && removed) pushUndo({ kind: "deleted", snapshot: removed });
+        refreshPublishState();
       } catch (err) {
         setAssignments(previous);
         toast.error(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
       }
     },
-    [assignments, event.id, apiHeaders]
+    [assignments, event.id, apiHeaders, refreshPublishState, pushUndo]
   );
+
+  /**
+   * Letzte Änderung zurücknehmen. Die Gegenoperation läuft über dieselben
+   * API-Pfade wie jede andere Änderung – sie wird nur selbst nicht wieder
+   * auf den Stapel gelegt.
+   */
+  const undoLast = useCallback(async () => {
+    const entry = undoStack[undoStack.length - 1];
+    if (!entry || undoing) return;
+    setUndoStack((prev) => prev.slice(0, -1));
+    setUndoing(true);
+    try {
+      if (entry.kind === "created") {
+        await deleteAssignment(entry.assignmentId, false);
+        toast.success("Block entfernt");
+      } else if (entry.kind === "deleted") {
+        const a = entry.snapshot;
+        await createAssignment(a.stationId, a.start, a.end, {
+          userCID: a.userCID ?? undefined,
+          label: a.label ?? undefined,
+          color: a.color,
+          track: false,
+        });
+        toast.success("Block wiederhergestellt");
+      } else {
+        await updateAssignment(entry.assignmentId, entry.before, false);
+        toast.success("Änderung zurückgenommen");
+      }
+    } finally {
+      setUndoing(false);
+    }
+  }, [undoStack, undoing, createAssignment, updateAssignment, deleteAssignment]);
 
   /**
    * Interne Notiz und/oder Ampel-Markierung speichern. Nicht übergebene Felder
@@ -527,10 +676,16 @@ export function RosterEditor({
         deleteAssignment(selectedId);
       }
       if (e.key === "Escape") setSelectedId(null);
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+        const target = e.target as HTMLElement | null;
+        if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+        e.preventDefault();
+        void undoLast();
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedId, deleteAssignment, canEdit]);
+  }, [selectedId, deleteAssignment, canEdit, undoLast]);
 
   // ------------------------------------------------------------------
   // Drag & Drop Engine (Pointer Events)
@@ -996,7 +1151,14 @@ export function RosterEditor({
       // Zeilengeometrie beim Start einfrieren. Würde man während des Ziehens
       // das DOM abfragen, läse man die bereits umsortierte Vorschau – der
       // Zielindex spränge dadurch zurück und die Zeilen flackerten.
+      // Bei mehreren Airports wird nur innerhalb der eigenen Gruppe sortiert:
+      // Zu welchem Airport eine Station gehört, ergibt sich aus ihrem Callsign
+      // und nicht aus ihrer Position – ein Zug über die Gruppengrenze wäre
+      // deshalb sinnlos.
+      const dragged = stationsRef.current.find((st) => st.id === stationId);
+      const draggedAirport = dragged ? airportOfRef.current(dragged.callsign) : null;
       const frozen = stationsRef.current
+        .filter((st) => !groupByAirport || airportOfRef.current(st.callsign) === draggedAirport)
         .map((st) => {
           const row = rowRefs.current.get(`station-${st.id}`);
           if (!row) return null;
@@ -1065,7 +1227,7 @@ export function RosterEditor({
         }
       );
     },
-    [canEdit, trackPointer, applyDrag, persistStationOrder]
+    [canEdit, trackPointer, applyDrag, persistStationOrder, groupByAirport]
   );
 
   // ------------------------------------------------------------------
@@ -1082,6 +1244,26 @@ export function RosterEditor({
     next.splice(to, 0, moved);
     return next;
   }, [stations, drag]);
+
+  /** Stationszeilen, bei mehreren Airports in Gruppen gebündelt */
+  const stationGroups = useMemo((): { airport: string | null; stations: typeof stations }[] => {
+    if (!groupByAirport) return [{ airport: null, stations: displayStations }];
+    // Reihenfolge folgt der Event-Definition; alles Unbekannte hängt hinten an
+    const order = new Map(event.airports.map((a, i) => [a.toUpperCase(), i]));
+    const grouped = new Map<string, typeof stations>();
+    for (const st of displayStations) {
+      const ap = airportOf(st.callsign);
+      const list = grouped.get(ap);
+      if (list) list.push(st);
+      else grouped.set(ap, [st]);
+    }
+    return [...grouped.entries()]
+      .sort(([a], [b]) => {
+        const d = (order.get(a) ?? 999) - (order.get(b) ?? 999);
+        return d !== 0 ? d : a.localeCompare(b);
+      })
+      .map(([airport, list]) => ({ airport, stations: list }));
+  }, [displayStations, groupByAirport, event.airports, airportOf]);
 
   /** Beim Controller-Drag: Verfügbarkeits-/Belegungs-Overlay für Stationszeilen */
   const dragControllerOverlay = useMemo(() => {
@@ -1112,7 +1294,7 @@ export function RosterEditor({
     );
   }, [assignments, drag]);
 
-  const warnings = useMemo(
+  const allWarnings = useMemo(
     () =>
       computeWarnings(
         assignments,
@@ -1123,6 +1305,50 @@ export function RosterEditor({
         event.airports
       ),
     [assignments, stations, controllers, eventStart, stationMetaFor, event.airports]
+  );
+
+  // Bewusst geprüfte Hinweise verschwinden aus der Liste. Der Stand kommt vom
+  // Server, damit er für alle Bearbeiter gilt; lokal wird er sofort gespiegelt,
+  // damit das Ausblenden nicht auf den Roundtrip wartet.
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setDismissedKeys(new Set(roster.dismissedWarnings ?? []));
+  }, [roster.dismissedWarnings]);
+
+  const warnings = useMemo(
+    () => allWarnings.filter((w) => !dismissedKeys.has(warningKey(w))),
+    [allWarnings, dismissedKeys]
+  );
+  const dismissedCount = allWarnings.length - warnings.length;
+
+  /** Hinweis ausblenden bzw. wieder einblenden */
+  const setWarningDismissed = useCallback(
+    async (key: string, dismissed: boolean) => {
+      setDismissedKeys((prev) => {
+        const next = new Set(prev);
+        if (dismissed) next.add(key);
+        else next.delete(key);
+        return next;
+      });
+      try {
+        const res = await fetch(`/api/events/${event.id}/roster/warnings`, {
+          method: "PUT",
+          headers: apiHeaders,
+          body: JSON.stringify({ key, dismissed }),
+        });
+        if (!res.ok) throw new Error("Speichern fehlgeschlagen");
+      } catch {
+        // Zurückdrehen, damit die Anzeige nicht lügt
+        setDismissedKeys((prev) => {
+          const next = new Set(prev);
+          if (dismissed) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+        toast.error("Hinweis konnte nicht gespeichert werden");
+      }
+    },
+    [event.id, apiHeaders]
   );
   const warningsByAssignment = useMemo(() => {
     const map = new Map<number, RosterWarning[]>();
@@ -1371,7 +1597,7 @@ export function RosterEditor({
     const hasWithdrawn = blockWarnings.some((w) => w.type === "withdrawn");
     const hasIneligible = blockWarnings.some((w) => w.type === "not_eligible");
 
-    let colorCls = isCustom ? CUSTOM_BLOCK_COLOR : blockColor(meta?.group ?? null);
+    let colorCls = isCustom ? customBlockClass(a.color) : blockColor(meta?.group ?? null);
     // Problemfälle bekommen einen deutlichen Rahmen, behalten aber die
     // Stationsfarbe – so bleibt die Zuordnung erkennbar.
     if (!isDragTarget && (hasWithdrawn || hasIneligible)) {
@@ -1438,19 +1664,65 @@ export function RosterEditor({
               className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover:opacity-100 bg-white/25"
               onPointerDown={(e) => startResize(e, a, "end")}
             />
-            {/* Löschen */}
+            {/* Aktionen am ausgewählten Block */}
             {selected && (
-              <button
-                className="absolute right-0.5 top-0.5 rounded-full bg-black/30 hover:bg-black/60 p-0.5"
+              <div
+                className="absolute right-0.5 top-0.5 flex items-center gap-0.5"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteAssignment(a.id);
-                }}
-                aria-label="Zuweisung löschen"
               >
-                <X className="h-3 w-3" />
-              </button>
+                {/* Farbe nur für freie Blöcke: Controller-Blöcke tragen die
+                    Farbe ihrer Stationsgruppe und dürfen nicht abweichen. */}
+                {isCustom && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="rounded-full bg-black/30 hover:bg-black/60 p-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Farbe des Blocks wählen"
+                        title="Farbe wählen"
+                      >
+                        <Palette className="h-3 w-3" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                        Farbe
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {CUSTOM_BLOCK_COLORS.map((c) => (
+                        <DropdownMenuItem
+                          key={c}
+                          className="gap-2"
+                          onClick={() => updateAssignment(a.id, { color: c })}
+                        >
+                          <span
+                            className={cn("h-2.5 w-2.5 rounded-full", CUSTOM_BLOCK_COLOR_DOT[c])}
+                          />
+                          {CUSTOM_BLOCK_COLOR_LABEL[c]}
+                        </DropdownMenuItem>
+                      ))}
+                      {a.color && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => updateAssignment(a.id, { color: null })}>
+                            Standard
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <button
+                  className="rounded-full bg-black/30 hover:bg-black/60 p-0.5"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteAssignment(a.id);
+                  }}
+                  aria-label="Zuweisung löschen"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
             )}
           </>
         )}
@@ -1458,244 +1730,8 @@ export function RosterEditor({
     );
   };
 
-  const assignDialogStation = assignDialog ? stationById.get(assignDialog.stationId) ?? null : null;
-
-  const statusPublished = event.status === "ROSTER_PUBLISHED";
-
-  return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col">
-      {/* Kopfzeile mit Zurück-Option und Aktionen */}
-      <header className="border-b px-3 py-2 shrink-0 flex items-center gap-2 flex-wrap">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => router.push(`/admin/events/${event.id}`)}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Zurück
-        </Button>
-        <div className="min-w-0 hidden md:block border-r pr-3 mr-1">
-          <p className="text-sm font-semibold truncate max-w-48">{event.name}</p>
-          <p className="text-xs text-muted-foreground">Besetzungsplan</p>
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap flex-1">
-          <Badge variant="outline">
-            {minuteToHM(eventStart, 0)}z – {minuteToHM(eventStart, totalMinutes)}z
-          </Badge>
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            {slotMinutes}-min
-          </Badge>
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            {stations.length} Stat.
-          </Badge>
-          <Badge variant="outline" className="hidden sm:inline-flex">
-            {controllers.length} Anm.
-          </Badge>
-          <Badge
-            variant="outline"
-            className={liveConnected ? "text-emerald-600 border-emerald-300" : "text-muted-foreground"}
-            title={
-              liveConnected
-                ? "Live verbunden – Änderungen anderer erscheinen automatisch"
-                : "Live-Verbindung getrennt – wird automatisch neu aufgebaut"
-            }
-          >
-            {liveConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-          </Badge>
-          {warnings.length > 0 && (
-            <button onClick={() => setWarningsOpen((o) => !o)}>
-              <Badge className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                {warnings.length}
-              </Badge>
-            </button>
-          )}
-          {statusPublished && (
-            <Badge
-              variant="outline"
-              className={
-                hasUnpublishedChanges
-                  ? "border-accent-300 text-accent-600"
-                  : "border-success-300 text-success-800"
-              }
-              title={
-                hasUnpublishedChanges
-                  ? "Der Arbeitsstand weicht von der veröffentlichten Fassung ab"
-                  : "Arbeitsstand und veröffentlichte Fassung sind identisch"
-              }
-            >
-              {hasUnpublishedChanges ? "Unveröffentlichte Änderungen" : "Veröffentlicht"}
-            </Badge>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setZoomIdx((z) => Math.max(0, z - 1))}
-            disabled={zoomIdx === 0}
-            aria-label="Herauszoomen"
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setZoomIdx((z) => Math.min(ZOOM_LEVELS.length - 1, z + 1))}
-            disabled={zoomIdx === ZOOM_LEVELS.length - 1}
-            aria-label="Hineinzoomen"
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setSnapshotsOpen(true)}>
-            <History className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Snapshots</span>
-          </Button>
-          {canManageSignups && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSignupDialog({ signup: null })}
-            >
-              <UserPlus className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Anmeldung</span>
-            </Button>
-          )}
-          {canEdit && (
-            <Button variant="outline" size="sm" onClick={() => setStationsDialogOpen(true)}>
-              <Settings2 className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Stationen</span>
-            </Button>
-          )}
-          {canManageEditors && (
-            <Button variant="outline" size="sm" onClick={() => setEditorsOpen(true)}>
-              <ShieldCheck className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Bearbeiter</span>
-            </Button>
-          )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Download className="h-4 w-4 sm:mr-1.5" />
-                <span className="hidden sm:inline">Export</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={exportCsv}>
-                <Download className="h-4 w-4 mr-2" /> Als CSV herunterladen
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={copyText}>
-                <Copy className="h-4 w-4 mr-2" /> Als Text kopieren
-              </DropdownMenuItem>
-              {canEdit && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setResetDialogOpen(true)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" /> Besetzung zurücksetzen
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {canEdit && (
-            <Button
-              size="sm"
-              onClick={() => setPublishDialogOpen(true)}
-              // Nach der Erstveröffentlichung nur aktiv, wenn es auch etwas
-              // zu veröffentlichen gibt.
-              disabled={statusPublished && !hasUnpublishedChanges}
-              variant={statusPublished && !hasUnpublishedChanges ? "outline" : "default"}
-            >
-              <Eye className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">
-                {statusPublished
-                  ? hasUnpublishedChanges
-                    ? "Änderungen veröffentlichen"
-                    : "Veröffentlicht"
-                  : "Veröffentlichen"}
-              </span>
-            </Button>
-          )}
-        </div>
-      </header>
-
-      {/* Hauptbereich: Board links, Seitenleiste rechts */}
-      <div className="flex-1 flex min-h-0">
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Warnungen */}
-          {warnings.length > 0 && warningsOpen && (
-            <div className="p-3 pb-0">
-            <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertTitle className="flex items-center justify-between">
-            <span>Planungshinweise</span>
-            <button
-              onClick={() => setWarningsOpen(false)}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Hinweise ausblenden"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </AlertTitle>
-          <AlertDescription>
-            <ul className="space-y-1 mt-1">
-              {warnings.map((w, i) => (
-                <li key={i} className="text-sm flex items-start gap-1.5">
-                  {w.type === "long_stretch" ? (
-                    <Coffee className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  ) : (
-                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                  )}
-                  <button
-                    className="text-left hover:underline"
-                    onClick={() => setSelectedId(w.assignmentIds[0] ?? null)}
-                  >
-                    {w.message}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-            </div>
-          )}
-
-          {/* Gemeinsamer Scroll-Container für beide Boards (füllt den Bereich) */}
-          <div className="flex-1 min-h-0 overflow-auto m-3 border rounded-xl bg-background">
-            <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
-            {/* Zeit-Header */}
-            <div className="flex sticky top-0 z-40 bg-background border-b">
-              <div
-                className="sticky left-0 z-50 bg-background border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0 flex items-end"
-                style={{ width: labelWidth }}
-              >
-                Stationen
-              </div>
-              <div className="relative" style={{ width: timelineWidth, height: 28 }}>
-                {slots.map((s) => (
-                  <div
-                    key={s.minute}
-                    className={`absolute top-0 bottom-0 flex items-center text-[9px] pl-1 ${
-                      s.isHour
-                        ? "font-semibold text-foreground border-l border-muted-foreground/40"
-                        : "text-muted-foreground border-l border-muted-foreground/15"
-                    }`}
-                    style={{ left: s.minute * pxPerMinute, width: pxPerSlot }}
-                  >
-                    {(s.isHour || slotMinutes === 30 || pxPerSlot >= 56) && `${s.label}`}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Stationen-Board */}
-            {displayStations.map((station) => {
+  /** Eine Stationszeile (Beschriftung + Zeitstrahl) */
+  const renderStationRow = (station: RosterStation): React.ReactNode => {
               const meta = stationMetaFor(station.callsign);
               const coverage = stationCoverage(displayAssignments, station.id, totalMinutes);
               const isDropTarget =
@@ -1845,7 +1881,324 @@ export function RosterEditor({
                   </div>
                 </div>
               );
-            })}
+  };
+
+  const assignDialogStation = assignDialog ? stationById.get(assignDialog.stationId) ?? null : null;
+
+  const statusPublished = event.status === "ROSTER_PUBLISHED";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Kopfzeile mit Zurück-Option und Aktionen */}
+      <header className="border-b px-3 py-2 shrink-0 flex items-center gap-2 flex-wrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => router.push(`/admin/events/${event.id}`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" /> Zurück
+        </Button>
+        <div className="min-w-0 hidden md:block border-r pr-3 mr-1">
+          <p className="text-sm font-semibold truncate max-w-48">{event.name}</p>
+          <p className="text-xs text-muted-foreground">Besetzungsplan</p>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap flex-1">
+          <Badge variant="outline">
+            {minuteToHM(eventStart, 0)}z – {minuteToHM(eventStart, totalMinutes)}z
+          </Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {slotMinutes}-min
+          </Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {stations.length} Stat.
+          </Badge>
+          <Badge variant="outline" className="hidden sm:inline-flex">
+            {controllers.length} Anm.
+          </Badge>
+          <Badge
+            variant="outline"
+            className={liveConnected ? "text-emerald-600 border-emerald-300" : "text-muted-foreground"}
+            title={
+              liveConnected
+                ? "Live verbunden – Änderungen anderer erscheinen automatisch"
+                : "Live-Verbindung getrennt – wird automatisch neu aufgebaut"
+            }
+          >
+            {liveConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+          </Badge>
+          {warnings.length > 0 && (
+            <button onClick={() => setWarningsOpen((o) => !o)}>
+              <Badge className="bg-amber-100 text-amber-800 border-amber-300 cursor-pointer">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {warnings.length}
+              </Badge>
+            </button>
+          )}
+          {statusPublished && (
+            <Badge
+              variant="outline"
+              className={
+                unpublished
+                  ? "border-accent-300 text-accent-600"
+                  : "border-success-300 text-success-800"
+              }
+              title={
+                unpublished
+                  ? "Der Arbeitsstand weicht von der veröffentlichten Fassung ab"
+                  : "Arbeitsstand und veröffentlichte Fassung sind identisch"
+              }
+            >
+              {unpublished ? "Unveröffentlichte Änderungen" : "Veröffentlicht"}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {/* Wer sitzt gerade mit am Plan? */}
+          <PresenceBar users={presence} selfCID={selfCID} className="mr-1" />
+
+          {/* Zoom als zusammenhängende Gruppe */}
+          <div className="flex items-center rounded-md border">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-r-none"
+              onClick={() => setZoomIdx((z) => Math.max(0, z - 1))}
+              disabled={zoomIdx === 0}
+              aria-label="Herauszoomen"
+            >
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-l-none border-l"
+              onClick={() => setZoomIdx((z) => Math.min(ZOOM_LEVELS.length - 1, z + 1))}
+              disabled={zoomIdx === ZOOM_LEVELS.length - 1}
+              aria-label="Hineinzoomen"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => void undoLast()}
+              disabled={undoStack.length === 0 || undoing}
+              title={
+                undoStack.length === 0
+                  ? "Nichts zum Rückgängigmachen"
+                  : `Letzte Änderung rückgängig (${undoStack.length}) – Strg+Z`
+              }
+              aria-label="Letzte Änderung rückgängig machen"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+          )}
+
+          {canManageSignups && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSignupDialog({ signup: null })}
+              title="Anmeldung hinzufügen oder bearbeiten"
+            >
+              <UserPlus className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden lg:inline">Anmeldung</span>
+            </Button>
+          )}
+
+          {/* Alles, was seltener gebraucht wird, liegt gebündelt im Menü –
+              die Leiste soll die häufigen Handgriffe zeigen, nicht alle. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Weitere Aktionen">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setSnapshotsOpen(true)}>
+                <History className="h-4 w-4 mr-2" /> Snapshots
+              </DropdownMenuItem>
+              {(canEdit || canManageEditors) && (
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                  <Settings2 className="h-4 w-4 mr-2" /> Einstellungen
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={exportCsv}>
+                <Download className="h-4 w-4 mr-2" /> Als CSV herunterladen
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={copyText}>
+                <Copy className="h-4 w-4 mr-2" /> Als Text kopieren
+              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setResetDialogOpen(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" /> Besetzung zurücksetzen
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {canEdit && (
+            <Button
+              size="sm"
+              onClick={() => setPublishDialogOpen(true)}
+              // Nach der Erstveröffentlichung nur aktiv, wenn es auch etwas
+              // zu veröffentlichen gibt.
+              disabled={statusPublished && !unpublished}
+              variant={statusPublished && !unpublished ? "outline" : "default"}
+            >
+              <Eye className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">
+                {statusPublished
+                  ? unpublished
+                    ? "Änderungen veröffentlichen"
+                    : "Veröffentlicht"
+                  : "Veröffentlichen"}
+              </span>
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {/* Hauptbereich: Board links, Seitenleiste rechts */}
+      <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Warnungen */}
+          {(warnings.length > 0 || dismissedCount > 0) && warningsOpen && (
+            <div className="p-3 pb-0">
+              <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="flex items-center justify-between">
+                  <span>Planungshinweise</span>
+                  <button
+                    onClick={() => setWarningsOpen(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Hinweise ausblenden"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </AlertTitle>
+                <AlertDescription>
+                  <ul className="space-y-1 mt-1">
+                    {warnings.map((w) => {
+                      const key = warningKey(w);
+                      return (
+                        <li
+                          key={key}
+                          className="group/warn text-sm flex items-start gap-1.5"
+                        >
+                          {w.type === "long_stretch" ? (
+                            <Coffee className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                          )}
+                          <button
+                            className="text-left hover:underline"
+                            onClick={() => setSelectedId(w.assignmentIds[0] ?? null)}
+                          >
+                            {w.message}
+                          </button>
+                          {/* Bewusst zurückhaltend: erscheint erst beim Überfahren.
+                              Hinweise sollen gelesen und nicht reflexhaft
+                              weggeklickt werden. */}
+                          {canEdit && (
+                            <button
+                              onClick={() => setWarningDismissed(key, true)}
+                              className="ml-auto shrink-0 opacity-0 group-hover/warn:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
+                              title="Geprüft – diesen Hinweis ausblenden"
+                              aria-label="Hinweis als geprüft ausblenden"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {dismissedCount > 0 && (
+                    <button
+                      onClick={() => {
+                        for (const w of allWarnings) {
+                          const key = warningKey(w);
+                          if (dismissedKeys.has(key)) void setWarningDismissed(key, false);
+                        }
+                      }}
+                      className="mt-2 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      disabled={!canEdit}
+                    >
+                      {dismissedCount} ausgeblendete{dismissedCount === 1 ? "r" : ""} Hinweis
+                      {dismissedCount === 1 ? "" : "e"} wieder einblenden
+                    </button>
+                  )}
+                  {warnings.length === 0 && (
+                    <p className="text-sm">Alle Hinweise sind geprüft.</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          {/* Gemeinsamer Scroll-Container für beide Boards (füllt den Bereich) */}
+          <div className="flex-1 min-h-0 overflow-auto m-3 border rounded-xl bg-background">
+            <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
+            {/* Zeit-Header */}
+            <div className="flex sticky top-0 z-40 bg-background border-b">
+              <div
+                className="sticky left-0 z-50 bg-background border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0 flex items-end"
+                style={{ width: labelWidth }}
+              >
+                Stationen
+              </div>
+              <div className="relative" style={{ width: timelineWidth, height: 28 }}>
+                {slots.map((s) => (
+                  <div
+                    key={s.minute}
+                    className={`absolute top-0 bottom-0 flex items-center text-[9px] pl-1 ${
+                      s.isHour
+                        ? "font-semibold text-foreground border-l border-muted-foreground/40"
+                        : "text-muted-foreground border-l border-muted-foreground/15"
+                    }`}
+                    style={{ left: s.minute * pxPerMinute, width: pxPerSlot }}
+                  >
+                    {(s.isHour || slotMinutes === 30 || pxPerSlot >= 56) && `${s.label}`}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Stationen-Board, bei mehreren Airports nach Airport gebündelt */}
+            {stationGroups.map((group) => (
+              <React.Fragment key={group.airport ?? "all"}>
+                {group.airport && (
+                  <div className="flex border-b bg-muted/30">
+                    <div
+                      className="sticky left-0 z-20 bg-muted/30 border-r px-3 py-1 shrink-0"
+                      style={{ width: labelWidth }}
+                    >
+                      <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                        {group.airport}
+                        <span className="ml-1.5 font-normal">
+                          {group.stations.length} Stat.
+                        </span>
+                      </span>
+                    </div>
+                    <div className="shrink-0" style={{ width: timelineWidth }} />
+                  </div>
+                )}
+                {group.stations.map(renderStationRow)}
+              </React.Fragment>
+            ))}
 
             {/* Trenner + Controller-Header */}
             <div className="flex bg-muted/50 border-y">
@@ -2170,27 +2523,34 @@ export function RosterEditor({
             setAssignDialog(null);
           }
         }}
-        onCustom={(label) => {
+        onCustom={(label, color) => {
           if (assignDialog) {
             const v = validate(assignDialog.stationId, null, assignDialog.start, assignDialog.end);
             if (!v.valid) {
               if (v.reason) toast.error(v.reason);
               return;
             }
-            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, { label });
+            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
+              label,
+              color,
+            });
             setAssignDialog(null);
           }
         }}
       />
 
-      {/* Dialog: Stationen bearbeiten */}
-      <StationsDialog
-        open={stationsDialogOpen}
-        onOpenChange={setStationsDialogOpen}
+      {/* Dialog: Einstellungen (Raster, Stationen, Zugriff, Zeitraum) */}
+      <RosterSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
         eventId={event.id}
         eventAirports={event.airports}
         roster={roster}
         assignments={assignments}
+        eventWindow={`${minuteToHM(eventStart, 0)}z – ${minuteToHM(eventStart, totalMinutes)}z`}
+        canEdit={canEdit}
+        canManageEditors={canManageEditors}
+        apiHeaders={apiHeaders}
         onUpdated={onReload}
       />
 
@@ -2276,16 +2636,6 @@ export function RosterEditor({
         apiHeaders={apiHeaders}
         onRestored={onReload}
       />
-
-      {/* Dialog: Bearbeiter verwalten */}
-      {canManageEditors && (
-        <EditorsDialog
-          open={editorsOpen}
-          onOpenChange={setEditorsOpen}
-          eventId={event.id}
-          apiHeaders={apiHeaders}
-        />
-      )}
 
       {/* Dialog: Anmeldung bearbeiten / hinzufügen */}
       {signupDialog && (

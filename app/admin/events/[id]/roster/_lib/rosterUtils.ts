@@ -162,6 +162,18 @@ export function stationOccupied(
 // Warnungen
 // =====================================================================
 
+/**
+ * Stabiler Schlüssel eines Hinweises.
+ *
+ * Er umfasst bewusst die beteiligten Blöcke: Wird ein Block verschoben,
+ * entsteht ein neuer Schlüssel und der Hinweis meldet sich wieder – ein
+ * einmal geprüfter Sachverhalt bleibt also nur so lange erledigt, wie er
+ * unverändert ist.
+ */
+export function warningKey(w: RosterWarning): string {
+  return [w.type, w.userCID, [...w.assignmentIds].sort((a, b) => a - b).join(",")].join("|");
+}
+
 export function computeWarnings(
   assignments: Assignment[],
   stations: RosterStation[],
@@ -327,22 +339,28 @@ export function suggestControllers(
     assignedByCid.set(a.userCID, (assignedByCid.get(a.userCID) ?? 0) + (a.end - a.start));
   }
 
-  const suggestions = controllers.map((c) => {
-    const eligible = isEligible(c, stationMeta, eventAirports);
-    const free = !hasOverlap(assignments, c.cid, start, end);
-    const available = !isUnavailable(c, start, end);
-    const prefersStation = c.preferredStations
-      .toUpperCase()
-      .includes(station.callsign.toUpperCase());
-    return {
-      controller: c,
-      eligible,
-      free,
-      available,
-      prefersStation,
-      assignedMinutes: assignedByCid.get(c.cid) ?? 0,
-    };
-  });
+  // Zurückgezogene Anmeldungen tauchen in der Auswahl nicht mehr auf – wer
+  // abgesagt hat, soll nicht versehentlich neu eingeplant werden. Bereits
+  // bestehende Zuweisungen bleiben davon unberührt und werden im Plan als
+  // Problem markiert.
+  const suggestions = controllers
+    .filter((c) => !c.withdrawn)
+    .map((c) => {
+      const eligible = isEligible(c, stationMeta, eventAirports);
+      const free = !hasOverlap(assignments, c.cid, start, end);
+      const available = !isUnavailable(c, start, end);
+      const prefersStation = c.preferredStations
+        .toUpperCase()
+        .includes(station.callsign.toUpperCase());
+      return {
+        controller: c,
+        eligible,
+        free,
+        available,
+        prefersStation,
+        assignedMinutes: assignedByCid.get(c.cid) ?? 0,
+      };
+    });
 
   // Nicht-berechtigte werden nicht mehr ausgeblendet, sondern nach hinten
   // sortiert und im Dialog markiert – die Zuweisung bleibt möglich.
@@ -352,7 +370,6 @@ export function suggestControllers(
       // dann wenigste eingeplante Zeit
       const score = (s: ControllerSuggestion) =>
         (s.eligible ? 0 : 16) +
-        (s.controller.withdrawn ? 8 : 0) +
         (s.free ? 0 : 4) +
         (s.available ? 0 : 2) +
         (s.prefersStation ? 0 : 1);

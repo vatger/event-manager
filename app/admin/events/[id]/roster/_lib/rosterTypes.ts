@@ -59,6 +59,8 @@ export interface ApiRoster {
   stations: RosterStation[];
   assignments: ApiAssignment[];
   notes: ApiRosterNote[];
+  /** Bewusst ausgeblendete Planungshinweise (stabile Schlüssel) */
+  dismissedWarnings?: string[] | null;
 }
 
 /** Client-Modell: Zeiten als Minuten seit Event-Start (raster-freundlich) */
@@ -72,6 +74,21 @@ export interface Assignment {
   start: number; // Minuten seit Event-Start
   end: number;   // Minuten seit Event-Start (exklusiv)
 }
+
+/**
+ * Gegenoperation einer Änderung – Grundlage der Rückgängig-Funktion.
+ * Bewusst die Umkehrung der Aktion und kein vollständiger Zustand: So wirkt
+ * das Zurücknehmen nur auf den betroffenen Block und überschreibt nicht die
+ * Arbeit anderer, die parallel am selben Plan sitzen.
+ */
+export type UndoEntry =
+  | { kind: "created"; assignmentId: number }
+  | { kind: "deleted"; snapshot: Assignment }
+  | {
+      kind: "updated";
+      assignmentId: number;
+      before: Pick<Assignment, "stationId" | "start" | "end" | "color">;
+    };
 
 /** Stationsmetadaten aus dem Datahub (bzw. Callsign-Heuristik) */
 export interface StationMeta {
