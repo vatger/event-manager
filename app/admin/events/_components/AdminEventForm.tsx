@@ -393,10 +393,18 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Beschreibe dein Event für die Teilnehmer..."
+                    placeholder="Beschreibe dein Event für die Teilnehmer…&#10;&#10;Link mit Beschriftung: [Zur Real-Life-Anmeldung](https://example.org/anmeldung)"
                     disabled={isSaving}
                     rows={4}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Links:{" "}
+                    <code className="rounded bg-muted px-1 py-0.5">
+                      [Beschriftung](https://…)
+                    </code>{" "}
+                    erzeugt einen Link mit eigenem Text. Direkt eingefügte Adressen werden
+                    automatisch verlinkt.
+                  </p>
                 </div>
                 
                 <div className="space-y-2">

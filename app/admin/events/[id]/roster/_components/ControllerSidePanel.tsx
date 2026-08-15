@@ -15,6 +15,7 @@ import {
   Loader2,
   MessageSquare,
   Pencil,
+  Plane,
   Search,
   Send,
   Star,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/roster/rosterFlags";
 import type { RosterController } from "../_lib/rosterTypes";
 import { formatDuration, minuteToHM } from "../_lib/rosterUtils";
+import { AirportChips } from "./AirportChips";
 import { FlagPicker } from "./FlagPicker";
 
 interface AtcStation {
@@ -63,6 +65,8 @@ interface ControllerSidePanelProps {
   assignedMinutes: number;
   shiftLabels: string[];
   eventStart: Date;
+  /** Airports des Events – bei mehreren zählt die Freigabe je Airport */
+  eventAirports: string[];
   note: string;
   /** Interne Ampel-Markierung des ausgewählten Controllers */
   flag: RosterFlag | null;
@@ -98,6 +102,7 @@ export function ControllerSidePanel({
   assignedMinutes,
   shiftLabels,
   eventStart,
+  eventAirports,
   note,
   flag,
   canEdit,
@@ -289,6 +294,20 @@ export function ControllerSidePanel({
             </div>
 
             <div className="rounded-lg border p-2.5 space-y-2 text-sm">
+              {/* Bei mehreren Airports steht ganz oben, wo diese Person
+                  überhaupt eingesetzt werden darf. */}
+              {eventAirports.length > 1 && (
+                <div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Plane className="h-3 w-3" /> Freigaben je Airport
+                  </span>
+                  <AirportChips
+                    entry={controller.entry}
+                    eventAirports={eventAirports}
+                    size="md"
+                  />
+                </div>
+              )}
               <div>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Star className="h-3 w-3 text-amber-500" /> Wunschstationen

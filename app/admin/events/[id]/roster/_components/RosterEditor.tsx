@@ -10,7 +10,7 @@ import React, {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,8 +40,7 @@ import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
   ArrowLeft,
-  Check,
-  Coffee,
+  CircleSlash,
   Download,
   Copy,
   Eye,
@@ -114,6 +113,8 @@ import {
   stationOccupied,
   warningKey,
 } from "../_lib/rosterUtils";
+import { AirportChips } from "./AirportChips";
+import { WarningsPanel } from "./WarningsPanel";
 import { AssignDialog } from "./AssignDialog";
 import { FlagPicker } from "./FlagPicker";
 import { PresenceBar } from "./PresenceBar";
@@ -293,7 +294,15 @@ export function RosterEditor({
   // UI-State
   // ------------------------------------------------------------------
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Auswahl als Menge: Mehrere Blöcke lassen sich mit Strg/Cmd sammeln und
+  // gemeinsam verschieben oder löschen.
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
+  /** Genau einen Block auswählen (z. B. Sprung aus der Hinweisliste) */
+  const setSelectedId = useCallback((id: number | null) => {
+    setSelectedIds(id === null ? new Set() : new Set([id]));
+  }, []);
   const [assignDialog, setAssignDialog] = useState<{
     stationId: number;
     start: number;
@@ -319,6 +328,9 @@ export function RosterEditor({
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
+  // Schnellnotiz direkt in der Infospalte (Doppelklick)
+  const [noteDraftCID, setNoteDraftCID] = useState<number | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
 
   // Die Wahl der Infospalte überdauert Seitenwechsel – wer mit Remarks plant,
   // will sie beim nächsten Öffnen wiederhaben.
@@ -561,7 +573,12 @@ export function RosterEditor({
       const removed = assignmentsRef.current.find((a) => a.id === id);
       const previous = assignments;
       setAssignments((prev) => prev.filter((a) => a.id !== id));
-      setSelectedId((sel) => (sel === id ? null : sel));
+      setSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       if (id < 0) return; // rein optimistische (noch nicht gespeicherte) Zuweisung
       try {
         const res = await fetch(`/api/events/${event.id}/roster/assignments/${id}`, {
@@ -644,6 +661,16 @@ export function RosterEditor({
     [event.id, apiHeaders]
   );
 
+  /** Schnellnotiz übernehmen (nur speichern, wenn sich etwas geändert hat) */
+  const commitNoteDraft = useCallback(() => {
+    const cid = noteDraftCID;
+    if (cid === null) return;
+    setNoteDraftCID(null);
+    const before = markByCid.get(cid)?.note ?? "";
+    if (noteDraft.trim() === before.trim()) return;
+    void saveMark(cid, { note: noteDraft });
+  }, [noteDraftCID, noteDraft, markByCid, saveMark]);
+
   /** Stationsreihenfolge speichern (nach DnD-Umsortierung) */
   const persistStationOrder = useCallback(
     async (ordered: typeof stations) => {
@@ -669,13 +696,14 @@ export function RosterEditor({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!canEdit) return;
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId !== null) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.size > 0) {
         const target = e.target as HTMLElement | null;
         if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
         e.preventDefault();
-        deleteAssignment(selectedId);
+        for (const id of selectedIds) deleteAssignment(id);
+        setSelectedIds(new Set());
       }
-      if (e.key === "Escape") setSelectedId(null);
+      if (e.key === "Escape") setSelectedIds(new Set());
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
         const target = e.target as HTMLElement | null;
         if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
@@ -685,7 +713,7 @@ export function RosterEditor({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedId, deleteAssignment, canEdit, undoLast]);
+  }, [selectedIds, deleteAssignment, canEdit, undoLast]);
 
   // ------------------------------------------------------------------
   // Drag & Drop Engine (Pointer Events)
@@ -800,6 +828,8 @@ export function RosterEditor({
   const dragValidity: DragValidity | null = useMemo(() => {
     if (!drag) return null;
     if (drag.kind === "reorder-station") return null;
+    // Gruppenverschiebung wird geschlossen geprüft, nicht Block für Block
+    if (drag.kind === "move-group") return null;
     if (drag.kind === "create") return { valid: true, warn: false, reason: null };
     if (drag.kind === "assign-controller") {
       if (drag.stationId === null || drag.start === null || drag.end === null) {
@@ -862,12 +892,70 @@ export function RosterEditor({
   );
 
   /** Block verschieben (horizontal = Zeit, vertikal = Station bzw. Controller) */
+  /**
+   * Mehrere Blöcke gemeinsam in der Zeit verschieben.
+   *
+   * Geprüft wird der Zielzustand als Ganzes: Sonst kollidierte jeder Block mit
+   * der alten Position seiner Nachbarn und keine Gruppenverschiebung käme je
+   * durch. Passt eine Position nicht, bleibt alles unverändert – ein halb
+   * verschobener Plan wäre schlimmer als gar keiner.
+   */
+  const moveSelection = useCallback(
+    (ids: number[], deltaMinutes: number) => {
+      if (deltaMinutes === 0 || ids.length === 0) return;
+      const idSet = new Set(ids);
+      const target = assignmentsRef.current.map((a) =>
+        idSet.has(a.id) ? { ...a, start: a.start + deltaMinutes, end: a.end + deltaMinutes } : a
+      );
+
+      for (const a of target) {
+        if (!idSet.has(a.id)) continue;
+        if (a.start < 0 || a.end > totalMinutes) {
+          toast.error("Verschieben nicht möglich: außerhalb des Eventzeitraums");
+          return;
+        }
+        const stationClash = target.find(
+          (o) => o.id !== a.id && o.stationId === a.stationId && o.start < a.end && a.start < o.end
+        );
+        if (stationClash) {
+          const cs = stationById.get(a.stationId)?.callsign ?? "die Station";
+          toast.error(`Verschieben nicht möglich: ${cs} wäre doppelt belegt`);
+          return;
+        }
+        if (a.userCID != null) {
+          const userClash = target.find(
+            (o) => o.id !== a.id && o.userCID === a.userCID && o.start < a.end && a.start < o.end
+          );
+          if (userClash) {
+            const who = controllerByCid.get(a.userCID)?.name ?? "Der Controller";
+            toast.error(`Verschieben nicht möglich: ${who} wäre doppelt eingeplant`);
+            return;
+          }
+        }
+      }
+
+      for (const id of ids) {
+        const a = assignmentsRef.current.find((x) => x.id === id);
+        if (!a) continue;
+        updateAssignment(id, { start: a.start + deltaMinutes, end: a.end + deltaMinutes });
+      }
+    },
+    [totalMinutes, updateAssignment, stationById, controllerByCid]
+  );
+
   const startMove = useCallback(
     (e: React.PointerEvent, assignment: Assignment) => {
       if (!canEdit) return;
       e.preventDefault();
       e.stopPropagation();
       const dur = assignment.end - assignment.start;
+      const additive = e.ctrlKey || e.metaKey;
+      // Zieht man an einem Block, der Teil einer Mehrfachauswahl ist, wandert
+      // die ganze Auswahl mit – sonst nur dieser eine Block.
+      const groupIds =
+        !additive && selectedIdsRef.current.size > 1 && selectedIdsRef.current.has(assignment.id)
+          ? [...selectedIdsRef.current]
+          : null;
       gestureRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -882,8 +970,19 @@ export function RosterEditor({
             g.moved = true;
           }
           if (!g.moved) return;
-          const deltaMin = snap((ev.clientX - g.startX) / pxPerMinute);
-          const start = clamp(g.original.start + deltaMin, 0, totalMinutes - dur);
+          const rawDelta = snap((ev.clientX - g.startX) / pxPerMinute);
+
+          if (groupIds) {
+            // Delta so begrenzen, dass kein Block der Gruppe aus dem Event fällt
+            const blocks = assignmentsRef.current.filter((a) => groupIds.includes(a.id));
+            const minStart = Math.min(...blocks.map((a) => a.start));
+            const maxEnd = Math.max(...blocks.map((a) => a.end));
+            const deltaMinutes = clamp(rawDelta, -minStart, totalMinutes - maxEnd);
+            applyDrag({ kind: "move-group", assignmentIds: groupIds, deltaMinutes });
+            return;
+          }
+
+          const start = clamp(g.original.start + rawDelta, 0, totalMinutes - dur);
           const hit = hitTest(ev.clientX, ev.clientY);
           const isCustom = g.original.type === "custom";
           let stationId = g.original.stationId;
@@ -906,29 +1005,46 @@ export function RosterEditor({
           gestureRef.current = null;
           applyDrag(null);
           if (!g?.original) return;
-          if (!g.moved || !current || current.kind !== "move") {
-            // Klick ohne Bewegung → Block auswählen + zugehörigen Controller in die Seitenleiste
-            setSelectedId((sel) => (sel === g.original!.id ? null : g.original!.id));
-            if (g.original.userCID != null) setSelectedCID(g.original.userCID);
+          const clicked = g.original;
+
+          if (!g.moved) {
+            // Klick ohne Bewegung: mit Strg/Cmd sammeln, sonst einzeln wählen
+            setSelectedIds((prev) => {
+              if (additive) {
+                const next = new Set(prev);
+                if (next.has(clicked.id)) next.delete(clicked.id);
+                else next.add(clicked.id);
+                return next;
+              }
+              return prev.size === 1 && prev.has(clicked.id) ? new Set() : new Set([clicked.id]);
+            });
+            if (clicked.userCID != null) setSelectedCID(clicked.userCID);
             return;
           }
+
+          if (current?.kind === "move-group") {
+            moveSelection(current.assignmentIds, current.deltaMinutes);
+            return;
+          }
+          if (!current || current.kind !== "move") return;
+
           const changed =
-            current.start !== g.original.start ||
-            current.stationId !== g.original.stationId ||
-            current.userCID !== g.original.userCID;
+            current.start !== clicked.start ||
+            current.stationId !== clicked.stationId ||
+            current.userCID !== clicked.userCID;
           if (!changed) return;
           const v = validate(
             current.stationId,
             current.userCID,
             current.start,
             current.end,
-            g.original.id
+            clicked.id
           );
           if (!v.valid) {
             if (v.reason) toast.error(v.reason);
           } else {
             if (v.warn && v.reason) toast.warning(v.reason);
-            updateAssignment(g.original.id, {
+            updateAssignment(clicked.id, {
               stationId: current.stationId,
               userCID: current.userCID,
               start: current.start,
@@ -938,7 +1054,18 @@ export function RosterEditor({
         }
       );
     },
-    [canEdit, trackPointer, snap, pxPerMinute, totalMinutes, hitTest, validate, updateAssignment, applyDrag]
+    [
+      canEdit,
+      trackPointer,
+      snap,
+      pxPerMinute,
+      totalMinutes,
+      hitTest,
+      validate,
+      updateAssignment,
+      applyDrag,
+      moveSelection,
+    ]
   );
 
   /** Schicht am Rand länger/kürzer ziehen */
@@ -1281,10 +1408,16 @@ export function RosterEditor({
   }, [drag, controllerByCid, assignments]);
   /** Zuweisungen inkl. Drag-Vorschau */
   const displayAssignments = useMemo(() => {
-    if (
-      !drag ||
-      (drag.kind !== "move" && drag.kind !== "resize-start" && drag.kind !== "resize-end")
-    ) {
+    if (!drag) return assignments;
+    if (drag.kind === "move-group") {
+      const ids = new Set(drag.assignmentIds);
+      return assignments.map((a) =>
+        ids.has(a.id)
+          ? { ...a, start: a.start + drag.deltaMinutes, end: a.end + drag.deltaMinutes }
+          : a
+      );
+    }
+    if (drag.kind !== "move" && drag.kind !== "resize-start" && drag.kind !== "resize-end") {
       return assignments;
     }
     return assignments.map((a) =>
@@ -1319,7 +1452,12 @@ export function RosterEditor({
     () => allWarnings.filter((w) => !dismissedKeys.has(warningKey(w))),
     [allWarnings, dismissedKeys]
   );
-  const dismissedCount = allWarnings.length - warnings.length;
+  // Nur die ausgeblendeten Hinweise, die aktuell noch zutreffen – Schlüssel zu
+  // längst geänderten Blöcken sollen nicht als Altlast in der Liste stehen.
+  const dismissedWarnings = useMemo(
+    () => allWarnings.filter((w) => dismissedKeys.has(warningKey(w))),
+    [allWarnings, dismissedKeys]
+  );
 
   /** Hinweis ausblenden bzw. wieder einblenden */
   const setWarningDismissed = useCallback(
@@ -1593,9 +1731,11 @@ export function RosterEditor({
       (drag.kind === "move" || drag.kind === "resize-start" || drag.kind === "resize-end") &&
       drag.assignmentId === a.id;
     const blockWarnings = warningsByAssignment.get(a.id) ?? [];
-    const selected = selectedId === a.id;
+    const selected = selectedIds.has(a.id);
     const hasWithdrawn = blockWarnings.some((w) => w.type === "withdrawn");
-    const hasIneligible = blockWarnings.some((w) => w.type === "not_eligible");
+    const hasExcluded = blockWarnings.some((w) => w.type === "airport_excluded");
+    const hasIneligible =
+      blockWarnings.some((w) => w.type === "not_eligible") || hasExcluded;
 
     let colorCls = isCustom ? customBlockClass(a.color) : blockColor(meta?.group ?? null);
     // Problemfälle bekommen einen deutlichen Rahmen, behalten aber die
@@ -1632,6 +1772,14 @@ export function RosterEditor({
         <div className="flex items-center gap-1 h-full px-1.5 text-[11px] font-medium">
           {/* Fehlende Freigabe: rotes Ausrufezeichen. Zurückgezogene Anmeldung:
               durchgestrichenes Nutzersymbol. Sonstige Hinweise: Warndreieck. */}
+          {hasExcluded && (
+            <span
+              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-danger-600 text-[9px] font-bold leading-none text-white"
+              title="Airport bei der Anmeldung abgewählt"
+            >
+              <CircleSlash className="h-2.5 w-2.5" />
+            </span>
+          )}
           {blockWarnings.some((w) => w.type === "not_eligible") && (
             <span
               title="Keine Freigabe für diese Station"
@@ -1644,7 +1792,10 @@ export function RosterEditor({
             <UserX className="h-3 w-3 shrink-0 text-danger-200" />
           )}
           {blockWarnings.some(
-            (w) => w.type !== "not_eligible" && w.type !== "withdrawn"
+            (w) =>
+              w.type !== "not_eligible" &&
+              w.type !== "withdrawn" &&
+              w.type !== "airport_excluded"
           ) && <AlertTriangle className="h-3 w-3 text-yellow-200 shrink-0" />}
           <span className={cn("truncate", hasWithdrawn && "line-through decoration-2")}>
             {label}
@@ -1935,6 +2086,16 @@ export function RosterEditor({
               </Badge>
             </button>
           )}
+          {selectedIds.size > 1 && (
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              title="Auswahl aufheben (Esc)"
+              className="inline-flex items-center gap-1 rounded-full border border-accent-500/50 bg-accent-500/10 px-2 py-0.5 text-xs text-accent-600 dark:text-accent-400"
+            >
+              {selectedIds.size} Blöcke ausgewählt
+              <X className="h-3 w-3" />
+            </button>
+          )}
           {statusPublished && (
             <Badge
               variant="outline"
@@ -2075,77 +2236,16 @@ export function RosterEditor({
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 flex flex-col min-w-0">
           {/* Warnungen */}
-          {(warnings.length > 0 || dismissedCount > 0) && warningsOpen && (
+          {(warnings.length > 0 || dismissedWarnings.length > 0) && warningsOpen && (
             <div className="p-3 pb-0">
-              <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20">
-                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="flex items-center justify-between">
-                  <span>Planungshinweise</span>
-                  <button
-                    onClick={() => setWarningsOpen(false)}
-                    className="text-muted-foreground hover:text-foreground"
-                    aria-label="Hinweise ausblenden"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </AlertTitle>
-                <AlertDescription>
-                  <ul className="space-y-1 mt-1">
-                    {warnings.map((w) => {
-                      const key = warningKey(w);
-                      return (
-                        <li
-                          key={key}
-                          className="group/warn text-sm flex items-start gap-1.5"
-                        >
-                          {w.type === "long_stretch" ? (
-                            <Coffee className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          ) : (
-                            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                          )}
-                          <button
-                            className="text-left hover:underline"
-                            onClick={() => setSelectedId(w.assignmentIds[0] ?? null)}
-                          >
-                            {w.message}
-                          </button>
-                          {/* Bewusst zurückhaltend: erscheint erst beim Überfahren.
-                              Hinweise sollen gelesen und nicht reflexhaft
-                              weggeklickt werden. */}
-                          {canEdit && (
-                            <button
-                              onClick={() => setWarningDismissed(key, true)}
-                              className="ml-auto shrink-0 opacity-0 group-hover/warn:opacity-100 focus:opacity-100 text-muted-foreground hover:text-foreground transition-opacity"
-                              title="Geprüft – diesen Hinweis ausblenden"
-                              aria-label="Hinweis als geprüft ausblenden"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {dismissedCount > 0 && (
-                    <button
-                      onClick={() => {
-                        for (const w of allWarnings) {
-                          const key = warningKey(w);
-                          if (dismissedKeys.has(key)) void setWarningDismissed(key, false);
-                        }
-                      }}
-                      className="mt-2 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-                      disabled={!canEdit}
-                    >
-                      {dismissedCount} ausgeblendete{dismissedCount === 1 ? "r" : ""} Hinweis
-                      {dismissedCount === 1 ? "" : "e"} wieder einblenden
-                    </button>
-                  )}
-                  {warnings.length === 0 && (
-                    <p className="text-sm">Alle Hinweise sind geprüft.</p>
-                  )}
-                </AlertDescription>
-              </Alert>
+              <WarningsPanel
+                warnings={warnings}
+                dismissed={dismissedWarnings}
+                canEdit={canEdit}
+                onSelect={(id) => setSelectedId(id)}
+                onDismiss={setWarningDismissed}
+                onClose={() => setWarningsOpen(false)}
+              />
             </div>
           )}
 
@@ -2370,9 +2470,50 @@ export function RosterEditor({
                       <div
                         className="flex-1 min-w-0 border-l pl-2 pr-1 py-1 flex items-start gap-1 cursor-pointer"
                         onClick={() => setSelectedCID((sel) => (sel === c.cid ? null : c.cid))}
-                        title="Für Details und Bearbeiten anklicken"
+                        onDoubleClick={(e) => {
+                          if (!canEdit) return;
+                          e.stopPropagation();
+                          setNoteDraftCID(c.cid);
+                          setNoteDraft(markByCid.get(c.cid)?.note ?? "");
+                        }}
+                        title={
+                          canEdit
+                            ? "Klicken für Details, Doppelklick für eine Notiz"
+                            : "Für Details anklicken"
+                        }
                       >
+                        {noteDraftCID === c.cid ? (
+                          // Schnellnotiz: bleibt an Ort und Stelle, damit der
+                          // Blick beim Planen nicht in einen Dialog abwandert.
+                          <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                            <Input
+                              autoFocus
+                              value={noteDraft}
+                              onChange={(e) => setNoteDraft(e.target.value)}
+                              onBlur={commitNoteDraft}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  commitNoteDraft();
+                                } else if (e.key === "Escape") {
+                                  e.preventDefault();
+                                  setNoteDraftCID(null);
+                                }
+                              }}
+                              placeholder="Notiz – Enter speichert, Esc bricht ab"
+                              className="h-7 text-[11px]"
+                              maxLength={2000}
+                            />
+                          </div>
+                        ) : (
                         <div className="min-w-0 flex-1 space-y-0.5">
+                          {/* Bei mehreren Airports zuerst, wo jemand überhaupt
+                              sitzen darf – das entscheidet vor allem anderen. */}
+                          <AirportChips
+                            entry={c.entry}
+                            eventAirports={event.airports}
+                            className="mb-0.5"
+                          />
                           {c.preferredStations && (
                             <p className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate">
                               <Star className="inline h-2.5 w-2.5 mb-0.5 mr-0.5 fill-current" />
@@ -2398,11 +2539,12 @@ export function RosterEditor({
                           )}
                           {!c.preferredStations && !c.remarks && !mark?.note && (
                             <p className="text-[10px] leading-tight text-muted-foreground/60">
-                              keine Angaben
+                              {canEdit ? "keine Angaben · Doppelklick für Notiz" : "keine Angaben"}
                             </p>
                           )}
                         </div>
-                        {canEdit && (
+                        )}
+                        {canEdit && noteDraftCID !== c.cid && (
                           <FlagPicker
                             flag={flag}
                             onChange={(next) => saveMark(c.cid, { flag: next })}
@@ -2457,7 +2599,11 @@ export function RosterEditor({
               auch Custom-Blöcke wie Combined/Training) • Controller von unten auf eine Station
               ziehen • Blöcke verschieben & an den Rändern verlängern • Stationen am Griff
               umsortieren • Controller anklicken für Infos in der Seitenleiste •{" "}
-              <kbd className="border rounded px-1">Entf</kbd> löscht den gewählten Block. Zeiten UTC.
+              <kbd className="border rounded px-1">Strg</kbd>+Klick wählt mehrere Blöcke, die
+              sich gemeinsam verschieben lassen •{" "}
+              <kbd className="border rounded px-1">Entf</kbd> löscht die Auswahl •{" "}
+              <kbd className="border rounded px-1">Strg</kbd>+
+              <kbd className="border rounded px-1">Z</kbd> nimmt zurück. Zeiten UTC.
             </p>
           )}
         </div>
@@ -2475,6 +2621,7 @@ export function RosterEditor({
             assignedMinutes={selectedCID != null ? assignedMinutes.get(selectedCID) ?? 0 : 0}
             shiftLabels={selectedShiftLabels}
             eventStart={eventStart}
+            eventAirports={event.airports}
             note={selectedCID != null ? noteFor(selectedCID) : ""}
             flag={selectedCID != null ? flagFor(selectedCID) : null}
             canEdit={canEdit}
@@ -2604,26 +2751,33 @@ export function RosterEditor({
               Stand jederzeit wiederherstellen.
             </AlertDescription>
           </Alert>
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
+          {/* Die Beschriftungen sind zu lang für eine Zeile – untereinander
+              bleiben sie lesbar und die Reihenfolge zeigt die Empfehlung. */}
+          <div className="flex flex-col gap-2">
             <Button
-              variant="outline"
-              onClick={() => setResetDialogOpen(false)}
+              onClick={() => resetRoster(true)}
               disabled={resetting}
+              className="w-full justify-center"
             >
-              Abbrechen
+              {resetting ? "Wird zurückgesetzt…" : "Snapshot speichern & zurücksetzen"}
             </Button>
             <Button
               variant="outline"
               onClick={() => resetRoster(false)}
               disabled={resetting}
-              className="text-destructive"
+              className="w-full justify-center text-destructive"
             >
               Ohne Snapshot zurücksetzen
             </Button>
-            <Button onClick={() => resetRoster(true)} disabled={resetting}>
-              {resetting ? "Wird zurückgesetzt…" : "Snapshot speichern & zurücksetzen"}
+            <Button
+              variant="ghost"
+              onClick={() => setResetDialogOpen(false)}
+              disabled={resetting}
+              className="w-full justify-center"
+            >
+              Abbrechen
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 

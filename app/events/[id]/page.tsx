@@ -21,6 +21,7 @@ import StaffedStations from "@/components/StaffedStations";
 import PublicRoster from "./_components/PublicRoster";
 import { PUBLIC_ROSTER_VIEW_ENABLED } from "@/config/features";
 import { useUser,  } from "@/hooks/useUser";
+import RichText from "@/components/RichText";
 
 const formatTimeZ = (dateIso?: string | Date): string => {
   if (!dateIso) return "-";
@@ -219,7 +220,10 @@ export default function EventPage() {
 
             {event.description && (
               <div className="pt-2 border-t">
-                <p className="text-sm text-muted-foreground w-full overflow-auto">{event.description}</p>
+                <RichText
+                  text={event.description}
+                  className="block text-sm text-muted-foreground w-full break-words"
+                />
               </div>
             )}
 

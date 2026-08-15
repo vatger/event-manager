@@ -117,19 +117,78 @@ export function getControllerGroupForStation(
   return best ?? ((entry.endorsement?.group as StationGroup | null) ?? null);
 }
 
+/**
+ * Warum darf jemand eine Station nicht besetzen?
+ *
+ * Bei Events über mehrere Airports ist das die entscheidende Unterscheidung:
+ * „hat auf EDDL nur Ground" ist ein Freigabe-Thema und über Training lösbar,
+ * „hat EDDL bei der Anmeldung abgewählt" ist eine Willensbekundung. Beides
+ * pauschal als „keine Freigabe" zu melden hilft beim Planen nicht.
+ */
+export type EligibilityResult =
+  | { ok: true; group: StationGroup | null }
+  | { ok: false; reason: "excluded_airport"; airport: string }
+  | {
+      ok: false;
+      reason: "no_endorsement";
+      airport: string | null;
+      has: StationGroup | null;
+      needs: StationGroup;
+    };
+
+/** Hat der Controller diesen Airport bei der Anmeldung ausgeschlossen? */
+export function hasExcludedAirport(entry: SignupTableEntry, airport: string): boolean {
+  const excluded = entry.excludedAirports;
+  return Array.isArray(excluded) && excluded.includes(airport);
+}
+
+/** Alle Airports des Events, die der Controller bewusst abgewählt hat */
+export function excludedAirportsOf(
+  entry: SignupTableEntry,
+  eventAirports: string[]
+): string[] {
+  const excluded = Array.isArray(entry.excludedAirports) ? entry.excludedAirports : [];
+  return eventAirports.filter((a) => excluded.includes(a));
+}
+
+/** Eignung inklusive Begründung */
+export function checkEligibility(
+  controller: RosterController,
+  stationMeta: StationMeta,
+  eventAirports: string[]
+): EligibilityResult {
+  const airport = stationMeta.airport;
+
+  // Abwahl bei der Anmeldung schlägt alles andere: Wer den Airport nicht
+  // fliegen will, ist dort auch mit passender Freigabe fehl am Platz.
+  if (airport && eventAirports.includes(airport) && hasExcludedAirport(controller.entry, airport)) {
+    return { ok: false, reason: "excluded_airport", airport };
+  }
+
+  // Unbekannte Station (nicht im Datahub, kein Callsign-Muster) → keine harte
+  // Einschränkung, hier kann die Planung nichts prüfen.
+  if (!stationMeta.group) return { ok: true, group: null };
+
+  const userGroup = getControllerGroupForStation(controller.entry, airport, eventAirports);
+  if (canStaffStation(userGroup, stationMeta.group, stationMeta.s1Twr)) {
+    return { ok: true, group: userGroup };
+  }
+  return {
+    ok: false,
+    reason: "no_endorsement",
+    airport,
+    has: userGroup,
+    needs: stationMeta.group,
+  };
+}
+
 /** Darf der Controller die Station grundsätzlich besetzen? */
 export function isEligible(
   controller: RosterController,
   stationMeta: StationMeta,
   eventAirports: string[]
 ): boolean {
-  if (!stationMeta.group) return true; // unbekannte Station → keine harte Einschränkung
-  const userGroup = getControllerGroupForStation(
-    controller.entry,
-    stationMeta.airport,
-    eventAirports
-  );
-  return canStaffStation(userGroup, stationMeta.group, stationMeta.s1Twr);
+  return checkEligibility(controller, stationMeta, eventAirports).ok;
 }
 
 /** Hat der Controller im Zeitraum bereits eine (andere) Zuweisung? */
@@ -285,23 +344,29 @@ export function computeWarnings(
       });
     }
 
-    // 6) Fehlende Freigabe für die Station – erlaubt, aber sichtbar markiert
+    // 6) Station passt nicht zur Anmeldung – erlaubt, aber sichtbar markiert.
+    // Der Grund steht in der Meldung, weil er über die Lösung entscheidet.
     if (controller && stationMetaFor) {
       for (const a of sorted) {
         const station = stationById.get(a.stationId);
         if (!station) continue;
         const meta = stationMetaFor(station.callsign);
-        if (!isEligible(controller, meta, eventAirports)) {
-          const group = getControllerGroupForStation(
-            controller.entry,
-            meta.airport,
-            eventAirports
-          );
+        const check = checkEligibility(controller, meta, eventAirports);
+        if (check.ok) continue;
+        if (check.reason === "excluded_airport") {
+          warnings.push({
+            type: "airport_excluded",
+            userCID: cid,
+            assignmentIds: [a.id],
+            message: `${name} hat ${check.airport} bei der Anmeldung abgewählt, ist aber auf ${station.callsign} eingeplant`,
+          });
+        } else {
+          const where = check.airport ? ` an ${check.airport}` : "";
           warnings.push({
             type: "not_eligible",
             userCID: cid,
             assignmentIds: [a.id],
-            message: `${name} hat keine Freigabe für ${station.callsign} (${group ?? "keine"}, benötigt: ${meta.group})`,
+            message: `${name} hat keine Freigabe für ${station.callsign}${where} (${check.has ?? "keine"}, benötigt: ${check.needs})`,
           });
         }
       }
@@ -318,6 +383,8 @@ export function computeWarnings(
 export interface ControllerSuggestion {
   controller: RosterController;
   eligible: boolean;
+  /** Grund, falls nicht geeignet – bei Multi-Airport entscheidend */
+  eligibility: EligibilityResult;
   free: boolean;
   available: boolean;
   prefersStation: boolean;
@@ -346,7 +413,7 @@ export function suggestControllers(
   const suggestions = controllers
     .filter((c) => !c.withdrawn)
     .map((c) => {
-      const eligible = isEligible(c, stationMeta, eventAirports);
+      const eligibility = checkEligibility(c, stationMeta, eventAirports);
       const free = !hasOverlap(assignments, c.cid, start, end);
       const available = !isUnavailable(c, start, end);
       const prefersStation = c.preferredStations
@@ -354,7 +421,8 @@ export function suggestControllers(
         .includes(station.callsign.toUpperCase());
       return {
         controller: c,
-        eligible,
+        eligible: eligibility.ok,
+        eligibility,
         free,
         available,
         prefersStation,
@@ -369,7 +437,11 @@ export function suggestControllers(
       // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station,
       // dann wenigste eingeplante Zeit
       const score = (s: ControllerSuggestion) =>
-        (s.eligible ? 0 : 16) +
+        (s.eligibility.ok
+          ? 0
+          : s.eligibility.reason === "excluded_airport"
+          ? 32
+          : 16) +
         (s.free ? 0 : 4) +
         (s.available ? 0 : 2) +
         (s.prefersStation ? 0 : 1);

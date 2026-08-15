@@ -120,6 +120,7 @@ export type WarningType =
   | "unavailable"
   | "overlap"
   | "not_eligible"
+  | "airport_excluded"
   | "withdrawn";
 
 export interface RosterWarning {
@@ -148,6 +149,14 @@ export type DragState =
       end: number;
       stationId: number;
       userCID: number | null;
+    }
+  | {
+      // Mehrere ausgewählte Blöcke gemeinsam in der Zeit verschieben.
+      // Bewusst nur die Zeitachse: Bei Blöcken auf verschiedenen Stationen
+      // gibt es kein sinnvolles gemeinsames Ziel in der Senkrechten.
+      kind: "move-group";
+      assignmentIds: number[];
+      deltaMinutes: number;
     }
   | {
       kind: "create";

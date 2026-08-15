@@ -12,7 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { Button } from "@/components/ui/button";
-import { Ban, CalendarX2, Clock, Plus, Search, Star, TriangleAlert, UserX } from "lucide-react";
+import {
+  Ban,
+  CalendarX2,
+  Clock,
+  CircleSlash,
+  Plus,
+  Search,
+  Star,
+  TriangleAlert,
+  UserX,
+} from "lucide-react";
 import type {
   RosterController,
   RosterStation,
@@ -220,13 +230,27 @@ export function AssignDialog({
                         <Ban className="h-3 w-3" /> belegt
                       </Badge>
                     )}
-                    {!s.eligible && (
+                    {/* Der Grund entscheidet, was zu tun ist: fehlende Freigabe
+                        lässt sich klären, ein abgewählter Airport nicht. */}
+                    {!s.eligibility.ok && s.eligibility.reason === "excluded_airport" && (
                       <Badge
                         variant="outline"
                         className="gap-1 border-danger-300 text-[10px] text-danger-700"
-                        title="Keine Freigabe für diese Station – Zuweisung wird im Plan markiert"
+                        title={`${s.eligibility.airport} wurde bei der Anmeldung abgewählt`}
                       >
-                        <TriangleAlert className="h-3 w-3" /> keine Freigabe
+                        <CircleSlash className="h-3 w-3" /> {s.eligibility.airport} abgewählt
+                      </Badge>
+                    )}
+                    {!s.eligibility.ok && s.eligibility.reason === "no_endorsement" && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-danger-300 text-[10px] text-danger-700"
+                        title={`Freigabe${
+                          s.eligibility.airport ? ` an ${s.eligibility.airport}` : ""
+                        }: ${s.eligibility.has ?? "keine"} – benötigt ${s.eligibility.needs}`}
+                      >
+                        <TriangleAlert className="h-3 w-3" />
+                        {s.eligibility.has ?? "keine"} statt {s.eligibility.needs}
                       </Badge>
                     )}
                     {s.controller.withdrawn && (
