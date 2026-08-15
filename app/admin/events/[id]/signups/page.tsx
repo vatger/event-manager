@@ -218,8 +218,6 @@ export default function AdminEventSignupsPage() {
         loading={eventLoading} 
       />
       
-      <StatsCard ref={statsRef} eventId={Number(eventId)} />
-
       {/* Planung: Verbindung zwischen Anmeldeliste und Besetzungsplan */}
       {eventStart && signups.length > 0 && (
         <PlanningPanel
@@ -236,14 +234,6 @@ export default function AdminEventSignupsPage() {
           onChanged={handleSignupChanged}
         />
       )}
-
-      <AvailabilityTimeline
-        ref={timelineRef}
-        eventId={Number(eventId)}
-        slots={slots}
-        selectedAirport={selectedAirport}
-      />
-      
 
       <Card className="relative overflow-hidden">
         <CardHeader>

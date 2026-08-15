@@ -364,7 +364,12 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                 <React.Fragment key={group}>
                   <TableRow>
                     <TableCell colSpan={finalColumns.length} className="bg-muted/50 font-semibold">
-                      {group}
+                      <div className="flex justify-between items-center "> 
+                        <p className="text-sm text-foreground">{group}</p>
+                        <div className="text-xs text-muted-foreground">
+                          {grouped[group].filter((s) => !s.deletedAt).length} Anmel.
+                        </div>
+                      </div>
                     </TableCell>
                   </TableRow>
 
