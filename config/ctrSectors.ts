@@ -1,100 +1,89 @@
 /**
- * Sektorgruppen der CTR-Positionen.
+ * Welche Familiarisierung braucht welche CTR-Position?
  *
- * Eine CTR-Position wie `EDGG_WLD_CTR` ist keine einzelne Sektorgrenze,
- * sondern eine Gruppe: Wer sie besetzt, kontrolliert mehrere Einzelsektoren
- * gleichzeitig. Für die Planung heißt das, dass die Familiarisierungen einer
- * Person zu genau diesen Einzelsektoren passen müssen – die Gruppenkennung
- * allein sagt darüber nichts aus.
+ * Eine Center-Position deckt je nach Sektorplan einen oder mehrere Sektoren ab.
+ * Ob jemand sie besetzen darf, hängt daran, ob die passenden Familiarisierungen
+ * vorliegen – der Kennung selbst ist das nicht anzusehen.
  *
- * Diese Zuordnung ist betrieblich und ändert sich mit den Sektorplänen, sie
- * gehört deshalb in eine Konfiguration und nicht in den Code. Nicht
- * eingetragene Gruppen werden nicht geprüft – lieber keine Aussage als eine
- * falsche.
+ * Die Zuordnung ist betrieblich und ändert sich mit den Sektorplänen, sie
+ * gehört deshalb hierher und nicht in den Code. Der Schlüssel ist das Callsign
+ * der Position, der Wert sind die dafür nötigen Familiarisierungen.
  *
- * Aufbau des Schlüssels: `<FIR>_<GRUPPE>` (die Kennung aus dem Callsign,
- * also `EDGG_WLD_CTR` → `EDGG_WLD`).
+ *   "EDGG_GED_CTR": ["GED"]           – eine Familiarisierung genügt
+ *   "EDMM_NDG_CTR": ["NDG", "ALB"]    – Sammelposition, beide nötig
+ *
+ * Nicht eingetragene Positionen werden nicht geprüft: lieber keine Aussage als
+ * eine falsche. Wer eine Position also bewusst ohne FAM-Pflicht führen will,
+ * lässt sie einfach weg oder trägt eine leere Liste ein.
+ *
+ * ACHTUNG: Die folgenden Einträge sind Beispiele und müssen an die
+ * tatsächlichen Sektorpläne angepasst werden.
  */
 
-export interface CtrSectorGroup {
-  /** Einzelsektoren, die diese Gruppe abdeckt */
-  sectors: string[];
+export interface SectorFamiliarizationConfig {
+  /** Benötigte Familiarisierungen (leere Liste = keine Anforderung) */
+  requires: string[];
   /**
-   * Wie viele davon familiarisiert sein müssen:
-   *  - "all" (Standard): Wer die Gruppe besetzt, kontrolliert alle Sektoren
-   *  - "any": Eine Familiarisierung genügt (z. B. bei Gruppen, die im Event
-   *    ohnehin nur teilweise geöffnet werden)
+   * Reicht eine der genannten Familiarisierungen?
+   * Standard ist false – wer eine Sammelposition besetzt, kontrolliert alle
+   * darin enthaltenen Sektoren und braucht sie deshalb vollständig.
    */
-  requires?: "all" | "any";
-  /** Erklärender Name für die Anzeige */
+  anyOf?: boolean;
+  /** Klartextname für Tooltips und Meldungen */
   label?: string;
 }
 
-/**
- * BEISPIELDATEN – bitte an die tatsächlichen Sektorpläne anpassen.
- * Solange ein Eintrag fehlt, meldet die Planung zu dieser Position keine
- * Familiarisierungs-Lücke.
- */
-export const CTR_SECTOR_GROUPS: Record<string, CtrSectorGroup> = {
-  // Beispiel Langen (EDGG)
-  EDGG_WLD: { sectors: ["WLD"], label: "Westerwald" },
-  EDGG_GED: { sectors: ["GED"], label: "Gedern" },
-  EDGG_KTG: { sectors: ["KTG"], label: "Kitzingen" },
-  EDGG_DKB: { sectors: ["DKB"], label: "Dinkelsbühl" },
-  EDGG_PFA: { sectors: ["PFA"], label: "Pfalz" },
-  EDGG_RUD: { sectors: ["RUD"], label: "Rüdesheim" },
-  EDGG_HAN: { sectors: ["HAN"], label: "Hanau" },
+export const SECTOR_FAMILIARIZATIONS: Record<string, SectorFamiliarizationConfig> = {
+  // ---- Langen (EDGG) ----
+  EDGG_GED_CTR: { requires: ["GED"], label: "Gedern" },
+  EDGG_WLD_CTR: { requires: ["WLD"], label: "Westerwald" },
+  EDGG_KTG_CTR: { requires: ["KTG"], label: "Kitzingen" },
+  EDGG_DKB_CTR: { requires: ["DKB"], label: "Dinkelsbühl" },
+  EDGG_PFA_CTR: { requires: ["PFA"], label: "Pfalz" },
+  EDGG_RUD_CTR: { requires: ["RUD"], label: "Rüdesheim" },
+  EDGG_HAN_CTR: { requires: ["HAN"], label: "Hanau" },
 
-  // Beispiel München (EDMM)
-  EDMM_ALB: { sectors: ["ALB"], label: "Alb" },
-  EDMM_TEG: { sectors: ["TEG"], label: "Tegernsee" },
-  EDMM_ZUG: { sectors: ["ZUG"], label: "Zugspitze" },
-  EDMM_SLN: { sectors: ["SLN"], label: "Sulingen" },
-  EDMM_TRU: { sectors: ["TRU"], label: "Traunstein" },
+  // ---- München (EDMM) ----
+  EDMM_ALB_CTR: { requires: ["ALB"], label: "Alb" },
+  EDMM_TEG_CTR: { requires: ["TEG"], label: "Tegernsee" },
+  EDMM_ZUG_CTR: { requires: ["ZUG"], label: "Zugspitze" },
+  EDMM_SLN_CTR: { requires: ["SLN"], label: "Sulingen" },
+  EDMM_TRU_CTR: { requires: ["TRU"], label: "Traunstein" },
 
-  // Beispiel Bremen (EDWW)
-  EDWW_ALR: { sectors: ["ALR"], label: "Alster" },
-  EDWW_BOR: { sectors: ["BOR"], label: "Borkum" },
-  EDWW_HEI: { sectors: ["HEI"], label: "Heide" },
-  EDWW_MAG: { sectors: ["MAG"], label: "Magdeburg" },
+  // ---- Bremen (EDWW) ----
+  EDWW_ALR_CTR: { requires: ["ALR"], label: "Alster" },
+  EDWW_BOR_CTR: { requires: ["BOR"], label: "Borkum" },
+  EDWW_HEI_CTR: { requires: ["HEI"], label: "Heide" },
+  EDWW_MAG_CTR: { requires: ["MAG"], label: "Magdeburg" },
+
+  // ---- Beispiel für eine Sammelposition ----
+  // Deckt mehrere Sektoren ab, deshalb sind alle Familiarisierungen nötig:
+  // EDMM_NDG_CTR: { requires: ["NDG", "ALB"], label: "Nördlingen (Sammel)" },
 };
 
-/**
- * Sektorgruppen-Schlüssel aus einem Callsign lesen.
- * `EDGG_WLD_CTR` → `EDGG_WLD`; `EDGG_CTR` (FIR-weit) → null.
- */
-export function ctrGroupKeyFromCallsign(callsign: string): string | null {
-  const parts = callsign.toUpperCase().split("_");
-  if (parts.length !== 3 || parts[2] !== "CTR") return null;
-  return `${parts[0]}_${parts[1]}`;
-}
-
-export function getCtrSectorGroup(callsign: string): CtrSectorGroup | null {
-  const key = ctrGroupKeyFromCallsign(callsign);
-  if (!key) return null;
-  return CTR_SECTOR_GROUPS[key] ?? null;
+export function getSectorConfig(callsign: string): SectorFamiliarizationConfig | null {
+  return SECTOR_FAMILIARIZATIONS[callsign.toUpperCase()] ?? null;
 }
 
 /**
- * Welche Sektoren der Gruppe fehlen dieser Person?
+ * Welche Familiarisierungen fehlen dieser Person für die Position?
  *
- * Rückgabe `null` heißt „keine Aussage möglich" – die Position ist nicht
- * konfiguriert oder gar keine Sektorgruppe. Ein leeres Array heißt „alles
- * vorhanden".
+ * `null` heißt „keine Aussage möglich" – die Position ist nicht konfiguriert.
+ * Ein leeres Array heißt „alles vorhanden".
  */
 export function missingFamiliarizations(
   callsign: string,
   familiarizations: string[]
 ): string[] | null {
-  const group = getCtrSectorGroup(callsign);
-  if (!group || group.sectors.length === 0) return null;
+  const config = getSectorConfig(callsign);
+  if (!config || config.requires.length === 0) return null;
 
   const have = new Set(familiarizations.map((f) => f.toUpperCase()));
-  const missing = group.sectors.filter((s) => !have.has(s.toUpperCase()));
+  const missing = config.requires.filter((s) => !have.has(s.toUpperCase()));
 
-  if ((group.requires ?? "all") === "any") {
-    // Eine Familiarisierung genügt – fehlt sie für alle, ist die Gruppe offen
-    return missing.length === group.sectors.length ? group.sectors : [];
+  // Bei anyOf genügt eine – erst wenn keine einzige vorliegt, fehlt etwas
+  if (config.anyOf) {
+    return missing.length === config.requires.length ? config.requires : [];
   }
   return missing;
 }

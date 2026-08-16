@@ -40,6 +40,8 @@ import { useSession } from "next-auth/react";
 import {
   AlertTriangle,
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   CircleSlash,
   Download,
   Copy,
@@ -136,6 +138,7 @@ const ROW_H_INFO = 62; // Zeilenhöhe im Controller-Board mit Infospalte
 const ZOOM_LEVELS = [28, 40, 56, 76]; // Pixel pro Slot
 const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
 const REMARKS_PREF_KEY = "roster:showRemarks";
+const COLLAPSE_PREF_KEY = "roster:collapsedAirports";
 const UNDO_LIMIT = 40; // so viele Schritte lassen sich zurücknehmen
 
 interface EditorEvent {
@@ -319,6 +322,10 @@ export function RosterEditor({
   const [showRemarks, setShowRemarks] = useState(true);
   // Filter auf Ampel-Markierungen (leer = alle zeigen)
   const [flagFilter, setFlagFilter] = useState<Set<RosterFlag>>(new Set());
+  // Nur Controller zeigen, die diese Station besetzen dürfen (null = alle)
+  const [stationFilter, setStationFilter] = useState<number | null>(null);
+  // Nur Controller ohne jede Zuweisung
+  const [onlyUnscheduled, setOnlyUnscheduled] = useState(false);
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   // Wer den Plan gerade offen hat (aus dem SSE-Stream)
@@ -1380,11 +1387,16 @@ export function RosterEditor({
     return next;
   }, [stations, drag]);
 
-  /** Stationszeilen, bei mehreren Airports in Gruppen gebündelt */
+  /**
+   * Stationszeilen, bei mehreren Airports in Gruppen gebündelt.
+   *
+   * Die Reihenfolge der Gruppen ergibt sich aus der Stationsreihenfolge (erstes
+   * Auftreten), nicht aus der Event-Definition: Nur so lässt sie sich im Editor
+   * ändern und bleibt gespeichert – die Sortierung der Stationen ist bereits
+   * persistent.
+   */
   const stationGroups = useMemo((): { airport: string | null; stations: typeof stations }[] => {
     if (!groupByAirport) return [{ airport: null, stations: displayStations }];
-    // Reihenfolge folgt der Event-Definition; alles Unbekannte hängt hinten an
-    const order = new Map(event.airports.map((a, i) => [a.toUpperCase(), i]));
     const grouped = new Map<string, typeof stations>();
     for (const st of displayStations) {
       const ap = airportOf(st.callsign);
@@ -1392,13 +1404,68 @@ export function RosterEditor({
       if (list) list.push(st);
       else grouped.set(ap, [st]);
     }
-    return [...grouped.entries()]
-      .sort(([a], [b]) => {
-        const d = (order.get(a) ?? 999) - (order.get(b) ?? 999);
-        return d !== 0 ? d : a.localeCompare(b);
-      })
-      .map(([airport, list]) => ({ airport, stations: list }));
-  }, [displayStations, groupByAirport, event.airports, airportOf]);
+    return [...grouped.entries()].map(([airport, list]) => ({ airport, stations: list }));
+  }, [displayStations, groupByAirport, airportOf]);
+
+  /** Eingeklappte Airport-Gruppen – bei vielen Airports wird der Plan sonst zu hoch */
+  const [collapsedAirports, setCollapsedAirports] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const stored = window.localStorage.getItem(`${COLLAPSE_PREF_KEY}:${event.id}`);
+    if (stored) {
+      try {
+        const list = JSON.parse(stored) as string[];
+        if (Array.isArray(list)) setCollapsedAirports(new Set(list));
+      } catch {
+        // ungültiger Eintrag – ignorieren
+      }
+    }
+  }, [event.id]);
+  const toggleAirportCollapsed = useCallback(
+    (airport: string) => {
+      setCollapsedAirports((prev) => {
+        const next = new Set(prev);
+        if (next.has(airport)) next.delete(airport);
+        else next.add(airport);
+        window.localStorage.setItem(
+          `${COLLAPSE_PREF_KEY}:${event.id}`,
+          JSON.stringify([...next])
+        );
+        return next;
+      });
+    },
+    [event.id]
+  );
+
+  /**
+   * Eine ganze Airport-Gruppe verschieben.
+   *
+   * Bewusst über Schaltflächen statt Ziehen: Der Zeilen-Drag ist bereits mit
+   * dem Umsortieren einzelner Stationen belegt, und bei einer Handvoll Gruppen
+   * ist ein Klick ohnehin der kürzere Weg.
+   */
+  const moveAirportGroup = useCallback(
+    (airport: string, direction: -1 | 1) => {
+      const order: string[] = [];
+      for (const st of stationsRef.current) {
+        const ap = airportOfRef.current(st.callsign);
+        if (!order.includes(ap)) order.push(ap);
+      }
+      const from = order.indexOf(airport);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= order.length) return;
+      const nextOrder = [...order];
+      [nextOrder[from], nextOrder[to]] = [nextOrder[to], nextOrder[from]];
+
+      // Stationen entlang der neuen Gruppenreihenfolge neu zusammensetzen;
+      // innerhalb einer Gruppe bleibt die bisherige Reihenfolge erhalten.
+      const next = nextOrder.flatMap((ap) =>
+        stationsRef.current.filter((st) => airportOfRef.current(st.callsign) === ap)
+      );
+      setStations(next);
+      persistStationOrder(next);
+    },
+    [persistStationOrder]
+  );
 
   /** Beim Controller-Drag: Verfügbarkeits-/Belegungs-Overlay für Stationszeilen */
   const dragControllerOverlay = useMemo(() => {
@@ -1550,6 +1617,20 @@ export function RosterEditor({
         return flag !== null && flagFilter.has(flag);
       });
     }
+    // Der eigentliche Planungsfilter: Wer darf diese Station besetzen?
+    // Beantwortet in einem Schritt, wofür man sonst jede Zeile lesen müsste.
+    if (stationFilter !== null) {
+      const station = stations.find((st) => st.id === stationFilter);
+      if (station) {
+        const meta = stationMetaFor(station.callsign);
+        list = list.filter(
+          (c) => checkEligibility(c, meta, event.airports, station.callsign).ok
+        );
+      }
+    }
+    if (onlyUnscheduled) {
+      list = list.filter((c) => (assignedMinutes.get(c.cid) ?? 0) === 0);
+    }
     // Abgemeldete ohne Zuweisung sind für die Planung irrelevant und würden
     // die Liste nur aufblähen – abgemeldete MIT Zuweisung müssen sichtbar sein.
     list = list.filter(
@@ -1579,6 +1660,11 @@ export function RosterEditor({
     assignments,
     markByCid,
     flagFilter,
+    stationFilter,
+    onlyUnscheduled,
+    stations,
+    stationMetaFor,
+    event.airports,
   ]);
 
   /** Wie viele Controller tragen welche Markierung? (für die Filter-Chips) */
@@ -2291,27 +2377,77 @@ export function RosterEditor({
             </div>
 
             {/* Stationen-Board, bei mehreren Airports nach Airport gebündelt */}
-            {stationGroups.map((group) => (
-              <React.Fragment key={group.airport ?? "all"}>
-                {group.airport && (
-                  <div className="flex border-b bg-muted/30">
-                    <div
-                      className="sticky left-0 z-20 bg-muted/30 border-r px-3 py-1 shrink-0"
-                      style={{ width: labelWidth }}
-                    >
-                      <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
-                        {group.airport}
-                        <span className="ml-1.5 font-normal">
-                          {group.stations.length} Stat.
-                        </span>
-                      </span>
+            {stationGroups.map((group, groupIndex) => {
+              const collapsed = group.airport !== null && collapsedAirports.has(group.airport);
+              // Eine eingeklappte Gruppe verschwindet nicht spurlos: Wie viele
+              // Blöcke sie enthält, bleibt sichtbar.
+              const blocksInGroup = collapsed
+                ? displayAssignments.filter((a) =>
+                    group.stations.some((st) => st.id === a.stationId)
+                  ).length
+                : 0;
+              return (
+                <React.Fragment key={group.airport ?? "all"}>
+                  {group.airport && (
+                    <div className="flex border-b bg-muted/30 group/ap">
+                      <div
+                        className="sticky left-0 z-20 bg-muted/30 border-r pl-1 pr-3 py-1 shrink-0 flex items-center gap-1"
+                        style={{ width: labelWidth }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggleAirportCollapsed(group.airport!)}
+                          className="flex items-center gap-1 min-w-0 rounded px-1 py-0.5 hover:bg-background/60"
+                          title={collapsed ? "Gruppe ausklappen" : "Gruppe einklappen"}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
+                              collapsed && "-rotate-90"
+                            )}
+                          />
+                          <span className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                            {group.airport}
+                            <span className="ml-1.5 font-normal">
+                              {group.stations.length} Stat.
+                              {collapsed &&
+                                blocksInGroup > 0 &&
+                                ` · ${blocksInGroup} ${blocksInGroup === 1 ? "Block" : "Blöcke"}`}
+                            </span>
+                          </span>
+                        </button>
+                        {canEdit && (
+                          <span className="ml-auto flex items-center opacity-0 group-hover/ap:opacity-100 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => moveAirportGroup(group.airport!, -1)}
+                              disabled={groupIndex === 0}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-background/60 disabled:opacity-30"
+                              title="Gruppe nach oben"
+                              aria-label={`${group.airport} nach oben`}
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveAirportGroup(group.airport!, 1)}
+                              disabled={groupIndex === stationGroups.length - 1}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-background/60 disabled:opacity-30"
+                              title="Gruppe nach unten"
+                              aria-label={`${group.airport} nach unten`}
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                      <div className="shrink-0" style={{ width: timelineWidth }} />
                     </div>
-                    <div className="shrink-0" style={{ width: timelineWidth }} />
-                  </div>
-                )}
-                {group.stations.map(renderStationRow)}
-              </React.Fragment>
-            ))}
+                  )}
+                  {!collapsed && group.stations.map(renderStationRow)}
+                </React.Fragment>
+              );
+            })}
 
             {/* Trenner + Controller-Header */}
             <div className="flex bg-muted/50 border-y">
@@ -2376,7 +2512,7 @@ export function RosterEditor({
                   value={controllerSort}
                   onValueChange={(v) => setControllerSort(v as "name" | "assigned" | "flag")}
                 >
-                  <SelectTrigger size="sm" className="h-7 w-44 text-xs">
+                  <SelectTrigger size="sm" className="h-7 w-40 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -2385,8 +2521,64 @@ export function RosterEditor({
                     <SelectItem value="flag">Nach Markierung</SelectItem>
                   </SelectContent>
                 </Select>
-                {canEdit && (
-                  <span className="text-[10px] text-muted-foreground hidden md:inline">
+
+                {/* Der schnellste Weg zur passenden Besetzung: nach Station
+                    filtern statt jede Zeile auf Freigaben zu prüfen. */}
+                <Select
+                  value={stationFilter === null ? "all" : String(stationFilter)}
+                  onValueChange={(v) => setStationFilter(v === "all" ? null : Number(v))}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className={cn(
+                      "h-7 w-48 text-xs",
+                      stationFilter !== null && "border-accent-500/60 text-accent-600"
+                    )}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Controller</SelectItem>
+                    {stations.map((st) => (
+                      <SelectItem key={st.id} value={String(st.id)}>
+                        Geeignet für {st.callsign}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <button
+                  type="button"
+                  onClick={() => setOnlyUnscheduled((v) => !v)}
+                  className={cn(
+                    "h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-xs transition-colors",
+                    onlyUnscheduled
+                      ? "border-accent-500/60 bg-accent-500/10 text-accent-600"
+                      : "text-muted-foreground hover:bg-muted"
+                  )}
+                  title="Nur Controller ohne jede Schicht zeigen"
+                >
+                  ohne Schicht
+                </button>
+
+                {(stationFilter !== null || onlyUnscheduled || flagFilter.size > 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStationFilter(null);
+                      setOnlyUnscheduled(false);
+                      setFlagFilter(new Set());
+                    }}
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                    title="Alle Filter zurücksetzen"
+                    aria-label="Alle Filter zurücksetzen"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+
+                {canEdit && stationFilter === null && !onlyUnscheduled && (
+                  <span className="text-[10px] text-muted-foreground hidden xl:inline">
                     Tipp: Controller per Drag & Drop auf eine Station ziehen
                   </span>
                 )}

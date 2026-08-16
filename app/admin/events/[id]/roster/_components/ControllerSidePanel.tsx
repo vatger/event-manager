@@ -318,6 +318,7 @@ export function ControllerSidePanel({
                   entry={controller.entry}
                   eventAirports={eventAirports}
                   always
+                  expanded
                   showRestrictions
                   size="md"
                 />
