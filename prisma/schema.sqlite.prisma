@@ -345,7 +345,6 @@ model TrainingEndorsementCache {
   userCID   Int
   position  String
   createdAt DateTime
-  updatedAt DateTime
   fetchedAt DateTime @default(now())
 
   @@unique([userCID, position])
@@ -359,7 +358,6 @@ model TrainingSoloCache {
   position  String
   expiry    DateTime
   createdAt DateTime
-  updatedAt DateTime
   fetchedAt DateTime @default(now())
 
   @@unique([userCID, position])

@@ -5,25 +5,21 @@ import { invalidateAllCaches } from '../cache/cacheManager'
 
 type SoloApiItem = {
   id: number
-  user_cid: number
-  instructor_cid?: number
+  userCid: number
   position: string
-  expiry: string
-  max_days?: number
   facility?: number
-  created_at: string
-  updated_at: string
-  position_days?: number
+  mentor: number
+  positionDays: number
+  expireAt: string
+  createdAt: string
 }
 
 type EndorsementApiItem = {
   id: number
-  user_cid: number
-  instructor_cid?: number
+  userCid: number
   position: string
   facility?: number
-  created_at: string
-  updated_at: string
+  createdAt: string
 }
 
 type FamiliarizationApiItem = {
@@ -59,19 +55,17 @@ export async function refreshTrainingCache() {
   const famsData = (famsResp.data as FamiliarizationResponse).data as FamiliarizationApiItem[]
 
   const soloRows = solosData.map(s => ({
-    userCID: s.user_cid,
+    userCID: s.userCid,
     position: s.position,
-    expiry: new Date(s.expiry),
-    createdAt: new Date(s.created_at),
-    updatedAt: new Date(s.updated_at),
+    expiry: new Date(s.expireAt),
+    createdAt: new Date(s.createdAt),
     fetchedAt: now
   }))
 
   const endoRows = endoData.map(e => ({
-    userCID: e.user_cid,
+    userCID: e.userCid,
     position: e.position,
-    createdAt: new Date(e.created_at),
-    updatedAt: new Date(e.updated_at),
+    createdAt: new Date(e.createdAt),
     fetchedAt: now
   }))
 

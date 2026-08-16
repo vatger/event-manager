@@ -17,8 +17,8 @@
  */
 const CONTROLLER_INFO_TEMPLATE =
   process.env.NEXT_PUBLIC_CONTROLLER_INFO_URL ??
-  "https://vatsim-germany.org/community/user/{cid}";
-
+  "/admin/userinfo?cid={cid}";
+  
 export function controllerInfoUrl(cid: number | string): string {
   return CONTROLLER_INFO_TEMPLATE.replace("{cid}", String(cid));
 }

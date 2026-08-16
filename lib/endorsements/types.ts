@@ -5,12 +5,10 @@ export type EndoTrainingResponse = {
 
 type Endorsement = {
   id: number;
-  user_cid: number;
-  instructor_cid: number;
+  userCid: number;
   position: string;
   facility: number;
-  created_at: string; // ISO timestamp
-  updated_at: string; // ISO timestamp
+  createdAt: string; // ISO timestamp
 };
 
 export type SoloTrainingResponse = {
@@ -20,15 +18,13 @@ export type SoloTrainingResponse = {
 
 type Solo = {
   id: number;
-  user_cid: number;
-  instructor_cid: number;
+  userCid: number;
   position: string;
-  expiry: string; // ISO timestamp
-  max_days: number;
   facility: number;
-  created_at: string; // ISO timestamp
-  updated_at: string; // ISO timestamp
-  position_days: number;
+  mentor: number;
+  positionDays: number;
+  expireAt: string; // ISO timestamp
+  createdAt: string; // ISO timestamp
 };
 export type FamiliarizationResponse = {
   success: boolean;
