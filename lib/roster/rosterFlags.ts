@@ -23,9 +23,9 @@ export const ROSTER_FLAG_LABEL: Record<RosterFlag, string> = {
 
 /** Vorschlagstexte – erklären die Ampel, ohne sie festzuschreiben */
 export const ROSTER_FLAG_HINT: Record<RosterFlag, string> = {
-  green: "passt, kann fest eingeplant werden",
-  amber: "mit Vorbehalt – Rückfrage oder Einschränkung offen",
-  red: "möglichst nicht einplanen",
+  green: "passt",
+  amber: "unschön",
+  red: "passt noch nicht",
 };
 
 /** Farbfläche für Punkte und Chips */
