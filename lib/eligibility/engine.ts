@@ -108,7 +108,12 @@ export class EligibilityEngine {
           restrictions: [],
           blockReasons: [result.blockReason ?? 'gatekeeper'],
         }));
-        return { maxAllowedGroup: null, restrictions: [], reasonsPerLevel: allLevels };
+        return {
+          maxAllowedGroup: null,
+          allowedLevels: [],
+          restrictions: [],
+          reasonsPerLevel: allLevels,
+        };
       }
     }
 
@@ -152,6 +157,13 @@ export class EligibilityEngine {
       }
     }
 
-    return { maxAllowedGroup, restrictions, reasonsPerLevel: evaluations };
+    // Jede tatsächlich erlaubte Ebene, nicht nur die höchste: Wer APP darf,
+    // darf deshalb noch lange nicht TWR (fehlendes T1-Endorsement, FIR-CTR
+    // ohne Airport-Freigabe …). Wer prüft, muss die Liste befragen.
+    const allowedLevels: AirportLevel[] = evaluations
+      .filter((e) => e.allowed)
+      .map((e) => e.level);
+
+    return { maxAllowedGroup, allowedLevels, restrictions, reasonsPerLevel: evaluations };
   }
 }

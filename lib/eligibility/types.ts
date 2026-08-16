@@ -81,6 +81,16 @@ export interface LevelEvaluation {
 export interface EligibilityResult {
   /** The highest level the user may be assigned to, or null if none */
   maxAllowedGroup: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
+  /**
+   * Every level the user may actually staff – not a range.
+   *
+   * The hierarchy DEL < GND < TWR < APP < CTR does NOT imply that a higher
+   * level covers the lower ones: a controller may hold APP without the
+   * airport's TWR endorsement, or CTR through a FIR endorsement without any
+   * airport rating at all. Consumers must check membership in this list
+   * instead of comparing ranks against maxAllowedGroup.
+   */
+  allowedLevels: AirportLevel[];
   /** Restrictions that apply to the maxAllowedGroup (displayed in UI) */
   restrictions: string[];
   /** Per-level breakdown for debugging / Roster Editor */

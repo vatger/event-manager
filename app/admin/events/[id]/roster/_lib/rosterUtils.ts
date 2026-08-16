@@ -1,4 +1,5 @@
-import type { SignupTableEntry } from "@/lib/cache/types";
+import type { EventEndorsementData, SignupTableEntry } from "@/lib/cache/types";
+import { missingFamiliarizations } from "@/config/ctrSectors";
 import {
   canStaffStation,
   extractStationGroup,
@@ -126,14 +127,21 @@ export function getControllerGroupForStation(
  * pauschal als „keine Freigabe" zu melden hilft beim Planen nicht.
  */
 export type EligibilityResult =
-  | { ok: true; group: StationGroup | null }
+  | { ok: true; group: StationGroup | null; restrictions: string[] }
   | { ok: false; reason: "excluded_airport"; airport: string }
   | {
       ok: false;
       reason: "no_endorsement";
       airport: string | null;
-      has: StationGroup | null;
+      /** Die Ebenen, die tatsächlich freigegeben sind */
+      allowed: string[];
       needs: StationGroup;
+    }
+  | {
+      ok: false;
+      reason: "missing_familiarization";
+      /** Sektoren der Gruppe, für die keine Familiarisierung vorliegt */
+      missing: string[];
     };
 
 /** Hat der Controller diesen Airport bei der Anmeldung ausgeschlossen? */
@@ -151,11 +159,38 @@ export function excludedAirportsOf(
   return eventAirports.filter((a) => excluded.includes(a));
 }
 
-/** Eignung inklusive Begründung */
+/** Freigabedaten, die für diese Station gelten (Airport oder FIR-weit) */
+export function endorsementDataForStation(
+  entry: SignupTableEntry,
+  stationAirport: string | null,
+  eventAirports: string[]
+): EventEndorsementData | null {
+  if (stationAirport && eventAirports.includes(stationAirport)) {
+    return entry.airportEndorsements?.[stationAirport] ?? null;
+  }
+  // Stationen ohne Airport-Bezug (FIR-CTR) laufen über die allgemeine
+  // Auswertung; sonst die beste vorhandene Airport-Auswertung heranziehen.
+  if (entry.endorsement) return entry.endorsement;
+  const all = Object.values(entry.airportEndorsements ?? {});
+  return all.length > 0 ? all[0] : null;
+}
+
+/**
+ * Eignung inklusive Begründung.
+ *
+ * Bewusst keine Rangfolge: Die Freigaben stehen als Liste der tatsächlich
+ * erlaubten Ebenen zur Verfügung. Ein APP-Endorsement bedeutet nicht, dass
+ * auch TWR oder GND desselben Airports erlaubt sind – etwa wenn dort ein
+ * T1-Endorsement fehlt oder CTR über eine FIR-Freigabe kommt. Nur wenn diese
+ * Liste fehlt (ältere zwischengespeicherte Anmeldungen), fällt die Prüfung
+ * auf den alten Rangvergleich zurück.
+ */
 export function checkEligibility(
   controller: RosterController,
   stationMeta: StationMeta,
-  eventAirports: string[]
+  eventAirports: string[],
+  /** Callsign der Station – für die Prüfung von CTR-Sektorgruppen */
+  callsign?: string
 ): EligibilityResult {
   const airport = stationMeta.airport;
 
@@ -167,19 +202,45 @@ export function checkEligibility(
 
   // Unbekannte Station (nicht im Datahub, kein Callsign-Muster) → keine harte
   // Einschränkung, hier kann die Planung nichts prüfen.
-  if (!stationMeta.group) return { ok: true, group: null };
+  if (!stationMeta.group) return { ok: true, group: null, restrictions: [] };
 
-  const userGroup = getControllerGroupForStation(controller.entry, airport, eventAirports);
-  if (canStaffStation(userGroup, stationMeta.group, stationMeta.s1Twr)) {
-    return { ok: true, group: userGroup };
+  const data = endorsementDataForStation(controller.entry, airport, eventAirports);
+  const restrictions = data?.restrictions ?? [];
+  const levels = data?.allowedLevels;
+
+  const permitted =
+    levels && levels.length >= 0 && Array.isArray(levels)
+      ? levels.includes(stationMeta.group)
+      : // Rückfall für Daten ohne Ebenenliste
+        canStaffStation(data?.group ?? null, stationMeta.group, stationMeta.s1Twr);
+
+  // Sonderfall S1-TWR: Der Datahub erlaubt TWR ausdrücklich mit GND-Freigabe.
+  const s1TwrOk =
+    !permitted &&
+    stationMeta.group === "TWR" &&
+    stationMeta.s1Twr &&
+    (levels ? levels.includes("GND") : false);
+
+  if (!permitted && !s1TwrOk) {
+    return {
+      ok: false,
+      reason: "no_endorsement",
+      airport,
+      allowed: levels ? [...levels] : data?.group ? [data.group] : [],
+      needs: stationMeta.group,
+    };
   }
-  return {
-    ok: false,
-    reason: "no_endorsement",
-    airport,
-    has: userGroup,
-    needs: stationMeta.group,
-  };
+
+  // CTR-Sektorgruppen: Wer eine Gruppe besetzt, kontrolliert ihre
+  // Einzelsektoren – dafür braucht es die passenden Familiarisierungen.
+  if (stationMeta.group === "CTR" && callsign) {
+    const missing = missingFamiliarizations(callsign, data?.familiarizations ?? []);
+    if (missing && missing.length > 0) {
+      return { ok: false, reason: "missing_familiarization", missing };
+    }
+  }
+
+  return { ok: true, group: stationMeta.group, restrictions };
 }
 
 /** Darf der Controller die Station grundsätzlich besetzen? */
@@ -351,7 +412,7 @@ export function computeWarnings(
         const station = stationById.get(a.stationId);
         if (!station) continue;
         const meta = stationMetaFor(station.callsign);
-        const check = checkEligibility(controller, meta, eventAirports);
+        const check = checkEligibility(controller, meta, eventAirports, station.callsign);
         if (check.ok) continue;
         if (check.reason === "excluded_airport") {
           warnings.push({
@@ -360,13 +421,22 @@ export function computeWarnings(
             assignmentIds: [a.id],
             message: `${name} hat ${check.airport} bei der Anmeldung abgewählt, ist aber auf ${station.callsign} eingeplant`,
           });
+        } else if (check.reason === "missing_familiarization") {
+          warnings.push({
+            type: "missing_familiarization",
+            userCID: cid,
+            assignmentIds: [a.id],
+            message: `${name} fehlt für ${station.callsign} die Familiarisierung (${check.missing.join(", ")})`,
+          });
         } else {
           const where = check.airport ? ` an ${check.airport}` : "";
+          const have =
+            check.allowed.length > 0 ? check.allowed.join(", ") : "keine Freigabe";
           warnings.push({
             type: "not_eligible",
             userCID: cid,
             assignmentIds: [a.id],
-            message: `${name} hat keine Freigabe für ${station.callsign}${where} (${check.has ?? "keine"}, benötigt: ${check.needs})`,
+            message: `${name} darf ${station.callsign}${where} nicht besetzen (benötigt ${check.needs}, freigegeben: ${have})`,
           });
         }
       }
@@ -413,7 +483,7 @@ export function suggestControllers(
   const suggestions = controllers
     .filter((c) => !c.withdrawn)
     .map((c) => {
-      const eligibility = checkEligibility(c, stationMeta, eventAirports);
+      const eligibility = checkEligibility(c, stationMeta, eventAirports, station.callsign);
       const free = !hasOverlap(assignments, c.cid, start, end);
       const available = !isUnavailable(c, start, end);
       const prefersStation = c.preferredStations

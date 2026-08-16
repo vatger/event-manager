@@ -9,6 +9,7 @@ import {
   CircleSlash,
   Coffee,
   Layers,
+  MapPinOff,
   RotateCcw,
   UserX,
   X,
@@ -34,6 +35,7 @@ const TYPE_ORDER: WarningType[] = [
   "withdrawn",
   "airport_excluded",
   "not_eligible",
+  "missing_familiarization",
   "unavailable",
   "no_break_switch",
   "long_stretch",
@@ -44,6 +46,7 @@ const TYPE_LABEL: Record<WarningType, string> = {
   withdrawn: "Abgemeldet",
   airport_excluded: "Airport abgewählt",
   not_eligible: "Freigabe fehlt",
+  missing_familiarization: "FAM fehlt",
   unavailable: "Nicht verfügbar",
   no_break_switch: "Wechsel ohne Pause",
   long_stretch: "Lange Schicht",
@@ -54,13 +57,20 @@ const TYPE_ICON: Record<WarningType, typeof AlertTriangle> = {
   withdrawn: UserX,
   airport_excluded: CircleSlash,
   not_eligible: AlertTriangle,
+  missing_familiarization: MapPinOff,
   unavailable: AlertTriangle,
   no_break_switch: AlertTriangle,
   long_stretch: Coffee,
 };
 
 /** Blockierendes Problem oder Hinweis zur Abwägung? */
-const HARD_TYPES = new Set<WarningType>(["overlap", "withdrawn", "airport_excluded"]);
+const HARD_TYPES = new Set<WarningType>([
+  "overlap",
+  "withdrawn",
+  "airport_excluded",
+  "not_eligible",
+  "missing_familiarization",
+]);
 
 /**
  * Planungshinweise.

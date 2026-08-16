@@ -28,8 +28,19 @@ export interface SignupChange {
 export interface EventEndorsementData {
   /** Highest group this user can control at this airport (GND/TWR/APP/CTR) */
   group: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
+  /**
+   * Jede einzelne freigegebene Ebene an diesem Airport.
+   *
+   * Entscheidend für die Planung: Wer APP darf, darf deshalb nicht
+   * automatisch TWR oder GND – etwa wenn das T1-Endorsement des Airports
+   * fehlt oder CTR über eine FIR-Freigabe kommt. Die Prüfung muss deshalb
+   * gegen diese Liste laufen, nicht gegen die Rangfolge.
+   */
+  allowedLevels: ('DEL' | 'GND' | 'TWR' | 'APP' | 'CTR')[];
   /** Restrictions/notes for this endorsement (e.g., solo expiry warnings) */
   restrictions: string[];
+  /** Familiarisierte Sektoren im FIR – nötig zur Prüfung von CTR-Positionen */
+  familiarizations: string[];
 }
 
 /**
@@ -41,7 +52,9 @@ export function extractMinimalEndorsementData(
 ): EventEndorsementData {
   return {
     group: response.group,
-    restrictions: response.restrictions
+    allowedLevels: response.allowedLevels ?? [],
+    restrictions: response.restrictions,
+    familiarizations: response.familiarizations ?? [],
   };
 }
 

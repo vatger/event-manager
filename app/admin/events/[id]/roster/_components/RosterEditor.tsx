@@ -100,8 +100,8 @@ import {
   computeWarnings,
   formatDuration,
   getControllerGroupForStation,
+  checkEligibility,
   hasOverlap,
-  isEligible,
   isUnavailable,
   minutesBetween,
   minuteToDate,
@@ -797,14 +797,22 @@ export function RosterEditor({
           reason: `${controller.name} ist dann bereits auf ${other?.callsign ?? "?"} eingeplant`,
         };
       }
-      // Ab hier: erlaubt, aber im Plan sichtbar zu markieren
+      // Ab hier: erlaubt, aber im Plan sichtbar zu markieren. Der Grund steht
+      // in der Meldung, weil er über die Lösung entscheidet.
       const meta = stationMetaFor(station.callsign);
-      if (!isEligible(controller, meta, event.airports)) {
-        return {
-          valid: true,
-          warn: true,
-          reason: `${controller.name} hat keine Freigabe für ${station.callsign} – wird markiert`,
-        };
+      const check = checkEligibility(controller, meta, event.airports, station.callsign);
+      if (!check.ok) {
+        const reason =
+          check.reason === "excluded_airport"
+            ? `${controller.name} hat ${check.airport} bei der Anmeldung abgewählt – wird markiert`
+            : check.reason === "missing_familiarization"
+            ? `${controller.name} fehlt die Familiarisierung für ${check.missing.join(", ")} – wird markiert`
+            : `${controller.name} darf ${station.callsign} nicht besetzen (benötigt ${
+                check.needs
+              }, freigegeben: ${
+                check.allowed.length > 0 ? check.allowed.join(", ") : "nichts"
+              }) – wird markiert`;
+        return { valid: true, warn: true, reason };
       }
       if (controller.withdrawn) {
         return {
@@ -1735,7 +1743,9 @@ export function RosterEditor({
     const hasWithdrawn = blockWarnings.some((w) => w.type === "withdrawn");
     const hasExcluded = blockWarnings.some((w) => w.type === "airport_excluded");
     const hasIneligible =
-      blockWarnings.some((w) => w.type === "not_eligible") || hasExcluded;
+      blockWarnings.some(
+        (w) => w.type === "not_eligible" || w.type === "missing_familiarization"
+      ) || hasExcluded;
 
     let colorCls = isCustom ? customBlockClass(a.color) : blockColor(meta?.group ?? null);
     // Problemfälle bekommen einen deutlichen Rahmen, behalten aber die
@@ -1780,7 +1790,9 @@ export function RosterEditor({
               <CircleSlash className="h-2.5 w-2.5" />
             </span>
           )}
-          {blockWarnings.some((w) => w.type === "not_eligible") && (
+          {blockWarnings.some(
+            (w) => w.type === "not_eligible" || w.type === "missing_familiarization"
+          ) && (
             <span
               title="Keine Freigabe für diese Station"
               className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-danger-600 text-[9px] font-bold leading-none text-white"
@@ -1795,7 +1807,8 @@ export function RosterEditor({
             (w) =>
               w.type !== "not_eligible" &&
               w.type !== "withdrawn" &&
-              w.type !== "airport_excluded"
+              w.type !== "airport_excluded" &&
+              w.type !== "missing_familiarization"
           ) && <AlertTriangle className="h-3 w-3 text-yellow-200 shrink-0" />}
           <span className={cn("truncate", hasWithdrawn && "line-through decoration-2")}>
             {label}
@@ -2512,6 +2525,7 @@ export function RosterEditor({
                           <AirportChips
                             entry={c.entry}
                             eventAirports={event.airports}
+                            showRestrictions
                             className="mb-0.5"
                           />
                           {c.preferredStations && (

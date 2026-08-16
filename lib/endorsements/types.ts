@@ -61,6 +61,11 @@ type Familiarization = {
 
   export interface EndorsementResponse {
     group: 'GND' | 'TWR' | 'APP' | 'CTR' | null;
+    /**
+     * Alle tatsächlich freigegebenen Ebenen – die Rangfolge sagt nichts
+     * darüber aus, ob die darunterliegenden mit abgedeckt sind.
+     */
+    allowedLevels: ('DEL' | 'GND' | 'TWR' | 'APP' | 'CTR')[];
     restrictions: string[];
     /** Human-readable reason why group is null (e.g. "nicht im Roster") */
     blockReason?: string;

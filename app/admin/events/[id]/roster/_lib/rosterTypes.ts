@@ -121,6 +121,7 @@ export type WarningType =
   | "overlap"
   | "not_eligible"
   | "airport_excluded"
+  | "missing_familiarization"
   | "withdrawn";
 
 export interface RosterWarning {

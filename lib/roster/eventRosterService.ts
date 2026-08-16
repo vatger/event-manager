@@ -1,14 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { fetchAllStations } from "@/lib/stations/fetchStations";
-import {
-  canStaffStation,
-  extractStationGroup,
-  STATION_GROUP_ORDER,
-  StationGroup,
-} from "@/lib/weeklys/stationUtils";
+import { extractStationGroup, StationGroup } from "@/lib/weeklys/stationUtils";
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
-import type { SignupTableEntry } from "@/lib/cache/types";
-import { parseEventAirports } from "@/lib/multiAirport";
 import type {
   Event,
   EventRoster,
@@ -67,41 +60,6 @@ export async function getStationRequirement(callsign: string): Promise<StationRe
   if (!airport && /^[A-Z]{4}/i.test(callsign)) airport = callsign.substring(0, 4).toUpperCase();
 
   return { callsign, group, airport, s1Twr };
-}
-
-/**
- * Bestimmt die (höchste) Endorsement-Gruppe eines Controllers für eine Station.
- * - Station an einem Event-Airport: airport-spezifische Gruppe (inkl. Opt-out über selectedAirports)
- * - Sonst (z. B. CTR / FIR-weit): beste Gruppe über alle Event-Airports
- */
-export function getUserGroupForStation(
-  entry: SignupTableEntry,
-  stationAirport: string | null,
-  eventAirports: string[]
-): StationGroup | null {
-  const rank = (g: string | null | undefined) =>
-    g ? STATION_GROUP_ORDER.indexOf(g as StationGroup) : -1;
-
-  if (stationAirport && eventAirports.includes(stationAirport)) {
-    // Airport explizit vom Controller ausgeschlossen?
-    if (entry.selectedAirports && !entry.selectedAirports.includes(stationAirport)) {
-      return null;
-    }
-    const g = entry.airportEndorsements?.[stationAirport]?.group ?? null;
-    return g;
-  }
-
-  // FIR-weite Station: beste Gruppe über alle (gewählten) Event-Airports
-  let best: StationGroup | null = null;
-  const airports = entry.selectedAirports?.length
-    ? entry.selectedAirports
-    : Object.keys(entry.airportEndorsements ?? {});
-  for (const ap of airports) {
-    const g = entry.airportEndorsements?.[ap]?.group ?? null;
-    if (rank(g) > rank(best)) best = g as StationGroup;
-  }
-  if (!best) best = (entry.endorsement?.group as StationGroup | null) ?? null;
-  return best;
 }
 
 export interface AssignmentInput {

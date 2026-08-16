@@ -245,12 +245,25 @@ export function AssignDialog({
                       <Badge
                         variant="outline"
                         className="gap-1 border-danger-300 text-[10px] text-danger-700"
-                        title={`Freigabe${
+                        title={`Freigegeben${
                           s.eligibility.airport ? ` an ${s.eligibility.airport}` : ""
-                        }: ${s.eligibility.has ?? "keine"} – benötigt ${s.eligibility.needs}`}
+                        }: ${
+                          s.eligibility.allowed.length > 0
+                            ? s.eligibility.allowed.join(", ")
+                            : "nichts"
+                        } – benötigt ${s.eligibility.needs}`}
                       >
                         <TriangleAlert className="h-3 w-3" />
-                        {s.eligibility.has ?? "keine"} statt {s.eligibility.needs}
+                        kein {s.eligibility.needs}
+                      </Badge>
+                    )}
+                    {!s.eligibility.ok && s.eligibility.reason === "missing_familiarization" && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-danger-300 text-[10px] text-danger-700"
+                        title={`Familiarisierung fehlt: ${s.eligibility.missing.join(", ")}`}
+                      >
+                        <TriangleAlert className="h-3 w-3" /> FAM fehlt
                       </Badge>
                     )}
                     {s.controller.withdrawn && (
