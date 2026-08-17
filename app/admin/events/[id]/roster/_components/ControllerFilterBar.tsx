@@ -1,15 +1,6 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -17,14 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  ArrowDownUp,
-  Columns3,
-  PanelLeftClose,
-  PanelLeftOpen,
-  Search,
-  X,
-} from "lucide-react";
+import { ArrowDownUp, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ROSTER_FLAGS,
@@ -34,17 +18,6 @@ import {
   type RosterFlag,
 } from "@/lib/roster/rosterFlags";
 import type { RosterStation } from "../_lib/rosterTypes";
-
-/** Was steht in der Infospalte neben den Controllern? */
-export const INFO_FIELDS = ["airports", "preferred", "remarks", "note"] as const;
-export type InfoField = (typeof INFO_FIELDS)[number];
-
-export const INFO_FIELD_LABEL: Record<InfoField, string> = {
-  airports: "Freigaben",
-  preferred: "Wunschstationen",
-  remarks: "Remarks",
-  note: "Interne Notiz",
-};
 
 export type ControllerSort = "name" | "assigned" | "flag";
 
@@ -78,11 +51,6 @@ interface ControllerFilterBarProps {
   flagCounts: Record<RosterFlag, number>;
   onToggleFlag: (flag: RosterFlag) => void;
 
-  showInfoColumn: boolean;
-  onToggleInfoColumn: () => void;
-  infoFields: Set<InfoField>;
-  onToggleInfoField: (field: InfoField) => void;
-
   onReset: () => void;
   hasActiveFilter: boolean;
 }
@@ -115,10 +83,6 @@ export function ControllerFilterBar({
   flagFilter,
   flagCounts,
   onToggleFlag,
-  showInfoColumn,
-  onToggleInfoColumn,
-  infoFields,
-  onToggleInfoField,
   onReset,
   hasActiveFilter,
 }: ControllerFilterBarProps) {
@@ -282,56 +246,6 @@ export function ControllerFilterBar({
         </SelectContent>
       </Select>
 
-      {/* Spaltenwahl: Wer nur Remarks braucht, soll nicht alles lesen müssen */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-9 shrink-0"
-            title="Anzeige der Infospalte wählen"
-            aria-label="Anzeige der Infospalte wählen"
-          >
-            <Columns3 className="h-3.5 w-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            Infospalte
-          </DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            checked={showInfoColumn}
-            onCheckedChange={onToggleInfoColumn}
-          >
-            Spalte anzeigen
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
-          {INFO_FIELDS.map((field) => (
-            <DropdownMenuCheckboxItem
-              key={field}
-              checked={infoFields.has(field)}
-              disabled={!showInfoColumn}
-              onCheckedChange={() => onToggleInfoField(field)}
-            >
-              {INFO_FIELD_LABEL[field]}
-            </DropdownMenuCheckboxItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 shrink-0"
-        title={showInfoColumn ? "Infospalte ausblenden" : "Infospalte einblenden"}
-        onClick={onToggleInfoColumn}
-      >
-        {showInfoColumn ? (
-          <PanelLeftClose className="h-3.5 w-3.5" />
-        ) : (
-          <PanelLeftOpen className="h-3.5 w-3.5" />
-        )}
-      </Button>
     </div>
   );
 }

@@ -100,11 +100,13 @@ import {
   warningKey,
 } from "../_lib/rosterUtils";
 import { AirportChips } from "./AirportChips";
+import { ControllerFilterBar } from "./ControllerFilterBar";
+import { InfoColumnContextMenu, InfoColumnControls } from "./InfoColumnMenu";
 import {
-  ControllerFilterBar,
+  DEFAULT_INFO_FIELDS,
   INFO_FIELDS,
   type InfoField,
-} from "./ControllerFilterBar";
+} from "../_lib/infoFields";
 import { WarningsPanel } from "./WarningsPanel";
 import { AssignDialog } from "./AssignDialog";
 import { FlagPicker } from "./FlagPicker";
@@ -319,7 +321,11 @@ export function RosterEditor({
   // Nur Controller ohne jede Zuweisung
   const [onlyUnscheduled, setOnlyUnscheduled] = useState(false);
   // Welche Angaben stehen in der Infospalte?
-  const [infoFields, setInfoFields] = useState<Set<InfoField>>(new Set(INFO_FIELDS));
+  const [infoFields, setInfoFields] = useState<Set<InfoField>>(
+    new Set(DEFAULT_INFO_FIELDS)
+  );
+  // Rechtsklick-Menü in der Infospalte (Anker an der Mausposition)
+  const [infoMenuAt, setInfoMenuAt] = useState<{ x: number; y: number } | null>(null);
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   // Wer den Plan gerade offen hat (aus dem SSE-Stream)
@@ -2518,12 +2524,21 @@ export function RosterEditor({
             {/* Trenner + Controller-Header */}
             <div className="flex bg-muted/50 border-y">
               <div
-                className="sticky left-0 z-20 bg-muted/50 border-r px-3 py-2 shrink-0 flex items-center"
+                className="sticky left-0 z-20 bg-muted/50 border-r pl-3 pr-1 py-1.5 shrink-0 flex items-center"
                 style={{ width: labelWidth }}
               >
                 <span className="text-xs font-semibold text-muted-foreground">
                   Controller ({visibleControllers.length})
                 </span>
+                {/* Steht über der Spalte, die es steuert */}
+                <div className="ml-auto">
+                  <InfoColumnControls
+                    showInfoColumn={showRemarks}
+                    onToggleInfoColumn={() => setShowRemarks((v) => !v)}
+                    infoFields={infoFields}
+                    onToggleInfoField={toggleInfoField}
+                  />
+                </div>
               </div>
               <div
                 className="sticky z-20 px-3 py-1.5 w-fit"
@@ -2548,10 +2563,6 @@ export function RosterEditor({
                   flagFilter={flagFilter}
                   flagCounts={flagCounts}
                   onToggleFlag={toggleFlagFilter}
-                  showInfoColumn={showRemarks}
-                  onToggleInfoColumn={() => setShowRemarks((v) => !v)}
-                  infoFields={infoFields}
-                  onToggleInfoField={toggleInfoField}
                   hasActiveFilter={
                     stationFilter !== null ||
                     airportFilter !== null ||
@@ -2687,6 +2698,11 @@ export function RosterEditor({
                           e.stopPropagation();
                           setNoteDraftCID(c.cid);
                           setNoteDraft(markByCid.get(c.cid)?.note ?? "");
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setInfoMenuAt({ x: e.clientX, y: e.clientY });
                         }}
                         title={
                           canEdit
@@ -2906,6 +2922,16 @@ export function RosterEditor({
             setAssignDialog(null);
           }
         }}
+      />
+
+      {/* Rechtsklick-Menü der Infospalte */}
+      <InfoColumnContextMenu
+        at={infoMenuAt}
+        onClose={() => setInfoMenuAt(null)}
+        showInfoColumn={showRemarks}
+        onToggleInfoColumn={() => setShowRemarks((v) => !v)}
+        infoFields={infoFields}
+        onToggleInfoField={toggleInfoField}
       />
 
       {/* Dialog: Einstellungen (Raster, Stationen, Zugriff, Zeitraum) */}
