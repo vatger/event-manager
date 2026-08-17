@@ -274,22 +274,6 @@ export function ControllerSidePanel({
 
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-3 space-y-4">
-          {/* Aktuelle Schichten */}
-          {shiftLabels.length > 0 && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" /> Geplante Schichten
-              </p>
-              <div className="flex flex-wrap gap-1">
-                {shiftLabels.map((s, i) => (
-                  <Badge key={i} variant="secondary" className="text-[11px]">
-                    {s}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Anmeldedaten */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
