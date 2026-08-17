@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import StationSelector from "@/app/admin/events/_components/StationSelector";
+import { ReleaseBookingsDialog } from "@/app/admin/_components/ReleaseBookingsDialog";
 
 
 interface WeeklyEventConfig {
@@ -84,6 +85,8 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
   const isEdit = Boolean(config);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
   const { user, isVATGERLead } = useUser();
 
@@ -320,20 +323,27 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (releaseBookings: boolean) => {
     setError("");
-    if (!confirm("Weekly Event wirklich löschen?")) return;
+    if (!config) return;
+    setIsDeleting(true);
     try {
-      if (!config) return;
-      const res = await fetch(`/api/admin/weeklys/${config.id}`, {
+      const query = releaseBookings ? "?releaseBookings=true" : "";
+      const res = await fetch(`/api/admin/weeklys/${config.id}${query}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error("Fehler beim Löschen");
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Fehler beim Löschen");
+      }
+      setDeleteDialogOpen(false);
       toast.success("Weekly Event gelöscht");
       router.push("/admin/events");
       router.refresh();
     } catch (err) {
-      toast.error("Fehler beim Löschen des Weekly Events");
+      toast.error(err instanceof Error ? err.message : "Fehler beim Löschen des Weekly Events");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -363,7 +373,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         </div>
         <div className="flex gap-2">
           {isEdit && (
-            <Button type="button" variant="destructive" onClick={handleDelete}>
+            <Button type="button" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
               Löschen
             </Button>
           )}
@@ -817,6 +827,15 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
           </TabsContent>
         )}
       </Tabs>
+
+      <ReleaseBookingsDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Weekly Event löschen?"
+        description="Das Weekly Event wird mit allen Instanzen, Anmeldungen und Rostern gelöscht. Das lässt sich nicht rückgängig machen."
+        submitting={isDeleting}
+        onConfirm={handleDelete}
+      />
     </form>
   );
 }

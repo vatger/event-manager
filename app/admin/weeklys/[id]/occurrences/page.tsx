@@ -42,6 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Accordion,
   AccordionContent,
@@ -104,6 +105,9 @@ export default function OccurrencesPage() {
   });
   const [newStatus, setNewStatus] = useState("auto");
 
+  // Die auf der VATGER Homepage geblockten Stationen verschwinden nicht von
+  // selbst - beim Löschen wird entschieden, ob sie mitgehen.
+  const [releaseBookings, setReleaseBookings] = useState(true);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; occurrence: Occurrence | null }>({
     open: false,
     occurrence: null,
@@ -216,8 +220,9 @@ export default function OccurrencesPage() {
 
     setSubmitting(true);
     try {
+      const query = releaseBookings ? "?releaseBookings=true" : "";
       const res = await fetch(
-        `/api/admin/weeklys/${configId}/occurrences/${deleteDialog.occurrence.id}`,
+        `/api/admin/weeklys/${configId}/occurrences/${deleteDialog.occurrence.id}${query}`,
         {
           method: "DELETE",
         }
@@ -774,7 +779,13 @@ export default function OccurrencesPage() {
       </Dialog>
 
       {/* Delete Dialog */}
-      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, occurrence: null })}>
+      <Dialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => {
+          setDeleteDialog({ open, occurrence: null });
+          if (open) setReleaseBookings(true);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Occurrence löschen</DialogTitle>
@@ -787,6 +798,26 @@ export default function OccurrencesPage() {
               )}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Checkbox
+              id="release-occurrence-bookings"
+              checked={releaseBookings}
+              disabled={submitting}
+              onCheckedChange={(checked) => setReleaseBookings(checked === true)}
+            />
+            <div className="space-y-1">
+              <label
+                htmlFor="release-occurrence-bookings"
+                className="text-sm font-medium leading-none cursor-pointer"
+              >
+                Stationsbuchungen auf der VATGER Homepage zurückziehen
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Ohne Haken bleiben die für diesen Termin geblockten Stationen gebucht und müssen auf
+                der Homepage von Hand entfernt werden.
+              </p>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialog({ open: false, occurrence: null })}>
               Abbrechen

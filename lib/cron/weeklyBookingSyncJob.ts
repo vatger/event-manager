@@ -3,16 +3,25 @@ import { syncWeeklyOccurrenceBookings } from "@/lib/bookings/eventStationBooking
 import { isBookingApiConfigured } from "@/lib/bookings/vatgerBookingClient";
 
 /**
- * Hält die Stationsbuchungen der Weeklys auf der VATGER Homepage aktuell.
+ * Blockt die Stationen der anstehenden Weeklys auf der VATGER Homepage.
  *
- * Der eigentliche Abgleich passiert bereits beim Veröffentlichen und beim
- * Ändern eines Rosters. Dieser Job fängt die Fälle ab, in denen das nicht
- * geklappt hat – etwa weil die Homepage kurzzeitig nicht erreichbar war oder
- * eine Buchung zwischenzeitlich von Hand gelöscht wurde.
+ * Der Job greift weit im Voraus: sobald eine Instanz im Zeitfenster liegt,
+ * werden ihre zu besetzenden Stationen auf die Event-Kennung geblockt – lange
+ * bevor ein Roster existiert. Sobald das Roster veröffentlicht ist, zieht der
+ * Abgleich die Buchungen auf die eingeteilten Lotsen um.
+ *
+ * Beim Veröffentlichen und beim Ändern eines Rosters läuft der Abgleich
+ * ohnehin sofort; dieser Job fängt die Fälle ab, in denen das nicht geklappt
+ * hat – etwa weil die Homepage kurzzeitig nicht erreichbar war oder eine
+ * Buchung zwischenzeitlich von Hand gelöscht wurde.
  */
 
-/** Wie weit im Voraus Weeklys abgeglichen werden. */
-const HORIZON_DAYS = Number(process.env.WEEKLY_BOOKING_SYNC_HORIZON_DAYS || 14);
+/**
+ * Wie weit im Voraus geblockt wird. Die Voreinstellung entspricht dem
+ * Zeitraum, in dem sich Stationen auf der Homepage auch von Hand buchen
+ * lassen (zwei Monate) – weiter vorne gibt es nichts zu verdrängen.
+ */
+const HORIZON_DAYS = Number(process.env.WEEKLY_BOOKING_SYNC_HORIZON_DAYS || 60);
 
 export async function syncUpcomingWeeklyBookings() {
   if (!isBookingApiConfigured()) {
@@ -26,8 +35,8 @@ export async function syncUpcomingWeeklyBookings() {
 
   const occurrences = await prisma.weeklyEventOccurrence.findMany({
     where: {
-      rosterPublished: true,
       date: { gte: from, lte: until },
+      config: { enabled: true },
     },
     select: { id: true },
     orderBy: { date: "asc" },
@@ -39,13 +48,15 @@ export async function syncUpcomingWeeklyBookings() {
   for (const occurrence of occurrences) {
     try {
       const result = await syncWeeklyOccurrenceBookings(occurrence.id);
-      if (result.skipped) continue;
       synced++;
       if (result.created || result.deleted || result.conflict || result.failed) {
         console.log(
           `[bookings] Weekly ${occurrence.id}: ${result.created} gebucht, ${result.deleted} entfernt, ` +
             `${result.conflict} Konflikte, ${result.failed} Fehler`,
         );
+      }
+      if (result.skipped) {
+        console.log(`[bookings] Weekly ${occurrence.id}: ${result.skipped}`);
       }
     } catch (error) {
       failed++;

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { userCanManageWeekly, userHasFirPermission } from "@/lib/acl/permissions";
 import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
 import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
+import { releaseWeeklyOccurrenceBookings } from "@/lib/bookings/eventStationBookings";
 
 /**
  * PATCH /api/admin/weeklys/[id]/occurrences/[occurrenceId]
@@ -146,6 +147,21 @@ export async function DELETE(
 
     if (!occurrence || occurrence.configId !== configId) {
       return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
+    }
+
+    // Erst die geblockten Stationen freigeben - mit der Instanz verschwindet
+    // die Referenz, über die die Buchungen wiedergefunden werden.
+    if (request.nextUrl.searchParams.get("releaseBookings") === "true") {
+      try {
+        const released = await releaseWeeklyOccurrenceBookings(occurrenceIdNum);
+        console.log(`[bookings] Weekly ${occurrenceIdNum} gelöscht: ${released.deleted} Buchungen zurückgezogen`);
+      } catch (error) {
+        console.error("[DELETE occurrence] Freigabe der Stationsbuchungen fehlgeschlagen:", error);
+        return NextResponse.json(
+          { error: "Die Stationsbuchungen konnten nicht zurückgezogen werden, die Instanz wurde nicht gelöscht." },
+          { status: 502 }
+        );
+      }
     }
 
     // Delete the occurrence (cascades to signups and rosters)

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 import { generateOccurrences } from "@/lib/weeklys/generateOccurrences";
+import { releaseWeeklyConfigBookings } from "@/lib/bookings/eventStationBookings";
 
 // Validation schema for updating weekly event configuration
 const weeklyEventConfigUpdateSchema = z.object({
@@ -266,6 +267,21 @@ export async function DELETE(
         { error: "Only VATGER admins can delete global weekly events" },
         { status: 403 }
       );
+    }
+
+    // Erst die geblockten Stationen freigeben - mit der Konfiguration
+    // verschwinden die Instanzen und damit die Referenzen der Buchungen.
+    if (request.nextUrl.searchParams.get("releaseBookings") === "true") {
+      try {
+        const released = await releaseWeeklyConfigBookings(Number(id));
+        console.log(`[bookings] Weekly ${id} gelöscht: ${released} Buchungen zurückgezogen`);
+      } catch (error) {
+        console.error("[DELETE weekly] Freigabe der Stationsbuchungen fehlgeschlagen:", error);
+        return NextResponse.json(
+          { error: "Die Stationsbuchungen konnten nicht zurückgezogen werden, das Weekly wurde nicht gelöscht." },
+          { status: 502 }
+        );
+      }
     }
 
     // Delete the configuration (cascades to occurrences, signups, rosters)

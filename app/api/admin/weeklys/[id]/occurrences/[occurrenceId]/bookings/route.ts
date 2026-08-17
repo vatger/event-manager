@@ -14,7 +14,7 @@ import { isBookingApiConfigured, VatgerBookingApiError } from "@/lib/bookings/va
 /**
  * Stationsbuchungen einer Weekly-Instanz.
  *
- * Der Abgleich läuft beim Veröffentlichen des Rosters und über den Cronjob
+ * Der Abgleich läuft über den Cronjob und beim Bearbeiten des Rosters
  * automatisch; hier lässt er sich zusätzlich von Hand anstoßen.
  */
 

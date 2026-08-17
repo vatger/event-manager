@@ -31,6 +31,7 @@ import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ReleaseBookingsDialog } from "../_components/ReleaseBookingsDialog";
 
 type StatusFilter = "ALL" | "PLANNING" | "SIGNUP_OPEN" | "SIGNUP_CLOSED" | "ROSTER_PUBLISHED" | "DRAFT" | "CANCELLED";
 
@@ -76,6 +77,8 @@ export default function AdminEventsPage() {
   const [deadlineInput, setDeadlineInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");  
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: "event" | "weekly"; id: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [selectedFir, setSelectedFir] = useState<string | "ALL">("ALL");
   const { user, isVATGERLead, canInFIR, canInOwnFIR, isWeeklyManager, isPureWeeklyManager } = useUser();
 
@@ -143,15 +146,32 @@ export default function AdminEventsPage() {
     }
   }, [user]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Event wirklich löschen?")) return;
+  const handleDelete = async (releaseBookings: boolean) => {
+    const target = deleteTarget;
+    if (!target) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fehler beim Löschen");
+      const query = releaseBookings ? "?releaseBookings=true" : "";
+      const url =
+        target.kind === "event"
+          ? `/api/events/${target.id}${query}`
+          : `/api/admin/weeklys/${target.id}${query}`;
+      const res = await fetch(url, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Fehler beim Löschen");
+      }
       setError("");
-      refreshEvents();
+      setDeleteTarget(null);
+      if (target.kind === "event") {
+        refreshEvents();
+      } else {
+        refreshWeeklyEvents();
+      }
     } catch (err) {
-      setError("Fehler beim Löschen des Events");
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -249,24 +269,7 @@ export default function AdminEventsPage() {
     }
   };
 
-  // Weekly event handlers
-  const handleDeleteWeekly = async (id: number) => {
-    if (!confirm("Weekly Event wirklich löschen?")) return;
-    
-    try {
-      const res = await fetch(`/api/admin/weeklys/${id}`, {
-        method: "DELETE",
-      });
-      
-      if (res.ok) {
-        refreshWeeklyEvents();
-      } else {
-        setError("Fehler beim Löschen des Weekly Events");
-      }
-    } catch (err) {
-      setError("Fehler beim Löschen des Weekly Events");
-    }
-  };
+
 
   // Check permissions for weekly events
   const canEditWeekly = (config: WeeklyEventConfig): boolean => {
@@ -501,7 +504,7 @@ export default function AdminEventsPage() {
                         key={event.id}
                         onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
                         event={event}
-                        onDelete={() => handleDelete(event.id)}
+                        onDelete={() => setDeleteTarget({ kind: "event", id: event.id })}
                         onOpenSignup={() => openSignup(event)}
                         onCloseSignup={() => closeSignup(event.id)}
                         onpublishRoster={() => publishRoster(event)}
@@ -533,7 +536,7 @@ export default function AdminEventsPage() {
                           key={event.id}
                           onEdit={() => router.push(`/admin/events/${event.id}/edit`)}
                           event={event}
-                          onDelete={() => handleDelete(event.id)}
+                          onDelete={() => setDeleteTarget({ kind: "event", id: event.id })}
                           onOpenSignup={() => openSignup(event)}
                           onCloseSignup={() => closeSignup(event.id)}
                           onpublishRoster={() => publishRoster(event)}
@@ -581,7 +584,7 @@ export default function AdminEventsPage() {
                                 key={config.id}
                                 config={config}
                                 onEdit={() => router.push(`/admin/weeklys/${config.id}/edit`)}
-                                onDelete={() => handleDeleteWeekly(config.id)}
+                                onDelete={() => setDeleteTarget({ kind: "weekly", id: String(config.id) })}
                                 canEdit={canEditWeekly(config)}
                                 canManage={canManageWeekly(config)}
                                 canDelete={canDeleteWeekly(config)}
@@ -689,6 +692,19 @@ export default function AdminEventsPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ReleaseBookingsDialog
+          open={deleteTarget !== null}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          title={deleteTarget?.kind === "weekly" ? "Weekly Event löschen?" : "Event löschen?"}
+          description={
+            deleteTarget?.kind === "weekly"
+              ? "Das Weekly Event wird mit allen Instanzen, Anmeldungen und Rostern gelöscht. Das lässt sich nicht rückgängig machen."
+              : "Das Event wird mit allen Anmeldungen gelöscht. Das lässt sich nicht rückgängig machen."
+          }
+          submitting={deleting}
+          onConfirm={handleDelete}
+        />
       </div>
     </Protected>
   );

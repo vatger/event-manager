@@ -4,10 +4,10 @@
  *
  * Zwei Wege führen hier her:
  *
- *  - **Weeklys mit Roster**: sobald ein Roster veröffentlicht ist, werden die
- *    eingeteilten Stationen automatisch auf die jeweils eingeteilte VATSIM ID
- *    gebucht. Wird das Roster geändert oder zurückgezogen, zieht die
- *    Synchronisation nach.
+ *  - **Weeklys**: die zu besetzenden Stationen werden automatisch und weit im
+ *    Voraus auf die Event-Kennung (`VATGER_EVENT_BOOKING_CID`) geblockt. Ist
+ *    das Roster veröffentlicht, wandert jede eingeteilte Station auf die
+ *    VATSIM ID des eingeteilten Lotsen; alles Übrige bleibt geblockt.
  *  - **Unregelmäßige Events**: das Eventteam blockt die als "zu besetzen"
  *    eingetragenen Stationen per Knopfdruck. Da hier zum Zeitpunkt des
  *    Blockens noch keine Einteilung feststeht, laufen diese Buchungen auf die
@@ -245,10 +245,24 @@ export function weeklyOccurrenceTimeframe(
 }
 
 /**
- * Synchronisiert die Buchungen einer Weekly-Instanz mit ihrem Roster.
+ * Die VATSIM ID, auf die geblockt wird, solange keine Einteilung feststeht.
+ */
+export function getBlockingCid(): number | null {
+  const cid = Number(process.env.VATGER_EVENT_BOOKING_CID);
+  return Number.isInteger(cid) && cid > 0 ? cid : null;
+}
+
+/**
+ * Synchronisiert die Buchungen einer Weekly-Instanz.
  *
- * Ist das Roster nicht (mehr) veröffentlicht, werden die Stationen wieder
- * freigegeben. Instanzen, die bereits vorbei sind, werden nicht angefasst.
+ * Die Stationen werden bereits geblockt, sobald die Instanz feststeht – also
+ * lange vor dem Roster – und laufen bis dahin auf die Event-Kennung. Ist das
+ * Roster veröffentlicht, wandert jede eingeteilte Station auf die VATSIM ID
+ * des eingeteilten Lotsen; Stationen ohne Einteilung bleiben auf der
+ * Event-Kennung geblockt.
+ *
+ * Instanzen eines deaktivierten Weeklys werden wieder freigegeben, Instanzen
+ * in der Vergangenheit nicht mehr angefasst.
  */
 export async function syncWeeklyOccurrenceBookings(occurrenceId: number): Promise<BookingSyncResult> {
   const reference = weeklyBookingReference(occurrenceId);
@@ -272,25 +286,89 @@ export async function syncWeeklyOccurrenceBookings(occurrenceId: number): Promis
     return emptyResult(reference, { skipped: "Die Weekly-Instanz liegt in der Vergangenheit." });
   }
 
-  if (!occurrence.rosterPublished) {
+  if (!occurrence.config.enabled) {
     return releaseBookings(reference);
   }
 
-  const desired: DesiredBooking[] = occurrence.rosters
-    .filter((entry) => entry.station && entry.userCID)
-    .map((entry) => ({
-      callsign: entry.station.trim().toUpperCase(),
-      cid: entry.userCID,
-      start,
-      end,
-    }));
+  // Sobald das Roster veröffentlicht ist, gilt die Einteilung.
+  const assignments = new Map<string, number>();
+  if (occurrence.rosterPublished) {
+    for (const entry of occurrence.rosters) {
+      if (entry.station && entry.userCID) {
+        assignments.set(entry.station.trim().toUpperCase(), entry.userCID);
+      }
+    }
+  }
 
-  return syncBookings(reference, desired);
+  const blockingCid = getBlockingCid();
+  const callsigns = new Set([...parseStations(occurrence.config.staffedStations), ...assignments.keys()]);
+
+  if (callsigns.size === 0) {
+    return releaseBookings(reference);
+  }
+
+  const desired: DesiredBooking[] = [];
+  const unblockable: string[] = [];
+
+  for (const callsign of callsigns) {
+    const cid = assignments.get(callsign) ?? blockingCid;
+    if (!cid) {
+      unblockable.push(callsign);
+      continue;
+    }
+    desired.push({ callsign, cid, start, end });
+  }
+
+  if (desired.length === 0) {
+    return emptyResult(reference, {
+      skipped: "Es ist keine VATSIM ID für Blockbuchungen hinterlegt (VATGER_EVENT_BOOKING_CID).",
+    });
+  }
+
+  const result = await syncBookings(reference, desired);
+
+  if (unblockable.length > 0) {
+    return {
+      ...result,
+      skipped: `Ohne VATGER_EVENT_BOOKING_CID nicht geblockt: ${unblockable.join(", ")}`,
+    };
+  }
+
+  return result;
 }
 
 /** Gibt die Stationen einer Weekly-Instanz wieder frei. */
 export async function releaseWeeklyOccurrenceBookings(occurrenceId: number): Promise<BookingSyncResult> {
   return releaseBookings(weeklyBookingReference(occurrenceId));
+}
+
+/**
+ * Gibt die Stationen aller Instanzen eines Weeklys wieder frei.
+ *
+ * Wird beim Löschen einer Weekly-Konfiguration verwendet und muss dort vor
+ * dem Löschen laufen, weil die Instanzen mit der Konfiguration verschwinden.
+ */
+export async function releaseWeeklyConfigBookings(configId: number): Promise<number> {
+  if (!isBookingApiConfigured()) return 0;
+
+  // Vergangene Instanzen sind ohnehin abgelaufen und werden übersprungen.
+  const from = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const occurrences = await prisma.weeklyEventOccurrence.findMany({
+    where: { configId, date: { gte: from } },
+    select: { id: true },
+  });
+
+  let released = 0;
+  for (const occurrence of occurrences) {
+    try {
+      const result = await releaseWeeklyOccurrenceBookings(occurrence.id);
+      released += result.deleted;
+    } catch (error) {
+      console.error(`[bookings] Freigabe für Weekly ${occurrence.id} fehlgeschlagen:`, error);
+    }
+  }
+
+  return released;
 }
 
 /**
@@ -339,8 +417,8 @@ export async function syncEventStationBookings(eventId: number): Promise<Booking
     return emptyResult(reference, { skipped: "Das Event liegt in der Vergangenheit." });
   }
 
-  const blockingCid = Number(process.env.VATGER_EVENT_BOOKING_CID);
-  if (!Number.isInteger(blockingCid) || blockingCid <= 0) {
+  const blockingCid = getBlockingCid();
+  if (!blockingCid) {
     return emptyResult(reference, {
       skipped: "Es ist keine VATSIM ID für Event-Blockbuchungen hinterlegt (VATGER_EVENT_BOOKING_CID).",
     });

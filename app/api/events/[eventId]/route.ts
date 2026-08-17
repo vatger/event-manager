@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
+import { releaseEventStationBookings } from "@/lib/bookings/eventStationBookings";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
@@ -131,11 +132,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         firCode: fir,
       },
   });
+  // Beim Absagen die geblockten Stationen wieder freigeben, sofern das im
+  // Dialog bestätigt wurde. Ein Fehler darf die Absage nicht verhindern.
+  if (parsed.data.status === "CANCELLED" && body?.releaseBookings === true) {
+    try {
+      const released = await releaseEventStationBookings(Number(eventId));
+      console.log(`[bookings] Event ${eventId} abgesagt: ${released.deleted} Buchungen zurückgezogen`);
+    } catch (error) {
+      console.error("[PUT event] Freigabe der Stationsbuchungen fehlgeschlagen:", error);
+    }
+  }
+
   await invalidateSignupTable(Number(eventId))
   return NextResponse.json(event);
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   if (!prisma) {
     return new Response("Service unavailable", { status: 503 });
   }
@@ -157,6 +169,20 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ eve
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   if (!await userHasFirPermission(Number(session.user.cid), firbyevent.firCode, "event.delete") && !await isVatgerEventleitung(Number(session.user.cid))) {
     return NextResponse.json({ error: "Unauthorized", message: "You have no permission to delete events (in this FIR)", firbyevent}, { status: 401 });
+  }
+
+  // Die Stationsbuchungen auf der Homepage überleben das Event - sie werden
+  // nur zurückgezogen, wenn das beim Löschen ausdrücklich bestätigt wurde.
+  if (req.nextUrl.searchParams.get("releaseBookings") === "true") {
+    try {
+      await releaseEventStationBookings(Number(eventId));
+    } catch (error) {
+      console.error("[DELETE event] Freigabe der Stationsbuchungen fehlgeschlagen:", error);
+      return NextResponse.json(
+        { error: "Die Stationsbuchungen konnten nicht zurückgezogen werden, das Event wurde nicht gelöscht." },
+        { status: 502 }
+      );
+    }
   }
 
   await prisma.eventSignup.deleteMany({ where: { eventId: Number(eventId) } });
@@ -267,6 +293,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
         responsibles: { include: { user: { select: { cid: true, name: true } } } },
       },
     });
+
+    // Beim Absagen die geblockten Stationen wieder freigeben, sofern das im
+    // Dialog bestätigt wurde. Ein Fehler darf die Absage nicht verhindern.
+    if (parsed.data.status === "CANCELLED" && body?.releaseBookings === true) {
+      try {
+        const released = await releaseEventStationBookings(id);
+        console.log(`[bookings] Event ${id} abgesagt: ${released.deleted} Buchungen zurückgezogen`);
+      } catch (error) {
+        console.error("[PATCH event] Freigabe der Stationsbuchungen fehlgeschlagen:", error);
+      }
+    }
 
     // Notifications: wenn PLAN_UPLOADED gesetzt wird, Nutzer informieren
     if (parsed.data.status === "ROSTER_PUBLISHED") {

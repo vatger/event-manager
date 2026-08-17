@@ -18,6 +18,7 @@ import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { normalizeAirportCode, isValidAirportCode } from "@/utils/airportUtils";
+import { ReleaseBookingsDialog } from "../../_components/ReleaseBookingsDialog";
 
 /** Convert an ISO date string to a datetime-local input value (local time). */
 function toDatetimeLocal(iso: string): string {
@@ -64,6 +65,9 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
   const isEdit = Boolean(event);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("basic");
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -199,11 +203,25 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     [formData.endTime]
   );
 
+  /**
+   * Ein Event abzusagen lässt die auf der Homepage geblockten Stationen
+   * zurück - deshalb wird beim Wechsel auf CANCELLED erst nachgefragt.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formValidation()) return;
-    
+
+    const isCancelling = isEdit && formData.status === "CANCELLED" && event?.status !== "CANCELLED";
+    if (isCancelling) {
+      setCancelDialogOpen(true);
+      return;
+    }
+
+    await saveEvent();
+  };
+
+  const saveEvent = async (releaseBookings?: boolean) => {
     setIsSaving(true);
     setError("");
 
@@ -221,6 +239,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
         signupSlotMinutes: formData.signupSlotMinutes,
         firCode: isVATGERLead() ? formData.fir : null,
+        ...(releaseBookings === undefined ? {} : { releaseBookings }),
       };
 
       const method = isEdit ? "PUT" : "POST";
@@ -297,16 +316,23 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     return true;
   };
 
-  const handleDelete = async () => {
-    setError("")
-    if (!confirm("Event wirklich löschen?")) return;
+  const handleDelete = async (releaseBookings: boolean) => {
+    setError("");
+    if (!event) return;
+    setIsDeleting(true);
     try {
-      if(!event) return;
-      const res = await fetch(`/api/events/${event.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fehler beim Löschen");
+      const query = releaseBookings ? "?releaseBookings=true" : "";
+      const res = await fetch(`/api/events/${event.id}${query}`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || "Fehler beim Löschen");
+      }
+      setDeleteDialogOpen(false);
       router.push("/admin/events");
     } catch (err) {
-      toast.error("Fehler beim Löschen des Events");
+      toast.error(err instanceof Error ? err.message : "Fehler beim Löschen des Events");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -618,7 +644,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
             Abbrechen
           </Button>
           {isEdit && 
-          <Button type="button" variant={"destructive"} onClick={handleDelete}>
+          <Button type="button" variant={"destructive"} onClick={() => setDeleteDialogOpen(true)}>
             <Trash2Icon />
           </Button>}
           <Button type="submit" disabled={isSaving}>
@@ -628,6 +654,28 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           
         </div>
       </form>
+
+      <ReleaseBookingsDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Event löschen?"
+        description="Das Event wird mit allen Anmeldungen gelöscht. Das lässt sich nicht rückgängig machen."
+        submitting={isDeleting}
+        onConfirm={handleDelete}
+      />
+
+      <ReleaseBookingsDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        title="Event absagen?"
+        description="Das Event wird auf abgesagt gesetzt und ist damit nicht mehr aktiv."
+        confirmLabel="Absagen"
+        submitting={isSaving}
+        onConfirm={(releaseBookings) => {
+          setCancelDialogOpen(false);
+          void saveEvent(releaseBookings);
+        }}
+      />
     </div>
   );
 }

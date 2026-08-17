@@ -47,8 +47,8 @@ interface BlockStationsButtonProps {
  * Blockt die zu besetzenden Stationen eines unregelmäßigen Events als
  * vatger Event Buchung auf der Homepage – oder gibt sie wieder frei.
  *
- * Weeklys mit Roster brauchen diesen Knopf nicht, dort läuft der Abgleich
- * beim Veröffentlichen des Rosters automatisch.
+ * Weeklys brauchen diesen Knopf nicht, dort werden die Stationen automatisch
+ * und weit im Voraus geblockt.
  */
 export function BlockStationsButton({ eventId, stations }: BlockStationsButtonProps) {
   const { canInOwnFIR } = useUser();
