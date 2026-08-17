@@ -27,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -51,10 +44,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Palette,
-  PanelLeftClose,
-  PanelLeftOpen,
   RotateCcw,
-  Search,
   Settings2,
   Star,
   StickyNote,
@@ -88,14 +78,7 @@ import type {
   StationMeta,
   UndoEntry,
 } from "../_lib/rosterTypes";
-import {
-  ROSTER_FLAGS,
-  ROSTER_FLAG_BAR,
-  ROSTER_FLAG_DOT,
-  ROSTER_FLAG_HINT,
-  ROSTER_FLAG_LABEL,
-  type RosterFlag,
-} from "@/lib/roster/rosterFlags";
+import { ROSTER_FLAGS, ROSTER_FLAG_BAR, type RosterFlag } from "@/lib/roster/rosterFlags";
 import {
   assignedMinutesByController,
   buildControllers,
@@ -103,6 +86,7 @@ import {
   formatDuration,
   getControllerGroupForStation,
   checkEligibility,
+  hasExcludedAirport,
   hasOverlap,
   isUnavailable,
   minutesBetween,
@@ -116,6 +100,11 @@ import {
   warningKey,
 } from "../_lib/rosterUtils";
 import { AirportChips } from "./AirportChips";
+import {
+  ControllerFilterBar,
+  INFO_FIELDS,
+  type InfoField,
+} from "./ControllerFilterBar";
 import { WarningsPanel } from "./WarningsPanel";
 import { AssignDialog } from "./AssignDialog";
 import { FlagPicker } from "./FlagPicker";
@@ -139,6 +128,7 @@ const ZOOM_LEVELS = [28, 40, 56, 76]; // Pixel pro Slot
 const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
 const REMARKS_PREF_KEY = "roster:showRemarks";
 const COLLAPSE_PREF_KEY = "roster:collapsedAirports";
+const INFO_FIELDS_PREF_KEY = "roster:infoFields";
 const UNDO_LIMIT = 40; // so viele Schritte lassen sich zurücknehmen
 
 interface EditorEvent {
@@ -324,8 +314,12 @@ export function RosterEditor({
   const [flagFilter, setFlagFilter] = useState<Set<RosterFlag>>(new Set());
   // Nur Controller zeigen, die diese Station besetzen dürfen (null = alle)
   const [stationFilter, setStationFilter] = useState<number | null>(null);
+  // Auf einen Airport eingrenzen; die Freigaben beziehen sich dann auf ihn
+  const [airportFilter, setAirportFilter] = useState<string | null>(null);
   // Nur Controller ohne jede Zuweisung
   const [onlyUnscheduled, setOnlyUnscheduled] = useState(false);
+  // Welche Angaben stehen in der Infospalte?
+  const [infoFields, setInfoFields] = useState<Set<InfoField>>(new Set(INFO_FIELDS));
   const [warningsOpen, setWarningsOpen] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
   // Wer den Plan gerade offen hat (aus dem SSE-Stream)
@@ -348,6 +342,29 @@ export function RosterEditor({
   useEffect(() => {
     window.localStorage.setItem(REMARKS_PREF_KEY, showRemarks ? "1" : "0");
   }, [showRemarks]);
+  useEffect(() => {
+    const stored = window.localStorage.getItem(INFO_FIELDS_PREF_KEY);
+    if (!stored) return;
+    try {
+      const list = JSON.parse(stored) as string[];
+      if (Array.isArray(list)) {
+        setInfoFields(new Set(list.filter((f): f is InfoField =>
+          (INFO_FIELDS as readonly string[]).includes(f)
+        )));
+      }
+    } catch {
+      // ungültiger Eintrag – Standard behalten
+    }
+  }, []);
+  const toggleInfoField = useCallback((field: InfoField) => {
+    setInfoFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      window.localStorage.setItem(INFO_FIELDS_PREF_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   // Beide Boards teilen sich den Nullpunkt des Zeitstrahls, deshalb gilt die
   // Breite der Beschriftungsspalte auch für die Stationen.
@@ -1594,12 +1611,29 @@ export function RosterEditor({
       });
   }, [selectedCID, assignments, stationById, eventStart]);
 
+  /**
+   * Trifft der Suchtext Stationen des Rosters?
+   *
+   * Beim Planen wird oft nach der Position gesucht, nicht nach der Person –
+   * „EDDF_TWR" soll alle zeigen, die dort sitzen dürfen. Ab drei Zeichen, damit
+   * nicht jedes „ED" die halbe Liste erfasst.
+   */
+  const matchedStations = useMemo(() => {
+    const q = controllerSearch.trim().toUpperCase();
+    if (q.length < 3) return [];
+    return stations.filter((st) => st.callsign.toUpperCase().includes(q));
+  }, [controllerSearch, stations]);
+
   const visibleControllers = useMemo(() => {
     const q = controllerSearch.trim().toLowerCase();
     let list = controllers;
     if (q) {
-      // Auch Wünsche, Remarks und interne Notiz durchsuchen – damit lässt sich
-      // etwa "Training" oder "nur bis 20" direkt finden.
+      // Neben Namen und CID auch Wünsche, Remarks und interne Notiz – und wenn
+      // der Text eine Station trifft, alle die sie besetzen dürfen.
+      const eligibleForMatch = (c: RosterController) =>
+        matchedStations.some((st) =>
+          checkEligibility(c, stationMetaFor(st.callsign), event.airports, st.callsign).ok
+        );
       list = list.filter((c) => {
         const mark = markByCid.get(c.cid);
         return (
@@ -1607,8 +1641,20 @@ export function RosterEditor({
           String(c.cid).includes(q) ||
           c.preferredStations.toLowerCase().includes(q) ||
           (c.remarks ?? "").toLowerCase().includes(q) ||
-          (mark?.note ?? "").toLowerCase().includes(q)
+          (mark?.note ?? "").toLowerCase().includes(q) ||
+          eligibleForMatch(c)
         );
+      });
+    }
+    // Airport-Eingrenzung: Wer dort nichts darf oder ihn abgewählt hat, ist
+    // für diesen Teil des Plans ohne Belang.
+    if (airportFilter) {
+      list = list.filter((c) => {
+        if (hasExcludedAirport(c.entry, airportFilter)) return false;
+        const levels = c.entry.airportEndorsements?.[airportFilter]?.allowedLevels;
+        // Ohne Auswertung nicht ausschließen – sonst verschwinden Anmeldungen,
+        // deren Endorsements gerade nicht abrufbar waren.
+        return levels === undefined || levels.length > 0;
       });
     }
     if (flagFilter.size > 0) {
@@ -1661,11 +1707,31 @@ export function RosterEditor({
     markByCid,
     flagFilter,
     stationFilter,
+    airportFilter,
     onlyUnscheduled,
     stations,
     stationMetaFor,
     event.airports,
+    matchedStations,
   ]);
+
+  /**
+   * Auswahl für den Stationsfilter. Ist ein Airport gewählt, stehen dort nur
+   * dessen Stationen – die Liste soll die Eingrenzung nicht wieder aufweichen.
+   */
+  const filterStations = useMemo(
+    () =>
+      airportFilter
+        ? stations.filter((st) => airportOf(st.callsign) === airportFilter)
+        : stations,
+    [stations, airportFilter, airportOf]
+  );
+
+  // Wechselt der Airport, passt die gewählte Station womöglich nicht mehr dazu
+  useEffect(() => {
+    if (stationFilter === null) return;
+    if (!filterStations.some((st) => st.id === stationFilter)) setStationFilter(null);
+  }, [filterStations, stationFilter]);
 
   /** Wie viele Controller tragen welche Markierung? (für die Filter-Chips) */
   const flagCounts = useMemo(() => {
@@ -2452,143 +2518,74 @@ export function RosterEditor({
             {/* Trenner + Controller-Header */}
             <div className="flex bg-muted/50 border-y">
               <div
-                className="sticky left-0 z-20 bg-muted/50 border-r px-3 py-2 shrink-0 flex items-center justify-between gap-2"
+                className="sticky left-0 z-20 bg-muted/50 border-r px-3 py-2 shrink-0 flex items-center"
                 style={{ width: labelWidth }}
               >
                 <span className="text-xs font-semibold text-muted-foreground">
                   Controller ({visibleControllers.length})
                 </span>
-                <div className="flex items-center gap-1">
-                  {/* Filter nach Ampel-Markierung */}
-                  {ROSTER_FLAGS.map((flag) => {
-                    const active = flagFilter.has(flag);
-                    return (
-                      <button
-                        key={flag}
-                        type="button"
-                        onClick={() => toggleFlagFilter(flag)}
-                        title={`${ROSTER_FLAG_LABEL[flag]} – ${ROSTER_FLAG_HINT[flag]} (${flagCounts[flag]})`}
-                        className={cn(
-                          "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] leading-none transition-colors",
-                          active
-                            ? "border-foreground/40 bg-background"
-                            : "border-transparent text-muted-foreground hover:bg-background/60"
-                        )}
-                      >
-                        <span className={cn("h-2 w-2 rounded-full", ROSTER_FLAG_DOT[flag])} />
-                        {flagCounts[flag]}
-                      </button>
-                    );
-                  })}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    title={showRemarks ? "Infospalte ausblenden" : "Wünsche & Remarks einblenden"}
-                    onClick={() => setShowRemarks((v) => !v)}
-                  >
-                    {showRemarks ? (
-                      <PanelLeftClose className="h-3.5 w-3.5" />
-                    ) : (
-                      <PanelLeftOpen className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
               </div>
               <div
-                className="sticky z-20 flex items-center gap-2 px-3 py-1.5 w-fit"
+                className="sticky z-20 px-3 py-1.5 w-fit"
                 style={{ left: labelWidth }}
               >
-                <div className="relative">
-                  <Input
-                    value={controllerSearch}
-                    onChange={(e) => setControllerSearch(e.target.value)}
-                    placeholder="Name, CID, Remarks…"
-                    className="h-7 w-52 pl-7 text-xs"
-                  />
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-                <Select
-                  value={controllerSort}
-                  onValueChange={(v) => setControllerSort(v as "name" | "assigned" | "flag")}
-                >
-                  <SelectTrigger size="sm" className="h-7 w-40 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Nach Name</SelectItem>
-                    <SelectItem value="assigned">Nach eingeplanter Zeit</SelectItem>
-                    <SelectItem value="flag">Nach Markierung</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                {/* Der schnellste Weg zur passenden Besetzung: nach Station
-                    filtern statt jede Zeile auf Freigaben zu prüfen. */}
-                <Select
-                  value={stationFilter === null ? "all" : String(stationFilter)}
-                  onValueChange={(v) => setStationFilter(v === "all" ? null : Number(v))}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className={cn(
-                      "h-7 w-48 text-xs",
-                      stationFilter !== null && "border-accent-500/60 text-accent-600"
-                    )}
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle Controller</SelectItem>
-                    {stations.map((st) => (
-                      <SelectItem key={st.id} value={String(st.id)}>
-                        Geeignet für {st.callsign}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <button
-                  type="button"
-                  onClick={() => setOnlyUnscheduled((v) => !v)}
-                  className={cn(
-                    "h-7 shrink-0 whitespace-nowrap rounded-md border px-2 text-xs transition-colors",
-                    onlyUnscheduled
-                      ? "border-accent-500/60 bg-accent-500/10 text-accent-600"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                  title="Nur Controller ohne jede Schicht zeigen"
-                >
-                  ohne Schicht
-                </button>
-
-                {(stationFilter !== null || onlyUnscheduled || flagFilter.size > 0) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStationFilter(null);
-                      setOnlyUnscheduled(false);
-                      setFlagFilter(new Set());
-                    }}
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-                    title="Alle Filter zurücksetzen"
-                    aria-label="Alle Filter zurücksetzen"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-
-                {canEdit && stationFilter === null && !onlyUnscheduled && (
-                  <span className="text-[10px] text-muted-foreground hidden xl:inline">
-                    Tipp: Controller per Drag & Drop auf eine Station ziehen
-                  </span>
-                )}
+                <ControllerFilterBar
+                  visibleCount={visibleControllers.length}
+                  totalCount={controllers.length}
+                  search={controllerSearch}
+                  onSearchChange={setControllerSearch}
+                  matchedStations={matchedStations.map((st) => st.callsign)}
+                  sort={controllerSort}
+                  onSortChange={setControllerSort}
+                  eventAirports={event.airports}
+                  airportFilter={airportFilter}
+                  onAirportFilterChange={setAirportFilter}
+                  stations={filterStations}
+                  stationFilter={stationFilter}
+                  onStationFilterChange={setStationFilter}
+                  onlyUnscheduled={onlyUnscheduled}
+                  onOnlyUnscheduledChange={setOnlyUnscheduled}
+                  flagFilter={flagFilter}
+                  flagCounts={flagCounts}
+                  onToggleFlag={toggleFlagFilter}
+                  showInfoColumn={showRemarks}
+                  onToggleInfoColumn={() => setShowRemarks((v) => !v)}
+                  infoFields={infoFields}
+                  onToggleInfoField={toggleInfoField}
+                  hasActiveFilter={
+                    stationFilter !== null ||
+                    airportFilter !== null ||
+                    onlyUnscheduled ||
+                    flagFilter.size > 0 ||
+                    controllerSearch.trim() !== ""
+                  }
+                  onReset={() => {
+                    setStationFilter(null);
+                    setAirportFilter(null);
+                    setOnlyUnscheduled(false);
+                    setFlagFilter(new Set());
+                    setControllerSearch("");
+                  }}
+                />
               </div>
             </div>
 
             {/* Controller-Board */}
             {visibleControllers.map((c) => {
               const minutes = assignedMinutes.get(c.cid) ?? 0;
-              const bestGroup = getControllerGroupForStation(c.entry, null, event.airports);
+              // Bei einem Airport – oder wenn auf einen eingegrenzt wurde –
+              // bezieht sich das Badge auf genau diesen und zeigt dessen
+              // Einschränkungen direkt darunter. Über mehrere Airports hinweg
+              // wäre beides irreführend.
+              const focusAirport =
+                airportFilter ?? (event.airports.length === 1 ? event.airports[0] : null);
+              const focusData = focusAirport
+                ? c.entry.airportEndorsements?.[focusAirport]
+                : undefined;
+              const bestGroup = focusAirport
+                ? getControllerGroupForStation(c.entry, focusAirport, event.airports)
+                : getControllerGroupForStation(c.entry, null, event.airports);
+              const focusRestrictions = (focusData?.restrictions ?? []).filter(Boolean);
               const isDragSource =
                 drag?.kind === "assign-controller" && drag.userCID === c.cid;
               const isSelectedRow = selectedCID === c.cid;
@@ -2663,11 +2660,21 @@ export function RosterEditor({
                           {minutes > 0 ? ` • ${formatDuration(minutes)}` : " • frei"}
                         </div>
                       </div>
-                      <Badge
-                        className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
-                      >
-                        {bestGroup ?? "?"}
-                      </Badge>
+                      <div className="flex shrink-0 flex-col items-end gap-0.5 max-w-24">
+                        <Badge
+                          className={`${getBadgeClassForEndorsement(bestGroup)} shrink-0 text-[10px]`}
+                        >
+                          {bestGroup ?? "?"}
+                        </Badge>
+                        {focusRestrictions.length > 0 && (
+                          <span
+                            className="text-[9px] leading-tight text-right text-danger-700 dark:text-danger-300 line-clamp-2"
+                            title={focusRestrictions.join(" · ")}
+                          >
+                            {focusRestrictions.join(" · ")}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Infospalte: Wünsche, Remarks und interne Notiz */}
@@ -2713,20 +2720,24 @@ export function RosterEditor({
                         ) : (
                         <div className="min-w-0 flex-1 space-y-0.5">
                           {/* Bei mehreren Airports zuerst, wo jemand überhaupt
-                              sitzen darf – das entscheidet vor allem anderen. */}
-                          <AirportChips
-                            entry={c.entry}
-                            eventAirports={event.airports}
-                            showRestrictions
-                            className="mb-0.5"
-                          />
-                          {c.preferredStations && (
+                              sitzen darf – das entscheidet vor allem anderen.
+                              Ist auf einen Airport eingegrenzt, stehen dessen
+                              Einschränkungen schon am Badge. */}
+                          {infoFields.has("airports") && !focusAirport && (
+                            <AirportChips
+                              entry={c.entry}
+                              eventAirports={event.airports}
+                              showRestrictions
+                              className="mb-0.5"
+                            />
+                          )}
+                          {infoFields.has("preferred") && c.preferredStations && (
                             <p className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate">
                               <Star className="inline h-2.5 w-2.5 mb-0.5 mr-0.5 fill-current" />
                               {c.preferredStations}
                             </p>
                           )}
-                          {c.remarks && (
+                          {infoFields.has("remarks") && c.remarks && (
                             <p
                               className="text-[10px] leading-tight text-foreground/80 line-clamp-2"
                               title={c.remarks}
@@ -2734,7 +2745,7 @@ export function RosterEditor({
                               {c.remarks}
                             </p>
                           )}
-                          {mark?.note && (
+                          {infoFields.has("note") && mark?.note && (
                             <p
                               className="text-[10px] leading-tight text-sky-700 dark:text-sky-300 line-clamp-2"
                               title={mark.note}
@@ -2743,11 +2754,16 @@ export function RosterEditor({
                               {mark.note}
                             </p>
                           )}
-                          {!c.preferredStations && !c.remarks && !mark?.note && (
-                            <p className="text-[10px] leading-tight text-muted-foreground/60">
-                              {canEdit ? "keine Angaben · Doppelklick für Notiz" : "keine Angaben"}
-                            </p>
-                          )}
+                          {!(infoFields.has("preferred") && c.preferredStations) &&
+                            !(infoFields.has("remarks") && c.remarks) &&
+                            !(infoFields.has("note") && mark?.note) &&
+                            !(infoFields.has("airports") && !focusAirport) && (
+                              <p className="text-[10px] leading-tight text-muted-foreground/60">
+                                {canEdit
+                                  ? "keine Angaben · Doppelklick für Notiz"
+                                  : "keine Angaben"}
+                              </p>
+                            )}
                         </div>
                         )}
                         {canEdit && noteDraftCID !== c.cid && (
