@@ -7,6 +7,7 @@ import { checkWeeklyStaffing } from './weeklyStaffingJob'
 import { checkWeeklyMyVatsim } from './weeklyMyVatsimJob'
 import { checkEventSignupReminders } from './eventSignupReminderJob'
 import { checkTaskDeadlines } from './taskDeadlineJob'
+import { syncUpcomingWeeklyBookings } from './weeklyBookingSyncJob'
 
 let isInitialized = false
 
@@ -59,6 +60,14 @@ const CRON_JOBS = [
     envVar: 'WEEKLY_MYVATSIM_CHECK_CRON',
     defaultSchedule: '0 10 * * *',
     handler: checkWeeklyMyVatsim,
+  },
+  {
+    name: 'weekly_booking_sync',
+    displayName: 'Weekly Stationsbuchungen',
+    description: 'Gleicht die auf der VATGER Homepage geblockten Stationen mit den veröffentlichten Weekly Rostern ab',
+    envVar: 'WEEKLY_BOOKING_SYNC_CRON',
+    defaultSchedule: '*/30 * * * *',
+    handler: syncUpcomingWeeklyBookings,
   },
   {
     name: 'task_deadline_check',

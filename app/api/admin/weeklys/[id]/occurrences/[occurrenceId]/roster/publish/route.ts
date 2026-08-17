@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { userCanManageWeekly } from "@/lib/acl/permissions";
 import { sendRosterPublishedNotifications } from "@/lib/weeklys/notificationService";
+import { scheduleWeeklyBookingSync } from "@/lib/bookings/eventStationBookings";
 
 export async function POST(
   req: NextRequest,
@@ -80,6 +81,10 @@ export async function POST(
         console.error("Error sending roster notifications:", error);
       });
     }
+
+    // Stationen auf der VATGER Homepage blocken bzw. wieder freigeben. Der
+    // Abgleich richtet sich nach dem eben gesetzten Veröffentlichungsstand.
+    scheduleWeeklyBookingSync(occurrenceIdNum, published ? "roster published" : "roster unpublished");
 
     return NextResponse.json({
       message: published
