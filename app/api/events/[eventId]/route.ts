@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { releaseEventStationBookings } from "@/lib/bookings/eventStationBookings";
+import {
+  eventBookingTrigger,
+  releaseEventStationBookings,
+  scheduleEventBookingSync,
+} from "@/lib/bookings/eventStationBookings";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
@@ -97,7 +101,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
       id: Number(eventId)
     },
     select: {
-      firCode: true
+      firCode: true,
+      status: true,
+      staffedStations: true
     }
   })
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -132,6 +138,16 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         firCode: fir,
       },
   });
+  // Mit dem Öffnen der Anmeldung stehen die Stationen fest genug, um sie auf
+  // der Homepage zu blocken; danach zieht jede Änderung an den Stationen nach.
+  const bookingTrigger = eventBookingTrigger(
+    firbyevent.status,
+    event.status,
+    firbyevent.staffedStations,
+    event.staffedStations,
+  );
+  if (bookingTrigger) scheduleEventBookingSync(Number(eventId), bookingTrigger);
+
   // Beim Absagen die geblockten Stationen wieder freigeben, sofern das im
   // Dialog bestätigt wurde. Ein Fehler darf die Absage nicht verhindern.
   if (parsed.data.status === "CANCELLED" && body?.releaseBookings === true) {
@@ -242,7 +258,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       id: Number(eventId)
     },
     select: {
-      firCode: true
+      firCode: true,
+      status: true,
+      staffedStations: true
     }
   })
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
@@ -293,6 +311,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
         responsibles: { include: { user: { select: { cid: true, name: true } } } },
       },
     });
+
+    // Mit dem Öffnen der Anmeldung stehen die Stationen fest genug, um sie auf
+    // der Homepage zu blocken; danach zieht jede Änderung an den Stationen nach.
+    const bookingTrigger = eventBookingTrigger(
+      firbyevent.status,
+      updatedEvent.status,
+      firbyevent.staffedStations,
+      updatedEvent.staffedStations,
+    );
+    if (bookingTrigger) scheduleEventBookingSync(id, bookingTrigger);
 
     // Beim Absagen die geblockten Stationen wieder freigeben, sofern das im
     // Dialog bestätigt wurde. Ein Fehler darf die Absage nicht verhindern.

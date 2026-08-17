@@ -8,10 +8,11 @@
  *    Voraus auf die Event-Kennung (`VATGER_EVENT_BOOKING_CID`) geblockt. Ist
  *    das Roster veröffentlicht, wandert jede eingeteilte Station auf die
  *    VATSIM ID des eingeteilten Lotsen; alles Übrige bleibt geblockt.
- *  - **Unregelmäßige Events**: das Eventteam blockt die als "zu besetzen"
- *    eingetragenen Stationen per Knopfdruck. Da hier zum Zeitpunkt des
- *    Blockens noch keine Einteilung feststeht, laufen diese Buchungen auf die
- *    in `VATGER_EVENT_BOOKING_CID` hinterlegte Event-Kennung.
+ *  - **Unregelmäßige Events**: mit dem Öffnen der Anmeldung werden die als
+ *    "zu besetzen" eingetragenen Stationen geblockt. Da zu dem Zeitpunkt noch
+ *    keine Einteilung feststeht, laufen diese Buchungen auf die in
+ *    `VATGER_EVENT_BOOKING_CID` hinterlegte Event-Kennung. Verwaltet wird der
+ *    Stand im Stationen-Tab der Eventbearbeitung.
  *
  * Grundlage ist immer eine Referenz (`eventmanager:event:<id>` bzw.
  * `eventmanager:weekly:<occurrenceId>`). Die Homepage speichert sie an der
@@ -396,10 +397,10 @@ export function scheduleWeeklyBookingSync(occurrenceId: number, trigger: string)
 }
 
 /**
- * Blockt die als "zu besetzen" eingetragenen Stationen eines unregelmäßigen
- * Events. Ohne konfigurierte Event-Kennung (`VATGER_EVENT_BOOKING_CID`) ist
- * das nicht möglich, weil jede Buchung auf der Homepage eine VATSIM ID
- * braucht.
+ * Gleicht die Buchungen eines unregelmäßigen Events mit den als "zu besetzen"
+ * eingetragenen Stationen ab. Ohne konfigurierte Event-Kennung
+ * (`VATGER_EVENT_BOOKING_CID`) ist das nicht möglich, weil jede Buchung auf
+ * der Homepage eine VATSIM ID braucht.
  */
 export async function syncEventStationBookings(eventId: number): Promise<BookingSyncResult> {
   const reference = eventBookingReference(eventId);
@@ -447,4 +448,88 @@ export async function syncEventStationBookings(eventId: number): Promise<Booking
 /** Gibt die Stationen eines unregelmäßigen Events wieder frei. */
 export async function releaseEventStationBookings(eventId: number): Promise<BookingSyncResult> {
   return releaseBookings(eventBookingReference(eventId));
+}
+
+/**
+ * Gibt einzelne Buchungen eines Events frei.
+ *
+ * Es werden ausschließlich Buchungen entfernt, die tatsächlich zu diesem
+ * Event gehören – die IDs kommen aus dem Browser und dürfen nicht blind an
+ * die Homepage durchgereicht werden.
+ *
+ * Achtung: der nächste Abgleich legt eine so entfernte Station wieder an,
+ * solange sie noch als zu besetzen eingetragen ist. Dauerhaft frei wird eine
+ * Station nur, wenn sie aus den Stationen des Events verschwindet.
+ */
+export async function releaseSingleEventBookings(
+  eventId: number,
+  bookingIds: number[],
+): Promise<{ deleted: number; failed: number }> {
+  if (!isBookingApiConfigured() || bookingIds.length === 0) {
+    return { deleted: 0, failed: 0 };
+  }
+
+  const reference = eventBookingReference(eventId);
+  const own = new Set((await listEventBookings(reference)).map((b) => b.booking_id));
+  const allowed = bookingIds.filter((id) => own.has(id));
+
+  if (allowed.length === 0) {
+    return { deleted: 0, failed: 0 };
+  }
+
+  const response = await deleteEventBookings({ bookingIds: allowed });
+
+  return { deleted: response.deleted, failed: response.failed };
+}
+
+/**
+ * Ab diesen Status sind die Stationen eines Events geblockt: mit dem Öffnen
+ * der Anmeldung stehen sie fest genug, dass sie niemand mehr wegbuchen soll.
+ */
+const BLOCKING_EVENT_STATUSES = ["SIGNUP_OPEN", "SIGNUP_CLOSED", "ROSTER_PUBLISHED"];
+
+/**
+ * Entscheidet, ob eine Event-Änderung einen Abgleich der Buchungen auslöst,
+ * und liefert den Grund fürs Log – oder `null`, wenn nichts zu tun ist.
+ */
+export function eventBookingTrigger(
+  previousStatus: string,
+  nextStatus: string,
+  previousStations: unknown,
+  nextStations: unknown,
+): string | null {
+  if (!BLOCKING_EVENT_STATUSES.includes(nextStatus)) return null;
+
+  // Erstmals im blockenden Status: alles buchen.
+  if (!BLOCKING_EVENT_STATUSES.includes(previousStatus)) return "signup opened";
+
+  // Danach nur noch, wenn sich die Stationen tatsächlich geändert haben.
+  const before = parseStations(previousStations).sort().join(",");
+  const after = parseStations(nextStations).sort().join(",");
+  return before === after ? null : "stations changed";
+}
+
+/**
+ * Stößt den Abgleich eines Events im Hintergrund an.
+ *
+ * Wird beim Öffnen der Anmeldung und beim Ändern der Stationen aufgerufen:
+ * das Speichern soll nicht daran scheitern, dass die Homepage gerade nicht
+ * erreichbar ist. Der Stand lässt sich im Stationen-Tab jederzeit von Hand
+ * nachziehen.
+ */
+export function scheduleEventBookingSync(eventId: number, trigger: string): void {
+  void syncEventStationBookings(eventId)
+    .then((result) => {
+      if (result.skipped) {
+        console.log(`[bookings] Event ${eventId} (${trigger}): ${result.skipped}`);
+        return;
+      }
+      console.log(
+        `[bookings] Event ${eventId} (${trigger}): ${result.created} gebucht, ${result.deleted} entfernt, ` +
+          `${result.conflict} Konflikte, ${result.failed} Fehler`,
+      );
+    })
+    .catch((error) => {
+      console.error(`[bookings] Abgleich für Event ${eventId} (${trigger}) fehlgeschlagen:`, error);
+    });
 }

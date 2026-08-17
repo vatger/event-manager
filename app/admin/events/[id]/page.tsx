@@ -59,7 +59,6 @@ import { toast } from "sonner";
 import { BannerUrlDialog } from "./_components/BannerUrlDialog";
 import { RosterLinkDialog } from "./_components/RosterLinkDialog";
 import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
-import { BlockStationsButton } from "./_components/BlockStationsButton";
 import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 import type { EventTask } from "@/types/task";
@@ -451,10 +450,6 @@ export default function EventOverviewPage() {
                   Event bearbeiten
                 </Link>
               </Button>
-              <BlockStationsButton
-                eventId={parseInt(event.id.toString())}
-                stations={event.staffedStations ?? []}
-              />
             </div>
 
             {/* Responsible Section - Verbesserte Auswahl */}

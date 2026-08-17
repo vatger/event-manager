@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
 import StationSelector from "./StationSelector";
+import EventStationBookings from "./EventStationBookings";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
@@ -627,6 +628,14 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                   <div className="text-center py-8 text-muted-foreground">
                     Bitte gebe zuerst einen gültigen ICAO-Code im Tab Grunddaten ein.
                   </div>
+                )}
+
+                {isEdit && event && (
+                  <EventStationBookings
+                    eventId={Number(event.id)}
+                    stations={formData.staffedStations}
+                    disabled={isSaving}
+                  />
                 )}
               </CardContent>
             </Card>

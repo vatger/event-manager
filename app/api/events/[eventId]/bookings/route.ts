@@ -5,13 +5,17 @@ import {
   eventBookingReference,
   getBookings,
   releaseEventStationBookings,
+  releaseSingleEventBookings,
   syncEventStationBookings,
 } from "@/lib/bookings/eventStationBookings";
 import { isBookingApiConfigured, VatgerBookingApiError } from "@/lib/bookings/vatgerBookingClient";
 
 /**
- * Blockt die zu besetzenden Stationen eines unregelmäßigen Events als
- * vatger Event Buchung auf der Homepage – bzw. gibt sie wieder frei.
+ * Stationsbuchungen eines unregelmäßigen Events.
+ *
+ * Geblockt wird automatisch beim Öffnen der Anmeldung und bei Änderungen an
+ * den Stationen; über diese Route lässt sich der Stand im Stationen-Tab
+ * einsehen, nachziehen und wieder freigeben.
  */
 
 /** Liefert die abzulehnende Antwort, falls der Nutzer nicht berechtigt ist. */
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   }
 }
 
-// Stationen wieder freigeben
+// Stationen wieder freigeben - alle, oder die im Body genannten Buchungen
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId: idParam } = await params;
   const eventId = Number(idParam);
@@ -85,7 +89,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ e
   const denied = await denyUnauthorized(eventId);
   if (denied) return denied;
 
+  const body = await req.json().catch(() => null);
+  const bookingIds: unknown = body?.bookingIds;
+
   try {
+    if (Array.isArray(bookingIds) && bookingIds.length > 0) {
+      const ids = bookingIds.filter((id): id is number => Number.isInteger(id));
+      if (ids.length === 0) {
+        return NextResponse.json({ error: "bookingIds must be integers" }, { status: 400 });
+      }
+      return NextResponse.json(await releaseSingleEventBookings(eventId, ids));
+    }
+
     return NextResponse.json(await releaseEventStationBookings(eventId));
   } catch (error) {
     return handleError(error);

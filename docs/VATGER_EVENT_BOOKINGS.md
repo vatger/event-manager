@@ -10,10 +10,10 @@ benachrichtigt.
 
 ## Zwei Wege
 
-| Eventtyp             | Auslöser                                         | Gebucht wird auf                                                       |
-| -------------------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| Weekly               | automatisch, weit im Voraus                      | die Event-Kennung, nach Roster-Veröffentlichung die eingeteilten Lotsen |
-| Unregelmäßiges Event | Knopf "Stationen blocken" in der Eventverwaltung  | die Event-Kennung aus `VATGER_EVENT_BOOKING_CID`                       |
+| Eventtyp             | Auslöser                              | Gebucht wird auf                                                       |
+| -------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
+| Weekly               | automatisch, weit im Voraus           | die Event-Kennung, nach Roster-Veröffentlichung die eingeteilten Lotsen |
+| Unregelmäßiges Event | automatisch beim Öffnen der Anmeldung | die Event-Kennung aus `VATGER_EVENT_BOOKING_CID`                       |
 
 ### Weeklys
 
@@ -34,11 +34,33 @@ wurde. Termine deaktivierter Weeklys werden freigegeben.
 
 ### Unregelmäßige Events
 
-Hier steht zum Zeitpunkt des Blockens meist noch keine Einteilung fest.
-Geblockt werden deshalb die im Event als **zu besetzen** eingetragenen
-Stationen (`staffedStations`), und zwar für die gesamte Eventdauer auf die
-konfigurierte Event-Kennung. Sind im Event keine Stationen hinterlegt, greifen
-die im Roster bestätigten Stationen.
+Geblockt wird, sobald das Event in den Status **SIGNUP_OPEN** wechselt – ab da
+sind die Stationen öffentlich angekündigt und sollen niemandem mehr
+wegbuchbar sein. Solange das Event in `PLANNING` oder `DRAFT` steht, passiert
+nichts.
+
+Geblockt werden die im Event als **zu besetzen** eingetragenen Stationen
+(`staffedStations`), für die gesamte Eventdauer auf die konfigurierte
+Event-Kennung – eine Einteilung gibt es zu dem Zeitpunkt ja noch nicht. Sind
+im Event keine Stationen hinterlegt, greifen die im Roster bestätigten
+Stationen.
+
+Ändern sich die Stationen, während das Event bereits offen ist
+(`SIGNUP_OPEN`, `SIGNUP_CLOSED` oder `ROSTER_PUBLISHED`), zieht der Abgleich
+beim Speichern nach: neu dazugekommene Stationen werden geblockt, entfernte
+freigegeben.
+
+Verwaltet wird der Stand im Tab **Stationen** der Eventbearbeitung. Dort steht
+unter der Stationsauswahl, was aktuell geblockt ist, und es lässt sich
+
+- **Aktualisieren** – den Buchungsstand an die ausgewählten Stationen angleichen,
+- **Alle freigeben** – sämtliche Buchungen des Events zurückziehen,
+- eine **einzelne Station** freigeben.
+
+Einzeln freigegebene Stationen kommen beim nächsten Abgleich zurück, solange
+sie noch ausgewählt sind – das ist der Zweck einer Synchronisation. Dauerhaft
+frei wird eine Station, indem sie aus der Auswahl entfernt und gespeichert
+wird.
 
 ## Konfiguration
 
@@ -51,8 +73,9 @@ WEEKLY_BOOKING_SYNC_HORIZON_DAYS=60
 ```
 
 - `VATGER_BOOKING_API` – der Endpoint der Homepage. Ist er nicht gesetzt,
-  werden keine Buchungen versucht: der Knopf wird ausgeblendet, der Cronjob
-  beendet sich sofort und alle übrigen Funktionen laufen unverändert weiter.
+  werden keine Buchungen versucht: die Verwaltung im Stationen-Tab wird
+  ausgeblendet, der Cronjob beendet sich sofort und alle übrigen Funktionen
+  laufen unverändert weiter.
 - `VATGER_BOOKING_API_TOKEN` – ein API-Token der Homepage mit den Route-IDs
   `booking.event.index`, `booking.event.create` und `booking.event.delete`.
   Ohne eigenen Wert wird `VATGER_API_TOKEN` verwendet.
@@ -85,6 +108,11 @@ nicht mehr zur Planung passen, und fasst Buchungen anderer nie an.
 | `GET`    | `/api/admin/weeklys/[id]/occurrences/[occurrenceId]/bookings`     | aktuelle Buchungen der Weekly-Instanz    |
 | `POST`   | `/api/admin/weeklys/[id]/occurrences/[occurrenceId]/bookings`     | Abgleich der Weekly-Instanz anstoßen     |
 | `DELETE` | `/api/admin/weeklys/[id]/occurrences/[occurrenceId]/bookings`     | Stationen der Weekly-Instanz freigeben   |
+
+`DELETE` gibt ohne Body alle Buchungen des Events frei; mit
+`{ "bookingIds": [4711] }` nur die genannten. Es werden dabei ausschließlich
+Buchungen entfernt, die auch wirklich zu diesem Event gehören – die IDs kommen
+aus dem Browser und werden nicht blind weitergereicht.
 
 Für Events braucht es `event.edit` oder `roster.publish` auf dem Event, für
 Weeklys die üblichen Weekly-Rechte (`userCanManageWeekly`).
