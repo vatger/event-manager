@@ -6,9 +6,6 @@ export { parseCptDate };
 /** Ab wie vielen Tagen Vorlauf ein unbeworbenes CPT als dringend gilt. */
 export const URGENT_DAYS = 3;
 
-/** Alle Zeiten werden in Zulu angezeigt – so stehen sie auch im Forum. */
-const UTC = "UTC";
-
 /** Kalendertage bis zum CPT; negativ, wenn es vorbei ist. */
 export function daysUntil(dateString: string, now: Date = new Date()): number {
   const date = parseCptDate(dateString);
@@ -41,23 +38,13 @@ export function relativeDay(dateString: string, now: Date = new Date()): string 
   return `In ${diff} Tagen`;
 }
 
-export function formatDateLong(dateString: string): string {
-  return new Intl.DateTimeFormat("de-DE", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    timeZone: UTC,
-  }).format(parseCptDate(dateString));
-}
+/** Kompakter Zulu-Termin im Stil der Eventkarten: „15 DEC 25 | 1800z" */
+const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
-export function formatDateShort(dateString: string): string {
-  return new Intl.DateTimeFormat("de-DE", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: UTC,
-  }).format(parseCptDate(dateString));
+export function formatZulu(dateString: string): string {
+  const d = parseCptDate(dateString);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)} | ${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}z`;
 }
 
 /** Zulu-Uhrzeit, wie sie im Forum steht (z. B. „1800z"). */
@@ -71,58 +58,82 @@ export function formatDateIso(dateString: string): string {
 }
 
 /**
- * Zeitliche Schublade eines CPTs. Gibt der Liste dieselbe Gliederung, die
- * das Eventteam ohnehin im Kopf hat: Was ist sofort dran, was diese Woche?
- */
-export type CptBucket = "today" | "tomorrow" | "week" | "later" | "past";
-
-export const BUCKET_LABELS: Record<CptBucket, string> = {
-  today: "Heute",
-  tomorrow: "Morgen",
-  week: "Diese Woche",
-  later: "Später",
-  past: "Vergangen",
-};
-
-export function bucketOf(cpt: CptEntry, now: Date = new Date()): CptBucket {
-  const diff = daysUntil(cpt.date, now);
-  if (diff < 0) return "past";
-  if (diff === 0) return "today";
-  if (diff === 1) return "tomorrow";
-  if (diff <= 7) return "week";
-  return "later";
-}
-
-/** Reihenfolge, in der die Gruppen erscheinen. */
-export const BUCKET_ORDER: CptBucket[] = ["today", "tomorrow", "week", "later"];
-
-/**
  * Banner-Vorlage einer Position. Nur für die Positionen hinterlegt, für die
- * es im Generator auch eine Vorlage gibt – sonst gibt es keinen Banner-Link.
+ * es im Generator auch eine Vorlage gibt – sonst gibt es keinen Banner.
  */
 export function getBannerTemplate(position: string): string | null {
   if (position === "EDDM_TWR") return "EDDMTWR";
   if (position === "EDDM_APP") return "APP";
   if (position === "EDDN_TWR") return "EDDNTWR";
+  if (position === "EDDP_TWR") return "EDDPTWR";
   if (/^EDMM_[A-Z]+_CTR$/.test(position)) return "CTR";
   return null;
 }
 
-/** URL des vorbefüllten Banners, oder "" wenn es keine Vorlage gibt. */
+/** Gibt es für diese Position überhaupt einen Banner? */
+export function hasBanner(cpt: CptEntry): boolean {
+  return getBannerTemplate(cpt.position) !== null;
+}
+
+/**
+ * URL des vorbefüllten Banners, oder "" wenn es keine Vorlage gibt.
+ *
+ * Die CTR-Vorlage verlangt zusätzlich die Station: Sie steht als mittlerer
+ * Teil im Callsign (EDMM_WLD_CTR → WLD). Ohne diesen Parameter lehnt der
+ * Generator die Anfrage ab.
+ */
 export function bannerUrl(cpt: CptEntry): string {
   const template = getBannerTemplate(cpt.position);
   if (!template) return "";
+
   const params = new URLSearchParams({
     template,
     name: cpt.trainee_name,
     date: formatDateIso(cpt.date),
     time: formatTimeZulu(cpt.date).replace("z", ""),
   });
+
+  if (template === "CTR") {
+    const sector = cpt.position.split("_")[1];
+    if (sector) params.set("station", sector);
+  }
+
   return `/api/cpt-banner/generate/?${params.toString()}`;
 }
 
+/** Kann dieser Browser Bilder in die Zwischenablage legen? */
+export function canCopyImages(): boolean {
+  return (
+    typeof navigator !== "undefined" &&
+    !!navigator.clipboard?.write &&
+    typeof window !== "undefined" &&
+    typeof window.ClipboardItem !== "undefined"
+  );
+}
+
+/**
+ * Legt den Banner als Bild in die Zwischenablage.
+ *
+ * Das ClipboardItem muss noch im Klick entstehen und bekommt deshalb die
+ * Zusage auf den Blob statt des fertigen Blobs – anders verweigert Safari
+ * den Zugriff, weil die Nutzergeste zwischenzeitlich abgelaufen ist.
+ */
+export async function copyBannerToClipboard(cpt: CptEntry): Promise<void> {
+  const url = bannerUrl(cpt);
+  if (!url) throw new Error("Für diese Position gibt es keine Bannervorlage");
+
+  const blob = fetch(url).then(async (res) => {
+    if (!res.ok) throw new Error("Banner konnte nicht erzeugt werden");
+    return res.blob();
+  });
+
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+}
+
 /** Stationsgruppe einer Position – färbt die Positions-Plakette ein. */
-export function stationGroupOf(position: string): "TWR" | "APP" | "CTR" | "GND" | "DEL" | "NONE" {
+export function stationGroupOf(
+  position: string
+): "TWR" | "APP" | "CTR" | "GND" | "DEL" | "NONE" {
   const upper = position.toUpperCase();
   if (upper.endsWith("_CTR")) return "CTR";
   if (upper.endsWith("_APP") || upper.endsWith("_DEP")) return "APP";
@@ -136,29 +147,13 @@ export const STATION_GROUP_CLASS: Record<
   ReturnType<typeof stationGroupOf>,
   string
 > = {
-  DEL: "bg-station-del-soft text-station-del-text border-station-del/40",
-  GND: "bg-station-gnd-soft text-station-gnd-text border-station-gnd/40",
-  TWR: "bg-station-twr-soft text-station-twr-text border-station-twr/40",
-  APP: "bg-station-app-soft text-station-app-text border-station-app/40",
-  CTR: "bg-station-ctr-soft text-station-ctr-text border-station-ctr/40",
-  NONE: "bg-station-none-soft text-station-none-text border-station-none/40",
+  DEL: "bg-station-del-soft text-station-del-text",
+  GND: "bg-station-gnd-soft text-station-gnd-text",
+  TWR: "bg-station-twr-soft text-station-twr-text",
+  APP: "bg-station-app-soft text-station-app-text",
+  CTR: "bg-station-ctr-soft text-station-ctr-text",
+  NONE: "bg-station-none-soft text-station-none-text",
 };
-
-/**
- * Vorschlag für den Forumsbeitrag. Spart dem Eventteam das Zusammensuchen
- * von Datum, Uhrzeit und Position aus drei verschiedenen Feldern.
- */
-export function forumSnippet(cpt: CptEntry): string {
-  return [
-    `${cpt.course_name} – CPT ${cpt.position}`,
-    "",
-    `Am ${formatDateLong(cpt.date)} um ${formatTimeZulu(cpt.date)} stellt sich ${cpt.trainee_name} auf ${cpt.position} der Prüfung.`,
-    "Kommt vorbei und unterstützt mit ein paar Bewegungen!",
-    "",
-    `Prüfer: ${cpt.examiner_name}`,
-    `Mentor: ${cpt.local_name}`,
-  ].join("\n");
-}
 
 /** Freitextsuche über Trainee, Position, Kurs, Prüfer, Mentor und CIDs. */
 export function matchesQuery(cpt: CptEntry, query: string): boolean {

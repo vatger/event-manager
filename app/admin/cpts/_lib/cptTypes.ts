@@ -4,8 +4,6 @@ export interface CptStatus {
   postedAt: string | null;
   postedByCID: number | null;
   postedByName: string | null;
-  forumUrl: string | null;
-  notes: string | null;
 }
 
 /** Ein CPT der Training-API samt FIR-Zuordnung und Arbeitsstand. */

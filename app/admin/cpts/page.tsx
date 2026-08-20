@@ -1,4 +1,5 @@
 import React from "react";
+import Protected from "@/components/Protected";
 import { CptManager } from "./_components/CptManager";
 
 /**
@@ -11,10 +12,8 @@ import { CptManager } from "./_components/CptManager";
  */
 export default function CPTAdminPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
-        <CptManager />
-      </div>
-    </div>
+    <Protected>
+      <CptManager />
+    </Protected>
   );
 }

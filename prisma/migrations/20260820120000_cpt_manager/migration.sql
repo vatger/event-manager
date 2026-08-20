@@ -23,8 +23,6 @@ CREATE TABLE `CptStatus` (
     `posted` BOOLEAN NOT NULL DEFAULT false,
     `postedAt` DATETIME(3) NULL,
     `postedByCID` INTEGER NULL,
-    `forumUrl` TEXT NULL,
-    `notes` TEXT NULL,
     `reminder3dSentAt` DATETIME(3) NULL,
     `reminderDaySentAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

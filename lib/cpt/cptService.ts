@@ -25,8 +25,6 @@ export interface CptStatusPayload {
   postedAt: string | null;
   postedByCID: number | null;
   postedByName: string | null;
-  forumUrl: string | null;
-  notes: string | null;
 }
 
 /** Ein CPT samt aufgelöster FIR und lokalem Arbeitsstand. */
@@ -40,8 +38,6 @@ const EMPTY_STATUS: CptStatusPayload = {
   postedAt: null,
   postedByCID: null,
   postedByName: null,
-  forumUrl: null,
-  notes: null,
 };
 
 /**
@@ -108,8 +104,6 @@ export async function attachCptStatus(cpts: TrainingCpt[]): Promise<CptWithStatu
             postedAt: row.postedAt?.toISOString() ?? null,
             postedByCID: row.postedByCID,
             postedByName: row.postedByCID ? nameByCid.get(row.postedByCID) ?? null : null,
-            forumUrl: row.forumUrl,
-            notes: row.notes,
           }
         : { ...EMPTY_STATUS },
     };

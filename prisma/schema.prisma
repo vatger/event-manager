@@ -634,8 +634,6 @@ model CptStatus {
   posted      Boolean   @default(false)
   postedAt    DateTime?
   postedByCID Int?
-  forumUrl    String?   @db.Text
-  notes       String?   @db.Text
 
   // Erinnerungen: je Stufe einmal, damit niemand doppelt angepingt wird.
   // Wird zurückgesetzt, sobald sich der Termin des CPTs verschiebt.

@@ -9,16 +9,9 @@ import {
 import { resolveCptFir } from "@/config/cptFirMapping";
 import { parseCptDate } from "@/lib/cpt/cptDate";
 
-const patchSchema = z.object({
-  posted: z.boolean().optional(),
-  forumUrl: z.string().trim().max(500).nullable().optional(),
-  notes: z.string().trim().max(2000).nullable().optional(),
-});
+const patchSchema = z.object({ posted: z.boolean() });
 
-/**
- * Pflegt den lokalen Arbeitsstand eines CPTs: gepostet-Markierung,
- * Link zum Forumsbeitrag und interne Notiz.
- */
+/** Markiert ein CPT als im Forum beworben – oder nimmt die Markierung zurück. */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ cptId: string }> }
@@ -68,7 +61,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { posted, forumUrl, notes } = parsed.data;
+  const { posted } = parsed.data;
   const snapshot = {
     firCode,
     position: cpt.position,
@@ -76,30 +69,16 @@ export async function PATCH(
     cptDate: parseCptDate(cpt.date),
   };
 
-  // Beim Setzen von "gepostet" wird festgehalten, wer es wann markiert hat;
+  // Beim Setzen wird festgehalten, wer es wann markiert hat;
   // beim Zurücknehmen fallen beide Angaben wieder weg.
-  const postedFields =
-    posted === undefined
-      ? {}
-      : posted
-        ? { posted: true, postedAt: new Date(), postedByCID: cid }
-        : { posted: false, postedAt: null, postedByCID: null };
+  const postedFields = posted
+    ? { posted: true, postedAt: new Date(), postedByCID: cid }
+    : { posted: false, postedAt: null, postedByCID: null };
 
   const row = await prisma.cptStatus.upsert({
     where: { cptId },
-    create: {
-      cptId,
-      ...snapshot,
-      ...postedFields,
-      ...(forumUrl !== undefined ? { forumUrl: forumUrl || null } : {}),
-      ...(notes !== undefined ? { notes: notes || null } : {}),
-    },
-    update: {
-      ...snapshot,
-      ...postedFields,
-      ...(forumUrl !== undefined ? { forumUrl: forumUrl || null } : {}),
-      ...(notes !== undefined ? { notes: notes || null } : {}),
-    },
+    create: { cptId, ...snapshot, ...postedFields },
+    update: { ...snapshot, ...postedFields },
   });
 
   return NextResponse.json({
@@ -109,8 +88,6 @@ export async function PATCH(
       postedAt: row.postedAt?.toISOString() ?? null,
       postedByCID: row.postedByCID,
       postedByName: row.postedByCID === cid ? user.name ?? null : null,
-      forumUrl: row.forumUrl,
-      notes: row.notes,
     },
   });
 }
