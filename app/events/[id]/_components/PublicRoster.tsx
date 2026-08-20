@@ -581,13 +581,6 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
             </div>
           </div>
         </div>
-
-        <p className="text-[11px] text-muted-foreground">
-          {multiAirport
-            ? "Farbton zeigt den Airport, die Helligkeit die Ebene (Delivery hell bis Center dunkel)."
-            : "Farbe zeigt die Art der Position (Delivery, Ground, Tower, Approach, Center)."}
-          {nowMinute !== null && " Die farbige Linie markiert die aktuelle Zeit."}
-        </p>
       </CardContent>
     </Card>
   );
