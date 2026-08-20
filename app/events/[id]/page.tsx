@@ -19,7 +19,6 @@ import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
 import PublicRoster from "./_components/PublicRoster";
-import { PUBLIC_ROSTER_VIEW_ENABLED } from "@/config/features";
 import { useUser,  } from "@/hooks/useUser";
 import RichText from "@/components/RichText";
 
@@ -313,13 +312,12 @@ export default function EventPage() {
           </div>
         </div>
         </div>
-      {(event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED" || event.status === "ROSTER_PUBLISHED") && (
+      {(event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED") && (
         <StaffedStations callsigns={event.staffedStations} />
       )}
 
-      {/* Interner Besetzungsplan (sobald veröffentlicht).
-          Noch nicht freigegeben – siehe config/features.ts */}
-      {PUBLIC_ROSTER_VIEW_ENABLED && event.status === "ROSTER_PUBLISHED" && (
+      {/* Interner Besetzungsplan (sobald veröffentlicht). */}
+      {event.status === "ROSTER_PUBLISHED" && (
         <PublicRoster
           eventId={Number(event.id)}
           userCID={session?.user.cid ? Number(session.user.cid) : null}
@@ -327,65 +325,65 @@ export default function EventPage() {
         />
       )}
 
-      {/* Teilnehmer Tabelle */}
-      <Card className="relative overflow-hidden">
-        <CardHeader>
-          <CardTitle className="flex justify-between">
-            <div className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-              Angemeldete Teilnehmer
+      {!hasInternalRoster && (
+        <Card className="relative overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex justify-between">
+              <div className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+                Angemeldete Teilnehmer
+              </div>
+              <Button onClick={handleSignupChanged} variant="outline" size="sm">
+                <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {eventAirports.length > 1 ? (
+              <AirportSignupTabs
+                ref={tabsRef}
+                airports={eventAirports}
+                eventId={Number(event.id)}
+                renderSignupsTable={(filteredSignups, airport) => (
+                  <SignupsTable
+                    ref={tableRef}
+                    eventId={Number(event.id)}
+                    columns={["cid", "name", "group", "airports", "availability", "preferredStations", "remarks"]}
+                    editable={canInFIR(event.firCode, "signups.manage")}
+                    event={event}
+                    onRefresh={handleSignupChanged}
+                    filteredSignups={filteredSignups}
+                    currentAirport={airport}
+                  />
+                )}
+              />
+            ) : (
+              <SignupsTable
+                ref={tableRef}
+                eventId={Number(event.id)}
+                columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
+                editable={canInFIR(event.firCode, "signups.manage")}
+                event={event}
+                onRefresh={handleSignupChanged}
+              />
+            )}
+          </CardContent>
+
+          {event.status === "ROSTER_PUBLISHED" && !hasInternalRoster && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center flex-col gap-4 p-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Besetzungsplan ist verfügbar!</h3>
+                <p className="text-muted-foreground">Der finale Besetzungsplan wurde veröffentlicht.</p>
+              </div>
+              <Button size="lg" disabled={!event.rosterlink}>
+              <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
+                    {event.rosterlink ? "Zum Besetzungsplan" : "FEHLER"}
+                  </Link>
+              </Button>
             </div>
-            <Button onClick={handleSignupChanged} variant="outline" size="sm">
-              <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {eventAirports.length > 1 ? (
-            <AirportSignupTabs
-              ref={tabsRef}
-              airports={eventAirports}
-              eventId={Number(event.id)}
-              renderSignupsTable={(filteredSignups, airport) => (
-                <SignupsTable
-                  ref={tableRef}
-                  eventId={Number(event.id)}
-                  columns={["cid", "name", "group", "airports", "availability", "preferredStations", "remarks"]}
-                  editable={canInFIR(event.firCode, "signups.manage")}
-                  event={event}
-                  onRefresh={handleSignupChanged}
-                  filteredSignups={filteredSignups}
-                  currentAirport={airport}
-                />
-              )}
-            />
-          ) : (
-            <SignupsTable
-              ref={tableRef}
-              eventId={Number(event.id)}
-              columns={["cid", "name", "group", "availability", "preferredStations", "remarks"]}
-              editable={canInFIR(event.firCode, "signups.manage")}
-              event={event}
-              onRefresh={handleSignupChanged}
-            />
           )}
-        </CardContent>
-
-        {event.status === "ROSTER_PUBLISHED" && !hasInternalRoster && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center flex-col gap-4 p-6">
-            <div className="text-center">
-              <h3 className="text-lg font-semibold mb-2">Besetzungsplan ist verfügbar!</h3>
-              <p className="text-muted-foreground">Der finale Besetzungsplan wurde veröffentlicht.</p>
-            </div>
-            <Button size="lg" disabled={!event.rosterlink}>
-            <Link href={event.rosterlink || '#'} target="_blank"  className="w-full">
-                  {event.rosterlink ? "Zum Besetzungsplan" : "FEHLER"}
-                </Link>
-            </Button>
-          </div>
-        )}
-      </Card>
-
+        </Card>
+      )}
       <AnimatePresence>
         {selectedEvent && (
           <SignupForm
@@ -399,5 +397,6 @@ export default function EventPage() {
         )}
       </AnimatePresence>
     </div>
+      
   );
 }
