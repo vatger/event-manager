@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { extractStationGroup, STATION_GROUP_ORDER } from "@/lib/weeklys/stationUtils";
 import { airportTintColors } from "@/lib/roster/stationColors";
 import type { Station } from "@/lib/stations/types";
+
 
 interface StationPickerProps {
   /** Bereits ausgewählte Callsigns */
@@ -50,6 +52,9 @@ export function StationPicker({
   onToggle,
   countFor,
 }: StationPickerProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+
   const selectedSet = useMemo(
     () => new Set(selected.map((s) => s.toUpperCase())),
     [selected]
@@ -121,7 +126,8 @@ export function StationPicker({
       {groups.map((group) => {
         const tint = airportTintColors(
           group.airport === "Weitere" ? null : group.airport,
-          eventAirports
+          eventAirports,
+          isDark
         );
         const chosen = group.stations.filter((cs) => selectedSet.has(cs));
         const allChosen = chosen.length === group.stations.length;

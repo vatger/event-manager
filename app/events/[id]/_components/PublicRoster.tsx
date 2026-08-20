@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,9 @@ const airportOf = (callsign: string): string | null =>
  * sind durchgehend hervorgehoben.
  */
 export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRosterProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+
   const [roster, setRoster] = useState<PublicRosterData | null>(null);
   const [published, setPublished] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -323,7 +327,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
 
   /** Kopfzeile einer Airport-Gruppe im Zeitstrahl */
   const renderGroupHeader = (airport: string) => {
-    const tint = airportTintColors(airport, rosterAirports);
+    const tint = airportTintColors(airport, rosterAirports, isDark);
     return (
       // Der Farbstreifen sitzt am äußeren Element, damit er auch den Bereich
       // rechts der Zeitachse füllt – sonst bräche die Gruppe mitten in der

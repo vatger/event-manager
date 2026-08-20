@@ -87,14 +87,26 @@ export function stationBlockColors(
 /** Dezente Fläche für Zeilenköpfe und Chips desselben Airports */
 export function airportTintColors(
   airport: string | null,
-  eventAirports: string[]
+  eventAirports: string[],
+  darkMode: boolean = false
 ): { background: string; border: string } {
   const hue = airportHue(airport, eventAirports);
-  if (hue === null) {
-    return { background: "oklch(0.95 0.01 260)", border: "oklch(0.85 0.01 260)" };
+
+  if (darkMode) {
+    if (hue === null) {
+      return { background: "oklch(0.25 0.01 260)", border: "oklch(0.35 0.01 260)" };
+    }
+    return {
+      background: `oklch(0.25 0.03 ${hue})`,
+      border: `oklch(0.38 0.06 ${hue})`,
+    };
+  } else {
+    if (hue === null) {
+      return { background: "oklch(0.95 0.01 260)", border: "oklch(0.85 0.01 260)" };
+    }
+    return {
+      background: `oklch(0.95 0.03 ${hue})`,
+      border: `oklch(0.82 0.06 ${hue})`,
+    };
   }
-  return {
-    background: `oklch(0.95 0.03 ${hue})`,
-    border: `oklch(0.82 0.06 ${hue})`,
-  };
 }
