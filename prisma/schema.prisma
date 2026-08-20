@@ -278,7 +278,7 @@ model Notification {
   eventId   Int?
   type      NotificationType
   title     String
-  message   String
+  message   String           @db.Text
   data      Json?
   readAt    DateTime?
   createdAt DateTime         @default(now())

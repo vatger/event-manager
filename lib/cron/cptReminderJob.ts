@@ -80,14 +80,20 @@ async function notify(
   title: string,
   message: string
 ): Promise<void> {
-  await prisma.notification.create({
-    data: {
-      userCID: target.cid,
-      type: "EVENT",
-      title,
-      message,
-    },
-  });
+  try {
+    await prisma.notification.create({
+      data: {
+        userCID: target.cid,
+        type: "EVENT",
+        title,
+        message,
+      },
+    });
+  } catch (error) {
+    // Ein Fehler bei der In-App-Notification soll den Forums-Ping/E-Mail
+    // nicht verhindern – beides läuft unabhängig voneinander.
+    console.error(`[CPT Reminder] Konnte In-App-Notification für ${target.cid} nicht anlegen:`, error);
+  }
 
   if (!VATGER_API_TOKEN || !process.env.VATGER_API) return;
 
