@@ -48,14 +48,6 @@ export default function FIRsPage() {
             Verwalten Sie FIRs, Gruppen und Berechtigungen
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/">
-            <Button variant="outline">
-              <Home className="w-4 h-4 mr-2" />
-              Hauptseite
-            </Button>
-          </Link>
-        </div>
       </div>
 
       {firs.length === 0 ? (

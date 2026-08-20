@@ -322,7 +322,6 @@ export default function SystemSettingsPage() {
         </CardContent>
       </Card>
       <CronJobMonitor />
-      <TrainingCacheCard />
       <EndorsementDebugCard />
     </div>
   );
