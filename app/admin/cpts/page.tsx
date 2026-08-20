@@ -1,21 +1,19 @@
-import React from 'react';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import CPTOverview from './Cptoverview';
+import React from "react";
+import { CptManager } from "./_components/CptManager";
 
 /**
- * CPT Übersicht Admin Page
- * 
- * Zeigt alle anstehenden CPTs (Checkride Position Training) organisiert nach FIR.
- * Event-Koordinatoren können Benachrichtigungen aktivieren, um über neue,
- * gelöschte oder bestätigte CPTs informiert zu werden.
+ * CPT Manager
+ *
+ * Zeigt die von der ATD angesetzten CPTs je FIR und hält fest, welche davon
+ * bereits im Forum beworben wurden. Verantwortliche pro FIR bekommen drei
+ * Tage vor dem CPT eine Erinnerung und – solange nichts gepostet ist – am
+ * Tag des CPTs noch einmal eine Nachfassung.
  */
-export default async function CPTAdminPage() {
-  const session = await getServerSession(authOptions);
+export default function CPTAdminPage() {
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-          <CPTOverview/>
+      <div className="container mx-auto px-4 py-6">
+        <CptManager />
       </div>
     </div>
   );

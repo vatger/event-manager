@@ -76,6 +76,8 @@ model User {
   assignedTasks       EventTask[]
   responsibleEvents   EventResponsible[]
 
+  cptResponsibilities CptResponsible[]
+
   commentsReceived    UserComment[]         @relation("CommentTarget")
   commentsWritten     UserComment[]         @relation("CommentAuthor")
 }
@@ -88,6 +90,7 @@ model FIR {
   members            User[]
   groups             Group[]
   weeklyEventConfigs WeeklyEventConfiguration[]
+  cptResponsibles    CptResponsible[]
   createdAt          DateTime                   @default(now())
   updatedAt          DateTime                   @updatedAt
 }
@@ -587,3 +590,57 @@ model UserComment {
   @@index([authorCID])
 }
 
+// ---------------------------------------------------------------------------
+// CPT-Verwaltung
+//
+// Die CPTs selbst kommen aus der Training-API und werden nicht gespiegelt.
+// Lokal gehalten wird nur, was das Eventteam ergänzt: wer je FIR für die
+// Bewerbung zuständig ist und ob ein CPT bereits im Forum gepostet wurde.
+// ---------------------------------------------------------------------------
+
+// Verantwortliche für die Forums-Bewerbung der CPTs einer FIR.
+model CptResponsible {
+  id         Int      @id @default(autoincrement())
+  firCode    String  
+  userCID    Int
+  addedByCID Int?
+  createdAt  DateTime @default(now())
+
+  fir  FIR  @relation(fields: [firCode], references: [code], onDelete: Cascade)
+  user User @relation(fields: [userCID], references: [cid], onDelete: Cascade)
+
+  @@unique([firCode, userCID])
+  @@index([firCode])
+  @@index([userCID])
+}
+
+// Lokaler Arbeitsstand zu einem CPT aus der Training-API.
+// `cptId` ist die ID aus der Training-API; die übrigen Snapshot-Felder
+// (Position, Trainee, Termin) hält der Cron-Job aktuell, damit Erinnerungen
+// auch dann verschickt werden können, wenn die API gerade nicht antwortet.
+model CptStatus {
+  id          Int       @id @default(autoincrement())
+  cptId       Int       @unique
+  firCode     String?  
+  position    String?  
+  traineeName String?
+  cptDate     DateTime?
+
+  // Bewerbung im Forum
+  posted      Boolean   @default(false)
+  postedAt    DateTime?
+  postedByCID Int?
+  forumUrl    String?  
+  notes       String?  
+
+  // Erinnerungen: je Stufe einmal, damit niemand doppelt angepingt wird.
+  // Wird zurückgesetzt, sobald sich der Termin des CPTs verschiebt.
+  reminder3dSentAt  DateTime?
+  reminderDaySentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([firCode])
+  @@index([cptDate])
+}

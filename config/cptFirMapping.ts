@@ -43,3 +43,20 @@ export function cptBelongsToFir(position: string, firCode: string): boolean {
   if (prefix === firCode) return true;
   return CPT_AIRPORT_TO_FIR[prefix] === firCode;
 }
+
+/** Alle FIRs, für die CPTs verwaltet werden. */
+export const CPT_FIR_CODES = ['EDMM', 'EDGG', 'EDWW'] as const;
+
+/**
+ * Ermittelt die FIR einer CPT-Position.
+ *
+ * Gleiche Logik wie {@link cptBelongsToFir}, nur in die andere Richtung:
+ * CTR-Positionen tragen den FIR-Code selbst als Präfix, alle übrigen werden
+ * über den Flughafen aufgelöst. `null`, wenn die Position unbekannt ist.
+ */
+export function resolveCptFir(position: string): string | null {
+  const prefix = (position ?? '').slice(0, 4).toUpperCase();
+  if (!prefix) return null;
+  if ((CPT_FIR_CODES as readonly string[]).includes(prefix)) return prefix;
+  return CPT_AIRPORT_TO_FIR[prefix] ?? null;
+}

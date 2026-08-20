@@ -8,6 +8,7 @@ import { checkWeeklyMyVatsim } from './weeklyMyVatsimJob'
 import { checkEventSignupReminders } from './eventSignupReminderJob'
 import { checkTaskDeadlines } from './taskDeadlineJob'
 import { syncUpcomingWeeklyBookings } from './weeklyBookingSyncJob'
+import { checkCptReminders } from './cptReminderJob'
 
 let isInitialized = false
 
@@ -76,6 +77,14 @@ const CRON_JOBS = [
     envVar: 'TASK_DEADLINE_CHECK_CRON',
     defaultSchedule: '0 8 * * *',
     handler: checkTaskDeadlines,
+  },
+  {
+    name: 'cpt_reminder',
+    displayName: 'CPT Bewerbungs-Erinnerung',
+    description: 'Erinnert die CPT-Verantwortlichen der FIR 3 Tage vorher per Forum-Ping an die Bewerbung und fasst am Tag des CPTs nach, solange es nicht als gepostet markiert ist',
+    envVar: 'CPT_REMINDER_CRON',
+    defaultSchedule: '0 8 * * *',
+    handler: checkCptReminders,
   },
 ] as const
 
