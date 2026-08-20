@@ -202,6 +202,7 @@ export default function EventRosterPage() {
         <RosterSetup
           eventId={event.id}
           eventAirports={eventAirports}
+          firCode={event.firCode ?? undefined}
           staffedStations={staffedStations}
           defaultSlotMinutes={event.signupSlotMinutes ?? 30}
           onCreated={load}

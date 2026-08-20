@@ -3092,6 +3092,7 @@ export function RosterEditor({
         onOpenChange={setSettingsOpen}
         eventId={event.id}
         eventAirports={event.airports}
+        firCode={event.firCode}
         roster={roster}
         assignments={assignments}
         eventWindow={`${minuteToHM(eventStart, 0)}z – ${minuteToHM(eventStart, totalMinutes)}z`}

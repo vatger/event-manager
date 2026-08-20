@@ -12,9 +12,13 @@ import { AlertCircleIcon, Loader2, ArrowLeft, DeleteIcon, Trash2Icon, X, Plus } 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import EventTimeSelector from "./TimeSelector";
-import StationSelector from "./StationSelector";
+import {
+  SelectedStationList,
+  StationPicker,
+} from "@/app/admin/events/[id]/roster/_components/StationPicker";
 import EventStationBookings from "./EventStationBookings";
 import { Event } from "@/types";
+import type { Station } from "@/lib/stations/types";
 import { useUser } from "@/hooks/useUser";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -159,10 +163,65 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
     }));
   }, []);
 
-  const handleStationsChange = useCallback((staffedStations: string[]) => {
-    setFormData(prev => ({ ...prev, staffedStations }));
+  const toggleStation = useCallback((callsign: string) => {
+    const cs = callsign.toUpperCase();
+    setFormData((prev) => ({
+      ...prev,
+      staffedStations: prev.staffedStations.includes(cs)
+        ? prev.staffedStations.filter((s) => s !== cs)
+        : [...prev.staffedStations, cs],
+    }));
   }, []);
-  
+
+  const [customStation, setCustomStation] = useState("");
+  const addCustomStation = () => {
+    const cs = customStation.trim().toUpperCase();
+    if (!cs) return;
+    if (formData.staffedStations.includes(cs)) {
+      toast.info(`${cs} ist bereits in der Liste`);
+      return;
+    }
+    setFormData((prev) => ({ ...prev, staffedStations: [...prev.staffedStations, cs] }));
+    setCustomStation("");
+  };
+
+  // FIR für die CTR-Stationen der Auswahl: gewählte FIR (VATGER-Lead) oder
+  // die feste FIR des Formulars.
+  const effectiveFirCode = formData.fir || fir?.code;
+
+  const [datahubStations, setDatahubStations] = useState<Station[]>([]);
+  const [loadingStations, setLoadingStations] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoadingStations(true);
+      try {
+        // CTR-Stationen hängen an der FIR, nicht an einem einzelnen Airport
+        // (z. B. EDGG_CTR) – ohne eigenen Abruf über den FIR-Code tauchen sie
+        // in der Auswahl nie auf, weil sie zu keinem Event-Airport passen.
+        const airports = effectiveFirCode
+          ? [...formData.airports, effectiveFirCode]
+          : formData.airports;
+        const results = await Promise.all(
+          airports.map(async (airport) => {
+            const res = await fetch(`/api/stations?airport=${airport}`);
+            if (!res.ok) return [] as Station[];
+            const data = await res.json();
+            return (data.stations ?? []) as Station[];
+          })
+        );
+        if (!cancelled) setDatahubStations(results.flat());
+      } catch {
+        // Datahub optional – Freitext bleibt möglich
+      } finally {
+        if (!cancelled) setLoadingStations(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.airports, effectiveFirCode]);
+
   // Handlers for airport management
   const [newAirport, setNewAirport] = useState("");
   
@@ -615,15 +674,70 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                   Welche Stationen sollen während des Events besetzt werden?
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 {formData.airports.length > 0 ? (
-                  <StationSelector
-                    airport={formData.airports[0]}
-                    selectedStations={formData.staffedStations}
-                    onStationsChange={handleStationsChange}
-                    disabled={isSaving}
-                    firCode={formData.fir || fir?.code}
-                  />
+                  <>
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">
+                        Ausgewählte Stationen ({formData.staffedStations.length})
+                      </Label>
+                      {formData.staffedStations.length === 0 ? (
+                        <Alert>
+                          <AlertCircleIcon className="h-4 w-4" />
+                          <AlertDescription>Noch keine Stationen ausgewählt.</AlertDescription>
+                        </Alert>
+                      ) : (
+                        <SelectedStationList
+                          selected={formData.staffedStations}
+                          eventAirports={formData.airports}
+                          onRemove={toggleStation}
+                        />
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">
+                        Stationen wählen ({formData.airports.join(", ")})
+                      </Label>
+                      {loadingStations ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Lade Stationen…
+                        </div>
+                      ) : datahubStations.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Keine Stationen gefunden.</p>
+                      ) : (
+                        <StationPicker
+                          selected={formData.staffedStations}
+                          available={datahubStations}
+                          eventAirports={formData.airports}
+                          onToggle={toggleStation}
+                        />
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Station manuell hinzufügen (z. B. EDMM_S_CTR)"
+                        value={customStation}
+                        onChange={(e) => setCustomStation(e.target.value)}
+                        disabled={isSaving}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addCustomStation();
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={addCustomStation}
+                        disabled={isSaving}
+                      >
+                        <Plus className="h-4 w-4 mr-1" /> Hinzufügen
+                      </Button>
+                    </div>
+                  </>
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     Bitte gebe zuerst einen gültigen ICAO-Code im Tab Grunddaten ein.

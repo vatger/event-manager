@@ -15,7 +15,7 @@ export const STATION_GROUP_ORDER: StationGroup[] = ['DEL', 'GND', 'TWR', 'APP', 
  * Examples:
  * - EDDN_TWR → TWR
  * - EDDM_APP → APP
- * - EDMM_S_CTR → CTR
+ * - EDMM_WLD_CTR → CTR
  * - EDDF_DEL → DEL
  */
 export function extractStationGroup(station: string): StationGroup | null {

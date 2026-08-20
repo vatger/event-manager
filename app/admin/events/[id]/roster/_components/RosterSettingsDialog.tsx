@@ -20,6 +20,7 @@ interface RosterSettingsDialogProps {
   onOpenChange: (open: boolean) => void;
   eventId: number;
   eventAirports: string[];
+  firCode?: string;
   roster: ApiRoster;
   assignments: Assignment[];
   /** Zeitfenster des Events, nur zur Anzeige – geändert wird es am Event */
@@ -43,6 +44,7 @@ export function RosterSettingsDialog({
   onOpenChange,
   eventId,
   eventAirports,
+  firCode,
   roster,
   assignments,
   eventWindow,
@@ -84,6 +86,7 @@ export function RosterSettingsDialog({
                 open={open}
                 eventId={eventId}
                 eventAirports={eventAirports}
+                firCode={firCode}
                 roster={roster}
                 assignments={assignments}
                 onUpdated={onUpdated}

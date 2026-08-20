@@ -15,6 +15,8 @@ import { extractStationGroup, STATION_GROUP_ORDER } from "@/lib/weeklys/stationU
 interface RosterSetupProps {
   eventId: number;
   eventAirports: string[];
+  /** FIR des Events – CTR-Stationen hängen an der FIR, nicht an einem Airport */
+  firCode?: string;
   /** Vorauswahl aus Event.staffedStations */
   staffedStations: string[];
   defaultSlotMinutes: number;
@@ -29,6 +31,7 @@ interface RosterSetupProps {
 export function RosterSetup({
   eventId,
   eventAirports,
+  firCode,
   staffedStations,
   defaultSlotMinutes,
   onCreated,
@@ -48,8 +51,12 @@ export function RosterSetup({
     let cancelled = false;
     (async () => {
       try {
+        // CTR-Stationen hängen an der FIR, nicht an einem einzelnen Airport
+        // (z. B. EDGG_CTR) – ohne eigenen Abruf über den FIR-Code tauchen sie
+        // in der Auswahl nie auf, weil sie zu keinem Event-Airport passen.
+        const airports = firCode ? [...eventAirports, firCode] : eventAirports;
         const results = await Promise.all(
-          eventAirports.map(async (airport) => {
+          airports.map(async (airport) => {
             const res = await fetch(`/api/stations?airport=${airport}`);
             if (!res.ok) return [] as Station[];
             const data = await res.json();
@@ -66,7 +73,7 @@ export function RosterSetup({
     return () => {
       cancelled = true;
     };
-  }, [eventAirports]);
+  }, [eventAirports, firCode]);
 
   const toggle = (callsign: string) => {
     const cs = callsign.toUpperCase();
@@ -173,7 +180,7 @@ export function RosterSetup({
           {/* Freitext */}
           <div className="flex gap-2">
             <Input
-              placeholder="Station manuell hinzufügen (z. B. EDMM_S_CTR)"
+              placeholder="Station manuell hinzufügen"
               value={customStation}
               onChange={(e) => setCustomStation(e.target.value)}
               onKeyDown={(e) => {

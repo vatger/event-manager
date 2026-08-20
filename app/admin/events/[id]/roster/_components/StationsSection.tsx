@@ -16,6 +16,8 @@ interface StationsSectionProps {
   open: boolean;
   eventId: number;
   eventAirports: string[];
+  /** FIR des Events – CTR-Stationen hängen an der FIR, nicht an einem Airport */
+  firCode?: string;
   roster: ApiRoster;
   assignments: Assignment[];
   onUpdated: () => void;
@@ -31,6 +33,7 @@ export function StationsSection({
   open,
   eventId,
   eventAirports,
+  firCode,
   roster,
   assignments,
   onUpdated,
@@ -54,8 +57,12 @@ export function StationsSection({
     let cancelled = false;
     (async () => {
       try {
+        // CTR-Stationen hängen an der FIR, nicht an einem einzelnen Airport
+        // (z. B. EDGG_CTR) – ohne eigenen Abruf über den FIR-Code tauchen sie
+        // in der Auswahl nie auf, weil sie zu keinem Event-Airport passen.
+        const airports = firCode ? [...eventAirports, firCode] : eventAirports;
         const results = await Promise.all(
-          eventAirports.map(async (airport) => {
+          airports.map(async (airport) => {
             const res = await fetch(`/api/stations?airport=${airport}`);
             if (!res.ok) return [] as Station[];
             const data = await res.json();
@@ -70,7 +77,7 @@ export function StationsSection({
     return () => {
       cancelled = true;
     };
-  }, [eventAirports]);
+  }, [eventAirports, firCode]);
 
   const suggestions = useMemo(
     () => datahubStations.filter((s) => !stations.includes(s.callsign.toUpperCase())),

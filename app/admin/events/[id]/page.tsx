@@ -53,6 +53,7 @@ import {
   Flag,
   Trash2,
   Search,
+  CalendarClock,
 } from "lucide-react";
 import { Event, Signup } from "@/types";
 import { toast } from "sonner";
@@ -637,11 +638,11 @@ export default function EventOverviewPage() {
           </Link>
         </Button>
         <Button asChild variant="outline" className="h-auto py-3 justify-start">
-          <Link href={`/admin/events/${event.id}/candidates`}>
-            <UserCheck className="h-4 w-4 mr-2" />
+          <Link href={`/admin/events/${event.id}/roster`}>
+            <CalendarClock className="h-4 w-4 mr-2" />
             <div className="text-left">
-              <div className="font-medium text-sm">Lotsen finden</div>
-              <div className="text-xs text-muted-foreground">Qualifizierte Controller</div>
+              <div className="font-medium text-sm">Roster</div>
+              <div className="text-xs text-muted-foreground">Besetzungsplan bearbeiten</div>
             </div>
           </Link>
         </Button>
