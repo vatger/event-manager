@@ -65,7 +65,7 @@ export function getBannerTemplate(position: string): string | null {
   if (position === "EDDM_TWR") return "EDDMTWR";
   if (position === "EDDM_APP") return "APP";
   if (position === "EDDN_TWR") return "EDDNTWR";
-  if (position === "EDDP_TWR") return "EDDPTWR";
+  if (position === "EDDP_APP") return "EDDPTWR";
   if (/^EDMM_[A-Z]+_CTR$/.test(position)) return "CTR";
   return null;
 }
@@ -101,33 +101,23 @@ export function bannerUrl(cpt: CptEntry): string {
   return `/api/cpt-banner/generate/?${params.toString()}`;
 }
 
-/** Kann dieser Browser Bilder in die Zwischenablage legen? */
-export function canCopyImages(): boolean {
-  return (
-    typeof navigator !== "undefined" &&
-    !!navigator.clipboard?.write &&
-    typeof window !== "undefined" &&
-    typeof window.ClipboardItem !== "undefined"
-  );
+/**
+ * Absolute URL des Banners – als Text kopiert (fürs Forum) taugt nur eine
+ * vollständige Adresse, der relative Pfad aus {@link bannerUrl} funktioniert
+ * nur innerhalb der App selbst.
+ */
+export function absoluteBannerUrl(cpt: CptEntry): string {
+  const path = bannerUrl(cpt);
+  if (!path) return "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}${path}`;
 }
 
-/**
- * Legt den Banner als Bild in die Zwischenablage.
- *
- * Das ClipboardItem muss noch im Klick entstehen und bekommt deshalb die
- * Zusage auf den Blob statt des fertigen Blobs – anders verweigert Safari
- * den Zugriff, weil die Nutzergeste zwischenzeitlich abgelaufen ist.
- */
-export async function copyBannerToClipboard(cpt: CptEntry): Promise<void> {
-  const url = bannerUrl(cpt);
+/** Legt den Link zum Banner (nicht das Bild selbst) in die Zwischenablage. */
+export async function copyBannerUrlToClipboard(cpt: CptEntry): Promise<void> {
+  const url = absoluteBannerUrl(cpt);
   if (!url) throw new Error("Für diese Position gibt es keine Bannervorlage");
-
-  const blob = fetch(url).then(async (res) => {
-    if (!res.ok) throw new Error("Banner konnte nicht erzeugt werden");
-    return res.blob();
-  });
-
-  await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+  await navigator.clipboard.writeText(url);
 }
 
 /** Stationsgruppe einer Position – färbt die Positions-Plakette ein. */

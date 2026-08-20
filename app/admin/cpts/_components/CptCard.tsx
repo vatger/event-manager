@@ -18,16 +18,14 @@ import {
   CheckCircle2,
   Circle,
   GraduationCap,
-  ImageIcon,
+  Link2,
   Loader2,
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CptEntry } from "../_lib/cptTypes";
 import {
-  bannerUrl,
-  canCopyImages,
-  copyBannerToClipboard,
+  copyBannerUrlToClipboard,
   formatZulu,
   hasBanner,
   isUrgent,
@@ -58,18 +56,11 @@ export function CptCard({ cpt, canEdit, busy, onTogglePosted }: CptCardProps) {
   const copyBanner = async () => {
     setCopying(true);
     try {
-      if (!canCopyImages()) {
-        // Firefox kann keine Bilder in die Zwischenablage schreiben – dort
-        // bleibt das Herunterladen der einzige Weg zum Banner.
-        window.open(bannerUrl(cpt), "_blank", "noopener,noreferrer");
-        toast.info("Dein Browser kann keine Bilder kopieren – Banner in neuem Tab geöffnet");
-        return;
-      }
-      await copyBannerToClipboard(cpt);
-      toast.success("Banner in der Zwischenablage");
+      await copyBannerUrlToClipboard(cpt);
+      toast.success("Banner-Link in der Zwischenablage");
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Banner konnte nicht kopiert werden"
+        err instanceof Error ? err.message : "Banner-Link konnte nicht kopiert werden"
       );
     } finally {
       setCopying(false);
@@ -200,9 +191,9 @@ export function CptCard({ cpt, canEdit, busy, onTogglePosted }: CptCardProps) {
             {copying ? (
               <Loader2 className="mr-1 h-4 w-4 animate-spin" />
             ) : (
-              <ImageIcon className="mr-1 h-4 w-4" />
+              <Link2 className="mr-1 h-4 w-4" />
             )}
-            Banner kopieren
+            Banner-Link kopieren
           </Button>
         )}
       </CardFooter>
