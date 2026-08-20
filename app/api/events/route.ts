@@ -65,12 +65,13 @@ export async function GET(req: Request) {
       where,
       include: {
       _count: {
-        select: { 
+        select: {
         signups: {
           where: { deletedAt: null },
         },
         },
       },
+      responsibles: { include: { user: { select: { cid: true, name: true } } } },
       },
     });
 
@@ -92,9 +93,10 @@ export async function GET(req: Request) {
       }
     }
 
-    const result = events.map(({ _count, ...event }) => ({
+    const result = events.map(({ _count, responsibles, ...event }) => ({
       ...event,
       registrations: _count?.signups ?? 0,
+      responsibles: responsibles.map((r) => r.user),
       ...(signedSet ? { isSignedUp: signedSet.has(event.id) } : {}),
     }));
 

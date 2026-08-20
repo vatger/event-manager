@@ -9,6 +9,8 @@ import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
+import { cn } from "@/lib/utils";
+import { getAvatarColor } from "@/utils/getAvatarColor";
 
 interface Props {
   event: Event;
@@ -21,9 +23,22 @@ interface Props {
 
 const MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 
+/** So viele Avatare stehen nebeneinander, der Rest wird gezählt */
+const MAX_VISIBLE_RESPONSIBLES = 4;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
 export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
   const { data: session } = useSession();
-  const { canInFIR } = useUser();
+  const { canInFIR, user } = useUser();
+
+  const responsibles = event.responsibles ?? [];
+  const isOwnResponsibility = responsibles.some((r) => r.cid === user?.cid);
+  const visibleResponsibles = responsibles.slice(0, MAX_VISIBLE_RESPONSIBLES);
+  const overflowResponsibles = responsibles.length - visibleResponsibles.length;
 
   const formatZuluRange = useMemo(() => {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -63,7 +78,12 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
   };
 
   return (
-    <Card className="relative rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 hover:border-primary/20">
+    <Card
+      className={cn(
+        "relative rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 hover:border-primary/20",
+        isOwnResponsibility && "border-primary/50 bg-primary/3 ring-1 ring-primary/20"
+      )}
+    >
       <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
         <Button
           size="icon"
@@ -105,13 +125,37 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
             <Calendar className="w-4 h-4" />
             <span>Deadline: {formattedDeadline}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant={"default"} className="capitalize">
-              {event.firCode}
-            </Badge>
-            <Badge variant={statusConfig.variant} className="capitalize">
-              {statusConfig.label}
-            </Badge>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={"default"} className="capitalize">
+                {event.firCode}
+              </Badge>
+              <Badge variant={statusConfig.variant} className="capitalize">
+                {statusConfig.label}
+              </Badge>
+            </div>
+
+            {responsibles.length > 0 && (
+              <div className="flex items-center -space-x-1.5" title="Verantwortliche">
+                {visibleResponsibles.map((r) => (
+                  <span
+                    key={r.cid}
+                    title={r.name}
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-2 ring-background",
+                      getAvatarColor(r.name)
+                    )}
+                  >
+                    {initials(r.name)}
+                  </span>
+                ))}
+                {overflowResponsibles > 0 && (
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-semibold ring-2 ring-background">
+                    +{overflowResponsibles}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
