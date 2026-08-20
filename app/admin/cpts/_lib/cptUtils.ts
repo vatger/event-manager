@@ -65,7 +65,7 @@ export function getBannerTemplate(position: string): string | null {
   if (position === "EDDM_TWR") return "EDDMTWR";
   if (position === "EDDM_APP") return "APP";
   if (position === "EDDN_TWR") return "EDDNTWR";
-  if (position === "EDDP_APP") return "EDDPTWR";
+  if (position === "EDDP_TWR") return "EDDPTWR";
   if (/^EDMM_[A-Z]+_CTR$/.test(position)) return "CTR";
   return null;
 }
