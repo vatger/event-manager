@@ -5,17 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Crosshair, Radio, User, Users } from "lucide-react";
+import { CalendarClock, Crosshair, LayoutList, Radio, Rows3, User, Users } from "lucide-react";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
-import { stationBlockColors } from "@/lib/roster/stationColors";
+import { airportTintColors, stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
 
 // Layout
 const LABEL_W = 152;
 const ROW_H = 38;
+const GROUP_H = 26;
 const PX_PER_HOUR = 108;
 /** Wie oft die Jetzt-Linie nachgeführt wird */
 const TICK_MS = 30_000;
+/** Unterhalb dieser Breite startet die Liste statt des Zeitstrahls */
+const NARROW_PX = 768;
 
 interface PublicRosterStation {
   id: number;
@@ -58,30 +61,58 @@ interface TimelineRow {
   /** Eigene Zeile (nur in der Lotsen-Ansicht) */
   own: boolean;
   blocks: PublicRosterAssignment[];
+  /** Airport der Zeile – trennt die Stationsansicht in Gruppen */
+  airport: string | null;
 }
 
 type ViewMode = "stations" | "controllers";
+/** Zeitstrahl oder untereinander gestapelte Liste */
+type Layout = "timeline" | "list";
 
 function hm(date: Date): string {
   return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
 }
 
+const airportOf = (callsign: string): string | null =>
+  /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : null;
+
 /**
  * Öffentliche Ansicht des Besetzungsplans für Teilnehmer.
  *
  * Zwei Blickwinkel auf dieselben Daten: „Stationen" beantwortet „wer sitzt auf
- * EDDF_TWR?", „Lotsen" beantwortet „wann ist wer dran?". Eine mitlaufende
- * Jetzt-Linie zeigt während des Events den aktuellen Stand, eigene Schichten
- * sind durchgehend hervorgehoben.
+ * EDDF_TWR?", „Lotsen" beantwortet „wann ist wer dran?". Beide gibt es als
+ * Zeitstrahl und als Liste – auf einem Telefon zeigt ein Zeitstrahl kaum mehr
+ * als eine Stunde, deshalb startet dort die Liste. Eine mitlaufende Jetzt-Linie
+ * zeigt während des Events den aktuellen Stand, eigene Schichten sind
+ * durchgehend hervorgehoben.
  */
 export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRosterProps) {
   const [roster, setRoster] = useState<PublicRosterData | null>(null);
   const [published, setPublished] = useState(true);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<ViewMode>("stations");
+  const [layout, setLayout] = useState<Layout>("timeline");
   const [now, setNow] = useState<Date>(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
   const didAutoScroll = useRef(false);
+
+  // Auf schmalen Geräten mit der Liste starten. Die Wahl der Darstellung fällt
+  // einmal beim Aufbau, damit ein späterer Wechsel des Nutzers nicht beim
+  // Drehen des Geräts wieder überschrieben wird; die Maße folgen dagegen
+  // weiterhin der Fensterbreite.
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${NARROW_PX - 1}px)`);
+    const apply = () => setNarrow(mq.matches);
+    apply();
+    if (mq.matches) setLayout("list");
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  // Auf dem Telefon ist jeder Pixel Beschriftung einer weniger für den Plan.
+  const labelW = narrow ? 104 : LABEL_W;
+  const pxPerHour = narrow ? 84 : PX_PER_HOUR;
 
   useEffect(() => {
     let cancelled = false;
@@ -126,7 +157,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     );
   }, [roster, eventStart]);
 
-  const pxPerMinute = PX_PER_HOUR / 60;
+  const pxPerMinute = pxPerHour / 60;
   const timelineWidth = totalMinutes * pxPerMinute;
 
   const toMin = useCallback(
@@ -143,6 +174,15 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     return m;
   }, [now, eventStart, totalMinutes]);
 
+  /** Läuft diese Schicht gerade? Ersetzt in der Liste die Jetzt-Linie. */
+  const isRunning = useCallback(
+    (a: PublicRosterAssignment) => {
+      const t = now.getTime();
+      return t >= new Date(a.startTime).getTime() && t < new Date(a.endTime).getTime();
+    },
+    [now]
+  );
+
   const ownAssignments = useMemo(() => {
     if (!roster || !userCID) return [];
     return roster.assignments
@@ -151,35 +191,54 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
   }, [roster, userCID]);
 
   /**
-   * Airports in der Reihenfolge ihres Auftretens – Grundlage der Farbvergabe,
-   * damit derselbe Airport im Editor und hier gleich aussieht.
+   * Airports in der Reihenfolge ihres Auftretens.
+   *
+   * Die Stationen kommen bereits in der im Editor festgelegten Reihenfolge, und
+   * die Gruppen leiten sich aus ihr ab (erstes Auftreten) – genau wie im Editor.
+   * Dieselbe Reihenfolge bestimmt auch die Farbvergabe, damit ein Airport hier
+   * und dort gleich aussieht.
    */
   const rosterAirports = useMemo(() => {
     const list: string[] = [];
     for (const st of roster?.stations ?? []) {
-      const ap = /^[A-Z]{4}/i.test(st.callsign) ? st.callsign.slice(0, 4).toUpperCase() : null;
+      const ap = airportOf(st.callsign);
       if (ap && !list.includes(ap)) list.push(ap);
     }
     return list;
   }, [roster]);
+
+  const multiAirport = rosterAirports.length > 1;
 
   const stationById = useMemo(
     () => new Map((roster?.stations ?? []).map((s) => [s.id, s])),
     [roster]
   );
 
+  /** Farben einer Station – Ton nach Airport, Helligkeit nach Ebene */
+  const toneFor = useCallback(
+    (callsign: string) =>
+      stationBlockColors(airportOf(callsign), extractStationGroup(callsign), rosterAirports),
+    [rosterAirports]
+  );
+
   /** Zeilen für die gewählte Ansicht */
   const rows: TimelineRow[] = useMemo(() => {
     if (!roster) return [];
     if (view === "stations") {
-      return roster.stations.map((station) => ({
+      const byStation = roster.stations.map((station) => ({
         key: `station-${station.id}`,
         title: station.callsign,
         own:
           userCID !== null &&
           roster.assignments.some((a) => a.stationId === station.id && a.userCID === userCID),
         blocks: roster.assignments.filter((a) => a.stationId === station.id),
+        airport: airportOf(station.callsign),
       }));
+      if (!multiAirport) return byStation;
+      // Nach Airport bündeln, Gruppen in der Reihenfolge ihres ersten
+      // Auftretens. Ohne diesen Schritt stünden verstreute Stationen eines
+      // Platzes auseinander, sobald jemand im Editor einzeln umsortiert hat.
+      return rosterAirports.flatMap((ap) => byStation.filter((r) => r.airport === ap));
     }
 
     // Lotsen-Ansicht: eine Zeile je Person. Custom-Blöcke (Combined, Training)
@@ -208,7 +267,10 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
           // hervorgehoben, das „Du" gehört in die knappe Unterzeile.
           subtitle: own ? `Du • ${duration}` : duration,
           own,
-          blocks: list,
+          blocks: [...list].sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+          ),
+          airport: null,
         };
       })
       .sort((a, b) => {
@@ -216,7 +278,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
         if (a.own !== b.own) return a.own ? -1 : 1;
         return a.title.localeCompare(b.title);
       });
-  }, [roster, view, userCID, toMin]);
+  }, [roster, view, userCID, toMin, multiAirport, rosterAirports]);
 
   const hourMarks = useMemo(() => {
     if (!eventStart) return [];
@@ -243,10 +305,11 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
 
   // Läuft das Event gerade, startet die Ansicht direkt beim Jetzt
   useEffect(() => {
+    if (layout !== "timeline") return;
     if (didAutoScroll.current || nowMinute === null || !scrollRef.current) return;
     didAutoScroll.current = true;
     scrollToNow();
-  }, [nowMinute, scrollToNow]);
+  }, [nowMinute, scrollToNow, layout]);
 
   if (loading) {
     return (
@@ -262,6 +325,33 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
   }
 
   if (!roster || !eventStart) return null;
+
+  /** Zeitspanne einer Schicht, überall gleich geschrieben */
+  const span = (a: PublicRosterAssignment) =>
+    `${hm(new Date(a.startTime))}–${hm(new Date(a.endTime))}z`;
+
+  /** Kopfzeile einer Airport-Gruppe im Zeitstrahl */
+  const renderGroupHeader = (airport: string) => {
+    const tint = airportTintColors(airport, rosterAirports);
+    return (
+      // Der Farbstreifen sitzt am äußeren Element, damit er auch den Bereich
+      // rechts der Zeitachse füllt – sonst bräche die Gruppe mitten in der
+      // Zeile ab, wenn das Fenster breiter ist als das Event lang.
+      <div
+        key={`group-${airport}`}
+        className="flex border-b"
+        style={{ backgroundColor: tint.background }}
+      >
+        <div
+          className="sticky left-0 z-30 border-r px-3 flex items-center shrink-0"
+          style={{ width: labelW, height: GROUP_H, backgroundColor: tint.background }}
+        >
+          <span className="text-[11px] font-semibold tracking-wide">{airport}</span>
+        </div>
+        <div className="flex-1" style={{ height: GROUP_H, minWidth: timelineWidth }} />
+      </div>
+    );
+  };
 
   return (
     <Card id="besetzungsplan" className="scroll-mt-20">
@@ -290,21 +380,18 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
             <div className="flex flex-wrap gap-2">
               {ownAssignments.map((a) => {
                 const callsign = stationById.get(a.stationId)?.callsign ?? "?";
-                const tone = stationBlockColors(
-                  /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : null,
-                  extractStationGroup(callsign),
-                  rosterAirports
-                );
+                const tone = toneFor(callsign);
                 return (
                   <span
                     key={a.id}
-                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
+                      isRunning(a) && "ring-2 ring-accent-500 ring-offset-1 ring-offset-background"
+                    )}
                     style={{ backgroundColor: tone.background, color: tone.text }}
                   >
                     {callsign}
-                    <span className="font-normal opacity-90">
-                      {hm(new Date(a.startTime))}z – {hm(new Date(a.endTime))}z
-                    </span>
+                    <span className="font-normal opacity-90">{span(a)}</span>
                   </span>
                 );
               })}
@@ -312,8 +399,8 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
           </div>
         )}
 
-        {/* Umschalter + Sprung zur aktuellen Zeit */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+        {/* Umschalter: Blickwinkel, Darstellung, Sprung zur aktuellen Zeit */}
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-lg border p-0.5">
             <button
               type="button"
@@ -342,154 +429,326 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
               Lotsen
             </button>
           </div>
-          {nowMinute !== null && (
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={scrollToNow}>
+
+          <div className="inline-flex rounded-lg border p-0.5">
+            <button
+              type="button"
+              onClick={() => setLayout("list")}
+              title="Als Liste – gut auf dem Telefon"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                layout === "list"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <LayoutList className="h-3.5 w-3.5" />
+              Liste
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayout("timeline")}
+              title="Als Zeitstrahl"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                layout === "timeline"
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Rows3 className="h-3.5 w-3.5" />
+              Zeitstrahl
+            </button>
+          </div>
+
+          {nowMinute !== null && layout === "timeline" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs ml-auto"
+              onClick={scrollToNow}
+            >
               <Crosshair className="h-3.5 w-3.5 mr-1.5" />
               Zur aktuellen Zeit
             </Button>
           )}
         </div>
 
-        {/* Timeline */}
-        <div className="border rounded-lg overflow-hidden">
-          <div ref={scrollRef} className="overflow-x-auto">
-            <div className="relative" style={{ width: LABEL_W + timelineWidth, minWidth: "100%" }}>
-              {/* Stunden-Header */}
-              <div className="flex border-b bg-muted/40">
-                <div
-                  className="sticky left-0 z-30 bg-muted/40 border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0"
-                  style={{ width: LABEL_W }}
-                >
-                  {view === "stations" ? "Station" : "Lotse"}
-                </div>
-                <div className="relative shrink-0" style={{ width: timelineWidth, height: 24 }}>
-                  {hourMarks.map((mark) => (
+        {/* Liste: eine Zeile je Station bzw. Person, Schichten als Chips.
+            Nichts scrollt seitwärts, damit auf dem Telefon alles lesbar bleibt. */}
+        {layout === "list" && (
+          <div className="border rounded-lg divide-y">
+            {rows.map((row, index) => {
+              const groupStart =
+                view === "stations" &&
+                multiAirport &&
+                row.airport !== null &&
+                (index === 0 || rows[index - 1].airport !== row.airport);
+              const tint = row.airport
+                ? airportTintColors(row.airport, rosterAirports)
+                : null;
+              const rowTone = view === "stations" ? toneFor(row.title) : null;
+              return (
+                <div key={row.key}>
+                  {groupStart && tint && (
                     <div
-                      key={mark.minute}
-                      className="absolute top-0 bottom-0 border-l border-muted-foreground/25 pl-1 text-[10px] text-muted-foreground flex items-center"
-                      style={{ left: mark.minute * pxPerMinute }}
+                      className="px-3 py-1.5 text-[11px] font-semibold tracking-wide border-b"
+                      style={{ backgroundColor: tint.background }}
                     >
-                      {mark.label}z
+                      {row.airport}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {rows.map((row) => (
-                <div
-                  key={row.key}
-                  className={cn(
-                    "flex border-b last:border-b-0",
-                    row.own && view === "controllers" && "bg-accent-500/5"
                   )}
-                >
                   <div
                     className={cn(
-                      "sticky left-0 z-30 border-r px-3 shrink-0 flex flex-col justify-center",
-                      row.own && view === "controllers" ? "bg-accent-500/10" : "bg-background"
+                      "flex flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3",
+                      row.own && view === "controllers" && "bg-accent-500/5"
                     )}
-                    style={{ width: LABEL_W, height: ROW_H }}
                   >
-                    <span
-                      className={cn(
-                        "text-sm font-medium truncate leading-tight",
-                        row.own && "text-accent-600 dark:text-accent-400"
-                      )}
-                    >
-                      {row.title}
-                    </span>
-                    {row.subtitle && (
-                      <span className="text-[10px] text-muted-foreground leading-tight">
-                        {row.subtitle}
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className="relative shrink-0"
-                    style={{
-                      width: timelineWidth,
-                      height: ROW_H,
-                      backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${PX_PER_HOUR}px)`,
-                    }}
-                  >
-                    {row.blocks.map((a) => {
-                      const start = toMin(a.startTime);
-                      const end = toMin(a.endTime);
-                      const own = userCID !== null && a.userCID === userCID;
-                      const callsign = stationById.get(a.stationId)?.callsign ?? "";
-                      const group = extractStationGroup(callsign);
-                      const tone = stationBlockColors(
-                        /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : null,
-                        group,
-                        rosterAirports
-                      );
-                      // In der Stationsansicht steht der Name im Block, in der
-                      // Lotsenansicht die Station – die jeweils andere Angabe
-                      // liefert schon die Zeilenbeschriftung.
-                      const label =
-                        a.type === "custom"
-                          ? a.label ?? "Sonstiges"
-                          : view === "stations"
-                          ? own
-                            ? "Du"
-                            : a.name
-                          : callsign;
-                      return (
-                        <div
-                          key={a.id}
-                          className={cn(
-                            "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
-                            a.type === "custom" &&
-                              "bg-station-none/70 border border-dashed border-white/40 text-white",
-                            own && "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10"
-                          )}
-                          style={{
-                            left: Math.max(0, start) * pxPerMinute,
-                            width: Math.max((end - start) * pxPerMinute, 8),
-                            ...(a.type === "custom"
-                              ? {}
-                              : { backgroundColor: tone.background, color: tone.text }),
-                          }}
-                          title={`${callsign || a.label} • ${a.name} • ${hm(new Date(a.startTime))}z – ${hm(new Date(a.endTime))}z`}
+                    <div className="flex items-center gap-2 sm:w-44 sm:shrink-0">
+                      {rowTone ? (
+                        <span
+                          className="rounded px-1.5 py-0.5 text-[11px] font-semibold"
+                          style={{ backgroundColor: rowTone.background, color: rowTone.text }}
                         >
-                          <span className="truncate">
-                            {label}
-                            <span className="opacity-80 font-normal ml-1 hidden sm:inline">
-                              {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
+                          {row.title}
+                        </span>
+                      ) : (
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            row.own && "text-accent-600 dark:text-accent-400"
+                          )}
+                        >
+                          {row.title}
+                        </span>
+                      )}
+                      {row.subtitle && (
+                        <span className="text-[11px] text-muted-foreground">{row.subtitle}</span>
+                      )}
+                    </div>
+
+                    {row.blocks.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">nicht besetzt</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {row.blocks.map((a) => {
+                          const callsign = stationById.get(a.stationId)?.callsign ?? "";
+                          const own = userCID !== null && a.userCID === userCID;
+                          const running = isRunning(a);
+                          // In der Stationsansicht steht der Name im Chip, in
+                          // der Lotsenansicht die Station – die jeweils andere
+                          // Angabe liefert schon die Zeilenbeschriftung.
+                          const who =
+                            a.type === "custom"
+                              ? a.label ?? "Sonstiges"
+                              : view === "stations"
+                              ? own
+                                ? "Du"
+                                : a.name
+                              : callsign;
+                          const chipTone =
+                            view === "controllers" && a.type !== "custom"
+                              ? toneFor(callsign)
+                              : null;
+                          return (
+                            <span
+                              key={a.id}
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs",
+                                // Laufende Schichten tragen nur das Wort
+                                // „jetzt"; ein zusätzlicher Rahmen sähe aus
+                                // wie die Markierung der eigenen Schicht.
+                                own && "border-accent-500 bg-accent-500/10 font-medium"
+                              )}
+                              style={
+                                chipTone && !own
+                                  ? {
+                                      backgroundColor: chipTone.background,
+                                      borderColor: chipTone.border,
+                                      color: chipTone.text,
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <span className="tabular-nums opacity-90">{span(a)}</span>
+                              <span className="font-medium">{who}</span>
+                              {running && (
+                                <span className="rounded-full bg-accent-500 px-1 text-[9px] font-semibold leading-4 text-white">
+                                  jetzt
+                                </span>
+                              )}
                             </span>
-                          </span>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
 
-              {rows.length === 0 && (
-                <p className="px-3 py-6 text-sm text-muted-foreground">
-                  Für diese Ansicht liegen noch keine Einträge vor.
-                </p>
-              )}
+            {rows.length === 0 && (
+              <p className="px-3 py-6 text-sm text-muted-foreground">
+                Für diese Ansicht liegen noch keine Einträge vor.
+              </p>
+            )}
+          </div>
+        )}
 
-              {/* Jetzt-Linie: liegt über allen Zeilen, aber hinter der
-                  Beschriftungsspalte (die klebt links mit höherem z-index) */}
-              {nowMinute !== null && (
-                <div
-                  className="pointer-events-none absolute top-0 bottom-0 z-20 border-l-2 border-accent-500"
-                  style={{ left: LABEL_W + nowMinute * pxPerMinute }}
-                >
-                  <span className="absolute -top-0.5 left-0 -translate-x-1/2 rounded-full bg-accent-500 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
-                    {hm(now)}z
-                  </span>
+        {/* Zeitstrahl */}
+        {layout === "timeline" && (
+          <div className="border rounded-lg overflow-hidden">
+            <div ref={scrollRef} className="overflow-x-auto">
+              <div
+                className="relative"
+                style={{ width: labelW + timelineWidth, minWidth: "100%" }}
+              >
+                {/* Stunden-Header */}
+                <div className="flex border-b bg-muted/40">
+                  <div
+                    className="sticky left-0 z-30 bg-muted/40 border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0"
+                    style={{ width: labelW }}
+                  >
+                    {view === "stations" ? "Station" : "Lotse"}
+                  </div>
+                  <div className="relative shrink-0" style={{ width: timelineWidth, height: 24 }}>
+                    {hourMarks.map((mark) => (
+                      <div
+                        key={mark.minute}
+                        className="absolute top-0 bottom-0 border-l border-muted-foreground/25 pl-1 text-[10px] text-muted-foreground flex items-center"
+                        style={{ left: mark.minute * pxPerMinute }}
+                      >
+                        {mark.label}z
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )}
+
+                {rows.map((row, index) => {
+                  const groupStart =
+                    view === "stations" &&
+                    multiAirport &&
+                    row.airport !== null &&
+                    (index === 0 || rows[index - 1].airport !== row.airport);
+                  return (
+                    <div key={row.key}>
+                      {groupStart && renderGroupHeader(row.airport!)}
+                      <div
+                        className={cn(
+                          "flex border-b",
+                          row.own && view === "controllers" && "bg-accent-500/5"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "sticky left-0 z-30 border-r px-3 shrink-0 flex flex-col justify-center",
+                            row.own && view === "controllers"
+                              ? "bg-accent-500/10"
+                              : "bg-background"
+                          )}
+                          style={{ width: labelW, height: ROW_H }}
+                        >
+                          <span
+                            className={cn(
+                              "text-sm font-medium truncate leading-tight",
+                              row.own && "text-accent-600 dark:text-accent-400"
+                            )}
+                          >
+                            {row.title}
+                          </span>
+                          {row.subtitle && (
+                            <span className="text-[10px] text-muted-foreground leading-tight">
+                              {row.subtitle}
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className="relative shrink-0"
+                          style={{
+                            width: timelineWidth,
+                            height: ROW_H,
+                            backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${pxPerHour}px)`,
+                          }}
+                        >
+                          {row.blocks.map((a) => {
+                            const start = toMin(a.startTime);
+                            const end = toMin(a.endTime);
+                            const own = userCID !== null && a.userCID === userCID;
+                            const callsign = stationById.get(a.stationId)?.callsign ?? "";
+                            const tone = toneFor(callsign);
+                            const label =
+                              a.type === "custom"
+                                ? a.label ?? "Sonstiges"
+                                : view === "stations"
+                                ? own
+                                  ? "Du"
+                                  : a.name
+                                : callsign;
+                            return (
+                              <div
+                                key={a.id}
+                                className={cn(
+                                  "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
+                                  a.type === "custom" &&
+                                    "bg-station-none/70 border border-dashed border-white/40 text-white",
+                                  own &&
+                                    "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10"
+                                )}
+                                style={{
+                                  left: Math.max(0, start) * pxPerMinute,
+                                  width: Math.max((end - start) * pxPerMinute, 8),
+                                  ...(a.type === "custom"
+                                    ? {}
+                                    : { backgroundColor: tone.background, color: tone.text }),
+                                }}
+                                title={`${callsign || a.label} • ${a.name} • ${span(a)}`}
+                              >
+                                <span className="truncate">
+                                  {label}
+                                  <span className="opacity-80 font-normal ml-1 hidden sm:inline">
+                                    {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {rows.length === 0 && (
+                  <p className="px-3 py-6 text-sm text-muted-foreground">
+                    Für diese Ansicht liegen noch keine Einträge vor.
+                  </p>
+                )}
+
+                {/* Jetzt-Linie: liegt über allen Zeilen, aber hinter der
+                    Beschriftungsspalte (die klebt links mit höherem z-index) */}
+                {nowMinute !== null && (
+                  <div
+                    className="pointer-events-none absolute top-0 bottom-0 z-20 border-l-2 border-accent-500"
+                    style={{ left: labelW + nowMinute * pxPerMinute }}
+                  >
+                    <span className="absolute -top-0.5 left-0 -translate-x-1/2 rounded-full bg-accent-500 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-white">
+                      {hm(now)}z
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <p className="text-[11px] text-muted-foreground">
-          Farbe zeigt die Art der Position (Delivery, Ground, Tower, Approach, Center).
-          {nowMinute !== null && " Die farbige Linie markiert die aktuelle Zeit."}
+          {multiAirport
+            ? "Farbton zeigt den Airport, die Helligkeit die Ebene (Delivery hell bis Center dunkel)."
+            : "Farbe zeigt die Art der Position (Delivery, Ground, Tower, Approach, Center)."}
+          {nowMinute !== null &&
+            (layout === "timeline"
+              ? " Die farbige Linie markiert die aktuelle Zeit."
+              : " Laufende Schichten sind mit „jetzt“ markiert.")}
         </p>
       </CardContent>
     </Card>

@@ -828,6 +828,18 @@ export function RosterEditor({
   const hitTest = useCallback(
     (clientX: number, clientY: number) => {
       for (const { el, kind, id } of rowRefs.current.values()) {
+        // Eine Zeile zählt nur, solange der Zeiger in ihrem eigenen
+        // Scrollbereich steht. Ohne diese Schranke gewinnen Stationszeilen,
+        // die aus ihrem Bereich herausgescrollt sind: Ihr Rechteck liegt dann
+        // rechnerisch über dem Controller-Bereich, obwohl sie dort gar nicht
+        // zu sehen sind. Beim Verschieben eines Blocks in der Zeitachse sprang
+        // er dadurch auf eine fremde Station.
+        const pane =
+          kind === "station" ? stationScrollRef.current : controllerScrollRef.current;
+        if (pane) {
+          const p = pane.getBoundingClientRect();
+          if (clientY < p.top || clientY >= p.bottom) continue;
+        }
         const rect = el.getBoundingClientRect();
         if (clientY >= rect.top && clientY < rect.bottom) {
           const minute = Math.floor((clientX - rect.left) / pxPerMinute);
