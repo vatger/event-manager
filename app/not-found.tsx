@@ -13,7 +13,7 @@ export default function NotFound() {
       <Card className="w-full max-w-md border shadow-lg">
         <CardContent className="p-8 text-center">
           {/* Icon */}
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-blue-900 flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-accent-600 dark:bg-accent-700 flex items-center justify-center">
             <Calendar className="h-10 w-10 text-white" />
           </div>
 
@@ -37,7 +37,7 @@ export default function NotFound() {
           <div className="flex flex-col gap-3">
             <Button
               onClick={() => router.push("/")}
-              className="flex items-center justify-center gap-2 bg-blue-900 text-white hover:text-black"
+              className="flex items-center justify-center gap-2 bg-accent-600 dark:bg-accent-700 hover:bg-accent-800 hover:dark:bg-accent-600 text-white"
               size="lg"
             >
               <Home className="h-4 w-4" />
