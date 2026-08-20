@@ -24,14 +24,16 @@ export function extractStationGroup(station: string): StationGroup | null {
   if (upper.includes('_DEL')) return 'DEL';
   if (upper.includes('_GND')) return 'GND';
   if (upper.includes('_TWR')) return 'TWR';
-  if (upper.includes('_APP')) return 'APP';
+  // Departure gehört zur Approach-Ebene – ein eigenes _DEP-Endorsement gibt es
+  // nicht, wer APP darf, darf auch Departure.
+  if (upper.includes('_APP') || upper.includes('_DEP')) return 'APP';
   if (upper.includes('_CTR')) return 'CTR';
   
   // Fallback: check suffix
   if (upper.endsWith('DEL')) return 'DEL';
   if (upper.endsWith('GND')) return 'GND';
   if (upper.endsWith('TWR')) return 'TWR';
-  if (upper.endsWith('APP')) return 'APP';
+  if (upper.endsWith('APP') || upper.endsWith('DEP')) return 'APP';
   if (upper.endsWith('CTR')) return 'CTR';
   
   return null;

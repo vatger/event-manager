@@ -3,14 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertCircle, Check, Loader2, Plus, X } from "lucide-react";
+import { AlertCircle, Check, Loader2, Plus } from "lucide-react";
 import type { Station } from "@/lib/stations/types";
+import { SelectedStationList, StationPicker } from "./StationPicker";
 import { extractStationGroup, STATION_GROUP_ORDER } from "@/lib/weeklys/stationUtils";
 
 interface RosterSetupProps {
@@ -68,11 +67,6 @@ export function RosterSetup({
       cancelled = true;
     };
   }, [eventAirports]);
-
-  const suggestions = useMemo(() => {
-    const known = new Set(selected);
-    return datahubStations.filter((s) => !known.has(s.callsign.toUpperCase()));
-  }, [datahubStations, selected]);
 
   const toggle = (callsign: string) => {
     const cs = callsign.toUpperCase();
@@ -147,49 +141,32 @@ export function RosterSetup({
                 <AlertDescription>Noch keine Stationen ausgewählt.</AlertDescription>
               </Alert>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {sortedSelected.map((cs) => (
-                  <Badge key={cs} variant="secondary" className="pl-2 pr-1 py-1 gap-1">
-                    {cs}
-                    <button
-                      onClick={() => toggle(cs)}
-                      className="rounded-full hover:bg-muted-foreground/20 p-0.5"
-                      aria-label={`${cs} entfernen`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
+              <SelectedStationList
+                selected={sortedSelected}
+                eventAirports={eventAirports}
+                onRemove={toggle}
+              />
             )}
           </div>
 
           {/* Vorschläge aus dem Datahub */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
-              Weitere Stationen ({eventAirports.join(", ") || "kein Airport"})
+              Stationen wählen ({eventAirports.join(", ") || "kein Airport"})
             </Label>
             {loadingStations ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Lade Stationen…
               </div>
-            ) : suggestions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine weiteren Vorschläge.</p>
+            ) : datahubStations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Keine Stationen gefunden.</p>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-56 overflow-y-auto border rounded-lg p-2">
-                {suggestions.map((s) => (
-                  <label
-                    key={s.callsign}
-                    className="flex items-center gap-2 text-sm rounded px-2 py-1.5 hover:bg-muted cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={false}
-                      onCheckedChange={() => toggle(s.callsign)}
-                    />
-                    <span className="truncate">{s.callsign}</span>
-                  </label>
-                ))}
-              </div>
+              <StationPicker
+                selected={selected}
+                available={datahubStations}
+                eventAirports={eventAirports}
+                onToggle={toggle}
+              />
             )}
           </div>
 

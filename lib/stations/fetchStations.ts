@@ -12,12 +12,16 @@ interface DataHubStation {
   s1_twr: boolean,
   s1_theory: boolean
 }
-// Gruppe anhand des Callsigns bestimmen
+// Gruppe anhand des Callsigns bestimmen.
+// Departure zählt zur Approach-Ebene: Es gibt kein eigenes _DEP-Endorsement,
+// wer APP freigegeben hat, darf auch Departure. Ohne diese Zuordnung fielen
+// alle _DEP-Stationen unten aus der Liste – sie tauchten dann weder in der
+// Stationsauswahl noch in der Freigabeprüfung auf.
 function inferGroupFromLogon(logon: string): StationGroup | undefined {
   if (logon.endsWith("_DEL")) return "DEL";
   if (logon.endsWith("_GND")) return "GND";
   if (logon.endsWith("_TWR")) return "TWR";
-  if (logon.endsWith("_APP")) return "APP";
+  if (logon.endsWith("_APP") || logon.endsWith("_DEP")) return "APP";
   if (logon.endsWith("_CTR")) return "CTR";
   return undefined;
 }

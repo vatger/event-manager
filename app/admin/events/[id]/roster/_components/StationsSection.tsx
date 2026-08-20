@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus } from "lucide-react";
 import type { Station } from "@/lib/stations/types";
 import type { ApiRoster, Assignment } from "../_lib/rosterTypes";
+import { SelectedStationList, StationPicker } from "./StationPicker";
 
 interface StationsSectionProps {
   /** Beim Öffnen des Dialogs die Eingaben auf den gespeicherten Stand setzen */
@@ -132,28 +132,14 @@ export function StationsSection({
     <div className="space-y-4">
           <div>
             <Label className="text-sm font-medium mb-2 block">
-              Stationen ({stations.length})
+              Ausgewählt ({stations.length})
             </Label>
-            <div className="flex flex-wrap gap-1.5">
-              {stations.map((cs) => {
-                const count = assignmentCountFor(cs);
-                return (
-                  <Badge key={cs} variant="secondary" className="pl-2 pr-1 py-1 gap-1">
-                    {cs}
-                    {count > 0 && (
-                      <span className="text-[10px] text-muted-foreground">({count})</span>
-                    )}
-                    <button
-                      onClick={() => setStations((prev) => prev.filter((s) => s !== cs))}
-                      className="rounded-full hover:bg-muted-foreground/20 p-0.5"
-                      aria-label={`${cs} entfernen`}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                );
-              })}
-            </div>
+            <SelectedStationList
+              selected={stations}
+              eventAirports={eventAirports}
+              onRemove={(cs) => setStations((prev) => prev.filter((s) => s !== cs))}
+              countFor={assignmentCountFor}
+            />
           </div>
 
           {removedWithAssignments.length > 0 && (
@@ -166,6 +152,22 @@ export function StationsSection({
                   .join(", ")}
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Auswahl nach Airport gegliedert – bei mehreren Plätzen ist eine
+              gemischte Liste unbrauchbar. */}
+          {datahubStations.length > 0 && (
+            <StationPicker
+              selected={stations}
+              available={datahubStations}
+              eventAirports={eventAirports}
+              onToggle={(cs) =>
+                setStations((prev) =>
+                  prev.includes(cs) ? prev.filter((s) => s !== cs) : [...prev, cs]
+                )
+              }
+              countFor={assignmentCountFor}
+            />
           )}
 
           <div className="flex gap-2">

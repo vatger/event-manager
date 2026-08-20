@@ -57,8 +57,9 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { getBadgeClassForEndorsement, getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
+import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { cn } from "@/lib/utils";
+import { stationBlockColors } from "@/lib/roster/stationColors";
 import {
   CUSTOM_BLOCK_COLORS,
   CUSTOM_BLOCK_COLOR_DOT,
@@ -66,6 +67,7 @@ import {
   customBlockClass,
 } from "@/lib/roster/blockColors";
 import type { SignupTableEntry } from "@/lib/cache/types";
+import { STATION_GROUP_ORDER } from "@/lib/weeklys/stationUtils";
 import type { RosterPresenceUser } from "@/lib/roster/rosterEvents";
 import type {
   ApiRoster,
@@ -100,7 +102,7 @@ import {
   warningKey,
 } from "../_lib/rosterUtils";
 import { AirportChips } from "./AirportChips";
-import { ControllerFilterBar } from "./ControllerFilterBar";
+import { ControllerFilterBar, type ControllerSort } from "./ControllerFilterBar";
 import { InfoColumnContextMenu, InfoColumnControls } from "./InfoColumnMenu";
 import {
   DEFAULT_INFO_FIELDS,
@@ -131,6 +133,8 @@ const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
 const REMARKS_PREF_KEY = "roster:showRemarks";
 const COLLAPSE_PREF_KEY = "roster:collapsedAirports";
 const INFO_FIELDS_PREF_KEY = "roster:infoFields";
+const SPLIT_PREF_KEY = "roster:stationsHeight";
+const MIN_PANE = 120; // Mindesthöhe je Bereich
 const UNDO_LIMIT = 40; // so viele Schritte lassen sich zurücknehmen
 
 interface EditorEvent {
@@ -165,12 +169,6 @@ interface DragValidity {
   valid: boolean;
   warn: boolean;
   reason: string | null;
-}
-
-// Farbschema pro Stationsgruppe für Zuweisungsblöcke
-// (kategoriale Stations-Palette aus globals.css, siehe utils/EndorsementBadge)
-function blockColor(group: string | null): string {
-  return getSolidClassForStationGroup(group);
 }
 
 export function RosterEditor({
@@ -309,7 +307,7 @@ export function RosterEditor({
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [controllerSearch, setControllerSearch] = useState("");
-  const [controllerSort, setControllerSort] = useState<"name" | "assigned" | "flag">("name");
+  const [controllerSort, setControllerSort] = useState<ControllerSort>("group");
   // Infospalte: Wünsche, Remarks und interne Notiz aller Controller nebeneinander
   const [showRemarks, setShowRemarks] = useState(true);
   // Filter auf Ampel-Markierungen (leer = alle zeigen)
@@ -370,6 +368,72 @@ export function RosterEditor({
       window.localStorage.setItem(INFO_FIELDS_PREF_KEY, JSON.stringify([...next]));
       return next;
     });
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Getrennte Scrollbereiche: senkrecht unabhängig, waagerecht im Gleichschritt
+  // ------------------------------------------------------------------
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const stationScrollRef = useRef<HTMLDivElement>(null);
+  const controllerScrollRef = useRef<HTMLDivElement>(null);
+  // Verhindert, dass das programmgesteuerte Setzen erneut ein Ereignis auslöst
+  const syncingRef = useRef(false);
+
+  const syncHorizontal = useCallback((source: "header" | "station" | "controller") => {
+    if (syncingRef.current) return;
+    const from =
+      source === "header"
+        ? headerScrollRef.current
+        : source === "station"
+        ? stationScrollRef.current
+        : controllerScrollRef.current;
+    if (!from) return;
+    syncingRef.current = true;
+    for (const [key, el] of [
+      ["header", headerScrollRef.current],
+      ["station", stationScrollRef.current],
+      ["controller", controllerScrollRef.current],
+    ] as const) {
+      if (key !== source && el && el.scrollLeft !== from.scrollLeft) {
+        el.scrollLeft = from.scrollLeft;
+      }
+    }
+    // Erst im nächsten Frame freigeben, sonst laufen die ausgelösten
+    // Scroll-Ereignisse noch in dieselbe Runde.
+    requestAnimationFrame(() => {
+      syncingRef.current = false;
+    });
+  }, []);
+
+  /** Höhe des Stationsbereichs; der Rest gehört den Controllern */
+  const [stationsHeight, setStationsHeight] = useState(280);
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SPLIT_PREF_KEY);
+    const value = stored ? Number(stored) : NaN;
+    if (!isNaN(value) && value >= MIN_PANE && value <= 1200) setStationsHeight(value);
+  }, []);
+
+  const startSplitDrag = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = stationScrollRef.current?.getBoundingClientRect().height ?? 280;
+    const container = stationScrollRef.current?.parentElement;
+    const maxHeight = container
+      ? Math.max(MIN_PANE, container.getBoundingClientRect().height - MIN_PANE - 90)
+      : 900;
+
+    const onMove = (ev: PointerEvent) => {
+      const next = clamp(startHeight + (ev.clientY - startY), MIN_PANE, maxHeight);
+      setStationsHeight(next);
+    };
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      const next = clamp(startHeight + (ev.clientY - startY), MIN_PANE, maxHeight);
+      window.localStorage.setItem(SPLIT_PREF_KEY, String(Math.round(next)));
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }, []);
 
   // Beide Boards teilen sich den Nullpunkt des Zeitstrahls, deshalb gilt die
@@ -1688,7 +1752,19 @@ export function RosterEditor({
     list = list.filter(
       (c) => !c.withdrawn || assignments.some((a) => a.userCID === c.cid)
     );
-    if (controllerSort === "assigned") {
+    if (controllerSort === "group") {
+      // Nach Ebene DEL → CTR: Wer nur Delivery darf, steht oben. Das entspricht
+      // der Reihenfolge, in der ein Plan meist gefüllt wird – und stellt die
+      // wenigen hochberechtigten Leute ans Ende, wo man sie gezielt sucht.
+      const rank = (c: RosterController) => {
+        const group = airportFilter
+          ? getControllerGroupForStation(c.entry, airportFilter, event.airports)
+          : getControllerGroupForStation(c.entry, null, event.airports);
+        const idx = group ? STATION_GROUP_ORDER.indexOf(group) : -1;
+        return idx < 0 ? STATION_GROUP_ORDER.length : idx;
+      };
+      list = [...list].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    } else if (controllerSort === "assigned") {
       list = [...list].sort(
         (a, b) => (assignedMinutes.get(b.cid) ?? 0) - (assignedMinutes.get(a.cid) ?? 0)
       );
@@ -1905,15 +1981,24 @@ export function RosterEditor({
         (w) => w.type === "not_eligible" || w.type === "missing_familiarization"
       ) || hasExcluded;
 
-    let colorCls = isCustom ? customBlockClass(a.color) : blockColor(meta?.group ?? null);
+    // Controller-Blöcke: Farbton vom Airport, Helligkeit von der Ebene.
+    // Custom-Blöcke behalten ihre frei gewählte Farbe als Klasse.
+    const tone = isCustom
+      ? null
+      : stationBlockColors(meta?.airport ?? null, meta?.group ?? null, event.airports);
+    let colorCls = isCustom ? customBlockClass(a.color) : "";
+    let colorStyle: React.CSSProperties = tone
+      ? { backgroundColor: tone.background, borderColor: tone.border, color: tone.text }
+      : {};
     // Problemfälle bekommen einen deutlichen Rahmen, behalten aber die
     // Stationsfarbe – so bleibt die Zuordnung erkennbar.
     if (!isDragTarget && (hasWithdrawn || hasIneligible)) {
       colorCls += " ring-2 ring-inset ring-danger-500";
     }
     if (isDragTarget && dragValidity) {
-      if (!dragValidity.valid) colorCls = "bg-destructive/80 border-destructive";
-      else if (dragValidity.warn) colorCls = "bg-amber-500/85 border-amber-600";
+      colorStyle = {};
+      if (!dragValidity.valid) colorCls = "bg-destructive/80 border-destructive text-white";
+      else if (dragValidity.warn) colorCls = "bg-amber-500/85 border-amber-600 text-white";
     }
 
     const who = isCustom ? a.label ?? "Custom" : controller?.name ?? `CID ${a.userCID}`;
@@ -1922,15 +2007,16 @@ export function RosterEditor({
     return (
       <div
         key={`${board}-${a.id}`}
-        className={`absolute top-1 bottom-1 rounded-md border text-white shadow-sm select-none overflow-hidden group ${colorCls} ${
-          canEdit ? "cursor-grab active:cursor-grabbing" : ""
-        } ${selected ? "ring-2 ring-offset-1 ring-primary" : ""} ${
-          isDragTarget ? "opacity-90 z-30" : "z-10"
-        }`}
+        className={`absolute top-1 bottom-1 rounded-md border shadow-sm select-none overflow-hidden group ${
+          tone ? "" : "text-white"
+        } ${colorCls} ${canEdit ? "cursor-grab active:cursor-grabbing" : ""} ${
+          selected ? "ring-2 ring-offset-1 ring-primary" : ""
+        } ${isDragTarget ? "opacity-90 z-30" : "z-10"}`}
         style={{
           left: a.start * pxPerMinute,
           width: Math.max((a.end - a.start) * pxPerMinute, 8),
           touchAction: "none",
+          ...colorStyle,
         }}
         onPointerDown={(e) => startMove(e, a)}
         title={`${station?.callsign ?? "?"} • ${who}\n${minuteToHM(eventStart, a.start)}z – ${minuteToHM(eventStart, a.end)}z (${formatDuration(a.end - a.start)})${
@@ -2420,11 +2506,22 @@ export function RosterEditor({
             </div>
           )}
 
-          {/* Gemeinsamer Scroll-Container für beide Boards (füllt den Bereich) */}
-          <div className="flex-1 min-h-0 overflow-auto m-3 border rounded-xl bg-background">
-            <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
+          {/*
+            Stationen und Controller scrollen senkrecht getrennt: So bleibt der
+            Blick auf die Stationen, während man unten durch die Anmeldungen
+            geht – beim Besetzen schaut man ständig zwischen beidem hin und her.
+            Waagerecht laufen sie dagegen im Gleichschritt, sonst zeigten die
+            beiden Zeitachsen verschiedene Ausschnitte.
+          */}
+          <div className="flex-1 min-h-0 m-3 border rounded-xl bg-background flex flex-col overflow-hidden">
             {/* Zeit-Header */}
-            <div className="flex sticky top-0 z-40 bg-background border-b">
+            <div
+              ref={headerScrollRef}
+              onScroll={() => syncHorizontal("header")}
+              className="shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
+            <div className="flex bg-background border-b">
               <div
                 className="sticky left-0 z-50 bg-background border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0 flex items-end"
                 style={{ width: labelWidth }}
@@ -2447,7 +2544,17 @@ export function RosterEditor({
                 ))}
               </div>
             </div>
+              </div>
+            </div>
 
+            {/* Stationen: eigener Scrollbereich */}
+            <div
+              ref={stationScrollRef}
+              onScroll={() => syncHorizontal("station")}
+              className="shrink-0 overflow-auto"
+              style={{ height: stationsHeight }}
+            >
+              <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
             {/* Stationen-Board, bei mehreren Airports nach Airport gebündelt */}
             {stationGroups.map((group, groupIndex) => {
               const collapsed = group.airport !== null && collapsedAirports.has(group.airport);
@@ -2521,10 +2628,39 @@ export function RosterEditor({
               );
             })}
 
-            {/* Trenner + Controller-Header */}
-            <div className="flex bg-muted/50 border-y">
+              </div>
+            </div>
+
+            {/* Ziehbarer Trenner zwischen den Bereichen */}
+            <div
+              onPointerDown={startSplitDrag}
+              onKeyDown={(e) => {
+                const step = e.shiftKey ? 60 : 20;
+                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setStationsHeight((h) => {
+                    const next = Math.max(MIN_PANE, h + (e.key === "ArrowDown" ? step : -step));
+                    window.localStorage.setItem(SPLIT_PREF_KEY, String(next));
+                    return next;
+                  });
+                }
+              }}
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="Aufteilung zwischen Stationen und Controllern"
+              aria-valuenow={Math.round(stationsHeight)}
+              tabIndex={0}
+              className="group/split shrink-0 h-2 cursor-row-resize bg-muted/60 hover:bg-accent-500/30 focus-visible:bg-accent-500/40 focus-visible:outline-none transition-colors flex items-center justify-center"
+              title="Aufteilung ziehen (auch mit den Pfeiltasten)"
+              style={{ touchAction: "none" }}
+            >
+              <span className="h-0.5 w-8 rounded-full bg-muted-foreground/40 group-hover/split:bg-accent-500" />
+            </div>
+
+            {/* Controller-Kopf: bleibt stehen, während beide Seiten scrollen */}
+            <div className="flex bg-muted/50 border-b shrink-0">
               <div
-                className="sticky left-0 z-20 bg-muted/50 border-r pl-3 pr-1 py-1.5 shrink-0 flex items-center"
+                className="bg-muted/50 border-r pl-3 pr-1 py-1.5 shrink-0 flex items-center"
                 style={{ width: labelWidth }}
               >
                 <span className="text-xs font-semibold text-muted-foreground">
@@ -2540,10 +2676,7 @@ export function RosterEditor({
                   />
                 </div>
               </div>
-              <div
-                className="sticky z-20 px-3 py-1.5 w-fit"
-                style={{ left: labelWidth }}
-              >
+              <div className="px-3 py-1.5 min-w-0 flex-1 overflow-x-auto">
                 <ControllerFilterBar
                   visibleCount={visibleControllers.length}
                   totalCount={controllers.length}
@@ -2581,7 +2714,13 @@ export function RosterEditor({
               </div>
             </div>
 
-            {/* Controller-Board */}
+            {/* Controller: eigener Scrollbereich */}
+            <div
+              ref={controllerScrollRef}
+              onScroll={() => syncHorizontal("controller")}
+              className="flex-1 min-h-0 overflow-auto"
+            >
+              <div style={{ width: labelWidth + timelineWidth, minWidth: "100%" }}>
             {visibleControllers.map((c) => {
               const minutes = assignedMinutes.get(c.cid) ?? 0;
               // Bei einem Airport – oder wenn auf einen eingegrenzt wurde –
@@ -2828,6 +2967,7 @@ export function RosterEditor({
                 Keine Controller gefunden.
               </div>
             )}
+              </div>
             </div>
           </div>
 

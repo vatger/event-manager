@@ -19,7 +19,7 @@ import {
 } from "@/lib/roster/rosterFlags";
 import type { RosterStation } from "../_lib/rosterTypes";
 
-export type ControllerSort = "name" | "assigned" | "flag";
+export type ControllerSort = "group" | "name" | "assigned" | "flag";
 
 interface ControllerFilterBarProps {
   /** Anzahl der Zeilen nach Filterung, für die Kopfzeile */
@@ -240,6 +240,7 @@ export function ControllerFilterBar({
           <ArrowDownUp className="h-3.5 w-3.5" />
         </SelectTrigger>
         <SelectContent align="end">
+          <SelectItem value="group">Nach Freigabe (DEL → CTR)</SelectItem>
           <SelectItem value="name">Nach Name</SelectItem>
           <SelectItem value="assigned">Nach eingeplanter Zeit</SelectItem>
           <SelectItem value="flag">Nach Markierung</SelectItem>

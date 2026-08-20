@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CalendarClock, Crosshair, Radio, User, Users } from "lucide-react";
-import { getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
+import { stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
 
 // Layout
@@ -150,6 +150,19 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [roster, userCID]);
 
+  /**
+   * Airports in der Reihenfolge ihres Auftretens – Grundlage der Farbvergabe,
+   * damit derselbe Airport im Editor und hier gleich aussieht.
+   */
+  const rosterAirports = useMemo(() => {
+    const list: string[] = [];
+    for (const st of roster?.stations ?? []) {
+      const ap = /^[A-Z]{4}/i.test(st.callsign) ? st.callsign.slice(0, 4).toUpperCase() : null;
+      if (ap && !list.includes(ap)) list.push(ap);
+    }
+    return list;
+  }, [roster]);
+
   const stationById = useMemo(
     () => new Map((roster?.stations ?? []).map((s) => [s.id, s])),
     [roster]
@@ -277,13 +290,16 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
             <div className="flex flex-wrap gap-2">
               {ownAssignments.map((a) => {
                 const callsign = stationById.get(a.stationId)?.callsign ?? "?";
+                const tone = stationBlockColors(
+                  /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : null,
+                  extractStationGroup(callsign),
+                  rosterAirports
+                );
                 return (
                   <span
                     key={a.id}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-white",
-                      getSolidClassForStationGroup(extractStationGroup(callsign))
-                    )}
+                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
+                    style={{ backgroundColor: tone.background, color: tone.text }}
                   >
                     {callsign}
                     <span className="font-normal opacity-90">
@@ -402,6 +418,11 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                       const own = userCID !== null && a.userCID === userCID;
                       const callsign = stationById.get(a.stationId)?.callsign ?? "";
                       const group = extractStationGroup(callsign);
+                      const tone = stationBlockColors(
+                        /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : null,
+                        group,
+                        rosterAirports
+                      );
                       // In der Stationsansicht steht der Name im Block, in der
                       // Lotsenansicht die Station – die jeweils andere Angabe
                       // liefert schon die Zeilenbeschriftung.
@@ -417,15 +438,17 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                         <div
                           key={a.id}
                           className={cn(
-                            "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium text-white",
-                            a.type === "custom"
-                              ? "bg-station-none/70 border border-dashed border-white/40"
-                              : getSolidClassForStationGroup(group),
+                            "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
+                            a.type === "custom" &&
+                              "bg-station-none/70 border border-dashed border-white/40 text-white",
                             own && "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10"
                           )}
                           style={{
                             left: Math.max(0, start) * pxPerMinute,
                             width: Math.max((end - start) * pxPerMinute, 8),
+                            ...(a.type === "custom"
+                              ? {}
+                              : { backgroundColor: tone.background, color: tone.text }),
                           }}
                           title={`${callsign || a.label} • ${a.name} • ${hm(new Date(a.startTime))}z – ${hm(new Date(a.endTime))}z`}
                         >
