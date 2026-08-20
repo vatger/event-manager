@@ -34,11 +34,16 @@ export async function GET(req: NextRequest) {
     select: { cid: true, name: true },
   };
 
+  // Aufgaben vergangener Events sind für die Übersicht irrelevant – ein Event
+  // gilt erst nach seinem Ende als vorbei, nicht schon nach Beginn.
+  const now = new Date();
+
   // Always fetch myTasks (assigned to current user, open/in-progress)
   const myTasks = await prisma.eventTask.findMany({
     where: {
       assigneeCID: cid,
       status: { in: ["OPEN", "IN_PROGRESS"] },
+      event: { endTime: { gte: now } },
     },
     include: {
       event: eventInclude,
@@ -51,11 +56,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ myTasks, allTasks: [] });
   }
 
-  // view === "all": return all tasks across non-cancelled events (all statuses)
+  // view === "all": return all tasks across non-cancelled, not-yet-ended events (all statuses)
   const allTasks = await prisma.eventTask.findMany({
     where: {
       event: {
         status: { notIn: ["CANCELLED"] },
+        endTime: { gte: now },
         ...(firCode ? { firCode } : {}),
       },
     },

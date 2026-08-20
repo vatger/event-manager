@@ -30,15 +30,8 @@ const eventAdminTabs: {
     badge: "count"
   },
   {
-    id: "candidates",
-    label: "Potenzielle Lotsen",
-    href: "/candidates", 
-    icon: UserCheck,
-    badge: "count"
-  },
-  {
     id: "roster",
-    label: "Roster (WIP)",
+    label: "Roster",
     href: "/roster",
     icon: CalendarClock,
   },
@@ -47,6 +40,13 @@ const eventAdminTabs: {
     label: "Aufgaben",
     href: "/tasks",
     icon: ClipboardList,
+  },
+  {
+    id: "candidates",
+    label: "Potenzielle Lotsen",
+    href: "/candidates", 
+    icon: UserCheck,
+    badge: "count"
   },
   {
     id: "notify",
