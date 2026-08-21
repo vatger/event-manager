@@ -1,4 +1,5 @@
 import { parseCptDate } from "@/lib/cpt/cptDate";
+import { berlinDateParts } from "@/lib/time/berlinTime";
 import type { CptEntry } from "./cptTypes";
 
 export { parseCptDate };
@@ -52,6 +53,13 @@ export function formatTimeZulu(dateString: string): string {
   return `${parseCptDate(dateString).toISOString().slice(11, 16)}z`;
 }
 
+/** Ortszeit (Europe/Berlin) im Stil der Eventkarten: „15 DEC 25 | 1900" */
+export function formatLocal(dateString: string): string {
+  const { year, month, day, hour, minute } = berlinDateParts(parseCptDate(dateString));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(day)} ${MONTHS[month]} ${String(year).slice(2)} | ${pad(hour)}${pad(minute)}lcl`;
+}
+
 /** ISO-Datum (YYYY-MM-DD) für den Banner-Generator. */
 export function formatDateIso(dateString: string): string {
   return parseCptDate(dateString).toISOString().slice(0, 10);
@@ -65,7 +73,7 @@ export function getBannerTemplate(position: string): string | null {
   if (position === "EDDM_TWR") return "EDDMTWR";
   if (position === "EDDM_APP") return "APP";
   if (position === "EDDN_TWR") return "EDDNTWR";
-  if (position === "EDDP_TWR") return "EDDPTWR";
+  if (position === "EDDP_APP") return "EDDPTWR";
   if (/^EDMM_[A-Z]+_CTR$/.test(position)) return "CTR";
   return null;
 }

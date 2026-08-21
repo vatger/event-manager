@@ -21,6 +21,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { berlinWallClockToUtc } from "@/lib/time/berlinTime";
 import {
   createEventBookings,
   deleteEventBookings,
@@ -162,39 +163,6 @@ export async function releaseBookings(reference: string): Promise<BookingSyncRes
 export async function getBookings(reference: string): Promise<VatgerBooking[]> {
   if (!isBookingApiConfigured()) return [];
   return listEventBookings(reference);
-}
-
-/**
- * Rechnet eine Ortszeit (Europe/Berlin) in einen UTC-Zeitpunkt um.
- *
- * Weeklys speichern das Datum als UTC-Mitternacht und die Uhrzeiten als
- * "HH:mm" in Ortszeit; für die Buchung braucht die Homepage UTC.
- */
-function berlinWallClockToUtc(year: number, month: number, day: number, hours: number, minutes: number): Date {
-  const naiveUtc = Date.UTC(year, month, day, hours, minutes);
-  // Zwei Durchläufe, damit auch die Zeitumstellung sauber getroffen wird.
-  let result = naiveUtc - berlinOffsetMinutes(new Date(naiveUtc)) * 60_000;
-  result = naiveUtc - berlinOffsetMinutes(new Date(result)) * 60_000;
-  return new Date(result);
-}
-
-function berlinOffsetMinutes(instant: Date): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Berlin",
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(instant);
-
-  const value = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? "0");
-  const hour = value("hour") % 24; // Intl liefert je nach Umgebung "24" für Mitternacht
-  const asUtc = Date.UTC(value("year"), value("month") - 1, value("day"), hour, value("minute"), value("second"));
-
-  return Math.round((asUtc - instant.getTime()) / 60_000);
 }
 
 function parseTimeOfDay(value: string | null | undefined, fallbackHours: number): [number, number] {

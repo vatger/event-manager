@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { CptEntry } from "../_lib/cptTypes";
 import {
   copyBannerUrlToClipboard,
+  formatLocal,
   formatZulu,
   hasBanner,
   isUrgent,
@@ -89,7 +90,7 @@ export function CptCard({ cpt, canEdit, busy, onTogglePosted }: CptCardProps) {
             </CardTitle>
             <CardDescription className="mt-1 flex flex-wrap items-center gap-1">
               <Calendar className="h-4 w-4 shrink-0" />
-              <span className="tabular-nums">{formatZulu(cpt.date)}</span>
+              <span className="tabular-nums">{formatLocal(cpt.date)}</span>
               <span className="mx-1">•</span>
               <span>{relativeDay(cpt.date)}</span>
             </CardDescription>
