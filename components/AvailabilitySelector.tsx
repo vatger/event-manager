@@ -46,16 +46,36 @@ function toMinutes(t: string) {
   return h * 60 + m
 }
 
+const MINUTES_PER_DAY = 1440
+
+/**
+ * Minuten → "HH:mm".
+ *
+ * Bei Events über Mitternacht laufen die Minuten über den Tagesrand hinaus
+ * (00:00 des Folgetags ist Minute 1440). Die Beschriftung soll trotzdem eine
+ * Uhrzeit sein, deshalb wird auf 24 Stunden zurückgefaltet.
+ */
 function fromMinutes(mins: number) {
-  const h = Math.floor(mins / 60)
-  const m = mins % 60
+  const wrapped = ((mins % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+  const h = Math.floor(wrapped / 60)
+  const m = wrapped % 60
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
 }
 
+/**
+ * Zeitraster des Events als Liste von "HH:mm"-Marken.
+ *
+ * Start und Ende kommen als reine Uhrzeit ohne Datum. Liegt das Ende nicht
+ * hinter dem Start (z. B. 18:00–00:00), gehört es zum Folgetag und bekommt
+ * einen Tag aufgeschlagen – sonst liefe die Schleife nie und die Auswahl
+ * bliebe leer. Gleichstand gilt dabei als volle 24 Stunden, wie es auch
+ * hmRangeToMinutes in lib/roster/rosterTime.ts auslegt.
+ */
 function generateSlots(start: string, end: string, slotDuration = 30): string[] {
   const out: string[] = []
   let cur = toMinutes(start)
-  const endMin = toMinutes(end)
+  let endMin = toMinutes(end)
+  if (endMin <= cur) endMin += MINUTES_PER_DAY
   while (cur < endMin) {
     out.push(fromMinutes(cur))
     cur += slotDuration
