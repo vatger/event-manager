@@ -1,4 +1,4 @@
-import { AirportLevel, RuleInput, RuleResult, levelRank } from '../types';
+import { RuleInput, RuleResult, levelRank } from '../types';
 import { EndorsementService } from '@/lib/endorsements/endorsementService';
 
 /**
@@ -10,6 +10,10 @@ import { EndorsementService } from '@/lib/endorsements/endorsementService';
 export function tier1Rule(input: RuleInput): RuleResult {
   const { level, policy, data } = input;
 
+  // CTR is not tied to an airport policy: center sectors come with the FIR
+  // endorsement. Tier-1 center stations (gcapStatus "1") do require the
+  // endorsement for that exact position, but that is a per-station question
+  // and is checked where the station is known (roster eligibility), not here.
   if(level == "CTR") {
     return { allowed: true }
   }

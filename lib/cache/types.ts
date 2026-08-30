@@ -41,6 +41,14 @@ export interface EventEndorsementData {
   restrictions: string[];
   /** Familiarisierte Sektoren im FIR – nötig zur Prüfung von CTR-Positionen */
   familiarizations: string[];
+  /**
+   * Gehaltene Center-Positionen – Endorsements und Solos.
+   *
+   * Tier-1-Center-Stationen (gcapStatus "1") verlangen die Freigabe für genau
+   * diese Position; die Ebene CTR allein genügt dort nicht. Ein Solo auf der
+   * Position zählt mit, wie schon bei den Tier-1-Airports.
+   */
+  ctrPositions: string[];
 }
 
 /**
@@ -50,11 +58,19 @@ export interface EventEndorsementData {
 export function extractMinimalEndorsementData(
   response: EndorsementResponse
 ): EventEndorsementData {
+  const ctrPositions = [
+    ...(response.endorsements ?? []),
+    ...(response.data?.solos ?? []),
+  ]
+    .filter((p) => p.toUpperCase().endsWith("_CTR"))
+    .map((p) => p.toUpperCase());
+
   return {
     group: response.group,
     allowedLevels: response.allowedLevels ?? [],
     restrictions: response.restrictions,
     familiarizations: response.familiarizations ?? [],
+    ctrPositions: [...new Set(ctrPositions)],
   };
 }
 

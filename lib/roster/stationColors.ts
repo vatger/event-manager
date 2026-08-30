@@ -48,7 +48,7 @@ export interface BlockColors {
  * der Liste (etwa FIR-weite Center-Stationen) bekommen einen stabilen Ton aus
  * ihrem Namen, damit sie sich wenigstens untereinander unterscheiden.
  */
-export function airportHue(airport: string | null, eventAirports: string[]): number | null {
+function airportHue(airport: string | null, eventAirports: string[]): number | null {
   if (!airport) return null;
   const index = eventAirports.findIndex((a) => a.toUpperCase() === airport.toUpperCase());
   if (index >= 0) return AIRPORT_HUES[index % AIRPORT_HUES.length];

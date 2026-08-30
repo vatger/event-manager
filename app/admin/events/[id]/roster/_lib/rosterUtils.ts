@@ -87,10 +87,12 @@ export function resolveStationMeta(
   const meta = datahub.get(callsign.toUpperCase());
   if (meta) return meta;
   return {
+    callsign: callsign.toUpperCase(),
     group: extractStationGroup(callsign),
     airport: /^[A-Z]{4}/i.test(callsign) ? callsign.substring(0, 4).toUpperCase() : null,
     s1Twr: false,
     requiredFamiliarizations: [],
+    gcapStatus: null,
   };
 }
 
@@ -143,6 +145,12 @@ export type EligibilityResult =
       reason: "missing_familiarization";
       /** Sektoren der Gruppe, für die keine Familiarisierung vorliegt */
       missing: string[];
+    }
+  | {
+      ok: false;
+      reason: "missing_ctr_endorsement";
+      /** Die Tier-1-Position, für die die Freigabe fehlt */
+      callsign: string;
     };
 
 /** Hat der Controller diesen Airport bei der Anmeldung ausgeschlossen? */
@@ -228,6 +236,23 @@ export function checkEligibility(
       allowed: levels ? [...levels] : data?.group ? [data.group] : [],
       needs: stationMeta.group,
     };
+  }
+
+  // Tier-1-Center: Eine CTR-Station mit gcapStatus "1" verlangt die Freigabe
+  // für genau diese Position. Die Ebene CTR allein genügt dort nicht – anders
+  // als bei den übrigen Center-Sektoren, die über die FIR-Freigabe laufen.
+  // Ein Solo auf der Position zählt mit, wie schon bei den Tier-1-Airports.
+  // Zwischengespeicherte Anmeldungen aus der Zeit vor diesem Feld führen die
+  // Positionen nicht mit. Dort wird nicht geprüft, statt allen die Freigabe
+  // abzusprechen, die sie in Wahrheit haben.
+  if (stationMeta.group === "CTR" && stationMeta.gcapStatus === "1" && data?.ctrPositions) {
+    if (!data.ctrPositions.includes(stationMeta.callsign.toUpperCase())) {
+      return {
+        ok: false,
+        reason: "missing_ctr_endorsement",
+        callsign: stationMeta.callsign.toUpperCase(),
+      };
+    }
   }
 
   // Sektorkenntnis: Welche Familiarisierung eine Position verlangt, führt der
@@ -429,6 +454,13 @@ export function computeWarnings(
             userCID: cid,
             assignmentIds: [a.id],
             message: `${name} fehlt für ${station.callsign} die Familiarisierung (${check.missing.join(", ")})`,
+          });
+        } else if (check.reason === "missing_ctr_endorsement") {
+          warnings.push({
+            type: "not_eligible",
+            userCID: cid,
+            assignmentIds: [a.id],
+            message: `${name} fehlt die Freigabe für ${check.callsign} – die Position ist Tier 1, CTR allein genügt nicht`,
           });
         } else {
           const where = check.airport ? ` an ${check.airport}` : "";

@@ -82,10 +82,12 @@ export default function EventRosterPage() {
         const map = new Map<string, StationMeta>();
         for (const st of (s.stations ?? []) as Station[]) {
           map.set(st.callsign.toUpperCase(), {
+            callsign: st.callsign.toUpperCase(),
             group: st.group === "Sonstiges" ? null : (st.group as StationGroup),
             airport: st.airport ?? null,
             s1Twr: st.s1Twr === true,
             requiredFamiliarizations: st.requiredFamiliarizations ?? [],
+            gcapStatus: st.gcapStatus ?? null,
           });
         }
         setStationMetaMap(map);

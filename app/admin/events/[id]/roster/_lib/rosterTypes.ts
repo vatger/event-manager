@@ -92,6 +92,8 @@ export type UndoEntry =
 
 /** Stationsmetadaten aus dem Datahub (bzw. Callsign-Heuristik) */
 export interface StationMeta {
+  /** Callsign der Station – Tier-1-Center-Freigaben lauten genau darauf */
+  callsign: string;
   group: StationGroup | null;
   airport: string | null;
   s1Twr: boolean;
@@ -100,6 +102,8 @@ export interface StationMeta {
    * zusammen geforderten Kürzel. Leer heißt: keine Vorgabe für diese Position.
    */
   requiredFamiliarizations: string[][];
+  /** gcap_status aus dem Datahub: "1" kennzeichnet eine Tier-1-Position */
+  gcapStatus: string | null;
 }
 
 /** Controller = aktive Anmeldung inkl. abgeleiteter Daten */

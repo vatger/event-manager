@@ -266,6 +266,15 @@ export function AssignDialog({
                         <TriangleAlert className="h-3 w-3" /> FAM fehlt
                       </Badge>
                     )}
+                    {!s.eligibility.ok && s.eligibility.reason === "missing_ctr_endorsement" && (
+                      <Badge
+                        variant="outline"
+                        className="gap-1 border-danger-300 text-[10px] text-danger-700"
+                        title={`${s.eligibility.callsign} ist eine Tier-1-Position und verlangt die Freigabe für genau diese Station – die Ebene CTR genügt nicht`}
+                      >
+                        <TriangleAlert className="h-3 w-3" /> kein T1
+                      </Badge>
+                    )}
                     {s.controller.withdrawn && (
                       <Badge
                         variant="outline"

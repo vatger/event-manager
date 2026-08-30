@@ -914,6 +914,8 @@ export function RosterEditor({
             ? `${controller.name} hat ${check.airport} bei der Anmeldung abgewählt – wird markiert`
             : check.reason === "missing_familiarization"
             ? `${controller.name} fehlt die Familiarisierung für ${check.missing.join(", ")} – wird markiert`
+            : check.reason === "missing_ctr_endorsement"
+            ? `${controller.name} fehlt die Freigabe für ${check.callsign} (Tier 1) – wird markiert`
             : `${controller.name} darf ${station.callsign} nicht besetzen (benötigt ${
                 check.needs
               }, freigegeben: ${
@@ -2158,6 +2160,9 @@ export function RosterEditor({
               // das an die Zeile: Wer plant, sieht sonst erst beim Besetzen,
               // dass die halbe Liste ausfällt.
               const famRequirement = describeFamiliarizations(meta.requiredFamiliarizations);
+              // Tier-1-Center: verlangt die Freigabe für genau diese Position,
+              // nicht bloß die Ebene CTR. Das gehört sichtbar an die Zeile.
+              const tier1Center = meta.group === "CTR" && meta.gcapStatus === "1";
               const coverage = stationCoverage(displayAssignments, station.id, totalMinutes);
               const isDropTarget =
                 drag?.kind === "assign-controller" && drag.stationId === station.id;
@@ -2206,24 +2211,30 @@ export function RosterEditor({
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-muted-foreground">
-                            {Math.round(coverage * 100)}% besetzt
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <span>{Math.round(coverage * 100)}% besetzt</span>
+                            {tier1Center && (
+                              <span
+                                className="font-semibold text-danger-700"
+                                title={`Tier-1-Position: verlangt die Freigabe ${station.callsign}, die Ebene CTR genügt nicht`}
+                              >
+                                · T1
+                              </span>
+                            )}
+                            {famRequirement && (
+                              <span
+                                className="font-semibold"
+                                title={`Sektorkenntnis nötig: ${famRequirement}`}
+                              >
+                                · FAM
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {famRequirement && (
-                          <span
-                            className="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold leading-none text-muted-foreground"
-                            title={`Sektorkenntnis nötig: ${famRequirement}`}
-                          >
-                            FAM
-                          </span>
-                        )}
-                        <Badge className={`${getBadgeClassForEndorsement(meta.group)} text-[10px]`}>
-                          {meta.group ?? "?"}
-                        </Badge>
-                      </div>
+                      <Badge className={`${getBadgeClassForEndorsement(meta.group)} shrink-0 text-[10px]`}>
+                        {meta.group ?? "?"}
+                      </Badge>
                     </div>
                   </div>
                   <div
