@@ -390,7 +390,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                   <span className={isDeleted ? "line-through" : ""}>
                                     {s.user.cid}
                                     {isOptedOutOfCurrentAirport && (
-                                      <span className="ml-2 text-xs text-orange-600">(ausgeschlossen)</span>
+                                      <span className="ml-2 text-xs text-danger-700 dark:text-danger-300">(ausgeschlossen)</span>
                                     )}
                                   </span>
                                 );
@@ -407,7 +407,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
-                                              <AlertTriangle className="h-4 w-4 text-orange-500" />
+                                              <AlertTriangle className="h-4 w-4 text-warning-800 dark:text-warning-600" />
                                             </TooltipTrigger>
                                             <TooltipContent className="max-w-xs">
                                               <div className="space-y-1">
@@ -422,7 +422,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
-                                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                              <CheckCircle2 className="h-4 w-4 text-success-700" />
                                             </TooltipTrigger>
                                             <TooltipContent>
                                               <p className="text-xs">Änderungen bestätigt</p>
@@ -434,7 +434,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
-                                              <UserX className="h-4 w-4 text-red-500" />
+                                              <UserX className="h-4 w-4 text-danger-700" />
                                             </TooltipTrigger>
                                             <TooltipContent>
                                               <p>Abgemeldet am {new Date(s.deletedAt!).toLocaleString("de-DE", {
@@ -451,7 +451,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                         <TooltipProvider>
                                           <Tooltip>
                                             <TooltipTrigger>
-                                              <Clock className="h-4 w-4 text-blue-500" />
+                                              <Clock className="h-4 w-4 text-chart-1" />
                                             </TooltipTrigger>
                                             <TooltipContent>
                                               <p className="text-xs">Anmeldung nach Anmeldeschluss</p>
@@ -552,7 +552,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                           <TooltipTrigger asChild>
                                             <Badge 
                                               variant="outline" 
-                                              className="text-xs cursor-help border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300 transition-colors duration-200 px-2 py-0.5"
+                                              className="text-xs cursor-help border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-200 transition-colors duration-200 px-2 py-0.5"
                                             >
                                               <CheckCircle className="w-3 h-3 mr-1" />
                                               {airport}
@@ -561,32 +561,32 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                           <TooltipContent 
                                             side="top" 
                                             align="center"
-                                            className="w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg rounded-lg p-3"
+                                            className="w-56 bg-popover text-popover-foreground border shadow-lg rounded-lg p-3"
                                           >
                                             <div className="space-y-2">
                                               {/* Header */}
                                               <div className="space-y-0.5">
                                                 <div className="flex items-center gap-1.5">
-                                                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                                                  <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                                                  <div className="h-1.5 w-1.5 rounded-full bg-chart-1" />
+                                                  <p className="font-medium text-foreground text-sm">
                                                     {airport}
                                                   </p>
                                                 </div>
-                                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                <p className="text-xs text-muted-foreground">
                                                   Gruppe: {airportEndorsement.group}
                                                 </p>
                                               </div>
 
                                               {/* Restrictions */}
                                               {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
-                                                <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
-                                                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                <div className="pt-2 border-t space-y-1.5">
+                                                  <p className="text-xs font-medium text-foreground">
                                                     Einschränkungen:
                                                   </p>
                                                   <ul className="space-y-1">
                                                     {airportEndorsement.restrictions.map((r, i) => (
-                                                      <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                                                        <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-500 mt-1.5 flex-shrink-0" />
+                                                      <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                                        <div className="h-1 w-1 rounded-full bg-muted-foreground mt-1.5 flex-shrink-0" />
                                                         <span>{r}</span>
                                                       </li>
                                                     ))}
@@ -618,7 +618,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipTrigger asChild>
                                               <Badge 
                                                 variant="outline" 
-                                                className="text-xs cursor-help border-red-200 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300 transition-colors duration-200 px-2 py-0.5"
+                                                className="text-xs cursor-help border-danger-200 bg-danger-50 text-danger-800 hover:bg-danger-100 dark:border-danger-800 dark:bg-danger-900/30 dark:text-danger-200 transition-colors duration-200 px-2 py-0.5"
                                               >
                                                 <AlertCircle className="w-3 h-3 mr-1" />
                                                 {airport}
@@ -627,37 +627,37 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <TooltipContent 
                                               side="top" 
                                               align="center"
-                                              className="w-64 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg rounded-lg p-3"
+                                              className="w-64 bg-popover text-popover-foreground border shadow-lg rounded-lg p-3"
                                             >
                                               <div className="space-y-2">
                                                 {/* Header */}
                                                 <div className="space-y-0.5">
                                                   <div className="flex items-center gap-1.5">
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                                                    <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                                      {airport} <span className="text-red-600 dark:text-red-400">(Ausgeschlossen)</span>
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-danger-600" />
+                                                    <p className="font-medium text-foreground text-sm">
+                                                      {airport} <span className="text-danger-700 dark:text-danger-300">(Ausgeschlossen)</span>
                                                     </p>
                                                   </div>
-                                                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                                                  <p className="text-xs text-muted-foreground">
                                                     Gruppe: {airportEndorsement.group}
                                                   </p>
                                                 </div>
 
                                                 {/* Exclusion Warning */}
-                                                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1.5 rounded border border-red-100 dark:border-red-800">
+                                                <div className="text-xs text-danger-700 dark:text-danger-300 bg-danger-50 dark:bg-danger-900/20 px-2 py-1.5 rounded border border-danger-100 dark:border-danger-800">
                                                   Vom Lotsen ausgeschlossen
                                                 </div>
 
                                                 {/* Restrictions */}
                                                 {airportEndorsement.restrictions && airportEndorsement.restrictions.length > 0 && (
-                                                  <div className="pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1.5">
-                                                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                                  <div className="pt-2 border-t space-y-1.5">
+                                                    <p className="text-xs font-medium text-foreground">
                                                       Einschränkungen:
                                                     </p>
                                                     <ul className="space-y-1">
                                                       {airportEndorsement.restrictions.map((r, i) => (
-                                                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                                                          <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-500 mt-1.5 flex-shrink-0" />
+                                                        <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                                          <div className="h-1 w-1 rounded-full bg-muted-foreground mt-1.5 flex-shrink-0" />
                                                           <span>{r}</span>
                                                         </li>
                                                       ))}
@@ -689,7 +689,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                          <div className="text-xs text-gray-400 font-medium cursor-help">
+                                          <div className="text-xs text-muted-foreground font-medium cursor-help">
                                             <span className="line-through">{formatChangeDescription(availabilityChanges[0], 'availability').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
@@ -725,7 +725,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <div className="text-xs text-gray-400 font-medium cursor-help">
+                                            <div className="text-xs text-muted-foreground font-medium cursor-help">
                                               <span className="line-through">{formatChangeDescription(stationChanges[0], 'preferredStations').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
@@ -761,7 +761,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <div className="text-xs text-gray-400 font-medium cursor-help">
+                                            <div className="text-xs text-muted-foreground font-medium cursor-help">
                                               <span className="line-through">{formatChangeDescription(remarksChanges[0], 'remarksWithChanges').split("→")[0]}</span>
                                             </div>
                                           </TooltipTrigger>
@@ -796,7 +796,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                             <Button
                                               size="sm"
                                               variant="outline"
-                                              className="text-green-600 border-green-600 hover:bg-green-50"
+                                              className="text-success-800 border-success-700 hover:bg-success-100 dark:text-success-300 dark:hover:bg-success-900/30"
                                               onClick={() => acknowledgeChanges(s.id, s.user.cid)}
                                             >
                                               <CheckCircle2 className="h-4 w-4" />

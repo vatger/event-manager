@@ -227,23 +227,23 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
             return (
               <div 
                 key={airport} 
-                className="p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:shadow-sm transition-all duration-200"
+                className="p-4 bg-card border rounded-lg hover:shadow-sm transition-all duration-200"
               >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
-                  <div className="font-medium text-gray-900 dark:text-gray-100">
+                  <div className="font-medium text-foreground">
                     {airport}
                   </div>
-                  <div className="text-2xl font-bold text-blue-900 dark:text-blue-400">
+                  <div className="text-2xl font-bold text-chart-1">
                     {stats.total}
                   </div>
                 </div>
                 
                 {/* Progress Bar */}
                 <div className="mb-4">
-                  <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-blue-600 dark:bg-blue-500 rounded-full transition-all duration-300"
+                      className="h-full bg-chart-1 rounded-full transition-all duration-300"
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
@@ -254,8 +254,8 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
                   <div className="space-y-1.5">
                     {groups.map(([group, count]) => (
                       <div key={group} className="flex items-center justify-between text-xs">
-                        <span className="text-gray-600 dark:text-gray-400">{group}</span>
-                        <span className="font-medium text-gray-800 dark:text-gray-200">
+                        <span className="text-muted-foreground">{group}</span>
+                        <span className="font-medium text-foreground">
                           {count}
                         </span>
                       </div>
@@ -290,17 +290,17 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
                   return (
                     <div 
                       key={group} 
-                      className="p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg hover:shadow-sm transition-all duration-200"
+                      className="p-3 bg-card border rounded-lg hover:shadow-sm transition-all duration-200"
                     >
                       {/* Group Header */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-blue-600" />
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          <div className="h-1.5 w-1.5 rounded-full bg-chart-1" />
+                          <span className="text-sm font-medium text-foreground">
                             {group}
                           </span>
                         </div>
-                        <div className="text-lg font-bold text-blue-900 dark:text-blue-400">
+                        <div className="text-lg font-bold text-chart-1">
                           {count}
                         </div>
                       </div>

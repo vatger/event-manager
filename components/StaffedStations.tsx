@@ -1,118 +1,116 @@
+"use client";
+
 import React, { useMemo } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { StationGroup } from "@/lib/stations/types";
-import { stationOverrides } from "@/lib/stations/stationOverrides";
+import { Radio } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { extractStationGroup, STATION_GROUP_ORDER } from "@/lib/weeklys/stationUtils";
+import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 
 type StaffedStationsProps = {
   callsigns: string[];
 };
 
+/** Callsigns tragen den Platz als Präfix: EDDM_TWR → EDDM, EDMM_WLD_CTR → EDMM */
+const airportOf = (callsign: string) =>
+  /^[A-Z]{4}/i.test(callsign) ? callsign.slice(0, 4).toUpperCase() : "Weitere";
+
+const groupRank = (callsign: string) => {
+  const g = extractStationGroup(callsign);
+  return g ? STATION_GROUP_ORDER.indexOf(g) : 99;
+};
+
+/** Nach Ebene sortieren (DEL → CTR), bei Gleichstand alphabetisch */
+function byGroupThenName(a: string, b: string): number {
+  return groupRank(a) - groupRank(b) || a.localeCompare(b);
+}
+
+/**
+ * Die zu besetzenden Stationen eines Events.
+ *
+ * Gegliedert wie die Stationsauswahl im Besetzungsplan: zuerst nach Platz,
+ * innerhalb eines Platzes von DEL nach CTR. Eine gemeinsame Liste taugt bei
+ * Events über mehrere Plätze nicht – dort sucht man die Stationen eines
+ * bestimmten Platzes, und die lägen sonst über die ganze Aufzählung verstreut.
+ * Die Farbe der Plakette zeigt die Ebene, wie überall sonst im System.
+ */
 export default function StaffedStations({ callsigns }: StaffedStationsProps) {
-  const groupedStations = useMemo(() => {
-    const result: Record<StationGroup, string[]> = {
-      DEL: [],
-      GND: [],
-      TWR: [],
-      APP: [],
-      CTR: [],
-      Sonstiges: [],
-    };
-
-    for (const cs of callsigns) {
-      // Override prüfen
-      const override = stationOverrides[cs];
-      if (override?.group) {
-        result[override.group].push(cs);
-        continue;
-      }
-
-      // Fallback anhand des Callsigns
-      if (cs.includes("_DEL") || cs.includes("_GND")) {
-        result["GND"].push(cs);
-      } else if (cs.includes("_TWR")) {
-        result["TWR"].push(cs);
-      } else if (cs.includes("_APP")) {
-        result["APP"].push(cs);
-      } else if (cs.includes("_CTR")) {
-        result["CTR"].push(cs);
-      } else {
-        result["Sonstiges"].push(cs);
-      }
+  const groups = useMemo(() => {
+    const byAirport = new Map<string, Set<string>>();
+    for (const cs of callsigns ?? []) {
+      if (!cs) continue;
+      const upper = cs.toUpperCase();
+      const airport = airportOf(upper);
+      const set = byAirport.get(airport);
+      if (set) set.add(upper);
+      else byAirport.set(airport, new Set([upper]));
     }
 
-    // Spezielle Sortierung für GND: _DEL zuerst, dann alphabetisch
-    (Object.keys(result) as StationGroup[]).forEach((key) => {
-      if (key === "GND") {
-        // _DEL Callsigns zuerst, dann der Rest alphabetisch
-        result[key].sort((a, b) => {
-          const aIsDel = a.includes("_DEL");
-          const bIsDel = b.includes("_DEL");
-          
-          if (aIsDel && !bIsDel) return -1;
-          if (!aIsDel && bIsDel) return 1;
-          
-          // Beide sind _DEL oder beide sind nicht _DEL → alphabetisch sortieren
-          return a.localeCompare(b);
-        });
-      } else {
-        // Andere Gruppen einfach alphabetisch sortieren
-        result[key].sort((a, b) => a.localeCompare(b));
-      }
-    });
-
-    // In Array für Tabs umwandeln und leere Gruppen filtern
-    return Object.entries(result)
-      .filter(([_, stations]) => stations.length > 0)
-      .sort(([groupA], [groupB]) => {
-        const order: StationGroup[] = ["GND", "TWR", "APP", "CTR", "Sonstiges"];
-        return order.indexOf(groupA as StationGroup) - order.indexOf(groupB as StationGroup);
-      });
+    return [...byAirport.entries()]
+      .map(([airport, set]) => ({ airport, stations: [...set].sort(byGroupThenName) }))
+      .sort((a, b) => a.airport.localeCompare(b.airport));
   }, [callsigns]);
 
-  // Standard-Tab Wert (erste nicht-leere Gruppe oder "GND")
-  const defaultTab = groupedStations[0]?.[0] as string || "GND";
+  const total = useMemo(
+    () => groups.reduce((sum, g) => sum + g.stations.length, 0),
+    [groups]
+  );
 
-  if(groupedStations.length === 0) return null
+  if (groups.length === 0) return null;
+
+  const stationBadges = (stations: string[]) => (
+    <div className="flex flex-wrap gap-1.5">
+      {stations.map((station) => (
+        <span
+          key={station}
+          className={cn(
+            "inline-flex items-center rounded-md px-2 py-1 font-mono text-xs font-semibold tracking-wide",
+            getBadgeClassForEndorsement(extractStationGroup(station))
+          )}
+        >
+          {station}
+        </span>
+      ))}
+    </div>
+  );
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Zu besetzende Stationen</CardTitle>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+          <Radio className="h-4 w-4 text-muted-foreground" />
+          Zu besetzende Stationen
+          <Badge variant="secondary" className="font-semibold">
+            {total}
+          </Badge>
+        </CardTitle>
       </CardHeader>
+
       <CardContent>
-        <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className="flex flex-wrap gap-1.5 bg-muted/50 p-1 rounded-lg w-full h-auto">
-            {groupedStations.map(([area, stations]) => (
-              <TabsTrigger
-                key={area as string}
-                value={area as string}
-                className="rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm transition"
+        {/* Ein einzelner Platz braucht keine Gliederung – dort gibt es nichts zu suchen. */}
+        {groups.length === 1 ? (
+          stationBadges(groups[0].stations)
+        ) : (
+          <div className="divide-y">
+            {groups.map((group) => (
+              <div
+                key={group.airport}
+                className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:gap-4"
               >
-                {area as string}
-                <span className="ml-2 text-xs text-muted-foreground">
-                  ({(stations as string[]).length})
-                </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {groupedStations.map(([area, stations]) => (
-            <TabsContent key={area as string} value={area as string}>
-              <div className="flex flex-wrap gap-2">
-                {(stations as string[]).map((station) => (
-                  <Badge 
-                    key={station} 
-                    variant="secondary" 
-                    className="px-2.5 py-1 rounded-md"
-                  >
-                    {station}
-                  </Badge>
-                ))}
+                <div className="flex shrink-0 items-center gap-2 sm:w-24 sm:pt-0.5">
+                  <span className="font-mono text-sm font-bold tracking-wide text-foreground">
+                    {group.airport}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {group.stations.length}
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">{stationBadges(group.stations)}</div>
               </div>
-            </TabsContent>
-          ))}
-        </Tabs>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
