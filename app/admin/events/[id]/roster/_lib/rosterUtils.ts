@@ -1,5 +1,8 @@
 import type { EventEndorsementData, SignupTableEntry } from "@/lib/cache/types";
-import { missingFamiliarizations } from "@/lib/stations/familiarizations";
+import {
+  familiarizationsFromPositions,
+  missingFamiliarizations,
+} from "@/lib/stations/familiarizations";
 import {
   canStaffStation,
   extractStationGroup,
@@ -194,6 +197,23 @@ export function endorsementDataForStation(
  * Liste fehlt (ältere zwischengespeicherte Anmeldungen), fällt die Prüfung
  * auf den alten Rangvergleich zurück.
  */
+/**
+ * Alle Sektorkenntnisse einer Person: die eingetragenen Familiarisierungen und
+ * die, die sich aus gehaltenen Center-Positionen ergeben (Solo oder
+ * Endorsement auf `EDMM_STA_CTR` heißt STA).
+ */
+export function heldFamiliarizations(
+  data: EventEndorsementData | null | undefined
+): string[] {
+  return [
+    ...(data?.familiarizations ?? []),
+    ...familiarizationsFromPositions([
+      ...(data?.ctrEndorsements ?? []),
+      ...(data?.soloPositions ?? []),
+    ]),
+  ];
+}
+
 export function checkEligibility(
   controller: RosterController,
   stationMeta: StationMeta,
@@ -245,8 +265,9 @@ export function checkEligibility(
   // Zwischengespeicherte Anmeldungen aus der Zeit vor diesem Feld führen die
   // Positionen nicht mit. Dort wird nicht geprüft, statt allen die Freigabe
   // abzusprechen, die sie in Wahrheit haben.
-  if (stationMeta.group === "CTR" && stationMeta.gcapStatus === "1" && data?.ctrPositions) {
-    if (!data.ctrPositions.includes(stationMeta.callsign.toUpperCase())) {
+  if (stationMeta.group === "CTR" && stationMeta.gcapStatus === "1" && data?.ctrEndorsements) {
+    const held = [...data.ctrEndorsements, ...(data.soloPositions ?? [])];
+    if (!held.includes(stationMeta.callsign.toUpperCase())) {
       return {
         ok: false,
         reason: "missing_ctr_endorsement",
@@ -260,7 +281,7 @@ export function checkEligibility(
   {
     const missing = missingFamiliarizations(
       stationMeta.requiredFamiliarizations,
-      data?.familiarizations ?? []
+      heldFamiliarizations(data)
     );
     if (missing && missing.length > 0) {
       return { ok: false, reason: "missing_familiarization", missing };

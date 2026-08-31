@@ -3038,6 +3038,7 @@ export function RosterEditor({
             shiftLabels={selectedShiftLabels}
             eventStart={eventStart}
             eventAirports={event.airports}
+            firCode={event.firCode}
             note={selectedCID != null ? noteFor(selectedCID) : ""}
             flag={selectedCID != null ? flagFor(selectedCID) : null}
             canEdit={canEdit}

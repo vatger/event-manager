@@ -28,6 +28,24 @@ export function parseRequiredFamiliarizations(raw: unknown): string[][] | undefi
 }
 
 /**
+ * Sektorkürzel, die sich aus gehaltenen Center-Positionen ergeben.
+ *
+ * Wer ein Solo auf `EDMM_STA_CTR` hat, darf den Sektor STA arbeiten – das ist
+ * dieselbe Aussage wie die Familiarisierung STA, nur auf anderem Weg erteilt.
+ * Dasselbe gilt für ein Endorsement auf der Position: Ohne die Sektorkenntnis
+ * gäbe es das nicht. Beides zählt deshalb beim Prüfen mit.
+ *
+ * Positionen ohne Sektorteil (`EDWW_CTR`) liefern nichts.
+ */
+export function familiarizationsFromPositions(positions: string[]): string[] {
+  const sectors = positions
+    .map((p) => p.toUpperCase().split("_"))
+    .filter((parts) => parts.length === 3 && parts[2] === "CTR")
+    .map((parts) => parts[1]);
+  return [...new Set(sectors)];
+}
+
+/**
  * Welche Familiarisierungen fehlen dieser Person für die Position?
  *
  * `null` heißt „keine Aussage" – der Datahub verlangt für diese Position

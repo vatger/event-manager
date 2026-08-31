@@ -13,10 +13,12 @@ import {
   CalendarX2,
   Clock,
   ExternalLink,
+  GraduationCap,
   Loader2,
   MessageSquare,
   Pencil,
   Plane,
+  Radar,
   Search,
   Send,
   Star,
@@ -36,6 +38,7 @@ import type { RosterController } from "../_lib/rosterTypes";
 import { formatDuration, minuteToHM } from "../_lib/rosterUtils";
 import { controllerInfoUrl } from "@/config/externalLinks";
 import { AirportChips } from "./AirportChips";
+import { buildEndorsementView } from "../_lib/endorsementView";
 import { FlagPicker } from "./FlagPicker";
 
 interface AtcStation {
@@ -69,6 +72,8 @@ interface ControllerSidePanelProps {
   eventStart: Date;
   /** Airports des Events – bei mehreren zählt die Freigabe je Airport */
   eventAirports: string[];
+  /** FIR des Events – benennt, worauf sich die Center-Freigabe bezieht */
+  firCode?: string;
   note: string;
   /** Interne Ampel-Markierung des ausgewählten Controllers */
   flag: RosterFlag | null;
@@ -105,6 +110,7 @@ export function ControllerSidePanel({
   shiftLabels,
   eventStart,
   eventAirports,
+  firCode,
   note,
   flag,
   canEdit,
@@ -208,6 +214,11 @@ export function ControllerSidePanel({
     [matchingStations, stationQuery, showAllStations]
   );
 
+  const endorsementView = useMemo(
+    () => buildEndorsementView(controller?.entry, eventAirports),
+    [controller, eventAirports]
+  );
+
   const availabilityText = useMemo(() => {
     if (!controller) return null;
     if (!controller.hasAvailability) return "Keine Angabe (ganzes Event)";
@@ -307,6 +318,101 @@ export function ControllerSidePanel({
                   size="md"
                 />
               </div>
+
+              {/* Center steht für sich: Die Freigabe gilt für die FIR, und
+                  welchen Sektor jemand arbeiten darf, entscheiden die
+                  Familiarisierungen. In den Airport-Zeilen stünde das nur
+                  achtmal gleich. */}
+              {(endorsementView.hasCtr ||
+                endorsementView.familiarizations.length > 0 ||
+                endorsementView.ctrPositions.length > 0) && (
+                <div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <Radar className="h-3 w-3" /> Center
+                    {firCode && ` (${firCode})`}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {endorsementView.hasCtr && (
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded px-1 py-0.5 text-[10px] leading-none font-semibold",
+                          getBadgeClassForEndorsement("CTR")
+                        )}
+                      >
+                        CTR
+                      </span>
+                    )}
+                    {endorsementView.familiarizations.map((f) => (
+                      <span
+                        key={f.sector}
+                        title={
+                          f.fromSolo
+                            ? `Solo auf ${f.position} – zählt wie die Familiarisierung ${f.sector}, kennzeichnet einen Trainee auf dieser Position`
+                            : `Familiarisierung ${f.sector}`
+                        }
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] leading-none",
+                          f.fromSolo
+                            ? "border-amber-400/70 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {f.sector}
+                        {f.fromSolo && <span className="font-semibold">Solo</span>}
+                      </span>
+                    ))}
+                    {endorsementView.familiarizations.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        keine Familiarisierungen
+                      </span>
+                    )}
+                  </div>
+                  {endorsementView.ctrPositions.length > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground">Positionen:</span>
+                      {endorsementView.ctrPositions.map((p) => (
+                        <span
+                          key={p.callsign}
+                          title={
+                            p.fromSolo
+                              ? `Solo auf ${p.callsign} – Trainee, der hier üben soll`
+                              : `Freigabe für ${p.callsign}`
+                          }
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] leading-none",
+                            p.fromSolo
+                              ? "border-amber-400/70 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {p.callsign}
+                          {p.fromSolo && <span className="font-semibold">Solo</span>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Solos auf Plätzen kennzeichnen ebenso einen Trainee */}
+              {endorsementView.airportSolos.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
+                    <GraduationCap className="h-3 w-3 text-amber-500" /> Solo
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {endorsementView.airportSolos.map((p) => (
+                      <span
+                        key={p}
+                        title={`Solo auf ${p} – Trainee, der hier üben soll`}
+                        className="inline-flex items-center rounded border border-amber-400/70 bg-amber-50 px-1.5 py-0.5 text-[10px] leading-none text-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                      >
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Star className="h-3 w-3 text-amber-500" /> Wunschstationen
