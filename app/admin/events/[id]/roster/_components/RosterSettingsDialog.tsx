@@ -55,7 +55,7 @@ export function RosterSettingsDialog({
 }: RosterSettingsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl max-h-full overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Einstellungen des Besetzungsplans</DialogTitle>
           <DialogDescription>
