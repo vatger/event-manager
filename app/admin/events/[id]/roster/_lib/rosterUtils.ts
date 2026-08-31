@@ -1,5 +1,5 @@
 import type { EventEndorsementData, SignupTableEntry } from "@/lib/cache/types";
-import { missingFamiliarizations } from "@/config/ctrSectors";
+import { missingFamiliarizations } from "@/lib/stations/familiarizations";
 import {
   canStaffStation,
   extractStationGroup,
@@ -90,6 +90,7 @@ export function resolveStationMeta(
     group: extractStationGroup(callsign),
     airport: /^[A-Z]{4}/i.test(callsign) ? callsign.substring(0, 4).toUpperCase() : null,
     s1Twr: false,
+    requiredFamiliarizations: [],
   };
 }
 
@@ -188,9 +189,7 @@ export function endorsementDataForStation(
 export function checkEligibility(
   controller: RosterController,
   stationMeta: StationMeta,
-  eventAirports: string[],
-  /** Callsign der Station – für die Prüfung von CTR-Sektorgruppen */
-  callsign?: string
+  eventAirports: string[]
 ): EligibilityResult {
   const airport = stationMeta.airport;
 
@@ -231,10 +230,13 @@ export function checkEligibility(
     };
   }
 
-  // CTR-Sektorgruppen: Wer eine Gruppe besetzt, kontrolliert ihre
-  // Einzelsektoren – dafür braucht es die passenden Familiarisierungen.
-  if (stationMeta.group === "CTR" && callsign) {
-    const missing = missingFamiliarizations(callsign, data?.familiarizations ?? []);
+  // Sektorkenntnis: Welche Familiarisierung eine Position verlangt, führt der
+  // Datahub selbst – geprüft wird deshalb überall dort, wo er etwas vorgibt.
+  {
+    const missing = missingFamiliarizations(
+      stationMeta.requiredFamiliarizations,
+      data?.familiarizations ?? []
+    );
     if (missing && missing.length > 0) {
       return { ok: false, reason: "missing_familiarization", missing };
     }
@@ -412,7 +414,7 @@ export function computeWarnings(
         const station = stationById.get(a.stationId);
         if (!station) continue;
         const meta = stationMetaFor(station.callsign);
-        const check = checkEligibility(controller, meta, eventAirports, station.callsign);
+        const check = checkEligibility(controller, meta, eventAirports);
         if (check.ok) continue;
         if (check.reason === "excluded_airport") {
           warnings.push({
@@ -483,7 +485,7 @@ export function suggestControllers(
   const suggestions = controllers
     .filter((c) => !c.withdrawn)
     .map((c) => {
-      const eligibility = checkEligibility(c, stationMeta, eventAirports, station.callsign);
+      const eligibility = checkEligibility(c, stationMeta, eventAirports);
       const free = !hasOverlap(assignments, c.cid, start, end);
       const available = !isUnavailable(c, start, end);
       const prefersStation = c.preferredStations

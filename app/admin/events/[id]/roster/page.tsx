@@ -85,6 +85,7 @@ export default function EventRosterPage() {
             group: st.group === "Sonstiges" ? null : (st.group as StationGroup),
             airport: st.airport ?? null,
             s1Twr: st.s1Twr === true,
+            requiredFamiliarizations: st.requiredFamiliarizations ?? [],
           });
         }
         setStationMetaMap(map);

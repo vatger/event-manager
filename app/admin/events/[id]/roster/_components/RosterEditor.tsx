@@ -60,6 +60,7 @@ import {
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { cn } from "@/lib/utils";
 import { stationBlockColors } from "@/lib/roster/stationColors";
+import { describeFamiliarizations } from "@/lib/stations/familiarizations";
 import {
   CUSTOM_BLOCK_COLORS,
   CUSTOM_BLOCK_COLOR_DOT,
@@ -906,7 +907,7 @@ export function RosterEditor({
       // Ab hier: erlaubt, aber im Plan sichtbar zu markieren. Der Grund steht
       // in der Meldung, weil er über die Lösung entscheidet.
       const meta = stationMetaFor(station.callsign);
-      const check = checkEligibility(controller, meta, event.airports, station.callsign);
+      const check = checkEligibility(controller, meta, event.airports);
       if (!check.ok) {
         const reason =
           check.reason === "excluded_airport"
@@ -1714,7 +1715,7 @@ export function RosterEditor({
       // der Text eine Station trifft, alle die sie besetzen dürfen.
       const eligibleForMatch = (c: RosterController) =>
         matchedStations.some((st) =>
-          checkEligibility(c, stationMetaFor(st.callsign), event.airports, st.callsign).ok
+          checkEligibility(c, stationMetaFor(st.callsign), event.airports).ok
         );
       list = list.filter((c) => {
         const mark = markByCid.get(c.cid);
@@ -1752,7 +1753,7 @@ export function RosterEditor({
       if (station) {
         const meta = stationMetaFor(station.callsign);
         list = list.filter(
-          (c) => checkEligibility(c, meta, event.airports, station.callsign).ok
+          (c) => checkEligibility(c, meta, event.airports).ok
         );
       }
     }
@@ -2153,6 +2154,10 @@ export function RosterEditor({
   /** Eine Stationszeile (Beschriftung + Zeitstrahl) */
   const renderStationRow = (station: RosterStation): React.ReactNode => {
               const meta = stationMetaFor(station.callsign);
+              // Verlangt der Datahub für diese Position Sektorkenntnis, gehört
+              // das an die Zeile: Wer plant, sieht sonst erst beim Besetzen,
+              // dass die halbe Liste ausfällt.
+              const famRequirement = describeFamiliarizations(meta.requiredFamiliarizations);
               const coverage = stationCoverage(displayAssignments, station.id, totalMinutes);
               const isDropTarget =
                 drag?.kind === "assign-controller" && drag.stationId === station.id;
@@ -2206,9 +2211,19 @@ export function RosterEditor({
                           </div>
                         </div>
                       </div>
-                      <Badge className={`${getBadgeClassForEndorsement(meta.group)} shrink-0 text-[10px]`}>
-                        {meta.group ?? "?"}
-                      </Badge>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {famRequirement && (
+                          <span
+                            className="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold leading-none text-muted-foreground"
+                            title={`Sektorkenntnis nötig: ${famRequirement}`}
+                          >
+                            FAM
+                          </span>
+                        )}
+                        <Badge className={`${getBadgeClassForEndorsement(meta.group)} text-[10px]`}>
+                          {meta.group ?? "?"}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                   <div

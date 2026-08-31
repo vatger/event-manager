@@ -1,7 +1,17 @@
 import { Station, StationGroup } from "./types";
 import { stationOverrides } from "./stationOverrides";
+import { parseRequiredFamiliarizations } from "./familiarizations";
 
 let cachedStations: Station[] | null = null;
+let cachedAt = 0;
+/**
+ * Wie lange die Stationsliste wiederverwendet wird.
+ *
+ * Der Datahub führt inzwischen auch die nötigen Familiarisierungen; die ändern
+ * sich mit den Sektorplänen. Ein Cache über die ganze Prozesslaufzeit würde
+ * solche Änderungen bis zum nächsten Neustart verschlucken.
+ */
+const CACHE_TTL_MS = 30 * 60 * 1000;
 
 interface DataHubStation {
   logon: string,
@@ -10,7 +20,9 @@ interface DataHubStation {
   description: string,
   gcap_status: string,
   s1_twr: boolean,
-  s1_theory: boolean
+  s1_theory: boolean,
+  /** Nötige Sektorkenntnis, z. B. ["CH+SH"] oder ["STA", "WLD"] */
+  required_familiarisations?: string[]
 }
 // Gruppe anhand des Callsigns bestimmen.
 // Departure zählt zur Approach-Ebene: Es gibt kein eigenes _DEP-Endorsement,
@@ -28,10 +40,23 @@ function inferGroupFromLogon(logon: string): StationGroup | undefined {
 
 // Hauptfunktion: Holt alle Stationen
 export async function fetchAllStations(): Promise<Station[]> {
-  if (cachedStations) return cachedStations;
+  if (cachedStations && Date.now() - cachedAt < CACHE_TTL_MS) return cachedStations;
 
-  const res = await fetch("https://raw.githubusercontent.com/VATGER-Nav/datahub/production/api/stations.json");
-  if (!res.ok) throw new Error("Failed to fetch station data from Datahub");
+  let res: Response;
+  try {
+    res = await fetch(
+      "https://raw.githubusercontent.com/VATGER-Nav/datahub/production/api/stations.json"
+    );
+  } catch (err) {
+    // Ist der Datahub nicht erreichbar, ist eine alte Liste besser als keine:
+    // Sonst stünde der Roster-Editor ohne jede Stationsangabe da.
+    if (cachedStations) return cachedStations;
+    throw err;
+  }
+  if (!res.ok) {
+    if (cachedStations) return cachedStations;
+    throw new Error("Failed to fetch station data from Datahub");
+  }
 
   const data = await res.json();
 
@@ -53,11 +78,22 @@ export async function fetchAllStations(): Promise<Station[]> {
       const s1Twr = entry.s1_twr === true ? true : undefined;
       const s1Theory = entry.s1_theory === true ? true : undefined;
 
-      return { callsign, group, airport, s1Twr, s1Theory, gcapStatus: entry.gcap_status };
+      return {
+        callsign,
+        group,
+        airport,
+        s1Twr,
+        s1Theory,
+        gcapStatus: entry.gcap_status,
+        requiredFamiliarizations: parseRequiredFamiliarizations(
+          entry.required_familiarisations
+        ),
+      };
     })
     .filter((s: Station | null): s is Station => s !== null);
 
   cachedStations = stations;
+  cachedAt = Date.now();
   return stations;
 }
 

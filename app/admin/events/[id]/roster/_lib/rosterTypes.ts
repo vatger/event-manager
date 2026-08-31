@@ -95,6 +95,11 @@ export interface StationMeta {
   group: StationGroup | null;
   airport: string | null;
   s1Twr: boolean;
+  /**
+   * Nötige Familiarisierungen laut Datahub – aussen Alternativen, innen die
+   * zusammen geforderten Kürzel. Leer heißt: keine Vorgabe für diese Position.
+   */
+  requiredFamiliarizations: string[][];
 }
 
 /** Controller = aktive Anmeldung inkl. abgeleiteter Daten */
