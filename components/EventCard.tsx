@@ -1,175 +1,243 @@
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+"use client";
+
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle, Clock, MapPin, Timer, UserCheck, Users, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Check, Clock, MapPin, Users } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 import EventBanner from "@/components/Eventbanner";
 import { Event } from "@/types";
 import { CanControlIcon } from "./CanControlIcon";
-import { getSessionUser } from "@/lib/getSessionUser";
 import { getRatingValue } from "@/utils/ratingToValue";
 import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 interface EventCardProps {
   event: Event;
+  /**
+   * true  → grosse Karte mit Banner (Startseite: "Deine Events", "Controlleranmeldungen")
+   * false → kompakte Zeile mit Datumsblock (FIR-Übersicht, viele Events untereinander)
+   */
   showBanner: boolean;
 }
 
+/** Statusfarben aus den Markenskalen, je mit eigener Fassung für den Dark Mode. */
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+  SIGNUP_OPEN: {
+    label: "Anmeldung offen",
+    className: "bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-300",
+  },
+  SIGNUP_CLOSED: {
+    label: "Anmeldung geschlossen",
+    className: "bg-secondary-100 text-secondary-700 dark:bg-secondary-800 dark:text-secondary-300",
+  },
+  PLANNING: {
+    label: "Geplant",
+    className: "bg-primary-100 text-primary-700 dark:bg-primary-900/50 dark:text-primary-200",
+  },
+  ROSTER_PUBLISHED: {
+    label: "Besetzungsplan online",
+    className: "bg-primary-900 text-secondary-50 dark:bg-secondary-50 dark:text-secondary-900",
+  },
+  CANCELLED: {
+    label: "Abgesagt",
+    className: "bg-danger-100 text-danger-900 dark:bg-danger-900/50 dark:text-danger-200",
+  },
+};
+
+/** "18 Okt 2026" – ohne die Abkürzungspunkte, die de-DE sonst setzt. */
+function formatDate(d: Date): string {
+  return new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  })
+    .format(d)
+    .replace(/\./g, "");
+}
+
+/** Zulu-Uhrzeit im Stil der übrigen Ansichten: "1800z" */
+function formatZulu(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}z`;
+}
+
+function formatMonth(d: Date): string {
+  return new Intl.DateTimeFormat("de-DE", { month: "short", timeZone: "UTC" })
+    .format(d)
+    .replace(/\./g, "");
+}
+
+function formatWeekday(d: Date): string {
+  return new Intl.DateTimeFormat("de-DE", { weekday: "long", timeZone: "UTC" }).format(d);
+}
+
 export default function EventCard({ event, showBanner }: EventCardProps) {
-  
-  const statusConfig: Record<"SIGNUP_OPEN" | "SIGNUP_CLOSED" | "PLANNING" | "ROSTER_PUBLISHED" | "CANCELLED", { variant: "default" | "secondary" | "outline" | "destructive" | null; className: string; label: string }> = {
-    SIGNUP_OPEN: {
-      variant: "default",
-      className: "bg-green-100 text-green-800",
-      label: "Anmeldung offen",
-    },
-    SIGNUP_CLOSED: {
-      variant: "secondary",
-      className: "bg-gray-100 text-gray-700",
-      label: "Anmeldung geschlossen",
-    },
-    PLANNING: {
-      variant: "outline",
-      className: "bg-blue-100 text-blue-800",
-      label: "Geplant",
-    },
-    ROSTER_PUBLISHED: {
-      variant: "default",
-      className: "bg-teal-100 text-teal-800",
-      label: "Besetzungsplan",
-    },
-    CANCELLED: {
-      variant: "default",
-      className: "bg-red-100 text-red-900",
-      label: "Abgesagt",
-    },
-  };
-
-  const status = statusConfig[event.status as keyof typeof statusConfig] || {
-    variant: "secondary",
-    className: "bg-gray-100 text-gray-700",
-    label: event.status,
-  };
-
+  const { data: session } = useSession();
 
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
+  const airports = Array.isArray(event.airports) ? event.airports.join(", ") : event.airports;
 
-  const startDateFormatted = start.toLocaleDateString("de-GB", { timeZone: "UTC", dateStyle: "medium" });
-  const startTimeFormatted = start.toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
-  const endTimeFormatted = end.toLocaleTimeString("de-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit" });
+  const status = STATUS_CONFIG[event.status] ?? {
+    label: event.status,
+    className: "bg-secondary-100 text-secondary-700 dark:bg-secondary-800 dark:text-secondary-300",
+  };
 
-  const { data: session } = useSession();
-  
+  const signupOpen = event.status === "SIGNUP_OPEN";
+  const signedUp = event.isSignedUp === true;
+  const registrationLabel = `${event.registrations} ${event.registrations === 1 ? "Anmeldung" : "Anmeldungen"}`;
 
-  return (
-    <Card className="hover:shadow-xl transition-all duration-200 border rounded-2xl">
-      <CardHeader>
-          {showBanner && (
-              <EventBanner 
-              bannerUrl={event.bannerUrl} 
-              eventName={event.name}
-              className="rounded-sm w-full aspect-video object-cover"
-            />
-          )}
+  const controlIcon = signupOpen ? (
+    <CanControlIcon
+      params={{
+        user: {
+          userCID: Number(session?.user?.cid),
+          rating: getRatingValue(session?.user?.rating || "OBS"),
+        },
+        event: {
+          airport: Array.isArray(event.airports) ? event.airports : [event.airports],
+          fir: event.firCode,
+        },
+      }}
+    />
+  ) : null;
 
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-semibold">{event.name}</CardTitle>
-        
-          {event.status === "SIGNUP_OPEN" && (
-            <div className="mr-2">
-              <CanControlIcon 
-                params = {
-                  { 
-                    user: {
-                      userCID: Number(session?.user?.cid),
-                      rating: getRatingValue(session?.user?.rating || "OBS")
-                    }, 
-                    event: {
-                      airport: Array.isArray(event.airports) ? event.airports : [event.airports],
-                      fir: event.firCode
-                    } 
-                  }
-                } 
-              />
+  // =========================================================================
+  // Kompakte Zeile: Datumsblock links, Details rechts. Für Listen, in denen
+  // viele Events untereinander stehen – der Termin ist hier der Ankerpunkt.
+  // =========================================================================
+  if (!showBanner) {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow duration-200 hover:shadow-lg">
+        <div className="flex gap-4 p-5 pb-4">
+          <div className="flex h-[72px] w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[10px] bg-primary-900">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-accent-500">
+              {formatMonth(start)}
+            </span>
+            <span className="text-[26px] font-bold leading-none tabular-nums text-secondary-50">
+              {start.getUTCDate()}
+            </span>
+            <span className="text-[11px] font-medium text-secondary-300">
+              {formatWeekday(start)}
+            </span>
+          </div>
+
+          <div className="flex min-w-0 flex-grow flex-col gap-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-[17px] font-semibold leading-snug text-pretty text-foreground">
+                {event.name}
+              </h3>
+              {controlIcon}
             </div>
-          )}
+
+            <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+              <span className="font-semibold tabular-nums text-foreground">
+                {formatZulu(start)} – {formatZulu(end)}
+              </span>
+              <span className="h-[3px] w-[3px] shrink-0 rounded-full bg-secondary-300" />
+              <span className="min-w-0 break-words">{airports}</span>
+            </div>
+
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              <Badge className={cn("font-medium", status.className)}>{status.label}</Badge>
+              <Badge variant="secondary" className="font-semibold">
+                {event.firCode}
+              </Badge>
+            </div>
+          </div>
         </div>
 
-        <CardDescription className="flex items-center gap-2 text-sm">
-          <Badge variant="secondary">
-              {event.firCode}
-        </Badge>
-        </CardDescription>
-      </CardHeader>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t bg-muted/40 px-5 py-3">
+          <span className="flex items-center gap-1.5 whitespace-nowrap text-[13px] text-muted-foreground">
+            <Users className="h-[15px] w-[15px] shrink-0" />
+            {registrationLabel}
+            {signedUp && (
+              <span className="ml-1 flex items-center gap-1 font-semibold text-success-800 dark:text-success-300">
+                <Check className="h-[14px] w-[14px]" />
+                dabei
+              </span>
+            )}
+          </span>
+          <Link
+            href={`/events/${event.id}`}
+            className="ml-auto flex shrink-0 items-center gap-1.5 text-[13px] font-semibold text-accent-600 transition-colors hover:text-accent-700 dark:text-accent-500 dark:hover:text-accent-400"
+          >
+            Zum Event
+            <ArrowRight className="h-[15px] w-[15px]" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-      <CardContent className="space-y-3 text-sm">
-        
-      <div className="flex items-start gap-2 min-w-0 w-full">
-        <MapPin className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" />
-        <span className="break-words break block min-w-0 flex-1">
-          {Array.isArray(event.airports) ? event.airports.join(', ') : event.airports}
-        </span>
+  // =========================================================================
+  // Grosse Karte: Titel und Termin liegen auf dem Banner, darunter eine
+  // schmale Leiste mit Anmeldungen und Handlung.
+  // =========================================================================
+  return (
+    <div className="flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-shadow duration-200 hover:shadow-lg">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-primary-900">
+        <EventBanner
+          bannerUrl={event.bannerUrl}
+          eventName={event.name}
+          className="absolute inset-0 h-full w-full object-cover"
+          // Titel und Termin liegen hier selbst auf dem Banner
+          showFallbackCaption={false}
+        />
+        {/* Abdunklung, damit die Schrift auf jedem Banner lesbar bleibt */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary-900 via-primary-900/55 to-transparent" />
+
+        <div className="absolute left-4 top-3.5 flex flex-wrap items-center gap-1.5">
+          <Badge className={cn("font-medium", status.className)}>{status.label}</Badge>
+          <Badge className="bg-secondary-50/15 font-semibold text-secondary-50 backdrop-blur-sm">
+            {event.firCode}
+          </Badge>
+        </div>
+
+        {controlIcon && <div className="absolute right-4 top-3.5">{controlIcon}</div>}
+
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 px-5 pb-[18px] pt-4">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-accent-500">
+            {formatDate(start)} · {formatZulu(start)} – {formatZulu(end)}
+          </span>
+          <h3 className="text-[22px] font-bold leading-tight text-pretty text-secondary-50">
+            {event.name}
+          </h3>
+          <span className="flex items-start gap-1.5 text-[13px] text-secondary-300">
+            <MapPin className="mt-px h-[14px] w-[14px] shrink-0" />
+            <span className="min-w-0 break-words">{airports}</span>
+          </span>
+        </div>
       </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-gray-500" />
-          <span>
-            {startDateFormatted} {startTimeFormatted}z -{endTimeFormatted}z
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="flex flex-wrap items-center gap-x-1.5 whitespace-nowrap text-[13px] font-semibold text-foreground">
+            <Users className="h-[15px] w-[15px] shrink-0 text-muted-foreground" />
+            {registrationLabel}
+            {signedUp && (
+              <span className="flex items-center gap-1 text-success-800 dark:text-success-300">
+                <Check className="h-[14px] w-[14px]" />
+                dabei
+              </span>
+            )}
           </span>
-
+          {signupOpen && event.signupDeadline && (
+            <span className="flex items-center gap-1.5 pl-[21px] text-xs text-muted-foreground">
+              <Clock className="h-3 w-3 shrink-0" />
+              noch bis {formatDate(new Date(event.signupDeadline))}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-gray-500" />
-          <span>{event.registrations} {event.registrations == 1 ? "Anmeldung" : "Anmeldungen"}</span>
-        </div>
-
-        <div className="flex justify-between">
-        {event.status == "SIGNUP_OPEN" && event.signupDeadline ? (
-          <Badge variant="default" className="bg-green-100 text-green-800">Anmelden bis: {new Date(event.signupDeadline).toLocaleDateString("en-de", {
-                dateStyle: "medium",
-              })}</Badge>
-        ) : (
-              
-
-              <Badge variant={status.variant} className={status.className}>
-                {status.label}
-              </Badge>
-        )}
-        
-        </div>
-      </CardContent>
-
-      <CardFooter>
-          <Link className="w-full" href={`/events/${event.id}`}>
-          <Button
-            variant="default"
-            className="
-              w-full h-10
-              bg-gradient-to-r from-primary to-primary/80
-              text-primary-foreground
-
-              hover:from-primary/90 hover:to-primary/70
-
-              transition-colors
-            "
-          >
-            See More
-              {typeof event.isSignedUp === "boolean" && event.isSignedUp && (
-                <UserCheck />
-              )} 
-            </Button>
+        <Button asChild size="sm" className="ml-auto h-9 shrink-0 px-4">
+          <Link href={`/events/${event.id}`}>
+            Zum Event
+            <ArrowRight className="h-[15px] w-[15px]" />
           </Link>
-      </CardFooter>
-    </Card>
+        </Button>
+      </div>
+    </div>
   );
 }

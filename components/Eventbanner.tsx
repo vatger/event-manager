@@ -10,10 +10,16 @@ import React, { useState } from 'react'
  * Bewusst in beiden Themes gleich dunkel, damit Event-Kacheln ein ruhiges,
  * einheitliches Raster ergeben.
  */
-function EventBanner({ bannerUrl, eventName, className = "" }: {
+function EventBanner({ bannerUrl, eventName, className = "", showFallbackCaption = true }: {
     bannerUrl: string;
     eventName: string;
     className?: string;
+    /**
+     * Beschriftung der Ersatzfläche (Eventname + "Demnächst") anzeigen.
+     * Aus, wenn der Aufrufer den Titel selbst über das Banner legt – sonst
+     * steht er doppelt da.
+     */
+    showFallbackCaption?: boolean;
   }) {
     const [imgError, setImgError] = useState(false);
 
@@ -30,11 +36,13 @@ function EventBanner({ bannerUrl, eventName, className = "" }: {
             style={{ background: "var(--color-accent-500)" }}
             aria-hidden
           />
-          <div className="relative px-4 text-center">
-            <Plane className="mx-auto mb-2 h-7 w-7 text-accent-500" aria-hidden />
-            <p className="font-semibold leading-tight text-secondary-50">{eventName}</p>
-            <p className="eyebrow mt-1">Demnächst</p>
-          </div>
+          {showFallbackCaption && (
+            <div className="relative px-4 text-center">
+              <Plane className="mx-auto mb-2 h-7 w-7 text-accent-500" aria-hidden />
+              <p className="font-semibold leading-tight text-secondary-50">{eventName}</p>
+              <p className="eyebrow mt-1">Demnächst</p>
+            </div>
+          )}
         </div>
       );
     }
