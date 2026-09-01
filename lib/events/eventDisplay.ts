@@ -4,6 +4,12 @@
  * Eventkarte und Detailseite zeigen dieselben Angaben – Status, Termin,
  * Flughäfen. Sie liegen hier einmal, damit die Seiten nicht auseinanderlaufen,
  * wenn eine von beiden angefasst wird.
+ *
+ * STATUS_TONE_CLASS ist bewusst allgemeiner gefasst als EVENT_STATUS: Weekly-
+ * Termine kennen keinen Event-Status, sondern einen Anmeldezustand mit
+ * eigenen Texten (lib/weeklys/publicDisplay.ts). Beide Seiten teilen sich
+ * aber dieselben fünf Bedeutungen – offen/erledigt/geschlossen/geplant/
+ * kritisch –, deshalb dieselben Farbtöne statt eigener Werte.
  */
 
 export interface EventStatusDisplay {
@@ -87,6 +93,22 @@ export function formatEventMonth(d: Date): string {
 export function formatEventWeekday(d: Date): string {
   return new Intl.DateTimeFormat("de-DE", { weekday: "long", timeZone: "UTC" }).format(d);
 }
+
+/** Bedeutungsträger für Plaketten, die keinen eigenen EventStatus haben. */
+export type StatusTone = "success" | "warning" | "danger" | "neutral" | "highlight";
+
+export const STATUS_TONE_CLASS: Record<StatusTone, string> = {
+  /** offen / erledigt – deckungsgleich mit EVENT_STATUS.SIGNUP_OPEN */
+  success: "bg-success-100 text-success-800 dark:bg-success-900/40 dark:text-success-300",
+  /** noch nicht möglich, aber kein Fehler */
+  warning: "bg-warning-100 text-warning-800 dark:bg-warning-900/40 dark:text-warning-300",
+  /** zu spät / kritisch – deckungsgleich mit EVENT_STATUS.CANCELLED */
+  danger: "bg-danger-100 text-danger-900 dark:bg-danger-900/50 dark:text-danger-200",
+  /** neutral / nicht vorgesehen – deckungsgleich mit EVENT_STATUS.SIGNUP_CLOSED */
+  neutral: "bg-secondary-100 text-secondary-700 dark:bg-secondary-800 dark:text-secondary-300",
+  /** hervorgehobener Erfolg – deckungsgleich mit EVENT_STATUS.ROSTER_PUBLISHED */
+  highlight: "bg-primary-900 text-secondary-50 dark:bg-secondary-50 dark:text-secondary-900",
+};
 
 /** Flughäfen eines Events immer als Liste – das Feld ist mal Array, mal String. */
 export function eventAirportList(airports: unknown): string[] {
