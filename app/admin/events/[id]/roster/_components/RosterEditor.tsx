@@ -39,6 +39,7 @@ import {
   Download,
   Copy,
   Eye,
+  FileText,
   GripVertical,
   History,
   MessageSquare,
@@ -115,6 +116,7 @@ import { AssignDialog } from "./AssignDialog";
 import { FlagPicker } from "./FlagPicker";
 import { PresenceBar } from "./PresenceBar";
 import { RosterSettingsDialog } from "./RosterSettingsDialog";
+import { BriefingDialog } from "./BriefingDialog";
 import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
 import SignupEditDialog from "../../_components/SignupEditDialog";
@@ -324,6 +326,7 @@ export function RosterEditor({
     end: number;
   } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [briefingOpen, setBriefingOpen] = useState(false);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -2512,6 +2515,12 @@ export function RosterEditor({
                   <Settings2 className="h-4 w-4 mr-2" /> Einstellungen
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => setBriefingOpen(true)}>
+                <FileText className="h-4 w-4 mr-2" /> Controller-Briefing
+                {roster.briefing && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-success-500" />
+                )}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={exportCsv}>
                 <Download className="h-4 w-4 mr-2" /> Als CSV herunterladen
@@ -3154,6 +3163,18 @@ export function RosterEditor({
         canManageEditors={canManageEditors}
         apiHeaders={apiHeaders}
         onUpdated={onReload}
+      />
+
+      {/* Dialog: Controller-Briefing */}
+      <BriefingDialog
+        open={briefingOpen}
+        onOpenChange={setBriefingOpen}
+        eventId={event.id}
+        briefing={roster.briefing ?? null}
+        briefingUpdatedAt={roster.briefingUpdatedAt ?? null}
+        canEdit={canEdit}
+        apiHeaders={apiHeaders}
+        onSaved={onReload}
       />
 
       {/* Dialog: Veröffentlichen */}

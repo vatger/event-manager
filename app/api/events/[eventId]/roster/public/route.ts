@@ -43,6 +43,11 @@ export async function GET(
   const roster = await getRosterForEvent(eventId);
   if (!roster) return NextResponse.json({ published, roster: null });
 
+  // Das Briefing hängt nicht am Veröffentlichen-Stand der Zuweisungen – es
+  // soll auch sichtbar sein, bevor überhaupt jemand eingeteilt ist.
+  const briefing = roster.briefing;
+  const briefingUpdatedAt = roster.briefingUpdatedAt;
+
   // Veröffentlichte Fassung bevorzugen; für Rosters aus der Zeit vor dieser
   // Trennung (publishedData noch leer) auf den Live-Stand zurückfallen.
   const source: RosterSnapshotData =
@@ -51,7 +56,7 @@ export async function GET(
       : serializeRoster(roster);
 
   if (source.assignments.length === 0) {
-    return NextResponse.json({ published, roster: null });
+    return NextResponse.json({ published, roster: null, briefing, briefingUpdatedAt });
   }
 
   // Namen der eingeplanten Controller auflösen (Custom-Blöcke haben keine CID)
@@ -77,6 +82,8 @@ export async function GET(
   return NextResponse.json({
     published,
     publishedAt: roster.publishedAt,
+    briefing,
+    briefingUpdatedAt,
     roster: {
       slotMinutes: source.slotMinutes,
       startTime: event.startTime,

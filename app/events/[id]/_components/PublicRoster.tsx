@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Crosshair, Radio, User, Users } from "lucide-react";
+import { CalendarClock, Crosshair, FileText, Radio, User, Users } from "lucide-react";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { airportTintColors, stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
+import { RichText } from "@/components/RichText";
 import type { Station } from "@/lib/stations/types";
 
 // Layout
@@ -96,6 +97,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
 
   const [roster, setRoster] = useState<PublicRosterData | null>(null);
   const [published, setPublished] = useState(true);
+  const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [abbreviations, setAbbreviations] = useState<Map<string, string>>(new Map());
   const [view, setView] = useState<ViewMode>("stations");
@@ -160,6 +162,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
         if (cancelled) return;
         setRoster(data.roster);
         setPublished(Boolean(data.published));
+        setBriefing(typeof data.briefing === "string" ? data.briefing : null);
         onLoaded?.(Boolean(data.roster));
       } catch {
         if (!cancelled) onLoaded?.(false);
@@ -462,7 +465,35 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     );
   }
 
-  if (!roster || !eventStart) return null;
+  /** Hinweise für eingeteilte Lotsen – unabhängig davon, ob schon zugewiesen ist */
+  const briefingBlock = briefing ? (
+    <div className="rounded-lg border border-warning-500/40 bg-warning-500/5 p-3">
+      <p className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-warning-800 dark:text-warning-300">
+        <FileText className="h-4 w-4" />
+        Controller-Briefing
+      </p>
+      <RichText
+        text={briefing}
+        className="text-sm text-foreground"
+        linkClassName="text-warning-700 dark:text-warning-300"
+      />
+    </div>
+  ) : null;
+
+  if (!roster || !eventStart) {
+    if (!briefingBlock) return null;
+    return (
+      <Card id="besetzungsplan" className="scroll-mt-20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5" />
+            Besetzungsplan
+          </CardTitle>
+        </CardHeader>
+        <CardContent>{briefingBlock}</CardContent>
+      </Card>
+    );
+  }
 
   /** Zeitspanne einer Schicht, überall gleich geschrieben */
   const span = (a: PublicRosterAssignment) =>
@@ -508,6 +539,8 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {briefingBlock}
+
         {/* Eigene Schichten */}
         {ownAssignments.length > 0 && (
           <div className="rounded-lg border border-accent-500/40 bg-accent-500/5 p-3">

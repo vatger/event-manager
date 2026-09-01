@@ -61,6 +61,9 @@ export interface ApiRoster {
   notes: ApiRosterNote[];
   /** Bewusst ausgeblendete Planungshinweise (stabile Schlüssel) */
   dismissedWarnings?: string[] | null;
+  /** Controller-Briefing (Freitext mit Links, siehe components/RichText.tsx) */
+  briefing?: string | null;
+  briefingUpdatedAt?: string | null;
 }
 
 /** Client-Modell: Zeiten als Minuten seit Event-Start (raster-freundlich) */

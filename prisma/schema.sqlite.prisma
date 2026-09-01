@@ -20,13 +20,6 @@ enum EventStatus {
   CANCELLED
 }
 
-enum DocumentType {
-  PLAN
-  BRIEFING
-  CHART
-  OTHER
-}
-
 enum NotificationType {
   INFO
   SYSTEM
@@ -136,6 +129,9 @@ model EventRoster {
   publishedAt   DateTime?
   publishedData Json?
   dismissedWarnings Json?
+  briefing             String?
+  briefingUpdatedAt    DateTime?
+  briefingUpdatedByCID Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

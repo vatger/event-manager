@@ -20,13 +20,6 @@ enum EventStatus {
   CANCELLED
 }
 
-enum DocumentType {
-  PLAN
-  BRIEFING
-  CHART
-  OTHER
-}
-
 enum NotificationType {
   INFO
   SYSTEM
@@ -98,7 +91,7 @@ model FIR {
 model Event {
   id              Int         @id @default(autoincrement())
   name            String
-  description     String
+  description     String      @db.Text
   bannerUrl       String?
   bannerVisible   Boolean     @default(false) // Banner only shown publicly after clearing approval
   startTime       DateTime
@@ -138,6 +131,12 @@ model EventRoster {
   // Bewusst ignorierte Planungshinweise (Liste stabiler Warnungs-Schlüssel).
   // Gilt für alle Bearbeiter, damit niemand denselben Hinweis erneut wegklickt.
   dismissedWarnings Json?
+  // Controller-Briefing: Freitext mit Links (gleiches Format wie Event.description,
+  // siehe components/RichText.tsx), unabhängig vom Veröffentlichen-Stand des Plans
+  // selbst sichtbar sobald das Event ROSTER_PUBLISHED ist.
+  briefing             String?   @db.Text
+  briefingUpdatedAt    DateTime?
+  briefingUpdatedByCID Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
