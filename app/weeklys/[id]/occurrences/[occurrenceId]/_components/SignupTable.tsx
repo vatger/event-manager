@@ -45,11 +45,11 @@ export function SignupsTable({
   currentUserCID, onSignupAdded, onEdit, onDelete,
 }: SignupsTableProps) {
   return (
-    <Card className="border-gray-200 dark:border-gray-800">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-gray-600" />
+            <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
             <CardTitle className="text-lg">Angemeldete Lotsen</CardTitle>
             <Badge variant="outline" className="ml-2">{signups.length}</Badge>
           </div>
@@ -68,18 +68,18 @@ export function SignupsTable({
       <CardContent>
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : signups.length === 0 ? (
           <div className="text-center py-8">
-            <Users className="h-12 w-12 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Noch keine Anmeldungen</p>
+            <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+            <p className="text-muted-foreground">Noch keine Anmeldungen</p>
           </div>
         ) : (
-          <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
+          <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
-                <TableRow className="bg-gray-50 dark:bg-gray-900/40">
+                <TableRow className="bg-muted/50">
                   <TableHead>CID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead className="w-[120px]">Gruppe</TableHead>
@@ -99,7 +99,7 @@ export function SignupsTable({
                   .map((signup) => {
                     const isCurrentUser = signup.userCID === currentUserCID;
                     return (
-                      <TableRow key={signup.id} className={isCurrentUser ? "bg-blue-50 dark:bg-blue-900/10" : ""}>
+                      <TableRow key={signup.id} className={isCurrentUser ? "bg-primary-50 dark:bg-primary-900/10" : ""}>
                         <TableCell><span className="font-medium">{signup.userCID}</span></TableCell>
                         <TableCell><span className="font-medium">{signup.user?.name || "Unbekannt"}</span></TableCell>
                         <TableCell>
@@ -109,10 +109,10 @@ export function SignupsTable({
                                 {signup.endorsementGroup}
                               </Badge>
                             ) : (
-                              <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                              <span className="text-xs text-muted-foreground">-</span>
                             )}
                             {isTrainee(signup.restrictions) && (
-                              <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">Trainee</Badge>
+                              <Badge className="text-[10px] h-4 bg-warning-600 text-warning-950 hover:bg-warning-700">Trainee</Badge>
                             )}
                           </div>
                         </TableCell>
@@ -124,19 +124,19 @@ export function SignupsTable({
                               ))}
                             </div>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-600 text-xs">Keine</span>
+                            <span className="text-xs text-muted-foreground">Keine</span>
                           )}
                         </TableCell>
                         <TableCell>
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                          <span className="text-xs text-muted-foreground">
                             {format(new Date(signup.createdAt), "dd.MM.yyyy", { locale: de })}
                           </span>
                         </TableCell>
                         <TableCell>
                           {signup.remarks ? (
-                            <span className="text-xs text-gray-600 dark:text-gray-400 italic line-clamp-1">{signup.remarks}</span>
+                            <span className="text-xs text-muted-foreground italic line-clamp-1">{signup.remarks}</span>
                           ) : (
-                            <span className="text-gray-400 dark:text-gray-600 text-xs">-</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </TableCell>
                         {canManage && (
@@ -151,7 +151,7 @@ export function SignupsTable({
                                 <DropdownMenuItem onClick={() => onEdit(signup)}>
                                   <Pencil className="mr-2 h-4 w-4" />Bearbeiten
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onDelete(signup)} className="text-red-600">
+                                <DropdownMenuItem onClick={() => onDelete(signup)} className="text-danger-700 dark:text-danger-300">
                                   <Trash2 className="mr-2 h-4 w-4" />Löschen
                                 </DropdownMenuItem>
                               </DropdownMenuContent>

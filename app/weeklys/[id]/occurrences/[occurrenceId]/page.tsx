@@ -18,8 +18,9 @@ import {
   Loader2,
   AlertCircle,
   Info,
+  MapPin,
 } from "lucide-react";
-import { format, isBefore } from "date-fns";
+import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -30,6 +31,8 @@ import { useUser } from "@/hooks/useUser";
 import { PublishedRoster } from "./_components/PublishedRoster";
 import { SignupsTable } from "./_components/SignupTable";
 import { SignupDialogs } from "./_components/SignupDialogs";
+import { STATUS_TONE_CLASS, formatLocalDate, formatLocalTime } from "@/lib/events/eventDisplay";
+import { occurrenceStatus, weeklyAirportList } from "@/lib/weeklys/publicDisplay";
 
 interface FIR {
   code: string;
@@ -264,116 +267,11 @@ export default function OccurrenceDetailPage() {
     return canInFIR(firCode, "signups.manage") || canInFIR(firCode, "event.manage");
   };
 
-  const isSignupOpen = (): boolean => {
-    if (!occurrence) return false;
-    
-    // Manual override - closed
-    if (occurrence.signupStatus === "closed") return false;
-    
-    // Manual override - open
-    if (occurrence.signupStatus === "open") {
-      // Still need to check deadline
-      if (occurrence.signupDeadline) {
-        return isBefore(new Date(), new Date(occurrence.signupDeadline));
-      }
-      return true;
-    }
-    
-    // Auto mode - check if within 2 weeks and before deadline
-    if (occurrence.signupStatus === "auto") {
-      const now = new Date();
-      const occDate = new Date(occurrence.date);
-      const twoWeeksBefore = new Date(occDate);
-      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
-      
-      // Not yet 2 weeks before
-      if (now < twoWeeksBefore) {
-        return false;
-      }
-      
-      // Check deadline
-      if (occurrence.signupDeadline) {
-        return isBefore(now, new Date(occurrence.signupDeadline));
-      }
-      
-      return true;
-    }
-    
-    return false;
-  };
-
-  const getSignupStatusMessage = (): { text: string; color: string } => {
-    if (!occurrence || !occurrence.config.requiresRoster) {
-      return { text: "Kein Roster vorgesehen", color: "text-gray-500" };
-    }
-    
-    if (rosterPublished) {
-      return { text: "Roster veröffentlicht", color: "text-green-600" };
-    }
-    
-    if (occurrence.signupStatus === "closed") {
-      return { text: "Anmeldung geschlossen", color: "text-red-600" };
-    }
-    
-    if (occurrence.signupStatus === "open") {
-      if (occurrence.signupDeadline && !isBefore(new Date(), new Date(occurrence.signupDeadline))) {
-        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
-      }
-      return { text: "Anmeldung offen", color: "text-green-600" };
-    }
-    
-    // Auto mode
-    if (occurrence.signupStatus === "auto") {
-      const now = new Date();
-      const occDate = new Date(occurrence.date);
-      const twoWeeksBefore = new Date(occDate);
-      twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
-      
-      if (now < twoWeeksBefore) {
-        const opensAtStr = twoWeeksBefore.toLocaleDateString("de-DE", { 
-          day: "2-digit", 
-          month: "2-digit", 
-          year: "numeric" 
-        });
-        return { 
-          text: `Anmeldung öffnet am ${opensAtStr}`, 
-          color: "text-amber-600" 
-        };
-      }
-      
-      if (occurrence.signupDeadline && !isBefore(now, new Date(occurrence.signupDeadline))) {
-        return { text: "Anmeldeschluss überschritten", color: "text-red-600" };
-      }
-      
-      return { text: "Anmeldung offen", color: "text-green-600" };
-    }
-    
-    return { text: "Status unbekannt", color: "text-gray-500" };
-  };
-
-  const getStatusDotColor = (statusMessage: { text: string; color: string }): string => {
-    if (statusMessage.color.includes("green")) return "bg-green-500";
-    if (statusMessage.color.includes("amber")) return "bg-amber-500";
-    if (statusMessage.color.includes("blue")) return "bg-blue-500";
-    if (statusMessage.color.includes("red")) return "bg-red-500";
-    return "bg-gray-400";
-  };
-
-  const getStatusBadgeColor = (statusMessage: { text: string; color: string }): string => {
-    if (statusMessage.color.includes("green")) return "bg-green-600";
-    if (statusMessage.color.includes("amber")) return "bg-amber-600";
-    if (statusMessage.color.includes("blue")) return "bg-blue-600";
-    if (statusMessage.color.includes("red")) return "bg-red-600";
-    return "";
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-          </div>
+      <div className="mx-auto max-w-5xl p-6">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -381,245 +279,277 @@ export default function OccurrenceDetailPage() {
 
   if (error || !occurrence) {
     return (
-      <div className="min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <Alert variant="destructive" className="border-red-200 dark:border-red-800">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error || "Termin nicht gefunden"}</AlertDescription>
-          </Alert>
-        </div>
+      <div className="mx-auto max-w-5xl p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error || "Termin nicht gefunden"}</AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   const occDate = new Date(occurrence.date);
-  const deadline = occurrence.signupDeadline
-    ? new Date(occurrence.signupDeadline)
-    : null;
-  const signupOpen = isSignupOpen() && !rosterPublished;
+  const deadline = occurrence.signupDeadline ? new Date(occurrence.signupDeadline) : null;
+  const airports = weeklyAirportList(occurrence.config.airports);
+
+  /**
+   * Anmeldestatus dieses Termins – Text und Bedeutungston aus dem Modul, das
+   * sich diese Seite und die Weekly-Detailseite teilen. "success" heißt
+   * hier immer: Anmeldung ist gerade möglich (deckt exakt die frühere
+   * isSignupOpen() && !rosterPublished-Bedingung ab, da rosterPublished
+   * bereits vorrangig den highlight-Ton erzwingt).
+   */
+  const status = occurrenceStatus({
+    requiresRoster: !!occurrence.config.requiresRoster,
+    rosterPublished,
+    signupStatus: occurrence.signupStatus,
+    date: occDate,
+    signupDeadline: deadline,
+  });
+  const signupOpen = status.tone === "success";
+
+  const actionElement =
+    session && occurrence.config.requiresRoster && !rosterPublished ? (
+      signupOpen ? (
+        <WeeklySignupDialog
+          occurrence={{
+            id: occurrence.id,
+            date: occDate,
+            signupDeadline: deadline,
+          }}
+          config={{
+            id: occurrence.config.id,
+            requiresRoster: occurrence.config.requiresRoster || false,
+          }}
+          user={{
+            userCID: Number(session.user.cid),
+            rating: session.user.rating,
+          }}
+          airports={occurrence.config.airports || []}
+          fir={occurrence.config.fir?.code}
+          userSignup={isSignedUp ? signups.find((s) => s.userCID === Number(session.user.cid)) : null}
+          onSignupChange={fetchSignups}
+        />
+      ) : (
+        // status.label nennt den tatsächlichen Grund (Anmeldeschluss überschritten,
+        // öffnet erst am ..., manuell geschlossen) – vorher stand hier unabhängig
+        // vom Grund immer "Anmeldeschluss abgelaufen", auch wenn die Anmeldung
+        // schlicht noch nicht begonnen hatte.
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{status.label}.</AlertDescription>
+        </Alert>
+      )
+    ) : null;
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        {/* Header mit Back-Button */}
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push(`/weeklys/${params.id}`)}
-            className="h-8 w-8 border-gray-300 dark:border-gray-700"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {occurrence.config.name}
-            </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                <Calendar className="h-3.5 w-3.5 hidden sm:block" />
-                <span>{format(occDate, "EEEE, dd.MM.yy", { locale: de })}</span>
-              </div>
-              {(occurrence.config.startTime || occurrence.config.endTime) && (
-                <>
-                  <span className="text-gray-300 dark:text-gray-700">•</span>
-                  <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                    <Clock className="h-3.5 w-3.5 hidden sm:block" />
-                    <span>{occurrence.config.startTime || "?"} - {occurrence.config.endTime || "?"} lcl</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <Button variant="ghost" size="sm" onClick={() => router.push(`/weeklys/${params.id}`)} className="-ml-2 gap-1.5">
+        <ArrowLeft className="h-4 w-4" />
+        Zurück zu den Terminen
+      </Button>
+
+      {/* Kopfbereich im Zuschnitt der übrigen Detailseiten */}
+      <div className="relative h-64 overflow-hidden rounded-2xl border bg-primary-900 md:h-80">
+        <EventBanner
+          bannerUrl={occurrence.config.bannerUrl ?? ""}
+          eventName={occurrence.config.name}
+          className="absolute inset-0 h-full w-full object-cover object-center"
+          showFallbackCaption={false}
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-primary-900 via-primary-900/60 to-transparent" />
+
+        <div className="absolute left-5 top-4 flex flex-wrap items-center gap-1.5 sm:left-7">
+          <Badge className={cn("font-medium", STATUS_TONE_CLASS[status.tone])}>{status.label}</Badge>
+          {occurrence.config.fir?.code && (
+            <Badge className="bg-secondary-50/15 font-semibold text-secondary-50 backdrop-blur-sm">
+              {occurrence.config.fir.code}
+            </Badge>
+          )}
         </div>
 
-        {/* Main Grid - Banner + Info Card */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 px-5 pb-5 pt-8 sm:px-7">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-accent-500">
+            {format(occDate, "EEEE, dd. MMMM yyyy", { locale: de })}
+            {(occurrence.config.startTime || occurrence.config.endTime) &&
+              ` · ${occurrence.config.startTime || "?"} – ${occurrence.config.endTime || "?"} lcl`}
+          </span>
+          <h1 className="text-pretty text-2xl font-bold leading-tight text-secondary-50 sm:text-3xl">
+            {occurrence.config.name}
+          </h1>
+          {airports.length > 0 && (
+            <span className="flex min-w-0 items-center gap-1.5 text-sm text-secondary-300">
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span className="truncate" title={airports.join(", ")}>
+                {airports.length > 3 ? `${airports.length} Flughäfen` : airports.join(", ")}
+              </span>
+            </span>
+          )}
+        </div>
+      </div>
 
-          
-          {/* Banner */}
-          <div className="md:col-span-2 min-h-0 order-first md:order-last">
-            <div className="relative h-56 md:h-full rounded-xl overflow-hidden">
-              <EventBanner
-                bannerUrl={occurrence.config.bannerUrl || ""}
-                eventName={occurrence.config.name}
-                className="absolute inset-0 w-full h-full object-cover object-center"
-              />
+      {/* Fakten und Handlung */}
+      <Card>
+        <CardContent className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
+          <dl className="grid flex-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+            <div className="flex items-start gap-2.5">
+              <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0">
+                <dt className="text-xs font-medium text-muted-foreground">Termin</dt>
+                <dd className="text-sm font-semibold text-foreground">
+                  {format(occDate, "EEEE, dd.MM.yyyy", { locale: de })}
+                </dd>
+              </div>
             </div>
-          </div>
 
-          {/* Info Card */}
-          <Card className="md:col-span-1 border-gray-200 dark:border-gray-800 order-last md:order-first">
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  getStatusDotColor(getSignupStatusMessage())
-                )} />
-                <CardTitle className="text-lg">Event Informationen</CardTitle>
+            {(occurrence.config.startTime || occurrence.config.endTime) && (
+              <div className="flex items-start gap-2.5">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0">
+                  <dt className="text-xs font-medium text-muted-foreground">Zeit</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-foreground">
+                    {occurrence.config.startTime || "?"} – {occurrence.config.endTime || "?"} lcl
+                  </dd>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 dark:text-gray-400">Status</span>
-                <Badge 
-                  variant={signupOpen ? "default" : "secondary"}
-                  className={cn(
-                    getStatusBadgeColor(getSignupStatusMessage())
-                  )}
-                >
-                  {getSignupStatusMessage().text}
-                </Badge>
-              </div>
-
-              {/* Deadline */}
-              {occurrence.config.requiresRoster && deadline && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Anmeldeschluss</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {format(deadline, "dd.MM.yyyy HH:mm", { locale: de })}
-                  </span>
-                </div>
-              )}
-
-              {/* Airports */}
-              {occurrence.config.airports && occurrence.config.airports.length > 0 && (
-                <div className="space-y-1">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Flughafen</span>
-                  <div className="flex flex-wrap gap-1">
-                  {occurrence.config.airports.map((apt) => (
-                    <Badge key={apt} variant="outline" className="text-xs font-mono">
-                    {apt}
-                    </Badge>
-                  ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Beschreibung */}
-              {occurrence.config.description && (
-                <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {occurrence.config.description}
-                  </p>
-                </div>
-              )}
-
-              {/* Stationen */}
-              {occurrence.config.requiresRoster && occurrence.config.staffedStations && occurrence.config.staffedStations.length > 0 && (
-                <div className="mt-5 pt-5 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <p className="text-sm font-medium">Gerosterte Stationen</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {occurrence.config.staffedStations.map((station) => (
-                      <Badge key={station} variant="outline" className="py-1">
-                        {station}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {session && occurrence.config.requiresRoster && !rosterPublished && (
-                signupOpen ? (
-                  <div className="flex gap-2">
-                    <WeeklySignupDialog
-                      occurrence={{
-                        id: occurrence.id,
-                        date: new Date(occurrence.date),
-                        signupDeadline: occurrence.signupDeadline ? new Date(occurrence.signupDeadline) : null,
-                      }}
-                      config={{
-                        id: occurrence.config.id,
-                        requiresRoster: occurrence.config.requiresRoster || false,
-                      }}
-                      user={{
-                        userCID: Number(session.user.cid),
-                        rating: session.user.rating,
-                      }}
-                      airports={occurrence.config.airports || []}
-                      fir={occurrence.config.fir?.code}
-                      userSignup={isSignedUp ? signups.find(s => s.userCID === Number(session.user.cid)) : null}
-                      onSignupChange={fetchSignups}
-                    />
-                  </div>
-                ) : (
-                  <Alert className="border-gray-200 dark:border-gray-800">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Der Anmeldeschluss für diesen Termin ist abgelaufen.
-                    </AlertDescription>
-                  </Alert>
-                )
             )}
+
+            {occurrence.config.requiresRoster && deadline && (
+              <div className="flex items-start gap-2.5">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-600 dark:text-accent-500" />
+                <div className="min-w-0">
+                  <dt className="text-xs font-medium text-muted-foreground">Anmeldeschluss</dt>
+                  <dd className="text-sm font-semibold text-accent-600 dark:text-accent-500">
+                    {formatLocalDate(deadline)} · {formatLocalTime(deadline)} lcl
+                  </dd>
+                </div>
+              </div>
+            )}
+          </dl>
+
+          {actionElement && <div className="w-full shrink-0 lg:w-72">{actionElement}</div>}
+        </CardContent>
+      </Card>
+
+      {/* Flughäfen vollständig, wenn mehr als einer */}
+      {airports.length > 1 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              Flughäfen
+              <Badge variant="secondary" className="ml-1 font-semibold">
+                {airports.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {airports.map((icao) => (
+                <span
+                  key={icao}
+                  className="inline-flex items-center rounded-md border bg-muted/50 px-2.5 py-1 font-mono text-[13px] font-semibold tracking-wide text-foreground"
+                >
+                  {icao}
+                </span>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {occurrence.config.description && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Beschreibung</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed text-muted-foreground">{occurrence.config.description}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Vorschau der geplanten Stationen, solange noch kein Roster veröffentlicht ist –
+          danach zeigt PublishedRoster dieselben Stationen bereits mit ihrer Zuweisung. */}
+      {occurrence.config.requiresRoster &&
+        !rosterPublished &&
+        occurrence.config.staffedStations &&
+        occurrence.config.staffedStations.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Geplante Stationen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {occurrence.config.staffedStations.map((station) => (
+                  <Badge key={station} variant="outline" className="py-1 font-mono">
+                    {station}
+                  </Badge>
+                ))}
+              </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Info for non-rostered events */}
-        {session && !occurrence.config.requiresRoster && (
-          <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-            <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertDescription className="text-blue-700 dark:text-blue-300">
-              Für dieses Weekly Event ist kein Roster vorgesehen. Bitte buche eine Station direkt über das{" "}
-              <a
-                href="https://vatsim-germany.org/controllers/booking"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline underline-offset-2"
-              >
-                VATGER Booking System.
-              </a>
-            </AlertDescription>
-          </Alert>
         )}
 
-        {!session && occurrence.config.requiresRoster && (
-          <Alert className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-            <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-            <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-              Bitte melde dich an, um dich für diesen Termin anzumelden.
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {rosterPublished && occurrence.config.staffedStations && (
-          <PublishedRoster
-            staffedStations={occurrence.config.staffedStations}
-            roster={roster}
-          />
-        )}
+      {/* Hinweis für Events ohne Roster */}
+      {session && !occurrence.config.requiresRoster && (
+        <Alert className="border-primary-200 bg-primary-50 dark:border-primary-800 dark:bg-primary-900/20">
+          <Info className="h-4 w-4 text-primary-700 dark:text-primary-300" />
+          <AlertDescription className="text-primary-800 dark:text-primary-200">
+            Für dieses Weekly Event ist kein Roster vorgesehen. Bitte buche eine Station direkt über das{" "}
+            <a
+              href="https://vatsim-germany.org/controllers/booking"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline underline-offset-2"
+            >
+              VATGER Booking System.
+            </a>
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {occurrence.config.requiresRoster && (
-          <SignupsTable
-            signups={signups}
-            loading={signupsLoading}
-            canManage={canManageSignups()}
-            configId={occurrence.config.id}
-            occurrenceId={occurrence.id}
-            currentUserCID={session?.user?.cid ? Number(session.user.cid) : undefined}
-            onSignupAdded={fetchSignups}
-            onEdit={(signup) => {
-              setEditRemarks(signup.remarks || "");
-              setEditSignupDialog({ open: true, signup });
-            }}
-            onDelete={(signup) => setDeleteSignupDialog({ open: true, signup })}
-          />
-        )}
-      </div>
+      {!session && occurrence.config.requiresRoster && (
+        <Alert className="border-warning-300 bg-warning-50 dark:border-warning-800 dark:bg-warning-900/20">
+          <AlertCircle className="h-4 w-4 text-warning-800 dark:text-warning-400" />
+          <AlertDescription className="text-warning-900 dark:text-warning-200">
+            Bitte melde dich an, um dich für diesen Termin anzumelden.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {rosterPublished && occurrence.config.staffedStations && (
+        <PublishedRoster staffedStations={occurrence.config.staffedStations} roster={roster} />
+      )}
+
+      {occurrence.config.requiresRoster && (
+        <SignupsTable
+          signups={signups}
+          loading={signupsLoading}
+          canManage={canManageSignups()}
+          configId={occurrence.config.id}
+          occurrenceId={occurrence.id}
+          currentUserCID={session?.user?.cid ? Number(session.user.cid) : undefined}
+          onSignupAdded={fetchSignups}
+          onEdit={(signup) => {
+            setEditRemarks(signup.remarks || "");
+            setEditSignupDialog({ open: true, signup });
+          }}
+          onDelete={(signup) => setDeleteSignupDialog({ open: true, signup })}
+        />
+      )}
+
       <SignupDialogs
-      editState={editSignupDialog}
-      deleteState={deleteSignupDialog}
-      editRemarks={editRemarks}
-      busy={busy}
-      onEditRemarksChange={setEditRemarks}
-      onEditClose={() => setEditSignupDialog({ open: false, signup: null })}
-      onDeleteClose={() => setDeleteSignupDialog({ open: false, signup: null })}
-      onEditConfirm={handleEditSignup}
-      onDeleteConfirm={handleDeleteSignup}
-    />
+        editState={editSignupDialog}
+        deleteState={deleteSignupDialog}
+        editRemarks={editRemarks}
+        busy={busy}
+        onEditRemarksChange={setEditRemarks}
+        onEditClose={() => setEditSignupDialog({ open: false, signup: null })}
+        onDeleteClose={() => setDeleteSignupDialog({ open: false, signup: null })}
+        onEditConfirm={handleEditSignup}
+        onDeleteConfirm={handleDeleteSignup}
+      />
     </div>
-        
-)}
+  );
+}

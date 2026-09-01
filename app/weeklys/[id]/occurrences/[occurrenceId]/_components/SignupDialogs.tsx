@@ -50,7 +50,7 @@ export function SignupDialogs({
                 rows={3}
                 maxLength={500}
               />
-              <p className="text-xs text-gray-500 mt-1">{editRemarks.length}/500 Zeichen</p>
+              <p className="mt-1 text-xs text-muted-foreground">{editRemarks.length}/500 Zeichen</p>
             </div>
           </div>
           <DialogFooter>
@@ -70,11 +70,9 @@ export function SignupDialogs({
               Möchtest du die Anmeldung von {deleteState.signup?.user?.name || `CID ${deleteState.signup?.userCID}`} wirklich löschen?
             </DialogDescription>
           </DialogHeader>
-          <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-            <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            <AlertDescription className="text-red-700 dark:text-red-300">
-              Diese Aktion kann nicht rückgängig gemacht werden.
-            </AlertDescription>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>Diese Aktion kann nicht rückgängig gemacht werden.</AlertDescription>
           </Alert>
           <DialogFooter>
             <Button variant="outline" onClick={onDeleteClose} disabled={busy}>Abbrechen</Button>

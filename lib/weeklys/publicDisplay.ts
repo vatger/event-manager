@@ -100,7 +100,12 @@ export function occurrenceStatus(input: OccurrenceStatusInput): OccurrenceStatus
   twoWeeksBefore.setDate(twoWeeksBefore.getDate() - 14);
 
   if (new Date() < twoWeeksBefore) {
-    return { label: "Noch keine Anmeldung", tone: "warning" };
+    const opensAt = twoWeeksBefore.toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return { label: `Anmeldung öffnet am ${opensAt}`, tone: "warning" };
   }
 
   if (input.signupDeadline && input.signupDeadline <= new Date()) {

@@ -216,7 +216,7 @@ export function WeeklySignupDialog({
             <AlertDialogAction
               onClick={handleUnsubscribe}
               disabled={unsubscribing}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               {unsubscribing ? "Wird abgemeldet..." : "Ja, abmelden"}
             </AlertDialogAction>

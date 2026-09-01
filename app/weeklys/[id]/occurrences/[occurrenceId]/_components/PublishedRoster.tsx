@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { GraduationCap, ClipboardCheck, Plane, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
@@ -76,26 +75,24 @@ function UserInfo({ entry }: { entry: RosterEntry }) {
   const initials = entry.user?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2) ?? "??";
   return (
     <div className="flex items-center gap-3">
-      <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{initials}</span>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-100 dark:bg-primary-900/40">
+        <span className="text-xs font-semibold text-primary-700 dark:text-primary-300">{initials}</span>
       </div>
       <div>
-        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-          {entry.user?.name ?? `CID ${entry.userCID}`}
-        </p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+        <p className="text-sm font-medium text-foreground">{entry.user?.name ?? `CID ${entry.userCID}`}</p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
           {entry.user?.rating && (
-            <Badge variant="outline" className="text-[10px] h-4">
+            <Badge variant="outline" className="h-4 text-[10px]">
               {getRatingFromValue(entry.user.rating)}
             </Badge>
           )}
           {entry.endorsementGroup && (
-            <Badge className={cn("text-[10px] h-4", getBadgeClassForEndorsement(entry.endorsementGroup))}>
+            <Badge className={cn("h-4 text-[10px]", getBadgeClassForEndorsement(entry.endorsementGroup))}>
               {entry.endorsementGroup}
             </Badge>
           )}
           {entry.restrictions && isTrainee(entry.restrictions) && (
-            <Badge className="text-[10px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black">T</Badge>
+            <Badge className="h-4 bg-warning-600 text-[10px] text-warning-950 hover:bg-warning-700">T</Badge>
           )}
         </div>
       </div>
@@ -103,37 +100,39 @@ function UserInfo({ entry }: { entry: RosterEntry }) {
   );
 }
 
+/** Rahmenfarben je Zuweisungsart – dieselben drei Bedeutungen wie überall sonst im System. */
+const ROW_TONE: Record<RowGroup["groupType"], string> = {
+  empty: "bg-muted/40 border-border",
+  normal: "bg-success-50 border-success-200 dark:bg-success-900/10 dark:border-success-800",
+  cpt: "bg-accent-500/10 border-accent-500/30",
+  training: "bg-primary-50 border-primary-200 dark:bg-primary-900/10 dark:border-primary-800",
+};
+
 function NormalRow({ row }: { row: StationRow }) {
   const isEmpty = !row.entry;
   const isCpt = row.entry?.assignmentType === "cpt";
   const isTrainingType = row.entry?.assignmentType === "training";
+  const groupType = isEmpty ? "empty" : isCpt ? "cpt" : isTrainingType ? "training" : "normal";
 
   return (
     <div
       className={cn(
-        "grid grid-cols-[200px_1fr] gap-4 items-center px-3 py-3 rounded-lg border transition-colors relative overflow-hidden",
-        isEmpty && "bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800",
-        !isEmpty && !isCpt && !isTrainingType && "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800",
-        isCpt && "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800",
-        isTrainingType && "bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800",
+        "relative grid grid-cols-[130px_1fr] items-center gap-4 overflow-hidden rounded-lg border px-3 py-3 transition-colors sm:grid-cols-[200px_1fr]",
+        ROW_TONE[groupType]
       )}
     >
-      <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{row.station}</span>
-      {row.entry ? (
-        <UserInfo entry={row.entry} />
-      ) : (
-        <p className="text-sm text-gray-400 dark:text-gray-600">Nicht besetzt</p>
-      )}
-      
-      {/* Type marker for single rows */}
+      <span className="font-mono text-sm font-medium text-foreground">{row.station}</span>
+      {row.entry ? <UserInfo entry={row.entry} /> : <p className="text-sm text-muted-foreground">Nicht besetzt</p>}
+
+      {/* Typmarkierung für einzelne Zeilen */}
       {isCpt && (
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-red-500 dark:bg-red-600 flex items-center justify-center">
-          <span className="text-white text-xs font-bold transform -rotate-90 whitespace-nowrap">CPT</span>
+        <div className="absolute inset-y-0 right-0 flex w-8 items-center justify-center bg-accent-500">
+          <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">CPT</span>
         </div>
       )}
       {isTrainingType && (
-        <div className="absolute right-0 top-0 bottom-0 w-8 bg-sky-500 dark:bg-sky-600 flex items-center justify-center">
-          <span className="text-white text-xs font-bold transform -rotate-90 whitespace-nowrap">TRG</span>
+        <div className="absolute inset-y-0 right-0 flex w-8 items-center justify-center bg-primary-700">
+          <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">TRG</span>
         </div>
       )}
     </div>
@@ -143,32 +142,16 @@ function NormalRow({ row }: { row: StationRow }) {
 function GroupedBlock({ group }: { group: RowGroup }) {
   const isCpt = group.groupType === "cpt";
 
-  const blockBorder = isCpt
-    ? "border-red-200 dark:border-red-800"
-    : "border-blue-200 dark:border-blue-800";
-  const blockBg = isCpt
-    ? "bg-red-50 dark:bg-red-900/10"
-    : "bg-blue-50 dark:bg-blue-900/10";
-  const stationDivider = isCpt
-    ? "border-red-200/70 dark:border-red-800/50"
-    : "border-blue-200/70 dark:border-blue-800/50";
-  const stationColBorder = isCpt
-    ? "border-red-200 dark:border-red-800/60"
-    : "border-blue-200 dark:border-blue-800/60";
-
-  // The side marker
-  const markerBg = isCpt
-    ? "bg-red-500 dark:bg-red-600"
-    : "bg-sky-500 dark:bg-sky-600";
-  const markerText = "text-white text-xs font-bold";
+  const blockBorder = isCpt ? "border-accent-500/30" : "border-primary-200 dark:border-primary-800";
+  const blockBg = isCpt ? "bg-accent-500/10" : "bg-primary-50 dark:bg-primary-900/10";
+  const stationDivider = isCpt ? "border-accent-500/20" : "border-primary-200/70 dark:border-primary-800/50";
+  const stationColBorder = isCpt ? "border-accent-500/30" : "border-primary-200 dark:border-primary-800/60";
+  const markerBg = isCpt ? "bg-accent-500" : "bg-primary-700";
 
   return (
-    <div className={cn("flex rounded-lg border overflow-hidden relative", blockBorder, blockBg)}>
-
-      
-
-      {/* Left: stations stacked */}
-      <div className={cn("flex flex-col border-r shrink-0 w-[140px]", stationColBorder)}>
+    <div className={cn("relative flex overflow-hidden rounded-lg border", blockBorder, blockBg)}>
+      {/* Links: Stationen gestapelt */}
+      <div className={cn("flex w-[110px] shrink-0 flex-col border-r sm:w-[140px]", stationColBorder)}>
         {group.rows.map((row, idx) => (
           <div
             key={row.station}
@@ -177,22 +160,17 @@ function GroupedBlock({ group }: { group: RowGroup }) {
               idx < group.rows.length - 1 && cn("border-b", stationDivider)
             )}
           >
-            <span className="font-medium text-gray-900 dark:text-gray-100 text-sm">{row.station}</span>
+            <span className="font-mono text-sm font-medium text-foreground">{row.station}</span>
           </div>
         ))}
       </div>
-      
 
-      {/* Center: user info vertically centered across all rows */}
-      <div className="flex-1 flex items-center px-4 py-3">
-        {group.entry && <UserInfo entry={group.entry} />}
-      </div>
-      
-      {/* right side marker */}
-      <div className={cn("w-8 flex items-center justify-center", markerBg)}>
-        <span className={cn(markerText, "transform -rotate-90 whitespace-nowrap")}>
-          {isCpt ? "CPT" : "TRG"}
-        </span>
+      {/* Mitte: Nutzer über alle Zeilen vertikal zentriert */}
+      <div className="flex flex-1 items-center px-4 py-3">{group.entry && <UserInfo entry={group.entry} />}</div>
+
+      {/* Rechte Markierung */}
+      <div className={cn("flex w-8 shrink-0 items-center justify-center", markerBg)}>
+        <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">{isCpt ? "CPT" : "TRG"}</span>
       </div>
     </div>
   );
@@ -202,30 +180,30 @@ export function PublishedRoster({ staffedStations, roster }: PublishedRosterProp
   const groups = buildGroups(staffedStations, roster);
 
   return (
-    <Card className="border-gray-200 dark:border-gray-800">
+    <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-green-600" />
+            <div className="h-1.5 w-1.5 rounded-full bg-success-600" />
             <CardTitle className="text-lg">Besetzungsplan</CardTitle>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-2 text-[10px] sm:gap-3 sm:text-xs">
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-red-500" />
-              <span className="text-gray-600 dark:text-gray-400">CPT</span>
+              <div className="h-2 w-2 rounded bg-accent-500 sm:h-3 sm:w-3" />
+              <span className="text-muted-foreground">CPT</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-sky-500" />
-              <span className="text-gray-600 dark:text-gray-400">Training</span>
+              <div className="h-2 w-2 rounded bg-primary-700 sm:h-3 sm:w-3" />
+              <span className="text-muted-foreground">Training</span>
             </div>
           </div>
         </div>
         <CardDescription>Das offizielle Roster für dieses Event</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="hidden sm:grid sm:grid-cols-[200px_1fr] gap-4 mb-2 px-3">
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Station</div>
-          <div className="text-xs font-medium text-gray-500 dark:text-gray-400">Zugewiesener Lotse</div>
+        <div className="mb-2 hidden gap-4 px-3 sm:grid sm:grid-cols-[200px_1fr]">
+          <div className="text-xs font-medium text-muted-foreground">Station</div>
+          <div className="text-xs font-medium text-muted-foreground">Zugewiesener Lotse</div>
         </div>
         <div className="space-y-2">
           {groups.map((group, idx) =>
