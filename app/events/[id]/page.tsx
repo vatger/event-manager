@@ -254,6 +254,7 @@ export default function EventPage() {
         </div>
       </div>
 
+      
       {/* Fakten und Handlung */}
       <Card>
         <CardContent className="flex flex-col gap-5 p-5 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
@@ -290,18 +291,23 @@ export default function EventPage() {
           </dl>
 
           <div className="w-full shrink-0 lg:w-56">{actionButton}</div>
+        
         </CardContent>
+        
+        {event.status === "SIGNUP_CLOSED" && isSignedUp && (
+          <div className="px-5">
+            <Alert>
+              <AlertCircle className="h-4 w-4 text-accent-600 dark:text-accent-500" />
+              <AlertDescription>
+                Du kannst deine Anmeldung weiterhin bearbeiten. Das Eventteam wird über Änderungen
+                informiert.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
       </Card>
 
-      {event.status === "SIGNUP_CLOSED" && isSignedUp && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Du kannst deine Anmeldung weiterhin bearbeiten. Das Eventteam wird über Änderungen
-            informiert.
-          </AlertDescription>
-        </Alert>
-      )}
+      
 
       {/* Flughaefen vollstaendig wenn noch keine Stationen hinterlegt sind – als Plaketten bleibt auch eine lange Liste ruhig */}
       {eventAirports.length > 1 && !event.staffedStations.length && (

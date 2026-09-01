@@ -540,7 +540,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
       </CardHeader>
       <CardContent className="space-y-4">
         {briefingBlock}
-
+        
         {/* Eigene Schichten */}
         {ownAssignments.length > 0 && (
           <div className="rounded-lg border border-accent-500/40 bg-accent-500/5 p-3">
@@ -586,7 +586,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                         className={cn(
                           "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
                           isRunning(a) &&
-                            "ring-2 ring-accent-500 ring-offset-1 ring-offset-background z-10"
+                          "ring-2 ring-accent-500 ring-offset-1 ring-offset-background z-10"
                         )}
                         style={{
                           left: Math.max(0, start) * ownPxPerMinute,
@@ -610,7 +610,6 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
             </div>
           </div>
         )}
-
         {/* Umschalter: Blickwinkel, Darstellung, Sprung zur aktuellen Zeit */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-lg border p-0.5">

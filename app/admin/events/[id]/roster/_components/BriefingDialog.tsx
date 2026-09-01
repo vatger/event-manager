@@ -83,7 +83,7 @@ export function BriefingDialog({
           <DialogTitle>Controller-Briefing</DialogTitle>
           <DialogDescription>
             Hinweise für eingeteilte Lotsen – wird zusammen mit dem Besetzungsplan
-            öffentlich angezeigt, sobald das Event veröffentlicht ist.
+            öffentlich angezeigt, sobald der Plan veröffentlicht ist.
           </DialogDescription>
         </DialogHeader>
 

@@ -99,7 +99,7 @@ export function RichTextEditor({
                 id={id ? `${id}-link-label` : undefined}
                 value={linkLabel}
                 onChange={(e) => setLinkLabel(e.target.value)}
-                placeholder="z. B. Anflugkarte (PDF)"
+                placeholder="z. B. Real-life-Anmeldung"
               />
             </div>
             <div className="space-y-1.5">
