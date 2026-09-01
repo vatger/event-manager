@@ -303,8 +303,8 @@ export default function EventPage() {
         </Alert>
       )}
 
-      {/* Flughaefen vollstaendig – als Plaketten bleibt auch eine lange Liste ruhig */}
-      {eventAirports.length > 1 && (
+      {/* Flughaefen vollstaendig wenn noch keine Stationen hinterlegt sind – als Plaketten bleibt auch eine lange Liste ruhig */}
+      {eventAirports.length > 1 && !event.staffedStations.length && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">

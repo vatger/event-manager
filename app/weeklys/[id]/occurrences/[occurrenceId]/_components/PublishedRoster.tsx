@@ -108,6 +108,28 @@ const ROW_TONE: Record<RowGroup["groupType"], string> = {
   training: "bg-primary-50 border-primary-200 dark:bg-primary-900/10 dark:border-primary-800",
 };
 
+/**
+ * Rand-Streifen mit gedrehtem CPT/Training-Text – wie zuvor, aber als echtes
+ * Flex-Geschwister statt absolut positioniert. So beansprucht er seine
+ * eigene Breite, statt auf schmalen Bildschirmen über Name und Badges zu
+ * liegen und sie zu verdecken.
+ */
+function TypeMarker({ type }: { type: "cpt" | "training" }) {
+  const isCpt = type === "cpt";
+  return (
+    <div
+      className={cn(
+        "flex w-7 shrink-0 items-center justify-center",
+        isCpt ? "bg-accent-500" : "bg-primary-700"
+      )}
+    >
+      <span className="-rotate-90 whitespace-nowrap text-[10px] font-bold text-white">
+        {isCpt ? "CPT" : "TRG"}
+      </span>
+    </div>
+  );
+}
+
 function NormalRow({ row }: { row: StationRow }) {
   const isEmpty = !row.entry;
   const isCpt = row.entry?.assignmentType === "cpt";
@@ -115,26 +137,19 @@ function NormalRow({ row }: { row: StationRow }) {
   const groupType = isEmpty ? "empty" : isCpt ? "cpt" : isTrainingType ? "training" : "normal";
 
   return (
-    <div
-      className={cn(
-        "relative grid grid-cols-[130px_1fr] items-center gap-4 overflow-hidden rounded-lg border px-3 py-3 transition-colors sm:grid-cols-[200px_1fr]",
-        ROW_TONE[groupType]
-      )}
-    >
-      <span className="font-mono text-sm font-medium text-foreground">{row.station}</span>
-      {row.entry ? <UserInfo entry={row.entry} /> : <p className="text-sm text-muted-foreground">Nicht besetzt</p>}
-
-      {/* Typmarkierung für einzelne Zeilen */}
-      {isCpt && (
-        <div className="absolute inset-y-0 right-0 flex w-8 items-center justify-center bg-accent-500">
-          <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">CPT</span>
-        </div>
-      )}
-      {isTrainingType && (
-        <div className="absolute inset-y-0 right-0 flex w-8 items-center justify-center bg-primary-700">
-          <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">TRG</span>
-        </div>
-      )}
+    <div className={cn("flex overflow-hidden rounded-lg border transition-colors", ROW_TONE[groupType])}>
+      <div
+        className={cn(
+          // Auf dem Handy stapeln sich Station und Lotse mit voller Breite statt
+          // sich eine feste 130px-Spalte zu teilen – vorher blieb dem Namen und
+          // seinen Badges kaum Platz.
+          "grid min-w-0 flex-1 grid-cols-1 gap-2 px-3 py-3 sm:grid-cols-[200px_1fr] sm:items-center sm:gap-4"
+        )}
+      >
+        <span className="font-mono text-sm font-medium text-foreground">{row.station}</span>
+        {row.entry ? <UserInfo entry={row.entry} /> : <p className="text-sm text-muted-foreground">Nicht besetzt</p>}
+      </div>
+      {(isCpt || isTrainingType) && <TypeMarker type={isCpt ? "cpt" : "training"} />}
     </div>
   );
 }
@@ -142,36 +157,22 @@ function NormalRow({ row }: { row: StationRow }) {
 function GroupedBlock({ group }: { group: RowGroup }) {
   const isCpt = group.groupType === "cpt";
 
-  const blockBorder = isCpt ? "border-accent-500/30" : "border-primary-200 dark:border-primary-800";
-  const blockBg = isCpt ? "bg-accent-500/10" : "bg-primary-50 dark:bg-primary-900/10";
-  const stationDivider = isCpt ? "border-accent-500/20" : "border-primary-200/70 dark:border-primary-800/50";
-  const stationColBorder = isCpt ? "border-accent-500/30" : "border-primary-200 dark:border-primary-800/60";
-  const markerBg = isCpt ? "bg-accent-500" : "bg-primary-700";
-
   return (
-    <div className={cn("relative flex overflow-hidden rounded-lg border", blockBorder, blockBg)}>
-      {/* Links: Stationen gestapelt */}
-      <div className={cn("flex w-[110px] shrink-0 flex-col border-r sm:w-[140px]", stationColBorder)}>
-        {group.rows.map((row, idx) => (
-          <div
-            key={row.station}
-            className={cn(
-              "flex items-center px-3 py-3",
-              idx < group.rows.length - 1 && cn("border-b", stationDivider)
-            )}
-          >
-            <span className="font-mono text-sm font-medium text-foreground">{row.station}</span>
-          </div>
-        ))}
+    <div
+      className={cn("flex overflow-hidden rounded-lg border transition-colors", ROW_TONE[group.groupType])}
+    >
+      <div className="grid min-w-0 flex-1 grid-cols-1 gap-2 px-3 py-3 sm:grid-cols-[200px_1fr] sm:items-center sm:gap-4">
+        {/* Mehrere Stationen desselben CPT-/Trainingsblocks als umbrechende Kürzel-Liste statt gestapelter Spalte */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {group.rows.map((row) => (
+            <span key={row.station} className="font-mono text-sm font-medium text-foreground">
+              {row.station}
+            </span>
+          ))}
+        </div>
+        {group.entry && <UserInfo entry={group.entry} />}
       </div>
-
-      {/* Mitte: Nutzer über alle Zeilen vertikal zentriert */}
-      <div className="flex flex-1 items-center px-4 py-3">{group.entry && <UserInfo entry={group.entry} />}</div>
-
-      {/* Rechte Markierung */}
-      <div className={cn("flex w-8 shrink-0 items-center justify-center", markerBg)}>
-        <span className="-rotate-90 whitespace-nowrap text-xs font-bold text-white">{isCpt ? "CPT" : "TRG"}</span>
-      </div>
+      <TypeMarker type={isCpt ? "cpt" : "training"} />
     </div>
   );
 }

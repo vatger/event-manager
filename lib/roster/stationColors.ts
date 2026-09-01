@@ -3,13 +3,16 @@ import type { StationGroup } from "@/lib/weeklys/stationUtils";
 /**
  * Farben der Besetzungsblöcke.
  *
- * Eine Farbe je Stationsgruppe reicht bei Events über mehrere Airports nicht:
- * Alle Grounds sehen gleich aus, egal ob München oder Frankfurt – und genau
- * die Zuordnung zum Airport ist beim Überfliegen des Plans die wichtigere.
+ * Bei Events über mehrere Airports reicht eine Farbe je Ebene nicht: Alle
+ * Grounds sähen gleich aus, egal ob München oder Frankfurt – und genau die
+ * Zuordnung zum Airport ist beim Überfliegen des Plans die wichtigere. Dort
+ * bestimmt darum der Airport den Farbton und die Ebene die Helligkeit.
  *
- * Deshalb bestimmt der Airport den Farbton und die Ebene die Helligkeit:
- * Delivery hell, Center dunkel. Ein Blick genügt für „welcher Airport" und
- * „welche Ebene", ohne dass man Callsigns lesen muss.
+ * Bei einem Single-Airport-Event gibt es diese Unterscheidung nicht – dafür
+ * ist dort wichtiger, die Ebenen (Delivery, Ground, Turm, …) auf einen Blick
+ * auseinanderzuhalten. Also dreht sich die Zuordnung um: Die Ebene bestimmt
+ * den Farbton, einzelne Stationen derselben Ebene (z. B. zwei Delivery-
+ * Positionen) unterscheiden sich nur noch in der Helligkeit.
  *
  * Die Farben entstehen in oklch, weil dort gleiche Helligkeitsschritte auch
  * gleich stark wirken – in HSL würde Gelb bei gleicher Zahl deutlich heller
@@ -28,6 +31,19 @@ const LEVEL_LIGHTNESS: Record<StationGroup, number> = {
   CTR: 0.42,
 };
 
+/** Farbtöne für Ebenen – nur bei Single-Airport-Events genutzt */
+const GROUP_HUES: Record<StationGroup, number> = {
+  DEL: 210,
+  GND: 145,
+  TWR: 40,
+  APP: 300,
+  CTR: 0,
+};
+
+/** Helligkeitsspanne, über die sich Stationen derselben Ebene abstufen */
+const RANK_LIGHTNESS_MIN = 0.42;
+const RANK_LIGHTNESS_MAX = 0.76;
+
 const CHROMA = 0.115;
 
 /** Ab dieser Helligkeit trägt die Fläche dunkle statt weißer Schrift */
@@ -38,6 +54,37 @@ export interface BlockColors {
   border: string;
   /** Passende Schriftfarbe für ausreichenden Kontrast */
   text: string;
+}
+
+/** Position einer Station innerhalb ihrer Ebene, für die Abstufung bei Single-Airport-Events */
+export interface StationRank {
+  index: number;
+  count: number;
+}
+
+function neutralColors(lightness: number): BlockColors {
+  return {
+    background: `oklch(${lightness} 0.02 260)`,
+    border: `oklch(${lightness - 0.08} 0.02 260)`,
+    text: lightness >= DARK_TEXT_FROM ? "oklch(0.25 0.02 260)" : "#fff",
+  };
+}
+
+function huedColors(hue: number, lightness: number): BlockColors {
+  return {
+    background: `oklch(${lightness} ${CHROMA} ${hue})`,
+    border: `oklch(${Math.max(0.2, lightness - 0.1)} ${CHROMA} ${hue})`,
+    text: lightness >= DARK_TEXT_FROM ? `oklch(0.28 ${CHROMA} ${hue})` : "#fff",
+  };
+}
+
+/** Helligkeit einer von mehreren Stationen derselben Ebene, gleichmäßig über die Spanne verteilt */
+function rankLightness(rank: StationRank | undefined): number {
+  if (!rank || rank.count <= 1) return (RANK_LIGHTNESS_MIN + RANK_LIGHTNESS_MAX) / 2;
+  return (
+    RANK_LIGHTNESS_MAX -
+    (rank.index / (rank.count - 1)) * (RANK_LIGHTNESS_MAX - RANK_LIGHTNESS_MIN)
+  );
 }
 
 /**
@@ -58,30 +105,36 @@ function airportHue(airport: string | null, eventAirports: string[]): number | n
   return hash;
 }
 
-/** Farben eines Controller-Blocks */
+/**
+ * Farben eines Controller-Blocks.
+ *
+ * `stationRank` gibt an, die wievielte von wie vielen Stationen derselben
+ * Ebene das ist – nötig für die Abstufung bei Single-Airport-Events, wird bei
+ * Multi-Airport-Events ignoriert.
+ */
 export function stationBlockColors(
   airport: string | null,
   group: StationGroup | null,
-  eventAirports: string[]
+  eventAirports: string[],
+  stationRank?: StationRank
 ): BlockColors {
+  const singleAirport = eventAirports.length <= 1;
+
+  if (singleAirport) {
+    // Ein Airport, keine Verwechslungsgefahr mehr zwischen Plätzen – jetzt
+    // trägt die Ebene die Farbe, die einzelne Station die Abstufung.
+    if (!group) return neutralColors(rankLightness(stationRank));
+    return huedColors(GROUP_HUES[group], rankLightness(stationRank));
+  }
+
   const hue = airportHue(airport, eventAirports);
   const lightness = group ? LEVEL_LIGHTNESS[group] : 0.6;
 
   // Ohne Airport-Bezug (FIR-weite Stationen) bleibt es bewusst neutral grau,
   // damit die farbigen Airports nicht an Aussagekraft verlieren.
-  if (hue === null) {
-    return {
-      background: `oklch(${lightness} 0.02 260)`,
-      border: `oklch(${lightness - 0.08} 0.02 260)`,
-      text: lightness >= DARK_TEXT_FROM ? "oklch(0.25 0.02 260)" : "#fff",
-    };
-  }
+  if (hue === null) return neutralColors(lightness);
 
-  return {
-    background: `oklch(${lightness} ${CHROMA} ${hue})`,
-    border: `oklch(${Math.max(0.2, lightness - 0.1)} ${CHROMA} ${hue})`,
-    text: lightness >= DARK_TEXT_FROM ? `oklch(0.28 ${CHROMA} ${hue})` : "#fff",
-  };
+  return huedColors(hue, lightness);
 }
 
 /** Dezente Fläche für Zeilenköpfe und Chips desselben Airports */

@@ -10,12 +10,19 @@ import { CalendarClock, Crosshair, Radio, User, Users } from "lucide-react";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { airportTintColors, stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
+import type { Station } from "@/lib/stations/types";
 
 // Layout
 const LABEL_W = 152;
 const ROW_H = 38;
 const GROUP_H = 26;
-const PX_PER_HOUR = 108;
+/**
+ * Ab hier wird eine Stunde nicht mehr schmaler gemacht – sonst würden Blöcke
+ * bei langen Events unlesbar. Der Zeitstrahl füllt bis dahin immer die volle
+ * verfügbare Breite; erst wenn selbst dieses Minimum die Breite sprengt,
+ * erscheint ein horizontaler Scrollbalken.
+ */
+const MIN_PX_PER_HOUR = 64;
 /** Wie oft die Jetzt-Linie nachgeführt wird */
 const TICK_MS = 30_000;
 /** Unterhalb dieser Breite fallen Beschriftung und Stundenbreite kleiner aus */
@@ -90,10 +97,12 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
   const [roster, setRoster] = useState<PublicRosterData | null>(null);
   const [published, setPublished] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [abbreviations, setAbbreviations] = useState<Map<string, string>>(new Map());
   const [view, setView] = useState<ViewMode>("stations");
   const [now, setNow] = useState<Date>(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
   const didAutoScroll = useRef(false);
+  const ownScrollRef = useRef<HTMLDivElement>(null);
 
   // Auf schmalen Geräten fallen die Maße kleiner aus, damit vom Zeitstrahl
   // mehr als eine Stunde ins Bild passt.
@@ -108,7 +117,38 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
 
   // Auf dem Telefon ist jeder Pixel Beschriftung einer weniger für den Plan.
   const labelW = narrow ? 104 : LABEL_W;
-  const pxPerHour = narrow ? 84 : PX_PER_HOUR;
+
+  /**
+   * Tatsächlich verfügbare Breite der beiden Zeitstrahlen (Besetzungsplan und
+   * die Mini-Timeline der eigenen Schichten). Damit lässt sich die Stunde so
+   * breit wählen, dass der jeweilige Zeitraum genau die volle Breite füllt –
+   * ohne dieses Maß bliebe ein kurzes Event auf einem breiten Bildschirm mit
+   * viel Leerraum stehen.
+   */
+  const [containerWidth, setContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width !== undefined) setContainerWidth(width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [roster]);
+
+  const [ownContainerWidth, setOwnContainerWidth] = useState(0);
+  useEffect(() => {
+    const el = ownScrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width !== undefined) setOwnContainerWidth(width);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // roster/userCID bestimmen, ob die Mini-Timeline überhaupt gerendert wird
+  }, [roster, userCID]);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +174,33 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
+  // Kürzel der Stationen (Datahub) – auf schmalen Bildschirmen ersetzen sie
+  // das oft zu lange volle Callsign in Beschriftung und Blöcken.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/stations`);
+        if (!res.ok) throw new Error("failed");
+        const data: { stations: Station[] } = await res.json();
+        if (cancelled) return;
+        setAbbreviations(
+          new Map(
+            data.stations
+              .filter((s) => s.abbreviation)
+              .map((s) => [s.callsign, s.abbreviation!])
+          )
+        );
+      } catch {
+        // Kürzel sind eine reine Anzeige-Verbesserung – ohne sie zeigen wir
+        // einfach weiter das volle Callsign.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Jetzt-Linie nachführen. Der Takt ist bewusst grob – auf Stundenbreite
   // entspricht eine halbe Minute weniger als zwei Pixel.
   useEffect(() => {
@@ -153,8 +220,28 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     );
   }, [roster, eventStart]);
 
+  const totalHours = totalMinutes / 60;
+
+  /**
+   * Breite einer Stunde: füllt die verfügbare Breite exakt aus, solange dabei
+   * nicht unter das Mindestmaß gegangen wird – erst dann bestimmt das Minimum
+   * die Breite und der Zeitstrahl wird scrollbar.
+   */
+  const pxPerHour = useMemo(() => {
+    if (!totalHours || !containerWidth) return MIN_PX_PER_HOUR;
+    const available = Math.max(0, containerWidth - labelW);
+    return Math.max(MIN_PX_PER_HOUR, available / totalHours);
+  }, [containerWidth, labelW, totalHours]);
   const pxPerMinute = pxPerHour / 60;
   const timelineWidth = totalMinutes * pxPerMinute;
+
+  /** Dieselbe Logik für die Mini-Timeline der eigenen Schichten – ohne Beschriftungsspalte */
+  const ownPxPerHour = useMemo(() => {
+    if (!totalHours || !ownContainerWidth) return MIN_PX_PER_HOUR;
+    return Math.max(MIN_PX_PER_HOUR, ownContainerWidth / totalHours);
+  }, [ownContainerWidth, totalHours]);
+  const ownPxPerMinute = ownPxPerHour / 60;
+  const ownTimelineWidth = totalMinutes * ownPxPerMinute;
 
   const toMin = useCallback(
     (iso: string) =>
@@ -203,18 +290,74 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     return list;
   }, [roster]);
 
-  const multiAirport = rosterAirports.length > 1;
+  /**
+   * Airports, die das Event wirklich definieren – ohne Center-Stationen.
+   *
+   * Center laufen oft unter dem FIR- statt dem Flughafenkürzel (EDMM_CTR bei
+   * einem reinen München-Event statt EDDM_...). Zählten sie mit, wirkte ein
+   * Single-Airport-Event mit Center-Besetzung fälschlich wie ein Multi-
+   * Airport-Event. Für die Farbvergabe zählt darum nur, wie viele "echte"
+   * Airports (DEL/GND/TWR/APP) im Event vorkommen.
+   */
+  const realAirports = useMemo(() => {
+    const list: string[] = [];
+    for (const st of roster?.stations ?? []) {
+      if (extractStationGroup(st.callsign) === "CTR") continue;
+      const ap = airportOf(st.callsign);
+      if (ap && !list.includes(ap)) list.push(ap);
+    }
+    return list;
+  }, [roster]);
+
+  const multiAirport = realAirports.length > 1;
 
   const stationById = useMemo(
     () => new Map((roster?.stations ?? []).map((s) => [s.id, s])),
     [roster]
   );
 
-  /** Farben einer Station – Ton nach Airport, Helligkeit nach Ebene */
+  /**
+   * Position jeder Station innerhalb ihrer Ebene (z. B. die zweite von drei
+   * Delivery-Positionen) – bei Single-Airport-Events bestimmt das die
+   * Helligkeitsabstufung, da dort die Ebene statt des Airports die Farbe trägt.
+   */
+  const stationRankByCallsign = useMemo(() => {
+    const byGroup = new Map<string, PublicRosterStation[]>();
+    for (const st of roster?.stations ?? []) {
+      const group = extractStationGroup(st.callsign) ?? "?";
+      const list = byGroup.get(group);
+      if (list) list.push(st);
+      else byGroup.set(group, [st]);
+    }
+    const map = new Map<string, { index: number; count: number }>();
+    for (const list of byGroup.values()) {
+      list.forEach((st, index) => map.set(st.callsign, { index, count: list.length }));
+    }
+    return map;
+  }, [roster]);
+
+  /**
+   * Farben einer Station – bei mehreren Airports Ton nach Airport und
+   * Helligkeit nach Ebene, bei einem einzelnen Airport umgekehrt (Ton nach
+   * Ebene, Helligkeit nach Position innerhalb der Ebene). Für die Farbvergabe
+   * zählen nur die "echten" Airports (realAirports), nicht die volle Liste
+   * inklusive Center-FIR-Kürzeln.
+   */
   const toneFor = useCallback(
     (callsign: string) =>
-      stationBlockColors(airportOf(callsign), extractStationGroup(callsign), rosterAirports),
-    [rosterAirports]
+      stationBlockColors(
+        airportOf(callsign),
+        extractStationGroup(callsign),
+        realAirports,
+        stationRankByCallsign.get(callsign)
+      ),
+    [realAirports, stationRankByCallsign]
+  );
+
+  /** Beschriftung einer Station – auf schmalen Geräten das Datahub-Kürzel statt des vollen Callsigns */
+  const stationLabel = useCallback(
+    (callsign: string) => (narrow && abbreviations.get(callsign)) || callsign,
+    [narrow, abbreviations]
   );
 
   /** Zeilen für die gewählte Ansicht */
@@ -223,7 +366,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     if (view === "stations") {
       const byStation = roster.stations.map((station) => ({
         key: `station-${station.id}`,
-        title: station.callsign,
+        title: stationLabel(station.callsign),
         own:
           userCID !== null &&
           roster.assignments.some((a) => a.stationId === station.id && a.userCID === userCID),
@@ -274,7 +417,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
         if (a.own !== b.own) return a.own ? -1 : 1;
         return a.title.localeCompare(b.title);
       });
-  }, [roster, view, userCID, toMin, multiAirport, rosterAirports]);
+  }, [roster, view, userCID, toMin, multiAirport, rosterAirports, stationLabel]);
 
   const hourMarks = useMemo(() => {
     if (!eventStart) return [];
@@ -327,7 +470,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
 
   /** Kopfzeile einer Airport-Gruppe im Zeitstrahl */
   const renderGroupHeader = (airport: string) => {
-    const tint = airportTintColors(airport, rosterAirports, isDark);
+    const tint = airportTintColors(airport, realAirports, isDark);
     return (
       // Der Farbstreifen sitzt am äußeren Element, damit er auch den Bereich
       // rechts der Zeitachse füllt – sonst bräche die Gruppe mitten in der
@@ -372,24 +515,65 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
               <User className="h-4 w-4 text-accent-500" />
               Deine Schichten
             </p>
-            <div className="flex flex-wrap gap-2">
-              {ownAssignments.map((a) => {
-                const callsign = stationById.get(a.stationId)?.callsign ?? "?";
-                const tone = toneFor(callsign);
-                return (
-                  <span
-                    key={a.id}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
-                      isRunning(a) && "ring-2 ring-accent-500 ring-offset-1 ring-offset-background"
-                    )}
-                    style={{ backgroundColor: tone.background, color: tone.text }}
-                  >
-                    {callsign}
-                    <span className="font-normal opacity-90">{span(a)}</span>
-                  </span>
-                );
-              })}
+            <div
+              ref={ownScrollRef}
+              className="overflow-x-auto rounded-md border border-accent-500/20 bg-background/60"
+            >
+              <div
+                className="relative overflow-hidden"
+                style={{ width: ownTimelineWidth, minWidth: "100%" }}
+              >
+                {/* Stunden-Lineal */}
+                <div className="relative border-b border-accent-500/20" style={{ height: 20 }}>
+                  {hourMarks.map((mark) => (
+                    <div
+                      key={mark.minute}
+                      className="absolute top-0 bottom-0 border-l border-accent-500/20 pl-1 text-[9px] text-muted-foreground flex items-center"
+                      style={{ left: mark.minute * ownPxPerMinute }}
+                    >
+                      {mark.label}z
+                    </div>
+                  ))}
+                </div>
+                <div
+                  className="relative"
+                  style={{
+                    height: ROW_H,
+                    backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.14) 0 1px, transparent 1px ${ownPxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.07) 0 1px, transparent 1px ${ownPxPerHour / 4}px)`,
+                  }}
+                >
+                  {ownAssignments.map((a) => {
+                    const start = toMin(a.startTime);
+                    const end = toMin(a.endTime);
+                    const callsign = stationById.get(a.stationId)?.callsign ?? "?";
+                    const tone = toneFor(callsign);
+                    return (
+                      <div
+                        key={a.id}
+                        className={cn(
+                          "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
+                          isRunning(a) &&
+                            "ring-2 ring-accent-500 ring-offset-1 ring-offset-background z-10"
+                        )}
+                        style={{
+                          left: Math.max(0, start) * ownPxPerMinute,
+                          width: Math.max((end - start) * ownPxPerMinute, 8),
+                          backgroundColor: tone.background,
+                          color: tone.text,
+                        }}
+                        title={`${callsign} • ${span(a)}`}
+                      >
+                        <span className="truncate">
+                          {stationLabel(callsign)}
+                          <span className="opacity-80 font-normal ml-1 hidden sm:inline">
+                            {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -453,7 +637,10 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                 >
                   {view === "stations" ? "Station" : "Lotse"}
                 </div>
-                <div className="relative shrink-0" style={{ width: timelineWidth, height: 24 }}>
+                <div
+                  className="relative shrink-0 overflow-hidden"
+                  style={{ width: timelineWidth, height: 24 }}
+                >
                   {hourMarks.map((mark) => (
                     <div
                       key={mark.minute}
@@ -509,7 +696,9 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                         style={{
                           width: timelineWidth,
                           height: ROW_H,
-                          backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${pxPerHour}px)`,
+                          // Stundenlinien kräftiger, dazwischen ein leises Viertelstunden-
+                          // Raster – daran lässt sich die Länge eines Blocks leichter ablesen.
+                          backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.08) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
                         }}
                       >
                         {row.blocks.map((a) => {
@@ -525,7 +714,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
                               ? own
                                 ? "Du"
                                 : a.name
-                              : callsign;
+                              : stationLabel(callsign);
                           return (
                             <div
                               key={a.id}

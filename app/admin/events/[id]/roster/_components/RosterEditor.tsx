@@ -261,6 +261,27 @@ export function RosterEditor({
   );
 
   /**
+   * Position jeder Station innerhalb ihrer Ebene (z. B. die zweite von drei
+   * Delivery-Positionen) – bei Single-Airport-Events bestimmt das die
+   * Helligkeitsabstufung der Blockfarbe, da dort die Ebene statt des Airports
+   * den Farbton trägt. Siehe stationBlockColors.
+   */
+  const stationRankByCallsign = useMemo(() => {
+    const byGroup = new Map<string, typeof stations>();
+    for (const st of stations) {
+      const group = stationMetaFor(st.callsign).group ?? "?";
+      const list = byGroup.get(group);
+      if (list) list.push(st);
+      else byGroup.set(group, [st]);
+    }
+    const map = new Map<string, { index: number; count: number }>();
+    for (const list of byGroup.values()) {
+      list.forEach((st, index) => map.set(st.callsign, { index, count: list.length }));
+    }
+    return map;
+  }, [stations, stationMetaFor]);
+
+  /**
    * Zu welchem Airport gehört eine Station? Bei Events über mehrere Airports
    * ist das die wichtigste Gliederung – EDDF_TWR und EDDM_TWR nebeneinander zu
    * sehen hilft niemandem beim Planen.
@@ -1996,11 +2017,17 @@ export function RosterEditor({
         (w) => w.type === "not_eligible" || w.type === "missing_familiarization"
       ) || hasExcluded;
 
-    // Controller-Blöcke: Farbton vom Airport, Helligkeit von der Ebene.
+    // Controller-Blöcke: bei mehreren Airports Farbton vom Airport und
+    // Helligkeit von der Ebene, bei einem einzelnen Airport umgekehrt.
     // Custom-Blöcke behalten ihre frei gewählte Farbe als Klasse.
     const tone = isCustom
       ? null
-      : stationBlockColors(meta?.airport ?? null, meta?.group ?? null, event.airports);
+      : stationBlockColors(
+          meta?.airport ?? null,
+          meta?.group ?? null,
+          event.airports,
+          station ? stationRankByCallsign.get(station.callsign) : undefined
+        );
     let colorCls = isCustom ? customBlockClass(a.color) : "";
     let colorStyle: React.CSSProperties = tone
       ? { backgroundColor: tone.background, borderColor: tone.border, color: tone.text }
