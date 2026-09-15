@@ -257,8 +257,7 @@ export function ActivityLogDialog({ open, onOpenChange, eventId }: ActivityLogDi
         <DialogHeader>
           <DialogTitle>Verlauf</DialogTitle>
           <DialogDescription>
-            Wer hat wann was am Plan geändert. Änderungen einer Person in einem Zug stehen
-            zusammen – ein Klick zeigt sie einzeln.
+            Wer hat wann was am Plan geändert.
           </DialogDescription>
         </DialogHeader>
 

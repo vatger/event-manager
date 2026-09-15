@@ -5,17 +5,19 @@
  * Feld `required_familiarisations` – früher stand dieselbe Zuordnung als
  * Handarbeit im Eventmanager und lief mit jedem Sektorplan aus dem Ruder.
  *
- * Die Schreibweise dort kennt zwei Ebenen: Ein Eintrag wie `"CH+SH"` verlangt
- * beide Kürzel zusammen (eine Sammelposition deckt beide Sektoren ab), während
- * mehrere Einträge nebeneinander Alternativen sind – für `["STA", "WLD"]`
- * genügt eine der beiden. Nach dem Einlesen liegt das als Liste von
- * Alternativen vor, deren jede eine Liste geforderter Kürzel ist.
+ * Die Schreibweise dort kennt Kürzel, die mit `+` in einem Eintrag stehen oder
+ * als eigene Einträge nebeneinander – in beiden Fällen sind es Pflicht­
+ * anforderungen, keine Alternativen: Für `["CH+SH", "WLD"]` müssen CH, SH und
+ * WLD alle gehalten werden. `+` gruppiert dabei nur die Kürzel einer
+ * Sammelposition, für die Prüfung macht das keinen Unterschied. Nach dem
+ * Einlesen liegt das als Liste von Gruppen vor, deren Kürzel zusammen alle
+ * Pflicht sind.
  */
 
-/** Datahub-Schreibweise (`"CH+SH"`) in Alternativen mit ihren Kürzeln überführen */
+/** Datahub-Schreibweise (`"CH+SH"`) in Gruppen mit ihren Kürzeln überführen */
 export function parseRequiredFamiliarizations(raw: unknown): string[][] | undefined {
   if (!Array.isArray(raw)) return undefined;
-  const alternatives = raw
+  const groups = raw
     .filter((entry): entry is string => typeof entry === "string")
     .map((entry) =>
       entry
@@ -24,7 +26,7 @@ export function parseRequiredFamiliarizations(raw: unknown): string[][] | undefi
         .filter(Boolean)
     )
     .filter((list) => list.length > 0);
-  return alternatives.length > 0 ? alternatives : undefined;
+  return groups.length > 0 ? groups : undefined;
 }
 
 /**
@@ -49,9 +51,9 @@ export function familiarizationsFromPositions(positions: string[]): string[] {
  * Welche Familiarisierungen fehlen dieser Person für die Position?
  *
  * `null` heißt „keine Aussage" – der Datahub verlangt für diese Position
- * nichts. Ein leeres Array heißt „alles vorhanden". Sonst stehen darin die
- * fehlenden Kürzel, und zwar die der günstigsten Alternative: Wem für die eine
- * Variante ein Kürzel fehlt und für die andere drei, dem wird das eine gemeldet.
+ * nichts. Ein leeres Array heißt „alles vorhanden". Sonst stehen darin alle
+ * fehlenden Kürzel: Sämtliche vom Datahub genannten Kürzel sind Pflicht, egal
+ * ob sie in einer `+`-Gruppe stehen oder als eigene Gruppe.
  */
 export function missingFamiliarizations(
   required: string[][] | undefined,
@@ -60,17 +62,12 @@ export function missingFamiliarizations(
   if (!required || required.length === 0) return null;
 
   const have = new Set(held.map((f) => f.toUpperCase()));
-  let best: string[] | null = null;
-  for (const alternative of required) {
-    const missing = alternative.filter((f) => !have.has(f));
-    if (missing.length === 0) return [];
-    if (best === null || missing.length < best.length) best = missing;
-  }
-  return best;
+  const needed = new Set(required.flat());
+  return [...needed].filter((f) => !have.has(f));
 }
 
-/** Anforderung lesbar schreiben, z. B. „CH + SH" oder „STA oder WLD" */
+/** Anforderung lesbar schreiben, z. B. „CH + SH" oder „CH + SH und WLD" */
 export function describeFamiliarizations(required: string[][] | undefined): string | null {
   if (!required || required.length === 0) return null;
-  return required.map((alt) => alt.join(" + ")).join(" oder ");
+  return required.map((group) => group.join(" + ")).join(" und ");
 }
