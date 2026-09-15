@@ -8,6 +8,12 @@ import {
   validateAssignment,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import {
+  blockLabel,
+  logRosterActivity,
+  timeRange,
+  userName,
+} from "@/lib/roster/rosterActivity";
 
 const createSchema = z
   .object({
@@ -74,6 +80,21 @@ export async function POST(
 
   const assignment = await prisma.eventRosterAssignment.create({
     data: { rosterId: roster.id, ...input },
+  });
+
+  const station = roster.stations.find((s) => s.id === input.stationId);
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(user.cid),
+    action: "assignment_created",
+    summary: `${blockLabel(
+      input.type,
+      await userName(input.userCID),
+      input.userCID,
+      input.label
+    )} auf ${station?.callsign ?? "?"} ${timeRange(input.startTime, input.endTime)} eingeplant`,
+    stationCallsign: station?.callsign ?? null,
+    targetCID: input.userCID,
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));

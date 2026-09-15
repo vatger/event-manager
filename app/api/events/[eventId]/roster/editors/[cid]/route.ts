@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canManageRosterEditors } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity, personLabel, userName } from "@/lib/roster/rosterActivity";
 
 // DELETE: Bearbeiter entfernen
 export async function DELETE(
@@ -31,6 +32,14 @@ export async function DELETE(
 
   await prisma.eventRosterEditor.deleteMany({
     where: { rosterId: roster.id, userCID: cid },
+  });
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(user.cid),
+    action: "editor_removed",
+    summary: `${personLabel(await userName(cid), cid)} als Bearbeiter entfernt`,
+    targetCID: cid,
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));

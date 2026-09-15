@@ -7,6 +7,7 @@ import {
   serializeRoster,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity } from "@/lib/roster/rosterActivity";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
 
@@ -77,6 +78,15 @@ export async function POST(
     });
     notified = await notifyRosterPublished(eventId);
   }
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: cid,
+    action: "roster_published",
+    summary: firstPublish
+      ? `Plan veröffentlicht (${roster.assignments.length} Schichten, ${notified} Benachrichtigungen)`
+      : `Änderungen veröffentlicht (${roster.assignments.length} Schichten)`,
+  });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true, firstPublish, notified });

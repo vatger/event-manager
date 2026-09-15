@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canEditEventRoster } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
-import { ROSTER_FLAGS } from "@/lib/roster/rosterFlags";
+import { ROSTER_FLAGS, ROSTER_FLAG_LABEL } from "@/lib/roster/rosterFlags";
+import { logRosterActivity, personLabel, userName } from "@/lib/roster/rosterActivity";
 
 const putSchema = z.object({
   userCID: z.number().int(),
@@ -67,6 +68,33 @@ export async function PUT(
         authorCID: Number(user.cid),
       },
       update: { note: nextNote, flag: nextFlag, authorCID: Number(user.cid) },
+    });
+  }
+
+  // Der Notiztext selbst bleibt draußen: Das Protokoll soll nachvollziehbar
+  // machen, dass etwas geändert wurde, und nicht interne Einschätzungen
+  // dauerhaft mitschreiben.
+  const who = personLabel(await userName(userCID), userCID);
+  const flagChanged = flag !== undefined && (existing?.flag ?? null) !== nextFlag;
+  const noteChanged = note !== undefined && (existing?.note ?? "") !== nextNote;
+  if (flagChanged) {
+    await logRosterActivity({
+      rosterId: roster.id,
+      actorCID: Number(user.cid),
+      action: "flag_changed",
+      summary: nextFlag
+        ? `${who} als „${ROSTER_FLAG_LABEL[nextFlag as keyof typeof ROSTER_FLAG_LABEL]}" markiert`
+        : `Markierung bei ${who} entfernt`,
+      targetCID: userCID,
+    });
+  }
+  if (noteChanged) {
+    await logRosterActivity({
+      rosterId: roster.id,
+      actorCID: Number(user.cid),
+      action: "note_changed",
+      summary: nextNote ? `Notiz zu ${who} geändert` : `Notiz zu ${who} entfernt`,
+      targetCID: userCID,
     });
   }
 

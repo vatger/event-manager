@@ -7,6 +7,7 @@ import {
   type RosterSnapshotData,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity } from "@/lib/roster/rosterActivity";
 
 async function loadSnapshot(eventId: number, snapshotId: number) {
   const roster = await prisma.eventRoster.findUnique({
@@ -44,6 +45,13 @@ export async function POST(
   if (!found) return NextResponse.json({ error: "Snapshot not found" }, { status: 404 });
 
   await restoreSnapshot(found.rosterId, found.snapshot.data as unknown as RosterSnapshotData);
+  await logRosterActivity({
+    rosterId: found.rosterId,
+    actorCID: Number(user.cid),
+    action: "snapshot_restored",
+    summary: `Zwischenstand „${found.snapshot.name}" wiederhergestellt`,
+    details: { snapshotId },
+  });
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true });
 }

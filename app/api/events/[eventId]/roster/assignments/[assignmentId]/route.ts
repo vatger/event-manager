@@ -8,6 +8,14 @@ import {
   validateAssignment,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import {
+  blockLabel,
+  logRosterActivity,
+  timeRange,
+  userName,
+  userNames,
+  type RosterActivityAction,
+} from "@/lib/roster/rosterActivity";
 
 const updateSchema = z.object({
   stationId: z.number().int().optional(),
@@ -34,7 +42,7 @@ async function authorize(eventId: number) {
   if (!(await canEditEventRoster(Number(user.cid), eventId))) {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
-  return { event };
+  return { event, user };
 }
 
 // PATCH: Zuweisung verschieben / verlängern / Station oder Controller wechseln
@@ -96,6 +104,85 @@ export async function PATCH(
     },
   });
 
+  // Was genau sich geändert hat, entscheidet über die Formulierung: „verschoben"
+  // hilft beim Nachvollziehen wenig, wenn in Wahrheit die Person gewechselt hat.
+  const stationBefore = roster.stations.find((s) => s.id === existing.stationId);
+  const stationAfter = roster.stations.find((s) => s.id === input.stationId);
+  const names = await userNames([existing.userCID, input.userCID].filter((c): c is number => !!c));
+  const who = blockLabel(
+    existing.type,
+    names.get(existing.userCID ?? -1),
+    existing.userCID,
+    existing.label
+  );
+  const timesChanged =
+    existing.startTime.getTime() !== input.startTime.getTime() ||
+    existing.endTime.getTime() !== input.endTime.getTime();
+  const durationBefore = existing.endTime.getTime() - existing.startTime.getTime();
+  const durationAfter = input.endTime.getTime() - input.startTime.getTime();
+
+  let action: RosterActivityAction = "assignment_moved";
+  let summary: string;
+  if (existing.userCID !== input.userCID && input.userCID) {
+    action = "assignment_reassigned";
+    summary = `${stationAfter?.callsign ?? "?"} ${timeRange(
+      input.startTime,
+      input.endTime
+    )}: ${who} durch ${blockLabel(
+      existing.type,
+      names.get(input.userCID),
+      input.userCID,
+      input.label
+    )} ersetzt`;
+  } else if (existing.stationId !== input.stationId) {
+    summary = `${who} von ${stationBefore?.callsign ?? "?"} ${timeRange(
+      existing.startTime,
+      existing.endTime
+    )} auf ${stationAfter?.callsign ?? "?"} ${timeRange(
+      input.startTime,
+      input.endTime
+    )} verschoben`;
+  } else if (timesChanged && durationBefore !== durationAfter) {
+    action = "assignment_resized";
+    summary = `${who} auf ${stationAfter?.callsign ?? "?"} von ${timeRange(
+      existing.startTime,
+      existing.endTime
+    )} auf ${timeRange(input.startTime, input.endTime)} geändert`;
+  } else if (timesChanged) {
+    summary = `${who} auf ${stationAfter?.callsign ?? "?"} von ${timeRange(
+      existing.startTime,
+      existing.endTime
+    )} auf ${timeRange(input.startTime, input.endTime)} verschoben`;
+  } else if (existing.color !== input.color) {
+    action = "assignment_recolored";
+    summary = `Farbe von ${who} auf ${stationAfter?.callsign ?? "?"} geändert`;
+  } else {
+    summary = `${who} auf ${stationAfter?.callsign ?? "?"} bearbeitet`;
+  }
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(auth.user.cid),
+    action,
+    summary,
+    stationCallsign: stationAfter?.callsign ?? null,
+    targetCID: input.userCID,
+    details: {
+      before: {
+        station: stationBefore?.callsign ?? null,
+        start: existing.startTime.toISOString(),
+        end: existing.endTime.toISOString(),
+        userCID: existing.userCID,
+      },
+      after: {
+        station: stationAfter?.callsign ?? null,
+        start: input.startTime.toISOString(),
+        end: input.endTime.toISOString(),
+        userCID: input.userCID,
+      },
+    },
+  });
+
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ assignment });
 }
@@ -125,7 +212,29 @@ export async function DELETE(
     return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
   }
 
+  const station = await prisma.eventRosterStation.findUnique({
+    where: { id: assignment.stationId },
+    select: { callsign: true },
+  });
   await prisma.eventRosterAssignment.delete({ where: { id: assignmentId } });
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(auth.user.cid),
+    action: "assignment_deleted",
+    summary: `${blockLabel(
+      assignment.type,
+      await userName(assignment.userCID),
+      assignment.userCID,
+      assignment.label
+    )} von ${station?.callsign ?? "?"} ${timeRange(
+      assignment.startTime,
+      assignment.endTime
+    )} entfernt`,
+    stationCallsign: station?.callsign ?? null,
+    targetCID: assignment.userCID,
+  });
+
   broadcastRosterChange(eventId, _req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true });
 }

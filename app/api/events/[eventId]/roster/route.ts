@@ -11,6 +11,7 @@ import {
   hasUnpublishedChanges,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivities } from "@/lib/roster/rosterActivity";
 
 /** Berechtigungs-Flags für den Client bündeln */
 async function computeCapabilities(cid: number, eventId: number) {
@@ -200,6 +201,46 @@ export async function PATCH(
       }
     }
   });
+
+  // Die Stationsliste steht erst nach der Transaktion fest; das Protokoll
+  // nennt, was dazugekommen und was weggefallen ist – eine reine Umsortierung
+  // ist keinen Eintrag wert.
+  const entries = [];
+  if (parsed.data.slotMinutes && parsed.data.slotMinutes !== roster.slotMinutes) {
+    entries.push({
+      rosterId: roster.id,
+      actorCID: Number(user.cid),
+      action: "slot_changed" as const,
+      summary: `Zeitraster von ${roster.slotMinutes} auf ${parsed.data.slotMinutes} Minuten gestellt`,
+    });
+  }
+  if (parsed.data.stations) {
+    const wanted = normalizeStations(parsed.data.stations);
+    const before = roster.stations.map((s) => s.callsign);
+    const added = wanted.filter((c) => !before.includes(c));
+    const removed = before.filter((c) => !wanted.includes(c));
+    if (added.length > 0) {
+      entries.push({
+        rosterId: roster.id,
+        actorCID: Number(user.cid),
+        action: "stations_changed" as const,
+        summary: `${added.length === 1 ? "Station" : "Stationen"} ${added.join(", ")} hinzugefügt`,
+        details: { added },
+      });
+    }
+    if (removed.length > 0) {
+      entries.push({
+        rosterId: roster.id,
+        actorCID: Number(user.cid),
+        action: "stations_changed" as const,
+        summary: `${removed.length === 1 ? "Station" : "Stationen"} ${removed.join(
+          ", "
+        )} entfernt`,
+        details: { removed },
+      });
+    }
+  }
+  await logRosterActivities(entries);
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   const updated = await getRosterForEvent(eventId);

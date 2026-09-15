@@ -8,6 +8,7 @@ import {
   serializeRoster,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity } from "@/lib/roster/rosterActivity";
 
 const bodySchema = z.object({
   /** Vor dem Zurücksetzen einen Snapshot anlegen (Standard: ja) */
@@ -70,6 +71,16 @@ export async function POST(
     if (includeStations) {
       await tx.eventRosterStation.deleteMany({ where: { rosterId: roster.id } });
     }
+  });
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(user.cid),
+    action: "roster_reset",
+    summary: `Plan zurückgesetzt – ${roster.assignments.length} Schichten${
+      includeStations ? ` und ${roster.stations.length} Stationen` : ""
+    } entfernt${snapshotId ? " (Zwischenstand gesichert)" : ""}`,
+    details: { snapshotId, includeStations },
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));

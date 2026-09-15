@@ -7,6 +7,7 @@ import {
   canViewEventRoster,
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity } from "@/lib/roster/rosterActivity";
 
 const postSchema = z.object({ userCID: z.number().int() });
 
@@ -92,6 +93,14 @@ export async function POST(
     where: { rosterId_userCID: { rosterId: roster.id, userCID: parsed.data.userCID } },
     create: { rosterId: roster.id, userCID: parsed.data.userCID, addedByCID: Number(user.cid) },
     update: {},
+  });
+
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(user.cid),
+    action: "editor_added",
+    summary: `${targetUser.name} als Bearbeiter hinzugefügt`,
+    targetCID: targetUser.cid,
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));

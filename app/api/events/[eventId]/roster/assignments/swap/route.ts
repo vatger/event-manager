@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canEditEventRoster, getRosterForEvent } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
+import { logRosterActivity, personLabel, timeRange, userNames } from "@/lib/roster/rosterActivity";
 
 const swapSchema = z.object({
   a: z.number().int(),
@@ -91,6 +92,23 @@ export async function POST(
       data: { userCID: a.userCID },
     }),
   ]);
+
+  const names = await userNames([a.userCID, b.userCID]);
+  const stationA = roster.stations.find((s) => s.id === a.stationId);
+  const stationB = roster.stations.find((s) => s.id === b.stationId);
+  await logRosterActivity({
+    rosterId: roster.id,
+    actorCID: Number(user.cid),
+    action: "assignment_swapped",
+    summary: `${personLabel(names.get(a.userCID), a.userCID)} (${
+      stationA?.callsign ?? "?"
+    } ${timeRange(a.startTime, a.endTime)}) und ${personLabel(
+      names.get(b.userCID),
+      b.userCID
+    )} (${stationB?.callsign ?? "?"} ${timeRange(b.startTime, b.endTime)}) getauscht`,
+    stationCallsign: stationA?.callsign ?? null,
+    targetCID: a.userCID,
+  });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json({ success: true });

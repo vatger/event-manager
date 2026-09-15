@@ -146,6 +146,7 @@ model EventRoster {
   notes       EventRosterNote[]
   editors     EventRosterEditor[]
   snapshots   EventRosterSnapshot[]
+  activity    EventRosterActivity[]
 }
 
 // Interne Planungsnotiz des Event-Teams zu einem Controller (pro Roster).
@@ -193,6 +194,34 @@ model EventRosterSnapshot {
   roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
 
   @@index([rosterId])
+}
+
+// Änderungsprotokoll eines Besetzungsplans.
+//
+// Der Rückgängig-Stapel lebt im Browser und endet mit der Sitzung; für die
+// Frage „wer hat das wann geändert?" braucht es eine Spur, die bleibt. Der
+// Klartext wird beim Schreiben festgehalten und später nicht neu gebildet:
+// Stationen und Anmeldungen können verschwinden, das Protokoll soll trotzdem
+// zeigen, was damals galt.
+model EventRosterActivity {
+  id       Int    @id @default(autoincrement())
+  rosterId Int
+  actorCID Int?
+  // Maschinenlesbare Art der Änderung, z. B. "assignment_created"
+  action   String @db.VarChar(40)
+  // Fertig formulierte Zeile für die Anzeige
+  summary  String @db.Text
+  // Bezug für Filter und Gruppierung
+  stationCallsign String? @db.VarChar(24)
+  targetCID       Int?
+  // Zusatzangaben (alte/neue Zeiten o. ä.) für die ausführliche Ansicht
+  details   Json?
+  createdAt DateTime @default(now())
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@index([rosterId, createdAt])
+  @@index([actorCID])
 }
 
 // Confirmed stations of a roster (imported from Event.staffedStations, then editable)

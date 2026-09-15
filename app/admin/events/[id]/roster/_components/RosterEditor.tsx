@@ -49,6 +49,7 @@ import {
   Settings2,
   Star,
   StickyNote,
+  ScrollText,
   Undo2,
   UserPlus,
   UserX,
@@ -119,6 +120,7 @@ import { RosterSettingsDialog } from "./RosterSettingsDialog";
 import { BriefingDialog } from "./BriefingDialog";
 import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
+import { ActivityLogDialog } from "./ActivityLogDialog";
 import SignupEditDialog from "../../_components/SignupEditDialog";
 
 // (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
@@ -356,6 +358,7 @@ export function RosterEditor({
   // Ausgewählter Controller für die Seitenleiste
   const [selectedCID, setSelectedCID] = useState<number | null>(null);
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
   // Schnellnotiz direkt in der Infospalte (Doppelklick)
@@ -2699,6 +2702,9 @@ export function RosterEditor({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => setActivityOpen(true)}>
+                <ScrollText className="h-4 w-4 mr-2" /> Verlauf
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setSnapshotsOpen(true)}>
                 <History className="h-4 w-4 mr-2" /> Snapshots
               </DropdownMenuItem>
@@ -3454,6 +3460,12 @@ export function RosterEditor({
       </Dialog>
 
       {/* Dialog: Snapshots */}
+      <ActivityLogDialog
+        open={activityOpen}
+        onOpenChange={setActivityOpen}
+        eventId={event.id}
+      />
+
       <SnapshotsDialog
         open={snapshotsOpen}
         onOpenChange={setSnapshotsOpen}
