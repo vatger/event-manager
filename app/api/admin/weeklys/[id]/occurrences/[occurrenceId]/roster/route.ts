@@ -8,7 +8,6 @@ import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils
 import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
 import { getUsersATCStatsBatch } from "@/lib/weeklys/atcSessionStats";
 import { isS1TwrStation } from "@/lib/stations/stationMetadata";
-import { scheduleWeeklyBookingSync } from "@/lib/bookings/eventStationBookings";
 
 // GET roster data for occurrence
 export async function GET(
@@ -295,10 +294,6 @@ export async function POST(
         data: { userCID, assignmentType: resolvedType },
       });
 
-      // Ein veröffentlichtes Roster blockt die Stationen bereits auf der
-      // Homepage - die Änderung muss dort nachgezogen werden.
-      scheduleWeeklyBookingSync(occurrenceIdNum, "assignment updated");
-
       return NextResponse.json({
         message: "Assignment updated successfully",
         roster: updated,
@@ -314,8 +309,6 @@ export async function POST(
         assignmentType: resolvedType,
       },
     });
-
-    scheduleWeeklyBookingSync(occurrenceIdNum, "assignment created");
 
     return NextResponse.json({
       message: "User assigned successfully",

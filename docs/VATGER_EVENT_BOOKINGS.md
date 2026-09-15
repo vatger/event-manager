@@ -10,21 +10,18 @@ benachrichtigt.
 
 ## Zwei Wege
 
-| Eventtyp             | Auslöser                              | Gebucht wird auf                                                       |
-| -------------------- | ------------------------------------- | ---------------------------------------------------------------------- |
-| Weekly               | automatisch, weit im Voraus           | die Event-Kennung, nach Roster-Veröffentlichung die eingeteilten Lotsen |
+| Eventtyp             | Auslöser                              | Gebucht wird auf                                  |
+| -------------------- | ------------------------------------- | -------------------------------------------------- |
+| Weekly               | automatisch, weit im Voraus           | dauerhaft die Event-Kennung aus `VATGER_EVENT_BOOKING_CID` |
 | Unregelmäßiges Event | automatisch beim Öffnen der Anmeldung | die Event-Kennung aus `VATGER_EVENT_BOOKING_CID`                       |
 
 ### Weeklys
 
 Geblockt wird, sobald ein Termin im Zeitfenster des Cronjobs liegt – also
-lange bevor überhaupt ein Roster existiert. Bis dahin laufen die Buchungen auf
-die Event-Kennung, damit die Stationen niemand anders wegbucht.
-
-Sobald das Roster veröffentlicht ist, wandert jede eingeteilte Station auf die
-VATSIM ID des eingeteilten Lotsen. Stationen, für die noch niemand eingeteilt
-ist, bleiben auf der Event-Kennung geblockt. Änderungen an der Einteilung und
-das Zurückziehen des Rosters ziehen sofort nach.
+lange bevor überhaupt ein Roster existiert. Die Buchungen laufen dauerhaft auf
+die Event-Kennung, damit die Stationen niemand anders wegbucht. Eine
+Einteilung oder deren Veröffentlichung ändert daran nichts – die Station wird
+zu keinem Zeitpunkt auf die VATSIM ID eines einzelnen Lotsen umgebucht.
 
 Der Cronjob `weekly_booking_sync` (Standard stündlich) läuft über alle Termine
 aktiver Weeklys der nächsten 60 Tage. Er blockt neu dazugekommene Termine und
@@ -80,9 +77,8 @@ WEEKLY_BOOKING_SYNC_HORIZON_DAYS=60
   `booking.event.index`, `booking.event.create` und `booking.event.delete`.
   Ohne eigenen Wert wird `VATGER_API_TOKEN` verwendet.
 - `VATGER_EVENT_BOOKING_CID` – die VATSIM ID, auf die alle Blockbuchungen
-  laufen, solange keine Einteilung feststeht. Ohne diesen Wert lassen sich nur
-  bereits eingeteilte Stationen veröffentlichter Weekly-Roster buchen; alles
-  andere wird übersprungen und im Ergebnis gemeldet.
+  laufen. Ohne diesen Wert werden keine Buchungen vorgenommen; das wird im
+  Ergebnis gemeldet.
 - `WEEKLY_BOOKING_SYNC_HORIZON_DAYS` – wie weit im Voraus geblockt wird. Die
   Voreinstellung von 60 Tagen entspricht dem Zeitraum, in dem sich Stationen
   auf der Homepage auch von Hand buchen lassen.

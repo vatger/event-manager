@@ -2,6 +2,7 @@ import { Event } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RotateCcw } from "lucide-react";
+import { getEventStatusStyle } from "@/utils/eventStatus";
 
 interface EventHeaderProps {
   event: Event;
@@ -26,6 +27,7 @@ export default function EventHeader({ event, onRefresh, loading }: EventHeaderPr
 
   const dateLabel = new Date(event.startTime).toLocaleDateString("de-DE");
   const timeLabel = `${formatTimeZ(event.startTime)} - ${formatTimeZ(event.endTime)}`;
+  const status = getEventStatusStyle(event.status);
 
   return (
     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -34,9 +36,7 @@ export default function EventHeader({ event, onRefresh, loading }: EventHeaderPr
         <div className="text-muted-foreground">{dateLabel} • {timeLabel} • {airportsLabel(event.airports)}</div>
       </div>
       <div className="flex gap-2">
-        <Badge variant={event.status === "SIGNUP_OPEN" ? "default" : "secondary"}>
-          {event.status || "-"}
-        </Badge>
+        <Badge className={status.color}>{status.label}</Badge>
         <Button onClick={onRefresh} variant="outline" size="sm">
           <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
         </Button>

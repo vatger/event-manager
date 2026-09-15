@@ -6,14 +6,13 @@ import { isBookingApiConfigured } from "@/lib/bookings/vatgerBookingClient";
  * Blockt die Stationen der anstehenden Weeklys auf der VATGER Homepage.
  *
  * Der Job greift weit im Voraus: sobald eine Instanz im Zeitfenster liegt,
- * werden ihre zu besetzenden Stationen auf die Event-Kennung geblockt – lange
- * bevor ein Roster existiert. Sobald das Roster veröffentlicht ist, zieht der
- * Abgleich die Buchungen auf die eingeteilten Lotsen um.
+ * werden ihre zu besetzenden Stationen auf die Event-Kennung geblockt und
+ * bleiben es dauerhaft – unabhängig von Roster oder Einteilung.
  *
- * Beim Veröffentlichen und beim Ändern eines Rosters läuft der Abgleich
- * ohnehin sofort; dieser Job fängt die Fälle ab, in denen das nicht geklappt
- * hat – etwa weil die Homepage kurzzeitig nicht erreichbar war oder eine
- * Buchung zwischenzeitlich von Hand gelöscht wurde.
+ * Dieser Job fängt Fälle ab, in denen die Buchung noch fehlt oder abweicht –
+ * etwa weil die Homepage kurzzeitig nicht erreichbar war, sich die zu
+ * besetzenden Stationen geändert haben oder eine Buchung zwischenzeitlich von
+ * Hand gelöscht wurde.
  */
 
 /**

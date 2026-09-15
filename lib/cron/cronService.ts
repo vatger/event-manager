@@ -65,7 +65,7 @@ const CRON_JOBS = [
   {
     name: 'weekly_booking_sync',
     displayName: 'Weekly Stationsbuchungen',
-    description: 'Blockt die Stationen der anstehenden Weeklys auf der VATGER Homepage und zieht sie nach Roster-Veröffentlichung auf die eingeteilten Lotsen um',
+    description: 'Blockt die Stationen der anstehenden Weeklys auf der VATGER Homepage',
     envVar: 'WEEKLY_BOOKING_SYNC_CRON',
     defaultSchedule: '0 * * * *',
     handler: syncUpcomingWeeklyBookings,

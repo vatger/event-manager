@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { userCanManageWeekly } from "@/lib/acl/permissions";
-import { scheduleWeeklyBookingSync } from "@/lib/bookings/eventStationBookings";
 
 // DELETE unassign user from station
 export async function DELETE(
@@ -48,10 +47,6 @@ export async function DELETE(
     await prisma.weeklyEventRoster.delete({
       where: { id: rosterIdNum },
     });
-
-    // Ein veröffentlichtes Roster blockt die Stationen bereits auf der
-    // Homepage - die entfallene Einteilung muss dort freigegeben werden.
-    scheduleWeeklyBookingSync(occurrenceIdNum, "assignment removed");
 
     return NextResponse.json({
       message: "User unassigned successfully",

@@ -5,14 +5,13 @@
  * Zwei Wege führen hier her:
  *
  *  - **Weeklys**: die zu besetzenden Stationen werden automatisch und weit im
- *    Voraus auf die Event-Kennung (`VATGER_EVENT_BOOKING_CID`) geblockt. Ist
- *    das Roster veröffentlicht, wandert jede eingeteilte Station auf die
- *    VATSIM ID des eingeteilten Lotsen; alles Übrige bleibt geblockt.
+ *    Voraus auf die Event-Kennung (`VATGER_EVENT_BOOKING_CID`) geblockt und
+ *    bleiben es dauerhaft – unabhängig von einer Einteilung oder deren
+ *    Veröffentlichung.
  *  - **Unregelmäßige Events**: mit dem Öffnen der Anmeldung werden die als
- *    "zu besetzen" eingetragenen Stationen geblockt. Da zu dem Zeitpunkt noch
- *    keine Einteilung feststeht, laufen diese Buchungen auf die in
- *    `VATGER_EVENT_BOOKING_CID` hinterlegte Event-Kennung. Verwaltet wird der
- *    Stand im Stationen-Tab der Eventbearbeitung.
+ *    "zu besetzen" eingetragenen Stationen geblockt. Diese Buchungen laufen
+ *    auf die in `VATGER_EVENT_BOOKING_CID` hinterlegte Event-Kennung.
+ *    Verwaltet wird der Stand im Stationen-Tab der Eventbearbeitung.
  *
  * Grundlage ist immer eine Referenz (`eventmanager:event:<id>` bzw.
  * `eventmanager:weekly:<occurrenceId>`). Die Homepage speichert sie an der
@@ -225,10 +224,8 @@ export function getBlockingCid(): number | null {
  * Synchronisiert die Buchungen einer Weekly-Instanz.
  *
  * Die Stationen werden bereits geblockt, sobald die Instanz feststeht – also
- * lange vor dem Roster – und laufen bis dahin auf die Event-Kennung. Ist das
- * Roster veröffentlicht, wandert jede eingeteilte Station auf die VATSIM ID
- * des eingeteilten Lotsen; Stationen ohne Einteilung bleiben auf der
- * Event-Kennung geblockt.
+ * lange vor dem Roster – und bleiben dauerhaft auf die Event-Kennung
+ * geblockt. Eine Einteilung oder deren Veröffentlichung ändert daran nichts.
  *
  * Instanzen eines deaktivierten Weeklys werden wieder freigegeben, Instanzen
  * in der Vergangenheit nicht mehr angefasst.
@@ -238,7 +235,7 @@ export async function syncWeeklyOccurrenceBookings(occurrenceId: number): Promis
 
   const occurrence = await prisma.weeklyEventOccurrence.findUnique({
     where: { id: occurrenceId },
-    include: { config: true, rosters: true },
+    include: { config: true },
   });
 
   if (!occurrence) {
@@ -259,51 +256,22 @@ export async function syncWeeklyOccurrenceBookings(occurrenceId: number): Promis
     return releaseBookings(reference);
   }
 
-  // Sobald das Roster veröffentlicht ist, gilt die Einteilung.
-  const assignments = new Map<string, number>();
-  if (occurrence.rosterPublished) {
-    for (const entry of occurrence.rosters) {
-      if (entry.station && entry.userCID) {
-        assignments.set(entry.station.trim().toUpperCase(), entry.userCID);
-      }
-    }
-  }
+  const callsigns = parseStations(occurrence.config.staffedStations);
 
-  const blockingCid = getBlockingCid();
-  const callsigns = new Set([...parseStations(occurrence.config.staffedStations), ...assignments.keys()]);
-
-  if (callsigns.size === 0) {
+  if (callsigns.length === 0) {
     return releaseBookings(reference);
   }
 
-  const desired: DesiredBooking[] = [];
-  const unblockable: string[] = [];
-
-  for (const callsign of callsigns) {
-    const cid = assignments.get(callsign) ?? blockingCid;
-    if (!cid) {
-      unblockable.push(callsign);
-      continue;
-    }
-    desired.push({ callsign, cid, start, end });
-  }
-
-  if (desired.length === 0) {
+  const blockingCid = getBlockingCid();
+  if (!blockingCid) {
     return emptyResult(reference, {
       skipped: "Es ist keine VATSIM ID für Blockbuchungen hinterlegt (VATGER_EVENT_BOOKING_CID).",
     });
   }
 
-  const result = await syncBookings(reference, desired);
+  const desired: DesiredBooking[] = callsigns.map((callsign) => ({ callsign, cid: blockingCid, start, end }));
 
-  if (unblockable.length > 0) {
-    return {
-      ...result,
-      skipped: `Ohne VATGER_EVENT_BOOKING_CID nicht geblockt: ${unblockable.join(", ")}`,
-    };
-  }
-
-  return result;
+  return syncBookings(reference, desired);
 }
 
 /** Gibt die Stationen einer Weekly-Instanz wieder frei. */
