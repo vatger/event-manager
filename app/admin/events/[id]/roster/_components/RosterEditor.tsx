@@ -574,7 +574,7 @@ export function RosterEditor({
       start: number,
       end: number,
       opts: { userCID?: number; label?: string; color?: string | null; track?: boolean }
-    ) => {
+    ): Promise<number | null> => {
       const isCustom = !!opts.label;
       const track = opts.track !== false;
       const tempId = tempIdRef.current--;
@@ -620,9 +620,11 @@ export function RosterEditor({
         });
         if (track) pushUndo({ kind: "created", assignmentId: realId });
         refreshPublishState();
+        return realId;
       } catch (err) {
         setAssignments((prev) => prev.filter((a) => a.id !== tempId));
         toast.error(err instanceof Error ? err.message : "Block fehlgeschlagen");
+        return null;
       }
     },
     [event.id, eventStart, apiHeaders, refreshPublishState, pushUndo]
@@ -669,6 +671,7 @@ export function RosterEditor({
             assignmentId: id,
             before: {
               stationId: before.stationId,
+              userCID: before.userCID,
               start: before.start,
               end: before.end,
               color: before.color,
@@ -719,6 +722,126 @@ export function RosterEditor({
   );
 
   /**
+   * Zwei Schichten tauschen ihre Controller.
+   *
+   * Nacheinander ginge das nicht: Die erste Änderung scheiterte daran, dass die
+   * Zielschicht noch besetzt ist. Der Server tauscht deshalb in einem Zug.
+   */
+  const swapAssignments = useCallback(
+    async (aId: number, bId: number, track = true) => {
+      const a = assignmentsRef.current.find((x) => x.id === aId);
+      const b = assignmentsRef.current.find((x) => x.id === bId);
+      if (!a || !b) return;
+      setAssignments((prev) =>
+        prev.map((x) =>
+          x.id === aId ? { ...x, userCID: b.userCID } : x.id === bId ? { ...x, userCID: a.userCID } : x
+        )
+      );
+      try {
+        const res = await fetch(`/api/events/${event.id}/roster/assignments/swap`, {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify({ a: aId, b: bId }),
+        });
+        if (!res.ok) {
+          const j = await res.json().catch(() => ({}));
+          throw new Error(j.error || "Tausch fehlgeschlagen");
+        }
+        if (track) pushUndo({ kind: "swapped", a: aId, b: bId });
+        refreshPublishState();
+      } catch (err) {
+        setAssignments((prev) =>
+          prev.map((x) =>
+            x.id === aId
+              ? { ...x, userCID: a.userCID }
+              : x.id === bId
+              ? { ...x, userCID: b.userCID }
+              : x
+          )
+        );
+        toast.error(err instanceof Error ? err.message : "Tausch fehlgeschlagen");
+      }
+    },
+    [event.id, apiHeaders, pushUndo, refreshPublishState]
+  );
+  // Das Zurücknehmen greift auf den Tausch zu, der Tausch aber nicht umgekehrt –
+  // über eine Referenz bleiben beide unabhängig voneinander definierbar.
+  const swapAssignmentsRef = useRef(swapAssignments);
+  useEffect(() => {
+    swapAssignmentsRef.current = swapAssignments;
+  }, [swapAssignments]);
+
+  /**
+   * Schließt der Block lückenlos an einen gleichartigen auf derselben Station
+   * an, werden beide zu einer Schicht.
+   *
+   * Zwei Blöcke hintereinander mit derselben Person auf derselben Station sind
+   * eine Schicht, keine zwei – im Plan, in der Übersicht und für die Person
+   * selbst. Erst die Nachbarn entfernen, dann ausdehnen: andersherum meldete
+   * der Server die Station als belegt.
+   */
+  const mergeAdjacent = useCallback(
+    async (id: number) => {
+      const list = assignmentsRef.current;
+      const block = list.find((a) => a.id === id);
+      if (!block) return;
+      const sameOccupant = (x: Assignment) =>
+        x.type === block.type &&
+        (block.type === "controller"
+          ? x.userCID === block.userCID
+          : x.label === block.label && x.color === block.color);
+      const neighbours = list.filter(
+        (a) =>
+          a.id !== id &&
+          a.id > 0 &&
+          a.stationId === block.stationId &&
+          sameOccupant(a) &&
+          (a.end === block.start || a.start === block.end)
+      );
+      if (neighbours.length === 0) return;
+
+      const start = Math.min(block.start, ...neighbours.map((a) => a.start));
+      const end = Math.max(block.end, ...neighbours.map((a) => a.end));
+      const entries: UndoEntry[] = [
+        {
+          kind: "updated",
+          assignmentId: id,
+          before: {
+            stationId: block.stationId,
+            userCID: block.userCID,
+            start: block.start,
+            end: block.end,
+            color: block.color,
+          },
+        },
+        ...neighbours.map((a): UndoEntry => ({ kind: "deleted", snapshot: a })),
+      ];
+
+      for (const n of neighbours) await deleteAssignment(n.id, false);
+      await updateAssignment(id, { start, end }, false);
+
+      setUndoStack((prev) => {
+        // Das Zusammenfassen gehört zu der Bewegung, die es ausgelöst hat: Ein
+        // Rückgängig soll beides zusammen zurücknehmen und nicht den Block
+        // zwar trennen, aber am neuen Platz stehen lassen.
+        const last = prev[prev.length - 1];
+        const belongsToGesture =
+          last &&
+          ((last.kind === "updated" && last.assignmentId === id) ||
+            (last.kind === "created" && last.assignmentId === id));
+        const all = belongsToGesture ? [...entries, last] : entries;
+        const rest = belongsToGesture ? prev.slice(0, -1) : prev;
+        return [
+          ...rest,
+          { kind: "batch" as const, label: "Zusammenfassen zurückgenommen", entries: all },
+        ].slice(-UNDO_LIMIT);
+      });
+      toast.success("Schichten zusammengefasst");
+    },
+    [deleteAssignment, updateAssignment]
+  );
+
+  /**
    * Letzte Änderung zurücknehmen. Die Gegenoperation läuft über dieselben
    * API-Pfade wie jede andere Änderung – sie wird nur selbst nicht wieder
    * auf den Stapel gelegt.
@@ -728,23 +851,40 @@ export function RosterEditor({
     if (!entry || undoing) return;
     setUndoStack((prev) => prev.slice(0, -1));
     setUndoing(true);
-    try {
-      if (entry.kind === "created") {
-        await deleteAssignment(entry.assignmentId, false);
-        toast.success("Block entfernt");
-      } else if (entry.kind === "deleted") {
-        const a = entry.snapshot;
+
+    // Rekursiv, weil ein Stapeleintrag selbst wieder aus Schritten besteht.
+    // Die Reihenfolge innerhalb eines Stapels ist bewusst gesetzt: Wird erst
+    // der ausgedehnte Block verkleinert, passt der wiederhergestellte Nachbar
+    // anschließend wieder daneben.
+    const apply = async (e: UndoEntry): Promise<string> => {
+      if (e.kind === "created") {
+        await deleteAssignment(e.assignmentId, false);
+        return "Block entfernt";
+      }
+      if (e.kind === "deleted") {
+        const a = e.snapshot;
         await createAssignment(a.stationId, a.start, a.end, {
           userCID: a.userCID ?? undefined,
           label: a.label ?? undefined,
           color: a.color,
           track: false,
         });
-        toast.success("Block wiederhergestellt");
-      } else {
-        await updateAssignment(entry.assignmentId, entry.before, false);
-        toast.success("Änderung zurückgenommen");
+        return "Block wiederhergestellt";
       }
+      if (e.kind === "swapped") {
+        await swapAssignmentsRef.current(e.a, e.b, false);
+        return "Tausch zurückgenommen";
+      }
+      if (e.kind === "batch") {
+        for (const inner of e.entries) await apply(inner);
+        return e.label;
+      }
+      await updateAssignment(e.assignmentId, e.before, false);
+      return "Änderung zurückgenommen";
+    };
+
+    try {
+      toast.success(await apply(entry));
     } finally {
       setUndoing(false);
     }
@@ -1174,6 +1314,30 @@ export function RosterEditor({
             current.stationId !== clicked.stationId ||
             current.userCID !== clicked.userCID;
           if (!changed) return;
+
+          // Landet der Block auf einer anderen Schicht, tauschen die beiden
+          // ihre Controller. Das ist beim Planen der häufigere Wunsch als die
+          // Meldung „Station ist belegt" – und in einem Zug erledigt, was sonst
+          // drei Züge über einen freien Platz bräuchte.
+          const onTop = assignmentsRef.current.find(
+            (a) =>
+              a.id !== clicked.id &&
+              a.stationId === current.stationId &&
+              a.start < current.end &&
+              current.start < a.end
+          );
+          if (onTop) {
+            if (clicked.type !== "controller" || onTop.type !== "controller") {
+              toast.error("Nur Controller-Schichten lassen sich tauschen");
+              return;
+            }
+            void swapAssignments(clicked.id, onTop.id);
+            const a = controllerByCid.get(clicked.userCID ?? -1)?.name ?? "?";
+            const b = controllerByCid.get(onTop.userCID ?? -1)?.name ?? "?";
+            toast.success(`${a} und ${b} getauscht`);
+            return;
+          }
+
           const v = validate(
             current.stationId,
             current.userCID,
@@ -1185,12 +1349,12 @@ export function RosterEditor({
             if (v.reason) toast.error(v.reason);
           } else {
             if (v.warn && v.reason) toast.warning(v.reason);
-            updateAssignment(clicked.id, {
+            void updateAssignment(clicked.id, {
               stationId: current.stationId,
               userCID: current.userCID,
               start: current.start,
               end: current.end,
-            });
+            }).then(() => mergeAdjacent(clicked.id));
           }
         }
       );
@@ -1206,6 +1370,9 @@ export function RosterEditor({
       updateAssignment,
       applyDrag,
       moveSelection,
+      swapAssignments,
+      mergeAdjacent,
+      controllerByCid,
     ]
   );
 
@@ -1264,13 +1431,27 @@ export function RosterEditor({
               if (v.reason) toast.error(v.reason);
             } else {
               if (v.warn && v.reason) toast.warning(v.reason);
-              updateAssignment(g.original.id, { start: current.start, end: current.end });
+              void updateAssignment(g.original.id, {
+                start: current.start,
+                end: current.end,
+              }).then(() => mergeAdjacent(g.original!.id));
             }
           }
         }
       );
     },
-    [canEdit, trackPointer, snap, pxPerMinute, slotMinutes, totalMinutes, validate, updateAssignment, applyDrag]
+    [
+      canEdit,
+      trackPointer,
+      snap,
+      pxPerMinute,
+      slotMinutes,
+      totalMinutes,
+      validate,
+      updateAssignment,
+      applyDrag,
+      mergeAdjacent,
+    ]
   );
 
   /** Auf freier Fläche einer Stationszeile ziehen → Zeitraum wählen → Dialog */
@@ -1394,15 +1575,26 @@ export function RosterEditor({
               if (v.reason) toast.error(v.reason);
             } else {
               if (v.warn && v.reason) toast.warning(v.reason);
-              createAssignment(current.stationId, current.start, current.end, {
+              void createAssignment(current.stationId, current.start, current.end, {
                 userCID: current.userCID,
+              }).then((id) => {
+                if (id !== null) void mergeAdjacent(id);
               });
             }
           }
         }
       );
     },
-    [canEdit, trackPointer, hitTest, defaultRangeAt, validate, createAssignment, applyDrag]
+    [
+      canEdit,
+      trackPointer,
+      hitTest,
+      defaultRangeAt,
+      validate,
+      createAssignment,
+      applyDrag,
+      mergeAdjacent,
+    ]
   );
 
   /** Station (per Griff am Zeilenkopf) vertikal umsortieren */
@@ -3116,9 +3308,11 @@ export function RosterEditor({
               return;
             }
             if (v.warn && v.reason) toast.warning(v.reason);
-            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
+            void createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
               userCID: cid,
-            });
+            }).then((id) => {
+                if (id !== null) void mergeAdjacent(id);
+              });
             setSelectedCID(cid);
             setAssignDialog(null);
           }
@@ -3130,10 +3324,12 @@ export function RosterEditor({
               if (v.reason) toast.error(v.reason);
               return;
             }
-            createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
+            void createAssignment(assignDialog.stationId, assignDialog.start, assignDialog.end, {
               label,
               color,
-            });
+            }).then((id) => {
+                if (id !== null) void mergeAdjacent(id);
+              });
             setAssignDialog(null);
           }
         }}

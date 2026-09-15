@@ -175,7 +175,9 @@ export function buildEndorsementView(
 
   return {
     usable: states.filter((s) => !s.excluded && s.levels.length > 0),
-    dropped: states.filter((s) => s.excluded || s.levels.length === 0),
+    dropped: states
+      .filter((s) => s.excluded || s.levels.length === 0)
+      .sort((a, b) => dropRank(a) - dropRank(b) || a.airport.localeCompare(b.airport)),
     hasCtr: states.some((s) => s.ctr),
     commonRestrictions,
     familiarizations,
@@ -189,4 +191,28 @@ export function dropReason(state: AirportState): string {
   if (state.excluded) return "abgewählt";
   if (state.ctr) return "nur Center";
   return "keine Freigabe";
+}
+
+/** Ausführlicher Grund für den Tooltip */
+export function dropTitle(state: AirportState): string {
+  if (state.excluded) {
+    return `${state.airport}: bei der Anmeldung abgewählt – die Person möchte hier nicht eingeplant werden`;
+  }
+  if (state.ctr) {
+    return `${state.airport}: keine Platzfreigabe, aber Center über die FIR`;
+  }
+  return `${state.airport}: keine Freigabe für diesen Platz`;
+}
+
+/**
+ * Reihenfolge der ausgefallenen Airports.
+ *
+ * Eine Abwahl ist eine Entscheidung der Person und beim Planen die wichtigere
+ * Auskunft – eine fehlende Freigabe ist einfach der Sachstand. Deshalb steht
+ * Abgewähltes vorn.
+ */
+function dropRank(state: AirportState): number {
+  if (state.excluded) return 0;
+  if (state.ctr) return 1;
+  return 2;
 }

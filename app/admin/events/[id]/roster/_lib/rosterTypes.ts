@@ -90,7 +90,23 @@ export type UndoEntry =
   | {
       kind: "updated";
       assignmentId: number;
-      before: Pick<Assignment, "stationId" | "start" | "end" | "color">;
+      before: Pick<Assignment, "stationId" | "userCID" | "start" | "end" | "color">;
+    }
+  | {
+      kind: "swapped";
+      /** Die beiden Schichten, die ihre Controller getauscht haben */
+      a: number;
+      b: number;
+    }
+  | {
+      /**
+       * Mehrere Schritte, die zusammen eine Änderung ergeben – etwa das
+       * Verschmelzen zweier Schichten. Sie werden in der angegebenen
+       * Reihenfolge zurückgenommen, damit kein Zwischenstand kollidiert.
+       */
+      kind: "batch";
+      label: string;
+      entries: UndoEntry[];
     };
 
 /** Stationsmetadaten aus dem Datahub (bzw. Callsign-Heuristik) */

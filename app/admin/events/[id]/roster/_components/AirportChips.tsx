@@ -11,6 +11,7 @@ import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import {
   buildEndorsementView,
   dropReason,
+  dropTitle,
   hasEndorsementGap,
   type AirportState,
 } from "../_lib/endorsementView";
@@ -110,6 +111,30 @@ export function AirportChips({
   const ownRestrictions = (s: AirportState) =>
     s.restrictions.filter((r) => !view.commonRestrictions.includes(r));
 
+  /**
+   * Airports, an denen nichts zu besetzen ist, als eigene Badge.
+   *
+   * Eine Abwahl ist eine Entscheidung der Person, eine fehlende Freigabe nur
+   * der Sachstand – zwei verschiedene Dinge, die auch verschieden aussehen
+   * sollen. Der Grund steht im Tooltip statt als Fließtext daneben.
+   */
+  const dropChip = (state: AirportState) => (
+    <span
+      key={`d-${state.airport}`}
+      title={dropTitle(state)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded px-1 py-0.5 leading-none",
+        text,
+        state.excluded
+          ? "bg-amber-100 text-amber-800 line-through decoration-amber-600/70 dark:bg-amber-950/50 dark:text-amber-200"
+          : "bg-muted text-muted-foreground"
+      )}
+    >
+      {state.airport}
+      {!state.excluded && <span className="opacity-70">{state.ctr ? "CTR" : "–"}</span>}
+    </span>
+  );
+
   const chip = (state: AirportState, label: string) => (
     <span key={state.airport} title={titleFor(state)} className={chipClass(state, text)}>
       {label}
@@ -137,7 +162,11 @@ export function AirportChips({
           view.usable.map((s) => chip(s, eventAirports.length > 1 ? s.airport : ""))
         )}
 
-        {view.usable.length === 0 && (
+        {/* Dahinter, was ausfällt – abgewählt zuerst */}
+        {(expanded || eventAirports.length < COMPACT_FROM) &&
+          view.dropped.map((s) => dropChip(s))}
+
+        {view.usable.length === 0 && view.dropped.length === 0 && (
           <span className={cn("text-muted-foreground", text)}>
             kein Platz besetzbar
           </span>
@@ -200,15 +229,6 @@ export function AirportChips({
           </Popover>
         )}
       </div>
-
-      {/* Ausgefallene Plätze in einer Zeile – dass jemand einen Platz abgewählt
-          hat, ist beim Planen genauso eine Information wie eine fehlende
-          Freigabe, nur keine, die eigene Chips verdient. */}
-      {view.dropped.length > 0 && (expanded || eventAirports.length < COMPACT_FROM) && (
-        <p className={cn("text-muted-foreground", text)}>
-          {view.dropped.map((s) => `${s.airport}: ${dropReason(s)}`).join(" · ")}
-        </p>
-      )}
 
       {/* Einschränkungen sind für die Planung genauso wichtig wie die Freigabe.
           Was überall gleich lautet, steht einmal. */}
