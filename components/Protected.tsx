@@ -8,16 +8,19 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const pathname = usePathname();
 
-  // Don't protect the sign-in page
-  const isSignInPage = pathname === "/auth/signin";
+  // Ohne Anmeldung erreichbar: die Anmeldeseite selbst und die eingebetteten
+  // Ansichten. Letztere laufen in einem fremden Fenster (ATCISS) – ein
+  // Weiterleiten zum Login würde dort nur ein leeres iframe hinterlassen.
+  const isPublicPage =
+    pathname === "/auth/signin" || pathname.startsWith("/embed");
 
   useEffect(() => {
-    if (status === "unauthenticated" && !isSignInPage) {
+    if (status === "unauthenticated" && !isPublicPage) {
       signIn(); // Leitet automatisch zur Login-Seite weiter
     }
-  }, [status, isSignInPage]);
+  }, [status, isPublicPage]);
 
-  if (isSignInPage) {
+  if (isPublicPage) {
     return <>{children}</>;
   }
 

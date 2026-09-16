@@ -60,6 +60,20 @@ interface PublicRosterProps {
   userCID: number | null;
   /** Meldet dem Parent, ob ein interner Besetzungsplan existiert */
   onLoaded?: (hasRoster: boolean) => void;
+  /**
+   * Abweichende Datenquelle.
+   *
+   * Die eingebettete Ansicht für ATCISS liest über den anmeldefreien Weg – der
+   * übliche Endpunkt verlangt eine Sitzung, die es dort nicht gibt.
+   */
+  source?: string;
+  /**
+   * Ohne Karte und Rahmen, für die Einbettung in ein fremdes Fenster.
+   *
+   * Dort ist die Karte samt Überschrift nur verschenkte Höhe: Das iframe ist
+   * klein, und worum es geht, sagt die einbettende Seite bereits.
+   */
+  embedded?: boolean;
 }
 
 /** Zeilen der Timeline – je nach Ansicht Stationen oder Lotsen */
@@ -91,7 +105,13 @@ const airportOf = (callsign: string): string | null =>
  * Jetzt-Linie zeigt während des Events den aktuellen Stand, eigene Schichten
  * sind durchgehend hervorgehoben.
  */
-export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRosterProps) {
+export default function PublicRoster({
+  eventId,
+  userCID,
+  onLoaded,
+  source,
+  embedded = false,
+}: PublicRosterProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
 
@@ -156,7 +176,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/events/${eventId}/roster/public`);
+        const res = await fetch(source ?? `/api/events/${eventId}/roster/public`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         if (cancelled) return;
@@ -175,7 +195,7 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     };
     // onLoaded bewusst nicht in den Deps (Parent-Callback, nur einmal laden)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
+  }, [eventId, source]);
 
   // Kürzel der Stationen (Datahub) – auf schmalen Bildschirmen ersetzen sie
   // das oft zu lange volle Callsign in Beschriftung und Blöcken.
@@ -453,6 +473,13 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
   }, [nowMinute, scrollToNow]);
 
   if (loading) {
+    if (embedded) {
+      return (
+        <div className="p-3">
+          <Skeleton className="h-32 w-full" />
+        </div>
+      );
+    }
     return (
       <Card>
         <CardHeader>
@@ -481,7 +508,14 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
   ) : null;
 
   if (!roster || !eventStart) {
-    if (!briefingBlock) return null;
+    if (!briefingBlock) {
+      return embedded ? (
+        <p className="p-4 text-sm text-muted-foreground">
+          Für dieses Event liegt kein veröffentlichter Besetzungsplan vor.
+        </p>
+      ) : null;
+    }
+    if (embedded) return <div className="p-3">{briefingBlock}</div>;
     return (
       <Card id="besetzungsplan" className="scroll-mt-20">
         <CardHeader>
@@ -522,23 +556,34 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
     );
   };
 
+  // In der Einbettung tragen Karte und Überschrift nichts bei – das iframe ist
+  // knapp bemessen, und die einbettende Seite sagt bereits, worum es geht.
+  const Shell = embedded
+    ? ({ children }: { children: React.ReactNode }) => (
+        <div className="space-y-3 p-2">{children}</div>
+      )
+    : ({ children }: { children: React.ReactNode }) => (
+        <Card id="besetzungsplan" className="scroll-mt-20">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="flex items-center gap-2">
+                <CalendarClock className="w-5 h-5" />
+                Besetzungsplan
+              </span>
+              <span className="flex items-center gap-2">
+                {!published && <Badge variant="secondary">Vorschau (unveröffentlicht)</Badge>}
+                <Badge variant="outline" className="font-normal">
+                  Alle Zeiten UTC
+                </Badge>
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">{children}</CardContent>
+        </Card>
+      );
+
   return (
-    <Card id="besetzungsplan" className="scroll-mt-20">
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="flex items-center gap-2">
-            <CalendarClock className="w-5 h-5" />
-            Besetzungsplan
-          </span>
-          <span className="flex items-center gap-2">
-            {!published && <Badge variant="secondary">Vorschau (unveröffentlicht)</Badge>}
-            <Badge variant="outline" className="font-normal">
-              Alle Zeiten UTC
-            </Badge>
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Shell>
         {briefingBlock}
         
         {/* Eigene Schichten */}
@@ -802,7 +847,6 @@ export default function PublicRoster({ eventId, userCID, onLoaded }: PublicRoste
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+    </Shell>
   );
 }
