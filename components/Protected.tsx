@@ -8,9 +8,10 @@ export default function Protected({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const pathname = usePathname();
 
-  // Ohne Anmeldung erreichbar: die Anmeldeseite selbst und die eingebetteten
-  // Ansichten. Letztere laufen in einem fremden Fenster (ATCISS) – ein
-  // Weiterleiten zum Login würde dort nur ein leeres iframe hinterlassen.
+  // Die eingebetteten Ansichten laufen in einem fremden Fenster (ATCISS). Eine
+  // Anmeldung brauchen sie trotzdem – sie holen sie nur selbst, mit einem
+  // Fenster daneben statt einer Weiterleitung, die im iframe nur einen leeren
+  // Rahmen hinterließe. Deshalb greift der Wächter hier nicht.
   const isPublicPage =
     pathname === "/auth/signin" || pathname.startsWith("/embed");
 

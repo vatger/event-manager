@@ -6,7 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Crosshair, FileText, Radio, User, Users } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  FileText,
+  Radio,
+  Timer,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { airportTintColors, stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
@@ -15,6 +27,8 @@ import type { Station } from "@/lib/stations/types";
 
 // Layout
 const LABEL_W = 152;
+/** So breit darf die Beschriftungsspalte höchstens werden */
+const MAX_LABEL_W = 232;
 const ROW_H = 38;
 const GROUP_H = 26;
 /**
@@ -26,8 +40,16 @@ const GROUP_H = 26;
 const MIN_PX_PER_HOUR = 64;
 /** Wie oft die Jetzt-Linie nachgeführt wird */
 const TICK_MS = 30_000;
+/** Ab dieser Eventlänge nutzt der Plan die volle Seitenbreite */
+const WIDE_FROM_HOURS = 8;
 /** Unterhalb dieser Breite fallen Beschriftung und Stundenbreite kleiner aus */
 const NARROW_PX = 768;
+/** Merkt sich eingeklappte Airport-Gruppen je Event, wie im Roster-Editor */
+const COLLAPSE_PREF_KEY = "public-roster:collapsedAirports";
+/** Breite der Beschriftungsspalte, wenn sie eingeklappt ist – Platz für nur den Pfeil */
+const SIDEBAR_COLLAPSED_W = 28;
+/** Merkt sich, ob die Beschriftungsspalte eingeklappt ist, je Event */
+const SIDEBAR_COLLAPSE_PREF_KEY = "public-roster:sidebarCollapsed";
 
 interface PublicRosterStation {
   id: number;
@@ -61,13 +83,6 @@ interface PublicRosterProps {
   /** Meldet dem Parent, ob ein interner Besetzungsplan existiert */
   onLoaded?: (hasRoster: boolean) => void;
   /**
-   * Abweichende Datenquelle.
-   *
-   * Die eingebettete Ansicht für ATCISS liest über den anmeldefreien Weg – der
-   * übliche Endpunkt verlangt eine Sitzung, die es dort nicht gibt.
-   */
-  source?: string;
-  /**
    * Ohne Karte und Rahmen, für die Einbettung in ein fremdes Fenster.
    *
    * Dort ist die Karte samt Überschrift nur verschenkte Höhe: Das iframe ist
@@ -81,6 +96,8 @@ interface TimelineRow {
   key: string;
   title: string;
   subtitle?: string;
+  /** Vollständiger Name, falls die Beschriftung gekürzt ist */
+  fullTitle?: string;
   /** Eigene Zeile (nur in der Lotsen-Ansicht) */
   own: boolean;
   blocks: PublicRosterAssignment[];
@@ -92,6 +109,13 @@ type ViewMode = "stations" | "controllers";
 
 function hm(date: Date): string {
   return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+/** Restzeit als „1:20 h" bzw. „12 min" – grob genug, um nicht zu flackern */
+function untilText(ms: number): string {
+  const minutes = Math.max(0, Math.round(ms / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")} h`;
 }
 
 const airportOf = (callsign: string): string | null =>
@@ -109,7 +133,6 @@ export default function PublicRoster({
   eventId,
   userCID,
   onLoaded,
-  source,
   embedded = false,
 }: PublicRosterProps) {
   const { resolvedTheme } = useTheme();
@@ -121,10 +144,76 @@ export default function PublicRoster({
   const [loading, setLoading] = useState(true);
   const [abbreviations, setAbbreviations] = useState<Map<string, string>>(new Map());
   const [view, setView] = useState<ViewMode>("stations");
+  /** Angeklickte Schicht – ihre Eckdaten stehen dann ausgeschrieben da */
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [now, setNow] = useState<Date>(() => new Date());
   const scrollRef = useRef<HTMLDivElement>(null);
   const didAutoScroll = useRef(false);
   const ownScrollRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Eingeklappte Airport-Gruppen der Stationsansicht – auf dem Telefon ist
+   * ein Plan mit mehreren Airports sonst nur durch endloses Scrollen zu
+   * überblicken. Merkt sich den Zustand wie im Roster-Editor je Event.
+   */
+  const [collapsedAirports, setCollapsedAirports] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(`${COLLAPSE_PREF_KEY}:${eventId}`);
+      if (stored) {
+        const list = JSON.parse(stored) as string[];
+        if (Array.isArray(list)) setCollapsedAirports(new Set(list));
+      }
+    } catch {
+      // ungültiger Eintrag – ignorieren
+    }
+  }, [eventId]);
+  const toggleAirportCollapsed = useCallback(
+    (airport: string) => {
+      setCollapsedAirports((prev) => {
+        const next = new Set(prev);
+        if (next.has(airport)) next.delete(airport);
+        else next.add(airport);
+        try {
+          window.localStorage.setItem(
+            `${COLLAPSE_PREF_KEY}:${eventId}`,
+            JSON.stringify([...next])
+          );
+        } catch {
+          // z. B. Safari Private Mode – dann bleibt der Zustand nur für die Sitzung
+        }
+        return next;
+      });
+    },
+    [eventId]
+  );
+
+  /**
+   * Die Beschriftungsspalte selbst lässt sich einklappen – auf dem Telefon
+   * frisst sie sonst einen guten Teil der ohnehin knappen Breite, die dem
+   * Zeitstrahl fehlt. Eingeklappt bleibt nur ein schmaler Pfeil zum
+   * Wiederausklappen stehen.
+   */
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(`${SIDEBAR_COLLAPSE_PREF_KEY}:${eventId}`);
+      if (stored) setSidebarCollapsed(stored === "1");
+    } catch {
+      // ungültiger Eintrag – ignorieren
+    }
+  }, [eventId]);
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(`${SIDEBAR_COLLAPSE_PREF_KEY}:${eventId}`, next ? "1" : "0");
+      } catch {
+        // z. B. Safari Private Mode – dann bleibt der Zustand nur für die Sitzung
+      }
+      return next;
+    });
+  }, [eventId]);
 
   // Auf schmalen Geräten fallen die Maße kleiner aus, damit vom Zeitstrahl
   // mehr als eine Stunde ins Bild passt.
@@ -137,8 +226,43 @@ export default function PublicRoster({
     return () => mq.removeEventListener("change", apply);
   }, []);
 
-  // Auf dem Telefon ist jeder Pixel Beschriftung einer weniger für den Plan.
-  const labelW = narrow ? 104 : LABEL_W;
+  /**
+   * Breite der Beschriftungsspalte.
+   *
+   * Eine feste Breite schneidet lange Kennungen ab – „EDZZ_STANDBY_APP" endete
+   * als „EDZZ_STANDBY_…", und die vollständige Kennung war nirgends zu sehen.
+   * Sie richtet sich deshalb nach dem längsten Namen der aktuellen Ansicht,
+   * gedeckelt, damit nicht ein einzelner Ausreißer den halben Plan frisst.
+   * Auf dem Telefon bleibt es beim knappen Maß: Dort ist jeder Pixel
+   * Beschriftung einer weniger für den Plan, und die Kürzel springen ein.
+   */
+  const estimatedLabelW = useMemo(() => {
+    if (narrow) return 104;
+    const titles =
+      view === "stations"
+        ? (roster?.stations ?? []).map((st) => st.callsign)
+        : [
+            ...new Set(
+              (roster?.assignments ?? [])
+                .filter((a) => a.userCID != null)
+                .map((a) => a.name)
+            ),
+          ];
+    const longest = titles.reduce((max, t) => Math.max(max, t.length), 0);
+    // Grobes Maß je Zeichen: Kennungen sind Großbuchstaben und Unterstriche,
+    // die in dieser Schrift breiter laufen als der Durchschnitt. Was danach
+    // trotzdem noch nicht passt, korrigiert die Messung unten.
+    return Math.min(MAX_LABEL_W, Math.max(LABEL_W, Math.round(longest * 8.6) + 28));
+  }, [narrow, view, roster]);
+
+  const [extraLabelW, setExtraLabelW] = useState(0);
+  useEffect(() => {
+    setExtraLabelW(0);
+  }, [view, narrow, roster]);
+
+  const labelW = sidebarCollapsed
+    ? SIDEBAR_COLLAPSED_W
+    : Math.min(MAX_LABEL_W, estimatedLabelW + extraLabelW);
 
   /**
    * Tatsächlich verfügbare Breite der beiden Zeitstrahlen (Besetzungsplan und
@@ -159,24 +283,11 @@ export default function PublicRoster({
     return () => ro.disconnect();
   }, [roster]);
 
-  const [ownContainerWidth, setOwnContainerWidth] = useState(0);
-  useEffect(() => {
-    const el = ownScrollRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width !== undefined) setOwnContainerWidth(width);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-    // roster/userCID bestimmen, ob die Mini-Timeline überhaupt gerendert wird
-  }, [roster, userCID]);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(source ?? `/api/events/${eventId}/roster/public`);
+        const res = await fetch(`/api/events/${eventId}/roster/public`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         if (cancelled) return;
@@ -195,7 +306,7 @@ export default function PublicRoster({
     };
     // onLoaded bewusst nicht in den Deps (Parent-Callback, nur einmal laden)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, source]);
+  }, [eventId]);
 
   // Kürzel der Stationen (Datahub) – auf schmalen Bildschirmen ersetzen sie
   // das oft zu lange volle Callsign in Beschriftung und Blöcken.
@@ -223,6 +334,37 @@ export default function PublicRoster({
       cancelled = true;
     };
   }, []);
+
+  /**
+   * Beide Zeitstrahlen zeigen denselben Ausschnitt.
+   *
+   * Sie teilen sich Maßstab und Nullpunkt; liefen sie beim Scrollen
+   * auseinander, stünde oben eine andere Stunde als unten – und genau dieses
+   * Auseinanderlaufen hat schon zu einer Schicht geführt, die eine Stunde zu
+   * früh beendet wurde.
+   */
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    const main = scrollRef.current;
+    const own = ownScrollRef.current;
+    if (!main || !own) return;
+    const link = (from: HTMLDivElement, to: HTMLDivElement) => () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      to.scrollLeft = from.scrollLeft;
+      requestAnimationFrame(() => {
+        syncingRef.current = false;
+      });
+    };
+    const a = link(main, own);
+    const b = link(own, main);
+    main.addEventListener("scroll", a);
+    own.addEventListener("scroll", b);
+    return () => {
+      main.removeEventListener("scroll", a);
+      own.removeEventListener("scroll", b);
+    };
+  }, [roster, userCID]);
 
   // Jetzt-Linie nachführen. Der Takt ist bewusst grob – auf Stundenbreite
   // entspricht eine halbe Minute weniger als zwei Pixel.
@@ -258,14 +400,13 @@ export default function PublicRoster({
   const pxPerMinute = pxPerHour / 60;
   const timelineWidth = totalMinutes * pxPerMinute;
 
-  /** Dieselbe Logik für die Mini-Timeline der eigenen Schichten – ohne Beschriftungsspalte */
-  const ownPxPerHour = useMemo(() => {
-    if (!totalHours || !ownContainerWidth) return MIN_PX_PER_HOUR;
-    return Math.max(MIN_PX_PER_HOUR, ownContainerWidth / totalHours);
-  }, [ownContainerWidth, totalHours]);
-  const ownPxPerMinute = ownPxPerHour / 60;
-  const ownTimelineWidth = totalMinutes * ownPxPerMinute;
-
+  /**
+   * Die Mini-Timeline der eigenen Schichten rechnete früher mit ihrer eigenen
+   * Breite und ohne Beschriftungsspalte. Damit lagen 10:00z oben und 10:00z
+   * unten an verschiedenen Stellen – wer die obere Leiste las und im unteren
+   * Plan weitersuchte, lag um bis zu einer Stunde daneben. Beide teilen sich
+   * jetzt Maßstab, Nullpunkt und Bildausschnitt.
+   */
   const toMin = useCallback(
     (iso: string) =>
       eventStart ? Math.round((new Date(iso).getTime() - eventStart.getTime()) / 60000) : 0,
@@ -295,6 +436,46 @@ export default function PublicRoster({
       .filter((a) => a.userCID === userCID)
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
   }, [roster, userCID]);
+
+  const stationById = useMemo(
+    () => new Map((roster?.stations ?? []).map((s) => [s.id, s])),
+    [roster]
+  );
+
+  /**
+   * Was steht für mich als Nächstes an?
+   *
+   * Während des Events ist das die einzige Frage, die zählt, und sie lässt
+   * sich aus der Lage eines Balkens nur schätzen. Läuft gerade eine Schicht,
+   * zählt die Zeit bis zu ihrem Ende, sonst die bis zum nächsten Beginn.
+   */
+  const shiftCountdown = useMemo((): { text: string; running: boolean } | null => {
+    if (ownAssignments.length === 0) return null;
+    const t = now.getTime();
+
+    const current = ownAssignments.find(
+      (a) => t >= new Date(a.startTime).getTime() && t < new Date(a.endTime).getTime()
+    );
+    if (current) {
+      const station = stationById.get(current.stationId)?.callsign ?? "?";
+      return {
+        running: true,
+        text: `${station} läuft – noch ${untilText(new Date(current.endTime).getTime() - t)}`,
+      };
+    }
+
+    const next = ownAssignments.find((a) => new Date(a.startTime).getTime() > t);
+    if (next) {
+      const station = stationById.get(next.stationId)?.callsign ?? "?";
+      return {
+        running: false,
+        text: `${untilText(new Date(next.startTime).getTime() - t)} bis ${station} (${hm(
+          new Date(next.startTime)
+        )}z)`,
+      };
+    }
+    return { running: false, text: "Keine weitere Schicht" };
+  }, [ownAssignments, now, stationById]);
 
   /**
    * Airports in der Reihenfolge ihres Auftretens.
@@ -333,11 +514,6 @@ export default function PublicRoster({
   }, [roster]);
 
   const multiAirport = realAirports.length > 1;
-
-  const stationById = useMemo(
-    () => new Map((roster?.stations ?? []).map((s) => [s.id, s])),
-    [roster]
-  );
 
   /**
    * Position jeder Station innerhalb ihrer Ebene (z. B. die zweite von drei
@@ -383,6 +559,20 @@ export default function PublicRoster({
     [narrow, abbreviations]
   );
 
+  /** Die angeklickte Schicht samt Station – Grundlage der Detailzeile */
+  const selectedBlock = useMemo(() => {
+    if (selectedId === null || !roster) return null;
+    const assignment = roster.assignments.find((a) => a.id === selectedId);
+    if (!assignment) return null;
+    return {
+      assignment,
+      callsign: stationById.get(assignment.stationId)?.callsign ?? "",
+      name: assignment.name,
+      label: assignment.label,
+      type: assignment.type,
+    };
+  }, [selectedId, roster, stationById]);
+
   /** Zeilen für die gewählte Ansicht */
   const rows: TimelineRow[] = useMemo(() => {
     if (!roster) return [];
@@ -390,6 +580,7 @@ export default function PublicRoster({
       const byStation = roster.stations.map((station) => ({
         key: `station-${station.id}`,
         title: stationLabel(station.callsign),
+        fullTitle: station.callsign,
         own:
           userCID !== null &&
           roster.assignments.some((a) => a.stationId === station.id && a.userCID === userCID),
@@ -441,6 +632,42 @@ export default function PublicRoster({
         return a.title.localeCompare(b.title);
       });
   }, [roster, view, userCID, toMin, multiAirport, rosterAirports, stationLabel]);
+
+  /** Anzahl Schichten je Airport – als Anhaltspunkt, wenn dessen Gruppe eingeklappt ist */
+  const blocksByAirport = useMemo(() => {
+    const map = new Map<string, number>();
+    if (view === "stations") {
+      for (const row of rows) {
+        if (row.airport) map.set(row.airport, (map.get(row.airport) ?? 0) + row.blocks.length);
+      }
+    }
+    return map;
+  }, [rows, view]);
+
+  /**
+   * Nachmessen statt rechnen.
+   *
+   * Wie breit eine Kennung wirklich läuft, hängt an Schrift, Zoomstufe und
+   * Betriebssystem – jede Schätzung liegt irgendwo daneben. Deshalb wird nach
+   * dem Zeichnen geprüft, ob eine Beschriftung abgeschnitten ist, und die
+   * Spalte um genau das Fehlende verbreitert. Sie wächst nur und ist gedeckelt,
+   * kann also nicht hin- und herspringen.
+   */
+  useEffect(() => {
+    if (narrow || sidebarCollapsed) return;
+    const host = scrollRef.current;
+    if (!host) return;
+    let missing = 0;
+    host.querySelectorAll<HTMLElement>("[data-roster-label]").forEach((node) => {
+      missing = Math.max(missing, node.scrollWidth - node.clientWidth);
+    });
+    if (missing > 0) {
+      setExtraLabelW((prev) => Math.min(MAX_LABEL_W - estimatedLabelW, prev + missing + 2));
+    }
+    // Läuft nach jeder Verbreiterung erneut, bis nichts mehr fehlt – die
+    // Obergrenze macht daraus eine endliche Folge.
+  }, [narrow, sidebarCollapsed, estimatedLabelW, labelW, rows]);
+
 
   const hourMarks = useMemo(() => {
     if (!eventStart) return [];
@@ -533,8 +760,12 @@ export default function PublicRoster({
   const span = (a: PublicRosterAssignment) =>
     `${hm(new Date(a.startTime))}–${hm(new Date(a.endTime))}z`;
 
-  /** Kopfzeile einer Airport-Gruppe im Zeitstrahl */
-  const renderGroupHeader = (airport: string) => {
+  /**
+   * Kopfzeile einer Airport-Gruppe im Zeitstrahl – anklickbar, um die Gruppe
+   * ein- bzw. auszuklappen. Eingeklappt bleibt sichtbar, wie viele Schichten
+   * darin stecken, damit nichts spurlos verschwindet.
+   */
+  const renderGroupHeader = (airport: string, collapsed: boolean, blockCount: number) => {
     const tint = airportTintColors(airport, realAirports, isDark);
     return (
       // Der Farbstreifen sitzt am äußeren Element, damit er auch den Bereich
@@ -545,12 +776,39 @@ export default function PublicRoster({
         className="flex border-b"
         style={{ backgroundColor: tint.background }}
       >
-        <div
-          className="sticky left-0 z-30 border-r px-3 flex items-center shrink-0"
+        <button
+          type="button"
+          onClick={() => toggleAirportCollapsed(airport)}
+          className={cn(
+            "sticky left-0 z-30 border-r flex items-center gap-1.5 shrink-0 text-left",
+            sidebarCollapsed ? "justify-center px-0" : "px-3"
+          )}
           style={{ width: labelW, height: GROUP_H, backgroundColor: tint.background }}
+          title={
+            sidebarCollapsed
+              ? airport
+              : collapsed
+              ? `${airport} ausklappen`
+              : `${airport} einklappen`
+          }
         >
-          <span className="text-[11px] font-semibold tracking-wide">{airport}</span>
-        </div>
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 transition-transform",
+              collapsed && "-rotate-90"
+            )}
+          />
+          {!sidebarCollapsed && (
+            <span className="text-[11px] font-semibold tracking-wide truncate">
+              {airport}
+              {collapsed && blockCount > 0 && (
+                <span className="ml-1.5 font-normal opacity-80">
+                  · {blockCount} {blockCount === 1 ? "Schicht" : "Schichten"}
+                </span>
+              )}
+            </span>
+          )}
+        </button>
         <div className="flex-1" style={{ height: GROUP_H, minWidth: timelineWidth }} />
       </div>
     );
@@ -558,103 +816,150 @@ export default function PublicRoster({
 
   // In der Einbettung tragen Karte und Überschrift nichts bei – das iframe ist
   // knapp bemessen, und die einbettende Seite sagt bereits, worum es geht.
-  const Shell = embedded
-    ? ({ children }: { children: React.ReactNode }) => (
-        <div className="space-y-3 p-2">{children}</div>
-      )
-    : ({ children }: { children: React.ReactNode }) => (
-        <Card id="besetzungsplan" className="scroll-mt-20">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="flex items-center gap-2">
-                <CalendarClock className="w-5 h-5" />
-                Besetzungsplan
-              </span>
-              <span className="flex items-center gap-2">
-                {!published && <Badge variant="secondary">Vorschau (unveröffentlicht)</Badge>}
-                <Badge variant="outline" className="font-normal">
-                  Alle Zeiten UTC
-                </Badge>
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">{children}</CardContent>
-        </Card>
-      );
+  // Ein Tagesevent über zwölf Stunden bekommt in einer Spalte von 1280 Pixeln
+  // keine lesbaren Blöcke mehr. Ab einer gewissen Länge bricht die Karte
+  // deshalb aus der Seitenbreite aus – erst auf großen Bildschirmen, weil
+  // darunter ohnehin die ganze Breite genutzt wird.
+  const wide = totalHours >= WIDE_FROM_HOURS;
 
-  return (
-    <Shell>
+  // Bewusst ein Fragment und keine hier definierte Wrapper-Komponente: Eine
+  // im Render angelegte Komponente ist bei jedem Durchlauf ein neuer Typ, und
+  // React wirft dann den gesamten Teilbaum weg und baut ihn neu auf. Der
+  // ResizeObserver hing danach an einem abgehängten Knoten, meldete Breite 0,
+  // und der Zeitstrahl blieb für immer auf der Mindestbreite je Stunde
+  // stehen, statt sich auf die Bildschirmbreite zu strecken.
+  const content = (
+    <>
         {briefingBlock}
         
         {/* Eigene Schichten */}
         {ownAssignments.length > 0 && (
           <div className="rounded-lg border border-accent-500/40 bg-accent-500/5 p-3">
-            <p className="text-sm font-semibold flex items-center gap-1.5 mb-2">
-              <User className="h-4 w-4 text-accent-500" />
-              Deine Schichten
-            </p>
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="flex items-center gap-1.5 text-sm font-semibold">
+                <User className="h-4 w-4 text-accent-500" />
+                Deine Schichten
+              </p>
+              {/* Was als Nächstes ansteht, ist die eine Angabe, die während des
+                  Events zählt – sie steht deshalb ausgeschrieben da und muss
+                  nicht aus der Lage eines Balkens abgelesen werden. */}
+              {shiftCountdown && (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium",
+                    shiftCountdown.running
+                      ? "bg-accent-500 text-white"
+                      : "bg-background/70 text-foreground"
+                  )}
+                >
+                  <Timer className="h-3.5 w-3.5" />
+                  {shiftCountdown.text}
+                </span>
+              )}
+            </div>
+
+            {/* Bis an die Kanten des Panels – jeder Pixel Innenabstand würde die
+                Leiste gegen den Plan darunter verschieben, und genau darum
+                geht es hier. */}
             <div
               ref={ownScrollRef}
-              className="overflow-x-auto rounded-md border border-accent-500/20 bg-background/60"
+              className="-mx-3 overflow-x-auto border-y border-accent-500/20 bg-background/60"
             >
               <div
-                className="relative overflow-hidden"
-                style={{ width: ownTimelineWidth, minWidth: "100%" }}
+                className="relative"
+                style={{ width: labelW + timelineWidth, minWidth: "100%" }}
               >
-                {/* Stunden-Lineal */}
-                <div className="relative border-b border-accent-500/20" style={{ height: 20 }}>
-                  {hourMarks.map((mark) => (
-                    <div
-                      key={mark.minute}
-                      className="absolute top-0 bottom-0 border-l border-accent-500/20 pl-1 text-[9px] text-muted-foreground flex items-center"
-                      style={{ left: mark.minute * ownPxPerMinute }}
-                    >
-                      {mark.label}z
-                    </div>
-                  ))}
-                </div>
-                <div
-                  className="relative"
-                  style={{
-                    height: ROW_H,
-                    backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.14) 0 1px, transparent 1px ${ownPxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.07) 0 1px, transparent 1px ${ownPxPerHour / 4}px)`,
-                  }}
-                >
-                  {ownAssignments.map((a) => {
-                    const start = toMin(a.startTime);
-                    const end = toMin(a.endTime);
-                    const callsign = stationById.get(a.stationId)?.callsign ?? "?";
-                    const tone = toneFor(callsign);
-                    return (
+                {/* Stunden-Lineal – gleiche Teilung und gleicher Nullpunkt wie
+                    im Plan darunter, samt Beschriftungsspalte als Versatz. */}
+                <div className="flex border-b border-accent-500/20" style={{ height: 20 }}>
+                  <div
+                    className={cn(
+                      "sticky left-0 z-30 shrink-0 border-r border-accent-500/20 bg-background/80 text-[10px] font-semibold text-muted-foreground flex items-center",
+                      sidebarCollapsed ? "justify-center px-0" : "px-2"
+                    )}
+                    style={{ width: labelW }}
+                  >
+                    {!sidebarCollapsed && "Du"}
+                  </div>
+                  <div
+                    className="relative flex-1 overflow-hidden"
+                    style={{ minWidth: timelineWidth }}
+                  >
+                    {hourMarks.map((mark) => (
                       <div
-                        key={a.id}
-                        className={cn(
-                          "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
-                          isRunning(a) &&
-                          "ring-2 ring-accent-500 ring-offset-1 ring-offset-background z-10"
-                        )}
-                        style={{
-                          left: Math.max(0, start) * ownPxPerMinute,
-                          width: Math.max((end - start) * ownPxPerMinute, 8),
-                          backgroundColor: tone.background,
-                          color: tone.text,
-                        }}
-                        title={`${callsign} • ${span(a)}`}
+                        key={mark.minute}
+                        className="absolute top-0 bottom-0 flex items-center border-l border-accent-500/20 pl-1 text-[9px] text-muted-foreground"
+                        style={{ left: mark.minute * pxPerMinute }}
                       >
-                        <span className="truncate">
-                          {stationLabel(callsign)}
-                          <span className="opacity-80 font-normal ml-1 hidden sm:inline">
-                            {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
-                          </span>
-                        </span>
+                        {mark.label}z
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex">
+                  <div
+                    className="sticky left-0 z-30 shrink-0 border-r border-accent-500/20 bg-background/80"
+                    style={{ width: labelW, height: ROW_H }}
+                  />
+                  <div
+                    className="relative flex-1"
+                    style={{
+                      minWidth: timelineWidth,
+                      height: ROW_H,
+                      backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.14) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.07) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
+                    }}
+                  >
+                    {ownAssignments.map((a) => {
+                      const start = toMin(a.startTime);
+                      const end = toMin(a.endTime);
+                      const callsign = stationById.get(a.stationId)?.callsign ?? "?";
+                      const tone = toneFor(callsign);
+                      return (
+                        <button
+                          type="button"
+                          key={a.id}
+                          onClick={() => setSelectedId((prev) => (prev === a.id ? null : a.id))}
+                          className={cn(
+                            "absolute top-1 bottom-1 flex items-center overflow-hidden rounded-md px-1.5 text-left text-[11px] font-medium",
+                            isRunning(a) &&
+                              "ring-2 ring-accent-500 ring-offset-1 ring-offset-background z-10",
+                            selectedId === a.id && "outline outline-2 outline-foreground"
+                          )}
+                          style={{
+                            left: Math.max(0, start) * pxPerMinute,
+                            width: Math.max((end - start) * pxPerMinute, 8),
+                            backgroundColor: tone.background,
+                            color: tone.text,
+                          }}
+                          title={`${callsign} • ${span(a)}`}
+                        >
+                          <span className="truncate">
+                            {stationLabel(callsign)}
+                            <span className="ml-1 hidden font-normal opacity-80 sm:inline">
+                              {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Jetzt-Linie auch hier – sonst müsste man die Lage des
+                        eigenen Balkens mit dem Plan darunter vergleichen. */}
+                    {nowMinute !== null && (
+                      <div
+                        className="pointer-events-none absolute top-0 bottom-0 z-20 border-l-2 border-accent-500"
+                        style={{ left: nowMinute * pxPerMinute }}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
           </div>
         )}
+
         {/* Umschalter: Blickwinkel, Darstellung, Sprung zur aktuellen Zeit */}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="inline-flex rounded-lg border p-0.5">
@@ -699,6 +1004,49 @@ export default function PublicRoster({
           )}
         </div>
 
+        {/* Eckdaten der angeklickten Schicht.
+            Wie viel in einen Balken passt, hängt an seiner Länge, und lange
+            Callsigns werden in der Beschriftungsspalte abgeschnitten – hier
+            steht beides vollständig. */}
+        {selectedBlock && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+            <span
+              className="rounded px-1.5 py-0.5 text-xs font-semibold"
+              style={
+                selectedBlock.type === "custom"
+                  ? undefined
+                  : {
+                      backgroundColor: toneFor(selectedBlock.callsign).background,
+                      color: toneFor(selectedBlock.callsign).text,
+                    }
+              }
+            >
+              {selectedBlock.callsign || selectedBlock.label || "Sonstiges"}
+            </span>
+            <span className="font-medium">{selectedBlock.name}</span>
+            <span className="font-mono tabular-nums">{span(selectedBlock.assignment)}</span>
+            <span className="text-xs text-muted-foreground">
+              {untilText(
+                new Date(selectedBlock.assignment.endTime).getTime() -
+                  new Date(selectedBlock.assignment.startTime).getTime()
+              )}
+            </span>
+            {isRunning(selectedBlock.assignment) && (
+              <span className="rounded-full bg-accent-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                läuft
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Auswahl schließen"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Zeitstrahl */}
       <div className="border rounded-lg overflow-hidden">
           <div ref={scrollRef} className="overflow-x-auto">
@@ -708,15 +1056,30 @@ export default function PublicRoster({
             >
               {/* Stunden-Header */}
               <div className="flex border-b bg-muted/40">
-                <div
-                  className="sticky left-0 z-30 bg-muted/40 border-r px-3 py-1.5 text-xs font-semibold text-muted-foreground shrink-0"
+                {/* Klappt die gesamte Beschriftungsspalte ein – auf dem Telefon
+                    bleibt sonst kaum Platz für den eigentlichen Zeitstrahl. */}
+                <button
+                  type="button"
+                  onClick={toggleSidebarCollapsed}
+                  className={cn(
+                    "sticky left-0 z-30 bg-muted/40 border-r py-1.5 text-xs font-semibold text-muted-foreground shrink-0 flex items-center hover:bg-muted/70 transition-colors",
+                    sidebarCollapsed ? "justify-center px-0" : "justify-between px-3"
+                  )}
                   style={{ width: labelW }}
+                  title={sidebarCollapsed ? "Beschriftung ausklappen" : "Beschriftung einklappen"}
                 >
-                  {view === "stations" ? "Station" : "Lotse"}
-                </div>
+                  {sidebarCollapsed ? (
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <>
+                      <span className="truncate">{view === "stations" ? "Station" : "Lotse"}</span>
+                      <ChevronLeft className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                    </>
+                  )}
+                </button>
                 <div
-                  className="relative shrink-0 overflow-hidden"
-                  style={{ width: timelineWidth, height: 24 }}
+                  className="relative flex-1 overflow-hidden"
+                  style={{ minWidth: timelineWidth, height: 24 }}
                 >
                   {hourMarks.map((mark) => (
                     <div
@@ -736,9 +1099,22 @@ export default function PublicRoster({
                   multiAirport &&
                   row.airport !== null &&
                   (index === 0 || rows[index - 1].airport !== row.airport);
+                const collapsedGroup =
+                  view === "stations" &&
+                  row.airport !== null &&
+                  collapsedAirports.has(row.airport);
+                // Nur die erste Zeile einer eingeklappten Gruppe trägt noch die
+                // Kopfzeile; alle weiteren verschwinden komplett aus dem DOM.
+                if (collapsedGroup && !groupStart) return null;
                 return (
                   <div key={row.key}>
-                    {groupStart && renderGroupHeader(row.airport!)}
+                    {groupStart &&
+                      renderGroupHeader(
+                        row.airport!,
+                        collapsedGroup,
+                        blocksByAirport.get(row.airport!) ?? 0
+                      )}
+                    {!collapsedGroup && (
                     <div
                       className={cn(
                         "flex border-b",
@@ -747,34 +1123,52 @@ export default function PublicRoster({
                     >
                       <div
                         className={cn(
-                          "sticky left-0 z-30 border-r px-3 shrink-0 flex flex-col justify-center",
+                          "sticky left-0 z-30 border-r shrink-0 flex flex-col justify-center",
+                          sidebarCollapsed ? "px-0" : "px-3",
                           row.own && view === "controllers"
                             ? "bg-accent-500/10"
                             : "bg-background"
                         )}
                         style={{ width: labelW, height: ROW_H }}
                       >
-                        <span
-                          className={cn(
-                            "text-sm font-medium truncate leading-tight",
-                            row.own && "text-accent-600 dark:text-accent-400"
-                          )}
-                        >
-                          {row.title}
-                        </span>
-                        {row.subtitle && (
-                          <span className="text-[10px] text-muted-foreground leading-tight">
-                            {row.subtitle}
-                          </span>
+                        {!sidebarCollapsed && (
+                          <>
+                            <span
+                              data-roster-label
+                              title={row.fullTitle ?? row.title}
+                              className={cn(
+                                "text-sm font-medium truncate leading-tight",
+                                row.own && "text-accent-600 dark:text-accent-400"
+                              )}
+                            >
+                              {row.title}
+                            </span>
+                            {row.subtitle && (
+                              <span className="text-[10px] text-muted-foreground leading-tight">
+                                {row.subtitle}
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {sidebarCollapsed && row.own && (
+                          <span
+                            className="mx-auto h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500"
+                            title={row.fullTitle ?? row.title}
+                          />
                         )}
                       </div>
                       <div
-                        className="relative shrink-0"
+                        className="relative flex-1"
                         style={{
-                          width: timelineWidth,
+                          minWidth: timelineWidth,
                           height: ROW_H,
                           // Stundenlinien kräftiger, dazwischen ein leises Viertelstunden-
                           // Raster – daran lässt sich die Länge eines Blocks leichter ablesen.
+                          // flex-1 statt fester Breite: Zwingt die stellvertretende
+                          // Wrapper-Mindestbreite (minWidth:100%) eine Zeile breiter als
+                          // timelineWidth, füllt das Raster nach – sonst bliebe rechts ein
+                          // toter, unbemusterter Rand stehen (die Airport-Kopfzeilen machen
+                          // das schon länger genauso).
                           backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.08) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
                         }}
                       >
@@ -793,14 +1187,19 @@ export default function PublicRoster({
                                 : a.name
                               : stationLabel(callsign);
                           return (
-                            <div
+                            <button
+                              type="button"
                               key={a.id}
+                              onClick={() =>
+                                setSelectedId((prev) => (prev === a.id ? null : a.id))
+                              }
                               className={cn(
-                                "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-[11px] font-medium",
+                                "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-left text-[11px] font-medium",
                                 a.type === "custom" &&
                                   "bg-station-none/70 border border-dashed border-white/40 text-white",
                                 own &&
-                                  "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10"
+                                  "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10",
+                                selectedId === a.id && "outline outline-2 outline-foreground z-10"
                               )}
                               style={{
                                 left: Math.max(0, start) * pxPerMinute,
@@ -817,11 +1216,12 @@ export default function PublicRoster({
                                   {hm(new Date(a.startTime))}–{hm(new Date(a.endTime))}
                                 </span>
                               </span>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
                     </div>
+                    )}
                   </div>
                 );
               })}
@@ -847,6 +1247,34 @@ export default function PublicRoster({
             </div>
           </div>
         </div>
-    </Shell>
+    </>
+  );
+
+  if (embedded) return <div className="space-y-3 p-2">{content}</div>;
+
+  return (
+    <Card
+      id="besetzungsplan"
+      className={cn(
+        "scroll-mt-20",
+        wide && "lg:mx-[calc(50%-50vw+0.5rem)] lg:w-[calc(100vw-1rem)]"
+      )}
+    >
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5" />
+            Besetzungsplan
+          </span>
+          <span className="flex items-center gap-2">
+            {!published && <Badge variant="secondary">Vorschau (unveröffentlicht)</Badge>}
+            <Badge variant="outline" className="font-normal">
+              Alle Zeiten UTC
+            </Badge>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">{content}</CardContent>
+    </Card>
   );
 }

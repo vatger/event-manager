@@ -35,6 +35,8 @@ export async function GET(
     publishedAt: result.publishedAt,
     briefing: result.briefing,
     briefingUpdatedAt: result.briefingUpdatedAt,
+    // Name und Zeitraum braucht die eingebettete Ansicht für ihre Kopfzeile.
+    event: result.roster ? result.event : null,
     roster: result.roster,
   });
 }

@@ -46,3 +46,4 @@ services:
       - DISCORD_BOT_URL
       - VATGER_STATS_API
       - MAIN_ADMIN_CIDS
+      - EMBED_CROSS_SITE_COOKIES

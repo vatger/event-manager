@@ -1,8 +1,10 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
-import PublicRoster from "@/app/events/[id]/_components/PublicRoster";
+import { use, useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { ExternalLink, LogIn, RefreshCw } from "lucide-react";
+import PublicRoster from "@/app/events/[id]/_components/PublicRoster";
 
 interface EmbedEvent {
   id: number;
@@ -20,10 +22,14 @@ function hm(iso: string): string {
 /**
  * Besetzungsplan pur – zum Einbetten in ATCISS.
  *
- * Kein Login, keine Navigation, kein Footer: Die Seite lebt in einem fremden
- * Fenster und soll dort nichts als den Plan zeigen. Was sie braucht, holt sie
- * über den anmeldefreien Weg; zu sehen ist ausschließlich, was das Event-Team
- * auch veröffentlicht hat.
+ * Keine Navigation, kein Footer: Die Seite lebt in einem fremden Fenster und
+ * soll dort nichts als den Plan zeigen. Eine Anmeldung ist trotzdem nötig –
+ * der Plan nennt Namen, und wer ihn sieht, soll bekannt sein.
+ *
+ * Das Anmelden läuft bewusst in einem eigenen Fenster: Die VATSIM-Anmeldung
+ * lässt sich nicht einbetten, ein Sprung dorthin im iframe endete in einem
+ * leeren Rahmen. Nach der Rückkehr genügt ein Klick auf „Erneut prüfen“, und
+ * die Seite holt die Sitzung nach.
  *
  * Über `?theme=dark` lässt sich die Darstellung an die einbettende Oberfläche
  * angleichen – ATCISS ist dunkel, der Eventmanager folgt sonst dem System.
@@ -35,19 +41,18 @@ export default function EmbeddedRosterPage({
 }) {
   const { eventId: idParam } = use(params);
   const eventId = Number(idParam);
+  const { data: session, status, update } = useSession();
   const [event, setEvent] = useState<EmbedEvent | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const session = useSession();
+
+  const authenticated = status === "authenticated";
 
   useEffect(() => {
-    if (isNaN(eventId)) {
-      setNotFound(true);
-      return;
-    }
+    if (!authenticated || isNaN(eventId)) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/public/events/${eventId}/roster`);
+        const res = await fetch(`/api/events/${eventId}/roster/public`);
         if (!res.ok) throw new Error("failed");
         const data = await res.json();
         if (cancelled) return;
@@ -60,7 +65,51 @@ export default function EmbeddedRosterPage({
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, authenticated]);
+
+  // Nach der Anmeldung im anderen Fenster: sobald dieses hier wieder den Fokus
+  // bekommt, noch einmal nachsehen – das erspart den Klick auf „Erneut prüfen“.
+  const recheck = useCallback(() => void update(), [update]);
+  useEffect(() => {
+    if (authenticated) return;
+    window.addEventListener("focus", recheck);
+    return () => window.removeEventListener("focus", recheck);
+  }, [authenticated, recheck]);
+
+  if (status === "loading") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-sm text-muted-foreground">Lade…</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    const target =
+      typeof window === "undefined"
+        ? "/auth/signin"
+        : `/auth/signin?callbackUrl=${encodeURIComponent(window.location.href)}`;
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-3 p-4 text-center">
+        <p className="text-sm font-medium">Besetzungsplan</p>
+        <p className="max-w-xs text-xs text-muted-foreground">
+          Zum Anzeigen ist eine Anmeldung beim VATGER Eventmanager nötig. Sie öffnet sich in
+          einem eigenen Fenster.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button size="sm" onClick={() => window.open(target, "_blank", "noopener")}>
+            <LogIn className="mr-1.5 h-3.5 w-3.5" />
+            Anmelden
+            <ExternalLink className="ml-1.5 h-3 w-3 opacity-70" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={recheck}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+            Erneut prüfen
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (notFound) {
     return (
@@ -88,9 +137,8 @@ export default function EmbeddedRosterPage({
       )}
       <PublicRoster
         eventId={eventId}
-        userCID={session.data?.user.cid ? Number(session.data?.user?.cid) : null}
+        userCID={session?.user?.cid ? Number(session.user.cid) : null}
         embedded
-        source={`/api/public/events/${eventId}/roster`}
       />
     </div>
   );

@@ -110,7 +110,34 @@ interface VatsimProfile {
   
   
 // Deine gesamte authOptions Konfiguration hier...
+/**
+ * Sitzungscookie für eingebettete Ansichten.
+ *
+ * In einem iframe auf fremder Seite (ATCISS) schickt der Browser ein Cookie
+ * mit SameSite=Lax nicht mit – die Sitzung wäre dort nie sichtbar, und der
+ * Plan bliebe leer, obwohl man angemeldet ist. SameSite=None behebt das,
+ * verlangt aber HTTPS und lockert den Schutz gegen Cross-Site-Requests.
+ * Deshalb hängt es an einer ausdrücklichen Einstellung statt am Standard: Wer
+ * nicht einbettet, behält das strengere Verhalten.
+ */
+const crossSiteEmbedding = process.env.EMBED_CROSS_SITE_COOKIES === "true";
+
+const embedCookies: NextAuthOptions["cookies"] = crossSiteEmbedding
+  ? {
+      sessionToken: {
+        name: "__Secure-next-auth.session-token",
+        options: {
+          httpOnly: true,
+          sameSite: "none",
+          path: "/",
+          secure: true,
+        },
+      },
+    }
+  : undefined;
+
 export const authOptions: NextAuthOptions = {
+    ...(embedCookies ? { cookies: embedCookies } : {}),
     providers: [
       ...(process.env.DEV_MODE === "true" 
         ? [VatsimSandboxProvider, VatgerProvider] 
