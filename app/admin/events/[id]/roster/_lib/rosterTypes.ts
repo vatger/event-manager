@@ -125,6 +125,9 @@ export interface StationMeta {
   gcapStatus: string | null;
 }
 
+/** Sortierung des Controller-Boards – gilt auch für Vorschläge im Assign-Dialog */
+export type ControllerSort = "group" | "name" | "assigned" | "flag";
+
 /** Controller = aktive Anmeldung inkl. abgeleiteter Daten */
 export interface RosterController {
   cid: number;

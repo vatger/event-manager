@@ -29,6 +29,7 @@ import type {
   StationMeta,
   Assignment,
   ControllerMark,
+  ControllerSort,
 } from "../_lib/rosterTypes";
 import { ROSTER_FLAG_DOT, ROSTER_FLAG_LABEL } from "@/lib/roster/rosterFlags";
 import {
@@ -61,6 +62,10 @@ interface AssignDialogProps {
   assignments: Assignment[];
   /** Interne Notiz + Ampel-Markierung, damit die Auswahl sie berücksichtigt */
   markByCid: Map<number, ControllerMark>;
+  /** Sortierung wie im Controller-Board eingestellt – gilt auch hier für die Reihenfolge */
+  controllerSort: ControllerSort;
+  /** Airport-Eingrenzung des Boards, für die Sortierung "Nach Freigabe" */
+  airportFilter: string | null;
   onAssign: (cid: number) => void;
   onCustom: (label: string, color: CustomBlockColor | null) => void;
 }
@@ -82,6 +87,8 @@ export function AssignDialog({
   controllers,
   assignments,
   markByCid,
+  controllerSort,
+  airportFilter,
   onAssign,
   onCustom,
 }: AssignDialogProps) {
@@ -98,9 +105,23 @@ export function AssignDialog({
       stationMeta,
       eventAirports,
       start,
-      end
+      end,
+      controllerSort,
+      markByCid,
+      airportFilter
     );
-  }, [station, stationMeta, controllers, assignments, eventAirports, start, end]);
+  }, [
+    station,
+    stationMeta,
+    controllers,
+    assignments,
+    eventAirports,
+    start,
+    end,
+    controllerSort,
+    markByCid,
+    airportFilter,
+  ]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

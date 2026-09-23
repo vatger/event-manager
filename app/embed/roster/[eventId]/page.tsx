@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import PublicRoster from "@/app/events/[id]/_components/PublicRoster";
+import { useSession } from "next-auth/react";
 
 interface EmbedEvent {
   id: number;
@@ -36,6 +37,7 @@ export default function EmbeddedRosterPage({
   const eventId = Number(idParam);
   const [event, setEvent] = useState<EmbedEvent | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const session = useSession();
 
   useEffect(() => {
     if (isNaN(eventId)) {
@@ -86,7 +88,7 @@ export default function EmbeddedRosterPage({
       )}
       <PublicRoster
         eventId={eventId}
-        userCID={null}
+        userCID={session.data?.user.cid ? Number(session.data?.user?.cid) : null}
         embedded
         source={`/api/public/events/${eventId}/roster`}
       />

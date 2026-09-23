@@ -10,8 +10,11 @@ import {
   type StationGroup,
 } from "@/lib/weeklys/stationUtils";
 import { formatDuration, hmRangeToMinutes, minuteToHM } from "@/lib/roster/rosterTime";
+import { ROSTER_FLAGS } from "@/lib/roster/rosterFlags";
 import type {
   Assignment,
+  ControllerMark,
+  ControllerSort,
   RosterController,
   RosterStation,
   RosterWarning,
@@ -291,6 +294,48 @@ export function checkEligibility(
   return { ok: true, group: stationMeta.group, restrictions };
 }
 
+/**
+ * Vergleicht zwei Controller nach der im Controller-Board eingestellten
+ * Sortierung (`ControllerFilterBar`). Wird sowohl vom Board selbst als auch
+ * vom Assign-Dialog genutzt, damit die Reihenfolge an beiden Stellen
+ * übereinstimmt.
+ */
+export function compareControllersByBoardSort(
+  a: RosterController,
+  b: RosterController,
+  sort: ControllerSort,
+  ctx: {
+    assignedMinutesByCid: Map<number, number>;
+    markByCid: Map<number, ControllerMark>;
+    airportFilter: string | null;
+    eventAirports: string[];
+  }
+): number {
+  if (sort === "group") {
+    // Nach Ebene DEL → CTR: Wer nur Delivery darf, steht oben.
+    const rank = (c: RosterController) => {
+      const group = getControllerGroupForStation(c.entry, ctx.airportFilter, ctx.eventAirports);
+      const idx = group ? STATION_GROUP_ORDER.indexOf(group) : -1;
+      return idx < 0 ? STATION_GROUP_ORDER.length : idx;
+    };
+    const d = rank(a) - rank(b);
+    if (d !== 0) return d;
+  } else if (sort === "assigned") {
+    const d =
+      (ctx.assignedMinutesByCid.get(b.cid) ?? 0) - (ctx.assignedMinutesByCid.get(a.cid) ?? 0);
+    if (d !== 0) return d;
+  } else if (sort === "flag") {
+    // Markierte zuerst (grün → orange → rot), Unmarkierte ans Ende
+    const rank = (cid: number) => {
+      const flag = ctx.markByCid.get(cid)?.flag ?? null;
+      return flag === null ? ROSTER_FLAGS.length : ROSTER_FLAGS.indexOf(flag);
+    };
+    const d = rank(a.cid) - rank(b.cid);
+    if (d !== 0) return d;
+  }
+  return a.name.localeCompare(b.name);
+}
+
 /** Darf der Controller die Station grundsätzlich besetzen? */
 export function isEligible(
   controller: RosterController,
@@ -523,7 +568,11 @@ export function suggestControllers(
   stationMeta: StationMeta,
   eventAirports: string[],
   start: number,
-  end: number
+  end: number,
+  /** Sortierung wie im Controller-Board eingestellt – entscheidet innerhalb gleich geeigneter Controller */
+  boardSort: ControllerSort,
+  markByCid: Map<number, ControllerMark>,
+  airportFilter: string | null
 ): ControllerSuggestion[] {
   const assignedByCid = new Map<number, number>();
   for (const a of assignments) {
@@ -556,11 +605,12 @@ export function suggestControllers(
     });
 
   // Nicht-berechtigte werden nicht mehr ausgeblendet, sondern nach hinten
-  // sortiert und im Dialog markiert – die Zuweisung bleibt möglich.
+  // sortiert und im Dialog markiert – die Zuweisung bleibt möglich. Innerhalb
+  // derselben Eignung entscheidet die Sortierung des Controller-Boards, damit
+  // die Reihenfolge im Dialog der im Board gewohnten entspricht.
   return suggestions
     .sort((a, b) => {
-      // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station,
-      // dann wenigste eingeplante Zeit
+      // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station
       const score = (s: ControllerSuggestion) =>
         (s.eligibility.ok
           ? 0
@@ -572,8 +622,12 @@ export function suggestControllers(
         (s.prefersStation ? 0 : 1);
       const d = score(a) - score(b);
       if (d !== 0) return d;
-      if (a.assignedMinutes !== b.assignedMinutes) return a.assignedMinutes - b.assignedMinutes;
-      return a.controller.name.localeCompare(b.controller.name);
+      return compareControllersByBoardSort(a.controller, b.controller, boardSort, {
+        assignedMinutesByCid: assignedByCid,
+        markByCid,
+        airportFilter,
+        eventAirports,
+      });
     });
 }
 

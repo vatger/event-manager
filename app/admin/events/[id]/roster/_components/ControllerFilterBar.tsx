@@ -17,9 +17,9 @@ import {
   ROSTER_FLAG_LABEL,
   type RosterFlag,
 } from "@/lib/roster/rosterFlags";
-import type { RosterStation } from "../_lib/rosterTypes";
+import type { ControllerSort, RosterStation } from "../_lib/rosterTypes";
 
-export type ControllerSort = "group" | "name" | "assigned" | "flag";
+export type { ControllerSort };
 
 interface ControllerFilterBarProps {
   /** Anzahl der Zeilen nach Filterung, für die Kopfzeile */

@@ -70,7 +70,6 @@ import {
   customBlockClass,
 } from "@/lib/roster/blockColors";
 import type { SignupTableEntry } from "@/lib/cache/types";
-import { STATION_GROUP_ORDER } from "@/lib/weeklys/stationUtils";
 import type { RosterPresenceUser } from "@/lib/roster/rosterEvents";
 import type {
   ApiRoster,
@@ -83,10 +82,11 @@ import type {
   StationMeta,
   UndoEntry,
 } from "../_lib/rosterTypes";
-import { ROSTER_FLAGS, ROSTER_FLAG_BAR, type RosterFlag } from "@/lib/roster/rosterFlags";
+import { ROSTER_FLAG_BAR, type RosterFlag } from "@/lib/roster/rosterFlags";
 import {
   assignedMinutesByController,
   buildControllers,
+  compareControllersByBoardSort,
   computeWarnings,
   formatDuration,
   getControllerGroupForStation,
@@ -1986,33 +1986,16 @@ export function RosterEditor({
     list = list.filter(
       (c) => !c.withdrawn || assignments.some((a) => a.userCID === c.cid)
     );
-    if (controllerSort === "group") {
-      // Nach Ebene DEL → CTR: Wer nur Delivery darf, steht oben. Das entspricht
-      // der Reihenfolge, in der ein Plan meist gefüllt wird – und stellt die
-      // wenigen hochberechtigten Leute ans Ende, wo man sie gezielt sucht.
-      const rank = (c: RosterController) => {
-        const group = airportFilter
-          ? getControllerGroupForStation(c.entry, airportFilter, event.airports)
-          : getControllerGroupForStation(c.entry, null, event.airports);
-        const idx = group ? STATION_GROUP_ORDER.indexOf(group) : -1;
-        return idx < 0 ? STATION_GROUP_ORDER.length : idx;
-      };
-      list = [...list].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
-    } else if (controllerSort === "assigned") {
-      list = [...list].sort(
-        (a, b) => (assignedMinutes.get(b.cid) ?? 0) - (assignedMinutes.get(a.cid) ?? 0)
-      );
-    } else if (controllerSort === "flag") {
-      // Markierte zuerst (grün → orange → rot), Unmarkierte ans Ende
-      const rank = (cid: number) => {
-        const flag = markByCid.get(cid)?.flag ?? null;
-        return flag === null ? ROSTER_FLAGS.length : ROSTER_FLAGS.indexOf(flag);
-      };
-      list = [...list].sort((a, b) => {
-        const d = rank(a.cid) - rank(b.cid);
-        return d !== 0 ? d : a.name.localeCompare(b.name);
-      });
-    }
+    // Dieselbe Sortierung wie im Assign-Dialog (compareControllersByBoardSort),
+    // damit beide Ansichten immer übereinstimmen.
+    list = [...list].sort((a, b) =>
+      compareControllersByBoardSort(a, b, controllerSort, {
+        assignedMinutesByCid: assignedMinutes,
+        markByCid,
+        airportFilter,
+        eventAirports: event.airports,
+      })
+    );
     return list;
   }, [
     controllers,
@@ -3306,6 +3289,8 @@ export function RosterEditor({
         controllers={controllers}
         assignments={assignments}
         markByCid={markByCid}
+        controllerSort={controllerSort}
+        airportFilter={airportFilter}
         onAssign={(cid) => {
           if (assignDialog) {
             const v = validate(assignDialog.stationId, cid, assignDialog.start, assignDialog.end);
