@@ -2,8 +2,9 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, LogIn, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, LogIn, RefreshCw } from "lucide-react";
 import PublicRoster from "@/app/events/[id]/_components/PublicRoster";
 
 interface EmbedEvent {
@@ -67,6 +68,19 @@ export default function EmbeddedRosterPage({
     };
   }, [eventId, authenticated]);
 
+  /**
+   * Läuft die Seite für sich allein oder in einem fremden Rahmen?
+   *
+   * Von der Eventseite aus wird sie als Vollbild des Plans aufgerufen – dann
+   * gehört ein Weg zurück dazu. In ATCISS steckt dieselbe Seite in einem
+   * iframe, und dort wäre ein Verweis auf den Eventmanager fehl am Platz: Der
+   * Rahmen ist knapp, und die Navigation gehört der einbettenden Anwendung.
+   */
+  const [standalone, setStandalone] = useState(false);
+  useEffect(() => {
+    setStandalone(window.self === window.top);
+  }, []);
+
   // Nach der Anmeldung im anderen Fenster: sobald dieses hier wieder den Fokus
   // bekommt, noch einmal nachsehen – das erspart den Klick auf „Erneut prüfen“.
   const recheck = useCallback(() => void update(), [update]);
@@ -124,7 +138,17 @@ export default function EmbeddedRosterPage({
   return (
     <div className="min-h-screen bg-background">
       {event && (
-        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b px-3 py-2">
+          {standalone && (
+            <Link
+              href={`/events/${eventId}`}
+              title="Zurück zum Event"
+              aria-label="Zurück zum Event"
+              className="-ml-1 mr-0.5 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          )}
           <span className="text-sm font-semibold">{event.name}</span>
           <span className="text-xs text-muted-foreground">
             {hm(event.startTime)}–{hm(event.endTime)}z

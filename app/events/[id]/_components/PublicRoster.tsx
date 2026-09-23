@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 import {
   CalendarClock,
   ChevronDown,
@@ -13,6 +14,7 @@ import {
   ChevronRight,
   Crosshair,
   FileText,
+  Maximize2,
   Radio,
   Timer,
   User,
@@ -40,8 +42,6 @@ const GROUP_H = 26;
 const MIN_PX_PER_HOUR = 64;
 /** Wie oft die Jetzt-Linie nachgeführt wird */
 const TICK_MS = 30_000;
-/** Ab dieser Eventlänge nutzt der Plan die volle Seitenbreite */
-const WIDE_FROM_HOURS = 8;
 /** Unterhalb dieser Breite fallen Beschriftung und Stundenbreite kleiner aus */
 const NARROW_PX = 768;
 /** Merkt sich eingeklappte Airport-Gruppen je Event, wie im Roster-Editor */
@@ -816,12 +816,12 @@ export default function PublicRoster({
 
   // In der Einbettung tragen Karte und Überschrift nichts bei – das iframe ist
   // knapp bemessen, und die einbettende Seite sagt bereits, worum es geht.
-  // Ein Tagesevent über zwölf Stunden bekommt in einer Spalte von 1280 Pixeln
-  // keine lesbaren Blöcke mehr. Ab einer gewissen Länge bricht die Karte
-  // deshalb aus der Seitenbreite aus – erst auf großen Bildschirmen, weil
-  // darunter ohnehin die ganze Breite genutzt wird.
-  const wide = totalHours >= WIDE_FROM_HOURS;
-
+  //
+  // Die Karte bleibt in der Spaltenbreite der Eventseite: Ein Ausbruch auf die
+  // volle Fensterbreite ließ den Plan neben den übrigen Karten wie ein
+  // Fremdkörper wirken. Lange Events werden stattdessen im Vollbild gelesen
+  // (Verweis auf die Einbettungsansicht) oder seitlich gescrollt.
+  //
   // Bewusst ein Fragment und keine hier definierte Wrapper-Komponente: Eine
   // im Render angelegte Komponente ist bei jedem Durchlauf ein neuer Typ, und
   // React wirft dann den gesamten Teilbaum weg und baut ihn neu auf. Der
@@ -1003,49 +1003,6 @@ export default function PublicRoster({
             </Button>
           )}
         </div>
-
-        {/* Eckdaten der angeklickten Schicht.
-            Wie viel in einen Balken passt, hängt an seiner Länge, und lange
-            Callsigns werden in der Beschriftungsspalte abgeschnitten – hier
-            steht beides vollständig. */}
-        {selectedBlock && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-            <span
-              className="rounded px-1.5 py-0.5 text-xs font-semibold"
-              style={
-                selectedBlock.type === "custom"
-                  ? undefined
-                  : {
-                      backgroundColor: toneFor(selectedBlock.callsign).background,
-                      color: toneFor(selectedBlock.callsign).text,
-                    }
-              }
-            >
-              {selectedBlock.callsign || selectedBlock.label || "Sonstiges"}
-            </span>
-            <span className="font-medium">{selectedBlock.name}</span>
-            <span className="font-mono tabular-nums">{span(selectedBlock.assignment)}</span>
-            <span className="text-xs text-muted-foreground">
-              {untilText(
-                new Date(selectedBlock.assignment.endTime).getTime() -
-                  new Date(selectedBlock.assignment.startTime).getTime()
-              )}
-            </span>
-            {isRunning(selectedBlock.assignment) && (
-              <span className="rounded-full bg-accent-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-                läuft
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setSelectedId(null)}
-              className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Auswahl schließen"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* Zeitstrahl */}
       <div className="border rounded-lg overflow-hidden">
@@ -1247,19 +1204,66 @@ export default function PublicRoster({
             </div>
           </div>
         </div>
+
+        {/* Eckschirmrand: Bei einem Plan über
+            zwanzig Stationen liegt derdaten der angeklickten Schicht.
+            Wie viel in einen Balken passt, hängt an seiner Länge, und lange
+            Callsigns werden in der Beschriftungsspalte abgeschnitten – hier
+            steht beides vollständig.
+
+            Die Leiste klebt am unteren Bild angeklickte Balken sonst weit weg von
+            der Stelle, an der seine Eckdaten stehen, und man scrollt für jede
+            Schicht einmal hin und zurück. */}
+        {selectedBlock && (
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-3 py-3 shadow-[0_-4px_16px_-6px_rgba(0,0,0,0.35)] backdrop-blur"
+            style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}
+          >
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span
+                className="rounded px-1.5 py-0.5 text-xs font-semibold"
+                style={
+                  selectedBlock.type === "custom"
+                    ? undefined
+                    : {
+                        backgroundColor: toneFor(selectedBlock.callsign).background,
+                        color: toneFor(selectedBlock.callsign).text,
+                      }
+                }
+              >
+                {selectedBlock.callsign || selectedBlock.label || "Sonstiges"}
+              </span>
+              <span className="font-medium">{selectedBlock.name}</span>
+              <span className="font-mono tabular-nums">{span(selectedBlock.assignment)}</span>
+              <span className="text-xs text-muted-foreground">
+                {untilText(
+                  new Date(selectedBlock.assignment.endTime).getTime() -
+                    new Date(selectedBlock.assignment.startTime).getTime()
+                )}
+              </span>
+              {isRunning(selectedBlock.assignment) && (
+                <span className="rounded-full bg-accent-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                  läuft
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedId(null)}
+                className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label="Auswahl schließen"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
     </>
   );
 
   if (embedded) return <div className="space-y-3 p-2">{content}</div>;
 
   return (
-    <Card
-      id="besetzungsplan"
-      className={cn(
-        "scroll-mt-20",
-        wide && "lg:mx-[calc(50%-50vw+0.5rem)] lg:w-[calc(100vw-1rem)]"
-      )}
-    >
+    <Card id="besetzungsplan" className="scroll-mt-20">
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
           <span className="flex items-center gap-2">
@@ -1271,6 +1275,17 @@ export default function PublicRoster({
             <Badge variant="outline" className="font-normal">
               Alle Zeiten UTC
             </Badge>
+            {/* In der Karte teilt sich der Plan die Breite mit dem Rest der
+                Seite. Wer mehr Stunden auf einmal sehen will, liest ihn auf
+                der eigenen Seite – von dort führt ein Pfeil zurück. */}
+            <Link
+              href={`/embed/roster/${eventId}`}
+              title="Besetzungsplan im Vollbild"
+              aria-label="Besetzungsplan im Vollbild öffnen"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </Link>
           </span>
         </CardTitle>
       </CardHeader>

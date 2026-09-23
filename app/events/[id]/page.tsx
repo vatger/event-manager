@@ -13,7 +13,16 @@ import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
 import AirportSignupTabs, { AirportSignupTabsRef } from "@/components/AirportSignupTabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Calendar, Clock, ExternalLink, MapPin, RotateCcw, Users } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  Clock,
+  ExternalLink,
+  Maximize2,
+  MapPin,
+  RotateCcw,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
 import { Event, Signup } from "@/types";
@@ -225,15 +234,21 @@ export default function EventPage() {
           </Badge>
         </div>
 
-        {isEventFirTeamMember(event.firCode) && (
-          <Link
-            href={`/admin/events/${event.id}`}
-            title="Zum Event im Adminbereich"
-            className="absolute right-5 top-4 rounded-md bg-secondary-50/15 p-2 text-secondary-50 backdrop-blur-sm transition-colors hover:bg-secondary-50/25 sm:right-7"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-        )}
+        <div className="absolute right-5 top-4 flex items-center gap-1.5 sm:right-7">
+          {/* Vollbild: derselbe Plan ohne den Rest der Seite. Bei einem Event
+              über viele Stationen ist die Kartenbreite schnell zu eng, und
+              dort steht der Plan allein auf der Seite. */}
+
+          {isEventFirTeamMember(event.firCode) && (
+            <Link
+              href={`/admin/events/${event.id}`}
+              title="Zum Event im Adminbereich"
+              className="rounded-md bg-secondary-50/15 p-2 text-secondary-50 backdrop-blur-sm transition-colors hover:bg-secondary-50/25"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
 
         <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 px-5 pb-5 pt-8 sm:px-7">
           <span className="text-[11px] font-semibold uppercase tracking-widest text-accent-500">
