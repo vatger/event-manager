@@ -1,3 +1,4 @@
+import { validateUserComment } from "@/lib/users/userComments";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -40,15 +41,14 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { comment } = body;
-
-    if (!comment || typeof comment !== "string" || comment.trim().length === 0) {
-      return NextResponse.json({ error: "Comment text is required" }, { status: 400 });
+    const checked = validateUserComment(body?.comment);
+    if (!checked.ok) {
+      return NextResponse.json({ error: checked.error }, { status: 400 });
     }
 
     const updated = await prisma.userComment.update({
       where: { id: commentId },
-      data: { comment: comment.trim() },
+      data: { comment: checked.comment },
       include: {
         author: {
           select: { cid: true, name: true },

@@ -12,8 +12,8 @@ export interface RosterStation {
 /** Zuweisung wie vom Roster-API geliefert (Zeiten als ISO-Strings) */
 export interface ApiAssignment {
   id: number;
-  stationId: number;
-  type: "controller" | "custom";
+  stationId: number | null;
+  type: "controller" | "custom" | "personal";
   userCID: number | null;
   label: string | null;
   color: string | null;
@@ -69,8 +69,9 @@ export interface ApiRoster {
 /** Client-Modell: Zeiten als Minuten seit Event-Start (raster-freundlich) */
 export interface Assignment {
   id: number;
-  stationId: number;
-  type: "controller" | "custom";
+  /** null nur bei persönlichen Blöcken in der Zeile einer Person ("Mentor") */
+  stationId: number | null;
+  type: "controller" | "custom" | "personal";
   userCID: number | null;
   label: string | null;
   color: string | null;
@@ -170,7 +171,8 @@ export type DragState =
       /** Vorschau-Werte */
       start: number;
       end: number;
-      stationId: number;
+      /** null bei persönlichen Blöcken */
+      stationId: number | null;
       /** null = Custom-Block */
       userCID: number | null;
     }
@@ -179,7 +181,7 @@ export type DragState =
       assignmentId: number;
       start: number;
       end: number;
-      stationId: number;
+      stationId: number | null;
       userCID: number | null;
     }
   | {
@@ -193,6 +195,14 @@ export type DragState =
   | {
       kind: "create";
       stationId: number;
+      start: number;
+      end: number;
+    }
+  | {
+      // Zeitraum in der Zeile einer Person aufziehen – für Blöcke wie
+      // „Mentor", die an keiner Station hängen
+      kind: "create-personal";
+      userCID: number;
       start: number;
       end: number;
     }

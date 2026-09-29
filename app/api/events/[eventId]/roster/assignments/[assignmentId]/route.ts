@@ -11,6 +11,7 @@ import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import {
   blockLabel,
   logRosterActivity,
+  personLabel,
   timeRange,
   userName,
   userNames,
@@ -74,9 +75,18 @@ export async function PATCH(
     );
   }
 
+  // Ein persönlicher Block bleibt in der Zeile seiner Person – eine Station
+  // bekommt er nicht, und umgekehrt verliert kein Stationsblock seine Station.
+  const personal = existing.type === "personal";
+  if (personal && parsed.data.stationId !== undefined) {
+    return NextResponse.json(
+      { error: "Persönliche Blöcke lassen sich nicht auf eine Station legen", code: "invalid_station" },
+      { status: 409 }
+    );
+  }
   const input = {
-    stationId: parsed.data.stationId ?? existing.stationId,
-    type: existing.type as "controller" | "custom",
+    stationId: personal ? null : parsed.data.stationId ?? existing.stationId,
+    type: existing.type as "controller" | "custom" | "personal",
     userCID: parsed.data.userCID ?? existing.userCID,
     label: parsed.data.label !== undefined ? parsed.data.label.trim() : existing.label,
     color: parsed.data.color !== undefined ? parsed.data.color : existing.color,
@@ -122,10 +132,14 @@ export async function PATCH(
   const durationAfter = input.endTime.getTime() - input.startTime.getTime();
 
   let action: RosterActivityAction = "assignment_moved";
+  // Persönliche Blöcke haben keine Station – im Protokoll steht dort ihre
+  // Bezeichnung, damit „Anna auf ? verschoben" nicht vorkommt.
+  const placeAfter = personal ? `„${input.label}"` : stationAfter?.callsign ?? "?";
+  const placeBefore = personal ? `„${existing.label}"` : stationBefore?.callsign ?? "?";
   let summary: string;
   if (existing.userCID !== input.userCID && input.userCID) {
     action = "assignment_reassigned";
-    summary = `${stationAfter?.callsign ?? "?"} ${timeRange(
+    summary = `${placeAfter} ${timeRange(
       input.startTime,
       input.endTime
     )}: ${who} durch ${blockLabel(
@@ -135,29 +149,29 @@ export async function PATCH(
       input.label
     )} ersetzt`;
   } else if (existing.stationId !== input.stationId) {
-    summary = `${who} von ${stationBefore?.callsign ?? "?"} ${timeRange(
+    summary = `${who} von ${placeBefore} ${timeRange(
       existing.startTime,
       existing.endTime
-    )} auf ${stationAfter?.callsign ?? "?"} ${timeRange(
+    )} auf ${placeAfter} ${timeRange(
       input.startTime,
       input.endTime
     )} verschoben`;
   } else if (timesChanged && durationBefore !== durationAfter) {
     action = "assignment_resized";
-    summary = `${who} auf ${stationAfter?.callsign ?? "?"} von ${timeRange(
+    summary = `${who} auf ${placeAfter} von ${timeRange(
       existing.startTime,
       existing.endTime
     )} auf ${timeRange(input.startTime, input.endTime)} geändert`;
   } else if (timesChanged) {
-    summary = `${who} auf ${stationAfter?.callsign ?? "?"} von ${timeRange(
+    summary = `${who} auf ${placeAfter} von ${timeRange(
       existing.startTime,
       existing.endTime
     )} auf ${timeRange(input.startTime, input.endTime)} verschoben`;
   } else if (existing.color !== input.color) {
     action = "assignment_recolored";
-    summary = `Farbe von ${who} auf ${stationAfter?.callsign ?? "?"} geändert`;
+    summary = `Farbe von ${who} auf ${placeAfter} geändert`;
   } else {
-    summary = `${who} auf ${stationAfter?.callsign ?? "?"} bearbeitet`;
+    summary = `${who} auf ${placeAfter} bearbeitet`;
   }
 
   await logRosterActivity({
@@ -212,25 +226,29 @@ export async function DELETE(
     return NextResponse.json({ error: "Assignment not found" }, { status: 404 });
   }
 
-  const station = await prisma.eventRosterStation.findUnique({
-    where: { id: assignment.stationId },
-    select: { callsign: true },
-  });
+  const station =
+    assignment.stationId === null
+      ? null
+      : await prisma.eventRosterStation.findUnique({
+          where: { id: assignment.stationId },
+          select: { callsign: true },
+        });
   await prisma.eventRosterAssignment.delete({ where: { id: assignmentId } });
 
+  const who = await userName(assignment.userCID);
   await logRosterActivity({
     rosterId: roster.id,
     actorCID: Number(auth.user.cid),
     action: "assignment_deleted",
-    summary: `${blockLabel(
-      assignment.type,
-      await userName(assignment.userCID),
-      assignment.userCID,
-      assignment.label
-    )} von ${station?.callsign ?? "?"} ${timeRange(
-      assignment.startTime,
-      assignment.endTime
-    )} entfernt`,
+    summary:
+      assignment.type === "personal"
+        ? `„${assignment.label}" bei ${personLabel(who, assignment.userCID)} ${timeRange(
+            assignment.startTime,
+            assignment.endTime
+          )} entfernt`
+        : `${blockLabel(assignment.type, who, assignment.userCID, assignment.label)} von ${
+            station?.callsign ?? "?"
+          } ${timeRange(assignment.startTime, assignment.endTime)} entfernt`,
     stationCallsign: station?.callsign ?? null,
     targetCID: assignment.userCID,
   });

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyStationsToRoster, stationsWithShifts } from "@/lib/roster/eventStations";
+import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
@@ -118,6 +120,25 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
     return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
   }
 
+  // Eine Stationsliste für Event und Besetzungsplan: Stationen, auf denen im
+  // Plan schon Schichten liegen, lassen sich hier nicht still entfernen –
+  // sonst verschwänden die Schichten mit. Das geht im Editor, wo man sieht,
+  // was dabei wegfällt.
+  if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
+    const conflicts = await stationsWithShifts(Number(eventId), parsed.data.staffedStations);
+    if (conflicts.length > 0) {
+      return NextResponse.json(
+        {
+          error: `${conflicts
+            .map((c) => `${c.callsign} (${c.shifts} ${c.shifts === 1 ? "Schicht" : "Schichten"})`)
+            .join(", ")} ${conflicts.length === 1 ? "ist" : "sind"} im Besetzungsplan noch belegt. Entferne die Schichten dort oder behalte die Station.`,
+          code: "stations_in_use",
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   const event = await prisma.event.update({
     where: { id: Number(eventId) },
     data: {
@@ -138,6 +159,12 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
         firCode: fir,
       },
   });
+  // … und der Plan zieht die geänderte Liste nach.
+  if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
+    const changed = await applyStationsToRoster(Number(eventId), parsed.data.staffedStations);
+    if (changed) broadcastRosterChange(Number(eventId), null);
+  }
+
   // Mit dem Öffnen der Anmeldung stehen die Stationen fest genug, um sie auf
   // der Homepage zu blocken; danach zieht jede Änderung an den Stationen nach.
   const bookingTrigger = eventBookingTrigger(
@@ -304,6 +331,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       }
     }
 
+    // Eine Stationsliste für Event und Besetzungsplan: Stationen, auf denen im
+    // Plan schon Schichten liegen, lassen sich hier nicht still entfernen –
+    // sonst verschwänden die Schichten mit. Das geht im Editor, wo man sieht,
+    // was dabei wegfällt.
+    if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
+      const conflicts = await stationsWithShifts(Number(eventId), parsed.data.staffedStations);
+      if (conflicts.length > 0) {
+        return NextResponse.json(
+          {
+            error: `${conflicts
+              .map((c) => `${c.callsign} (${c.shifts} ${c.shifts === 1 ? "Schicht" : "Schichten"})`)
+              .join(", ")} ${conflicts.length === 1 ? "ist" : "sind"} im Besetzungsplan noch belegt. Entferne die Schichten dort oder behalte die Station.`,
+            code: "stations_in_use",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const updatedEvent = await prisma.event.update({
       where: { id },
       data: parsed.data,
@@ -314,6 +360,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
 
     // Mit dem Öffnen der Anmeldung stehen die Stationen fest genug, um sie auf
     // der Homepage zu blocken; danach zieht jede Änderung an den Stationen nach.
+    // … und der Plan zieht die geänderte Liste nach.
+    if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
+      const changed = await applyStationsToRoster(Number(eventId), parsed.data.staffedStations);
+      if (changed) broadcastRosterChange(Number(eventId), null);
+    }
+
     const bookingTrigger = eventBookingTrigger(
       firbyevent.status,
       updatedEvent.status,

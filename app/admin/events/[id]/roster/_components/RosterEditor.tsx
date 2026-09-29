@@ -121,6 +121,7 @@ import { BriefingDialog } from "./BriefingDialog";
 import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
 import { ActivityLogDialog } from "./ActivityLogDialog";
+import { PersonalBlockDialog } from "./PersonalBlockDialog";
 import SignupEditDialog from "../../_components/SignupEditDialog";
 
 // (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
@@ -133,7 +134,7 @@ const LABEL_W = 224; // Breite der linken Beschriftungsspalte
 const INFO_W = 250; // Zusatzbreite für Wünsche/Remarks/Notiz
 const ROW_H = 44; // Zeilenhöhe
 const ROW_H_INFO = 62; // Zeilenhöhe im Controller-Board mit Infospalte
-const ZOOM_LEVELS = [28, 40, 56, 76]; // Pixel pro Slot
+const ZOOM_LEVELS = [28, 40, 56, 76]; // Mindestbreite je Slot in Pixeln
 const DEFAULT_DURATION = 60; // Standarddauer neuer Zuweisungen (Minuten)
 const REMARKS_PREF_KEY = "roster:showRemarks";
 const COLLAPSE_PREF_KEY = "roster:collapsedAirports";
@@ -203,9 +204,6 @@ export function RosterEditor({
   const slotCount = Math.max(1, Math.ceil(totalMinutes / slotMinutes));
 
   const [zoomIdx, setZoomIdx] = useState(1);
-  const pxPerSlot = ZOOM_LEVELS[zoomIdx];
-  const pxPerMinute = pxPerSlot / slotMinutes;
-  const timelineWidth = slotCount * pxPerSlot;
 
   // Eindeutige Client-ID: eigene Realtime-Events werden damit ausgefiltert
   const clientId = useMemo(
@@ -324,6 +322,12 @@ export function RosterEditor({
   }, []);
   const [assignDialog, setAssignDialog] = useState<{
     stationId: number;
+    start: number;
+    end: number;
+  } | null>(null);
+  /** Aufgezogener Zeitraum in der Zeile einer Person – für „Mentor"-Blöcke */
+  const [personalDialog, setPersonalDialog] = useState<{
+    userCID: number;
     start: number;
     end: number;
   } | null>(null);
@@ -467,6 +471,39 @@ export function RosterEditor({
   // Beide Boards teilen sich den Nullpunkt des Zeitstrahls, deshalb gilt die
   // Breite der Beschriftungsspalte auch für die Stationen.
   const labelWidth = showRemarks ? LABEL_W + INFO_W : LABEL_W;
+
+  /**
+   * Breite der Zeitachse.
+   *
+   * Feste Pixel je Slot ließen bei kurzen Events die rechte Hälfte des
+   * Bildschirms leer und machten die Blöcke unnötig schmal. Die Zoomstufe ist
+   * deshalb eine Mindestbreite: Passt das Event in die verfügbare Breite, füllt
+   * es sie aus; erst wenn die Mindestbreite mehr verlangt, wird gescrollt.
+   *
+   * Gemessen wird der schmalere der beiden Bereiche – der mit senkrechtem
+   * Scrollbalken –, sonst entstünde dort ein überflüssiger waagerechter.
+   */
+  const [paneWidth, setPaneWidth] = useState(0);
+  useEffect(() => {
+    const panes = [stationScrollRef.current, controllerScrollRef.current].filter(
+      (el): el is HTMLDivElement => el !== null
+    );
+    if (panes.length === 0) return;
+    const measure = () => setPaneWidth(Math.min(...panes.map((el) => el.clientWidth)));
+    measure();
+    const ro = new ResizeObserver(measure);
+    panes.forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, []);
+
+  const fitPxPerSlot =
+    paneWidth > labelWidth ? Math.floor(((paneWidth - labelWidth) / slotCount) * 100) / 100 : 0;
+  const minPxPerSlot = ZOOM_LEVELS[zoomIdx];
+  const pxPerSlot = Math.max(minPxPerSlot, fitPxPerSlot);
+  const pxPerMinute = pxPerSlot / slotMinutes;
+  const timelineWidth = slotCount * pxPerSlot;
+  /** Füllt der Plan gerade die Breite? Dann ändert Herauszoomen nichts mehr. */
+  const fillsWidth = fitPxPerSlot >= minPxPerSlot;
   const controllerRowH = showRemarks ? ROW_H_INFO : ROW_H;
 
   /**
@@ -573,21 +610,24 @@ export function RosterEditor({
   /** Controller-Zuweisung oder Custom-Block anlegen (optimistisch) */
   const createAssignment = useCallback(
     async (
-      stationId: number,
+      /** null = persönlicher Block in der Zeile von opts.userCID ("Mentor") */
+      stationId: number | null,
       start: number,
       end: number,
       opts: { userCID?: number; label?: string; color?: string | null; track?: boolean }
     ): Promise<number | null> => {
-      const isCustom = !!opts.label;
+      const type: Assignment["type"] =
+        stationId === null ? "personal" : opts.label ? "custom" : "controller";
+      const labelled = type !== "controller";
       const track = opts.track !== false;
       const tempId = tempIdRef.current--;
       const optimistic: Assignment = {
         id: tempId,
         stationId,
-        type: isCustom ? "custom" : "controller",
-        userCID: isCustom ? null : opts.userCID ?? null,
-        label: isCustom ? opts.label ?? null : null,
-        color: isCustom ? opts.color ?? null : null,
+        type,
+        userCID: type === "custom" ? null : opts.userCID ?? null,
+        label: labelled ? opts.label ?? null : null,
+        color: labelled ? opts.color ?? null : null,
         start,
         end,
       };
@@ -598,10 +638,10 @@ export function RosterEditor({
           headers: apiHeaders,
           body: JSON.stringify({
             stationId,
-            type: isCustom ? "custom" : "controller",
-            userCID: isCustom ? undefined : opts.userCID,
-            label: isCustom ? opts.label : undefined,
-            color: isCustom ? opts.color ?? undefined : undefined,
+            type,
+            userCID: type === "custom" ? undefined : opts.userCID,
+            label: labelled ? opts.label : undefined,
+            color: labelled ? opts.color ?? undefined : undefined,
             startTime: minuteToDate(eventStart, start).toISOString(),
             endTime: minuteToDate(eventStart, end).toISOString(),
           }),
@@ -651,7 +691,10 @@ export function RosterEditor({
       );
       try {
         const body: Record<string, unknown> = {};
-        if (patch.stationId !== undefined) body.stationId = patch.stationId;
+        // Persönliche Blöcke haben keine Station – dann auch keine mitschicken
+        if (patch.stationId !== undefined && patch.stationId !== null) {
+          body.stationId = patch.stationId;
+        }
         if (patch.color !== undefined) body.color = patch.color;
         // userCID nur senden, wenn es ein echter Controller ist (Custom-Blöcke: null → weglassen)
         if (patch.userCID !== undefined && patch.userCID !== null) body.userCID = patch.userCID;
@@ -788,11 +831,15 @@ export function RosterEditor({
       const list = assignmentsRef.current;
       const block = list.find((a) => a.id === id);
       if (!block) return;
+      // Persönliche Blöcke gehören zusätzlich derselben Person – sonst würden
+      // zwei „Mentor"-Blöcke verschiedener Leute zu einem.
       const sameOccupant = (x: Assignment) =>
         x.type === block.type &&
         (block.type === "controller"
           ? x.userCID === block.userCID
-          : x.label === block.label && x.color === block.color);
+          : x.label === block.label &&
+            x.color === block.color &&
+            (block.type !== "personal" || x.userCID === block.userCID));
       const neighbours = list.filter(
         (a) =>
           a.id !== id &&
@@ -1032,12 +1079,32 @@ export function RosterEditor({
   /** Client-seitige Validierung einer Vorschau (harte Regeln + Verfügbarkeits-Warnung) */
   const validate = useCallback(
     (
-      stationId: number,
+      /** null = persönlicher Block in der Zeile der Person */
+      stationId: number | null,
       userCID: number | null,
       start: number,
       end: number,
       ignoreId?: number
     ): DragValidity => {
+      // Persönlicher Block: keine Station, aber die Person ist beschäftigt –
+      // also nur die Doppelbelegung prüfen.
+      if (stationId === null) {
+        if (userCID == null) return { valid: false, warn: false, reason: "Keine Person" };
+        const clash = hasOverlap(assignments, userCID, start, end, ignoreId);
+        if (clash) {
+          const where =
+            clash.stationId === null
+              ? `„${clash.label}"`
+              : stationById.get(clash.stationId)?.callsign ?? "?";
+          return {
+            valid: false,
+            warn: false,
+            reason: `${controllerByCid.get(userCID)?.name ?? "Die Person"} ist dann bereits eingeplant (${where})`,
+          };
+        }
+        return { valid: true, warn: false, reason: null };
+      }
+
       const station = stationById.get(stationId);
       if (!station) {
         return { valid: false, warn: false, reason: "Unbekannte Station" };
@@ -1064,7 +1131,10 @@ export function RosterEditor({
       }
       const overlap = hasOverlap(assignments, userCID, start, end, ignoreId);
       if (overlap) {
-        const other = stationById.get(overlap.stationId);
+        const other =
+          overlap.stationId === null
+            ? { callsign: `„${overlap.label}"` }
+            : stationById.get(overlap.stationId);
         return {
           valid: false,
           warn: false,
@@ -1115,6 +1185,9 @@ export function RosterEditor({
     // Gruppenverschiebung wird geschlossen geprüft, nicht Block für Block
     if (drag.kind === "move-group") return null;
     if (drag.kind === "create") return { valid: true, warn: false, reason: null };
+    if (drag.kind === "create-personal") {
+      return validate(null, drag.userCID, drag.start, drag.end);
+    }
     if (drag.kind === "assign-controller") {
       if (drag.stationId === null || drag.start === null || drag.end === null) {
         return { valid: false, warn: false, reason: null };
@@ -1199,10 +1272,15 @@ export function RosterEditor({
           return;
         }
         const stationClash = target.find(
-          (o) => o.id !== a.id && o.stationId === a.stationId && o.start < a.end && a.start < o.end
+          (o) =>
+            o.id !== a.id &&
+            a.stationId !== null &&
+            o.stationId === a.stationId &&
+            o.start < a.end &&
+            a.start < o.end
         );
         if (stationClash) {
-          const cs = stationById.get(a.stationId)?.callsign ?? "die Station";
+          const cs = stationById.get(a.stationId ?? -1)?.callsign ?? "die Station";
           toast.error(`Verschieben nicht möglich: ${cs} wäre doppelt belegt`);
           return;
         }
@@ -1269,10 +1347,13 @@ export function RosterEditor({
           const start = clamp(g.original.start + rawDelta, 0, totalMinutes - dur);
           const hit = hitTest(ev.clientX, ev.clientY);
           const isCustom = g.original.type === "custom";
+          const isPersonal = g.original.type === "personal";
           let stationId = g.original.stationId;
           let userCID = g.original.userCID;
-          if (hit?.kind === "station") stationId = hit.id;
-          // Nur Controller-Blöcke lassen sich auf eine andere Controller-Zeile ziehen
+          // Ein persönlicher Block ("Mentor") gehört zu keiner Station und
+          // bleibt in den Controller-Zeilen.
+          if (hit?.kind === "station" && !isPersonal) stationId = hit.id;
+          // Nur Blöcke mit Person lassen sich auf eine andere Controller-Zeile ziehen
           if (hit?.kind === "controller" && !isCustom) userCID = hit.id;
           applyDrag({
             kind: "move",
@@ -1322,13 +1403,16 @@ export function RosterEditor({
           // ihre Controller. Das ist beim Planen der häufigere Wunsch als die
           // Meldung „Station ist belegt" – und in einem Zug erledigt, was sonst
           // drei Züge über einen freien Platz bräuchte.
-          const onTop = assignmentsRef.current.find(
-            (a) =>
-              a.id !== clicked.id &&
-              a.stationId === current.stationId &&
-              a.start < current.end &&
-              current.start < a.end
-          );
+          const onTop =
+            current.stationId === null
+              ? undefined
+              : assignmentsRef.current.find(
+                  (a) =>
+                    a.id !== clicked.id &&
+                    a.stationId === current.stationId &&
+                    a.start < current.end &&
+                    current.start < a.end
+                );
           if (onTop) {
             if (clicked.type !== "controller" || onTop.type !== "controller") {
               toast.error("Nur Controller-Schichten lassen sich tauschen");
@@ -1525,6 +1609,80 @@ export function RosterEditor({
       assignments,
       applyDrag,
     ]
+  );
+
+  /**
+   * Zeitraum in der Zeile einer Person aufziehen – für Blöcke wie „Mentor".
+   *
+   * Dieselbe Geste wie auf einer Station: ziehen für einen Bereich, klicken
+   * für die Standarddauer bis zum nächsten eigenen Block. Danach fragt ein
+   * kleiner Dialog, was eingetragen werden soll.
+   */
+  const startCreatePersonal = useCallback(
+    (e: React.PointerEvent, userCID: number) => {
+      if (!canEdit) return;
+      if (e.button !== 0) return;
+      const row = rowRefs.current.get(`controller-${userCID}`);
+      if (!row) return;
+      e.preventDefault();
+      const rect = row.el.getBoundingClientRect();
+      const anchorMinute = clamp(
+        snapFloor((e.clientX - rect.left) / pxPerMinute),
+        0,
+        totalMinutes - slotMinutes
+      );
+      gestureRef.current = { startX: e.clientX, startY: e.clientY, moved: false, anchorMinute };
+      applyDrag({
+        kind: "create-personal",
+        userCID,
+        start: anchorMinute,
+        end: anchorMinute + slotMinutes,
+      });
+      trackPointer(
+        (ev) => {
+          const g = gestureRef.current;
+          if (!g || g.anchorMinute === undefined) return;
+          if (Math.abs(ev.clientX - g.startX) > 4) g.moved = true;
+          const cur = clamp(
+            snapFloor((ev.clientX - rect.left) / pxPerMinute),
+            0,
+            totalMinutes - slotMinutes
+          );
+          applyDrag({
+            kind: "create-personal",
+            userCID,
+            start: Math.min(g.anchorMinute, cur),
+            end: Math.max(g.anchorMinute, cur) + slotMinutes,
+          });
+        },
+        () => {
+          const g = gestureRef.current;
+          const current = dragRef.current;
+          gestureRef.current = null;
+          applyDrag(null);
+          if (!current || current.kind !== "create-personal") return;
+          const { start } = current;
+          let { end } = current;
+          if (!g?.moved) {
+            // Klick ohne Ziehen: Standarddauer, aber nicht in den nächsten
+            // eigenen Block hinein
+            end = Math.min(start + DEFAULT_DURATION, totalMinutes);
+            const next = assignmentsRef.current
+              .filter((a) => a.userCID === userCID && a.start >= start)
+              .sort((a, b) => a.start - b.start)[0];
+            if (next) end = Math.min(end, next.start);
+            if (end <= start) return;
+          }
+          const v = validate(null, userCID, start, end);
+          if (!v.valid) {
+            if (v.reason) toast.error(v.reason);
+            return;
+          }
+          setPersonalDialog({ userCID, start, end });
+        }
+      );
+    },
+    [canEdit, pxPerMinute, snapFloor, slotMinutes, totalMinutes, trackPointer, applyDrag, validate]
   );
 
   /** Controller aus der unteren Liste auf eine Station ziehen */
@@ -1910,7 +2068,10 @@ export function RosterEditor({
       .filter((a) => a.userCID === selectedCID)
       .sort((a, b) => a.start - b.start)
       .map((a) => {
-        const st = stationById.get(a.stationId)?.callsign ?? "?";
+        const st =
+          a.stationId === null
+            ? `„${a.label}"`
+            : stationById.get(a.stationId)?.callsign ?? "?";
         return `${st} ${minuteToHM(eventStart, a.start)}–${minuteToHM(eventStart, a.end)}z`;
       });
   }, [selectedCID, assignments, stationById, eventStart]);
@@ -2181,10 +2342,14 @@ export function RosterEditor({
     a: Assignment,
     board: "station" | "controller"
   ): React.ReactNode => {
-    const station = stationById.get(a.stationId);
+    const station = a.stationId === null ? undefined : stationById.get(a.stationId);
     const controller = a.userCID != null ? controllerByCid.get(a.userCID) : undefined;
     const meta = station ? stationMetaFor(station.callsign) : null;
     const isCustom = a.type === "custom";
+    // Persönliche Blöcke ("Mentor") tragen wie Custom-Blöcke eine Bezeichnung
+    // und eine frei gewählte Farbe, aber keine Station.
+    const isPersonal = a.type === "personal";
+    const labelled = isCustom || isPersonal;
     const isDragTarget =
       drag !== null &&
       (drag.kind === "move" || drag.kind === "resize-start" || drag.kind === "resize-end") &&
@@ -2201,7 +2366,7 @@ export function RosterEditor({
     // Controller-Blöcke: bei mehreren Airports Farbton vom Airport und
     // Helligkeit von der Ebene, bei einem einzelnen Airport umgekehrt.
     // Custom-Blöcke behalten ihre frei gewählte Farbe als Klasse.
-    const tone = isCustom
+    const tone = labelled
       ? null
       : stationBlockColors(
           meta?.airport ?? null,
@@ -2209,7 +2374,9 @@ export function RosterEditor({
           event.airports,
           station ? stationRankByCallsign.get(station.callsign) : undefined
         );
-    let colorCls = isCustom ? customBlockClass(a.color) : "";
+    let colorCls = labelled
+      ? `${customBlockClass(a.color)}${isPersonal ? " border-dashed" : ""}`
+      : "";
     let colorStyle: React.CSSProperties = tone
       ? { backgroundColor: tone.background, borderColor: tone.border, color: tone.text }
       : {};
@@ -2225,7 +2392,12 @@ export function RosterEditor({
     }
 
     const who = isCustom ? a.label ?? "Custom" : controller?.name ?? `CID ${a.userCID}`;
-    const label = board === "station" ? who : station?.callsign ?? "?";
+    const label = isPersonal
+      ? a.label ?? "Block"
+      : board === "station"
+      ? who
+      : station?.callsign ?? "?";
+    const where = isPersonal ? `„${a.label}"` : station?.callsign ?? "?";
 
     return (
       <div
@@ -2242,7 +2414,7 @@ export function RosterEditor({
           ...colorStyle,
         }}
         onPointerDown={(e) => startMove(e, a)}
-        title={`${station?.callsign ?? "?"} • ${who}\n${minuteToHM(eventStart, a.start)}z – ${minuteToHM(eventStart, a.end)}z (${formatDuration(a.end - a.start)})${
+        title={`${where} • ${who}\n${minuteToHM(eventStart, a.start)}z – ${minuteToHM(eventStart, a.end)}z (${formatDuration(a.end - a.start)})${
           blockWarnings.length > 0 ? "\n⚠ " + blockWarnings.map((w) => w.message).join("\n⚠ ") : ""
         }`}
       >
@@ -2629,7 +2801,8 @@ export function RosterEditor({
               size="icon"
               className="h-8 w-8 rounded-r-none"
               onClick={() => setZoomIdx((z) => Math.max(0, z - 1))}
-              disabled={zoomIdx === 0}
+              disabled={zoomIdx === 0 || fillsWidth}
+              title={fillsWidth ? "Der Plan füllt bereits die ganze Breite" : "Herauszoomen"}
               aria-label="Herauszoomen"
             >
               <ZoomOut className="h-4 w-4" />
@@ -2639,7 +2812,13 @@ export function RosterEditor({
               size="icon"
               className="h-8 w-8 rounded-l-none border-l"
               onClick={() => setZoomIdx((z) => Math.min(ZOOM_LEVELS.length - 1, z + 1))}
-              disabled={zoomIdx === ZOOM_LEVELS.length - 1}
+              disabled={
+                zoomIdx === ZOOM_LEVELS.length - 1 ||
+                // Liegt schon die nächste Stufe unter der ausgefüllten Breite,
+                // änderte ein Klick nichts Sichtbares.
+                ZOOM_LEVELS[zoomIdx + 1] <= fitPxPerSlot
+              }
+              title="Hineinzoomen"
               aria-label="Hineinzoomen"
             >
               <ZoomIn className="h-4 w-4" />
@@ -3187,8 +3366,17 @@ export function RosterEditor({
                   </div>
                   <div
                     ref={registerRow("controller", c.cid)}
-                    className="relative shrink-0"
-                    style={{ width: timelineWidth, height: controllerRowH, ...gridBackground }}
+                    className={`relative shrink-0 ${canEdit ? "cursor-crosshair" : ""}`}
+                    style={{
+                      width: timelineWidth,
+                      height: controllerRowH,
+                      ...gridBackground,
+                      touchAction: "none",
+                    }}
+                    onPointerDown={(e) => {
+                      // Leere Fläche in der Zeile: Block wie „Mentor" aufziehen
+                      if (e.target === e.currentTarget) startCreatePersonal(e, c.cid);
+                    }}
                   >
                     {/* Verfügbarkeits-Hintergrund */}
                     <div
@@ -3213,6 +3401,20 @@ export function RosterEditor({
                     {displayAssignments
                       .filter((a) => a.userCID === c.cid)
                       .map((a) => renderBlock(a, "controller"))}
+                    {/* Vorschau beim Aufziehen eines persönlichen Blocks */}
+                    {drag?.kind === "create-personal" && drag.userCID === c.cid && (
+                      <div
+                        className={`absolute top-1 bottom-1 rounded-md border-2 border-dashed pointer-events-none z-20 ${
+                          dragValidity && !dragValidity.valid
+                            ? "border-destructive bg-destructive/15"
+                            : "border-primary bg-primary/15"
+                        }`}
+                        style={{
+                          left: drag.start * pxPerMinute,
+                          width: (drag.end - drag.start) * pxPerMinute,
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
               );
@@ -3230,7 +3432,7 @@ export function RosterEditor({
             <p className="text-[11px] text-muted-foreground px-3 pb-2 shrink-0 hidden md:block">
               <strong>Bedienung:</strong> Stationszeile ziehen/klicken zum Besetzen (Dialog bietet
               auch Custom-Blöcke wie Combined/Training) • Controller von unten auf eine Station
-              ziehen • Blöcke verschieben & an den Rändern verlängern • Stationen am Griff
+              ziehen • In der Zeile eines Controllers ziehen für Blöcke wie „Mentor“ • Blöcke verschieben & an den Rändern verlängern • Stationen am Griff
               umsortieren • Controller anklicken für Infos in der Seitenleiste •{" "}
               <kbd className="border rounded px-1">Strg</kbd>+Klick wählt mehrere Blöcke, die
               sich gemeinsam verschieben lassen •{" "}
@@ -3445,6 +3647,34 @@ export function RosterEditor({
       </Dialog>
 
       {/* Dialog: Snapshots */}
+      <PersonalBlockDialog
+        open={personalDialog !== null}
+        onOpenChange={(open) => !open && setPersonalDialog(null)}
+        controllerName={
+          personalDialog ? controllerByCid.get(personalDialog.userCID)?.name ?? "" : ""
+        }
+        timeLabel={
+          personalDialog
+            ? `${minuteToHM(eventStart, personalDialog.start)}–${minuteToHM(
+                eventStart,
+                personalDialog.end
+              )}z`
+            : ""
+        }
+        onCreate={(label, color) => {
+          const target = personalDialog;
+          if (!target) return;
+          setPersonalDialog(null);
+          void createAssignment(null, target.start, target.end, {
+            userCID: target.userCID,
+            label,
+            color,
+          }).then((id) => {
+            if (id !== null) void mergeAdjacent(id);
+          });
+        }}
+      />
+
       <ActivityLogDialog
         open={activityOpen}
         onOpenChange={setActivityOpen}

@@ -1,5 +1,5 @@
+import { validateUserComment } from "@/lib/users/userComments";
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import {
@@ -62,7 +62,6 @@ export async function GET(
   });
 }
 
-const postSchema = z.object({ comment: z.string().min(1).max(2000) });
 
 // POST: Persistente interne RMK (UserComment) hinzufügen
 export async function POST(
@@ -83,16 +82,17 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const parsed = postSchema.safeParse(await req.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Kommentartext erforderlich" }, { status: 400 });
+  const body = await req.json().catch(() => ({}));
+  const checked = validateUserComment(body?.comment);
+  if (!checked.ok) {
+    return NextResponse.json({ error: checked.error }, { status: 400 });
   }
 
   const target = await prisma.user.findUnique({ where: { cid }, select: { cid: true } });
   if (!target) return NextResponse.json({ error: "Nutzer nicht gefunden" }, { status: 404 });
 
   const created = await prisma.userComment.create({
-    data: { userCID: cid, authorCID: Number(user.cid), comment: parsed.data.comment.trim() },
+    data: { userCID: cid, authorCID: Number(user.cid), comment: checked.comment },
     include: { author: { select: { cid: true, name: true } } },
   });
 

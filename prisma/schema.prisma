@@ -241,11 +241,14 @@ model EventRosterStation {
 // A block on a station timeline within the event.
 // type = "controller": a signed-up controller staffs the station (userCID set)
 // type = "custom":     a custom label block, e.g. "Combined (MGN)" or "Training" (label set)
+// type = "personal":   a labelled block in a controller's own row, e.g. "Mentor" –
+//                      userCID and label set, no station (the person is busy,
+//                      but not on a position)
 model EventRosterAssignment {
   id        Int      @id @default(autoincrement())
   rosterId  Int
-  stationId Int
-  type      String   @default("controller") // "controller" | "custom"
+  stationId Int? // null only for type "personal"
+  type      String   @default("controller") // "controller" | "custom" | "personal"
   userCID   Int? // null for custom blocks
   label     String? // custom block label, e.g. "Combined (MGN)"
   color     String? // optional color hint for custom blocks
@@ -255,7 +258,7 @@ model EventRosterAssignment {
   updatedAt DateTime @updatedAt
 
   roster  EventRoster        @relation(fields: [rosterId], references: [id], onDelete: Cascade)
-  station EventRosterStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  station EventRosterStation? @relation(fields: [stationId], references: [id], onDelete: Cascade)
 
   @@index([rosterId])
   @@index([stationId])
@@ -611,7 +614,9 @@ model UserComment {
   id        Int      @id @default(autoincrement())
   userCID   Int
   authorCID Int
-  comment   String   
+  // Bis zu 2000 Zeichen (lib/users/userComments) – ohne @db.Text wäre das
+  // in MySQL ein VARCHAR(191), und längere RMKs scheiterten beim Speichern.
+  comment   String @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

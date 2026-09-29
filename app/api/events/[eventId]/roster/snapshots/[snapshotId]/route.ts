@@ -8,6 +8,7 @@ import {
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import { logRosterActivity } from "@/lib/roster/rosterActivity";
+import { writeStationsToEvent } from "@/lib/roster/eventStations";
 
 async function loadSnapshot(eventId: number, snapshotId: number) {
   const roster = await prisma.eventRoster.findUnique({
@@ -44,7 +45,13 @@ export async function POST(
   const found = await loadSnapshot(eventId, snapshotId);
   if (!found) return NextResponse.json({ error: "Snapshot not found" }, { status: 404 });
 
-  await restoreSnapshot(found.rosterId, found.snapshot.data as unknown as RosterSnapshotData);
+  const snapshotData = found.snapshot.data as unknown as RosterSnapshotData;
+  await restoreSnapshot(found.rosterId, snapshotData);
+  // Ein Zwischenstand bringt seine Stationen mit – auch für Event und Buchungen
+  await writeStationsToEvent(
+    eventId,
+    [...snapshotData.stations].sort((a, b) => a.sortOrder - b.sortOrder).map((st) => st.callsign)
+  );
   await logRosterActivity({
     rosterId: found.rosterId,
     actorCID: Number(user.cid),

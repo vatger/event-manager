@@ -47,8 +47,9 @@ interface PublicRosterStation {
 
 interface PublicRosterAssignment {
   id: number;
-  stationId: number;
-  type: "controller" | "custom";
+  /** null bei persönlichen Blöcken ("Mentor"), die an keiner Station stehen */
+  stationId: number | null;
+  type: "controller" | "custom" | "personal";
   userCID: number | null;
   label: string | null;
   name: string;
@@ -62,6 +63,8 @@ interface PublicRosterData {
   endTime: string;
   stations: PublicRosterStation[];
   assignments: PublicRosterAssignment[];
+  /** Nichtverfügbare Zeiten je CID laut Anmeldung (nur eingeplante Personen) */
+  unavailable?: Record<number, { start: string; end: string }[]>;
 }
 
 interface PublicRosterProps {
@@ -91,6 +94,8 @@ interface TimelineRow {
   blocks: PublicRosterAssignment[];
   /** Airport der Zeile – trennt die Stationsansicht in Gruppen */
   airport: string | null;
+  /** Person der Zeile (nur in der Lotsen-Ansicht) */
+  cid?: number;
 }
 
 type ViewMode = "stations" | "controllers";
@@ -429,6 +434,18 @@ export default function PublicRoster({
   );
 
   /**
+   * Wo ein Block steht: die Station – bei persönlichen Blöcken wie „Mentor",
+   * die zu keiner Station gehören, ihre Bezeichnung.
+   */
+  const placeOf = useCallback(
+    (a: PublicRosterAssignment) =>
+      a.stationId === null
+        ? a.label ?? "Sonstiges"
+        : stationById.get(a.stationId)?.callsign ?? "?",
+    [stationById]
+  );
+
+  /**
    * Was steht für mich als Nächstes an?
    *
    * Während des Events ist das die einzige Frage, die zählt, und sie lässt
@@ -443,7 +460,7 @@ export default function PublicRoster({
       (a) => t >= new Date(a.startTime).getTime() && t < new Date(a.endTime).getTime()
     );
     if (current) {
-      const station = stationById.get(current.stationId)?.callsign ?? "?";
+      const station = placeOf(current);
       return {
         running: true,
         text: `${station} läuft – noch ${untilText(new Date(current.endTime).getTime() - t)}`,
@@ -452,7 +469,7 @@ export default function PublicRoster({
 
     const next = ownAssignments.find((a) => new Date(a.startTime).getTime() > t);
     if (next) {
-      const station = stationById.get(next.stationId)?.callsign ?? "?";
+      const station = placeOf(next);
       return {
         running: false,
         text: `${untilText(new Date(next.startTime).getTime() - t)} bis ${station} (${hm(
@@ -461,7 +478,7 @@ export default function PublicRoster({
       };
     }
     return { running: false, text: "Keine weitere Schicht" };
-  }, [ownAssignments, now, stationById]);
+  }, [ownAssignments, now, placeOf]);
 
   /**
    * Airports in der Reihenfolge ihres Auftretens.
@@ -552,7 +569,10 @@ export default function PublicRoster({
     if (!assignment) return null;
     return {
       assignment,
-      callsign: stationById.get(assignment.stationId)?.callsign ?? "",
+      callsign:
+        assignment.stationId === null
+          ? ""
+          : stationById.get(assignment.stationId)?.callsign ?? "",
       name: assignment.name,
       label: assignment.label,
       type: assignment.type,
@@ -591,16 +611,18 @@ export default function PublicRoster({
     }
     return [...byCid.entries()]
       .map(([cid, list]) => {
-        const minutes = list.reduce(
-          (sum, a) => sum + (toMin(a.endTime) - toMin(a.startTime)),
-          0
-        );
+        // Gezählt wird Lotsenzeit – ein „Mentor"-Block steht in der Zeile,
+        // ist aber keine Position.
+        const minutes = list
+          .filter((a) => a.type !== "personal")
+          .reduce((sum, a) => sum + (toMin(a.endTime) - toMin(a.startTime)), 0);
         const own = userCID !== null && cid === userCID;
         const duration = `${Math.floor(minutes / 60)}h${
           minutes % 60 ? ` ${minutes % 60}min` : ""
         }`;
         return {
           key: `cid-${cid}`,
+          cid,
           title: list[0].name,
           // Der Name bleibt stehen; die eigene Zeile ist schon farblich
           // hervorgehoben, das „Du" gehört in die knappe Unterzeile.
@@ -730,6 +752,38 @@ export default function PublicRoster({
       </Card>
     );
   }
+
+  /**
+   * Nichtverfügbare Zeiten als dezente rote Schraffur hinter den Blöcken.
+   *
+   * Bewusst leise: Sie ist Hintergrundwissen – wann kann jemand gar nicht, etwa
+   * beim Tauschen von Schichten –, keine Warnung. Liegt trotzdem eine Schicht
+   * darin, sieht man das, ohne dass die Schicht selbst unlesbar wird.
+   */
+  const renderUnavailable = (cid: number | undefined) =>
+    cid === undefined
+      ? null
+      : (roster.unavailable?.[cid] ?? []).map((r, i) => {
+          const start = Math.max(0, toMin(r.start));
+          const end = Math.min(totalMinutes, toMin(r.end));
+          if (end <= start) return null;
+          return (
+            <div
+              key={`u-${cid}-${i}`}
+              aria-hidden
+              title={`Laut Anmeldung nicht verfügbar: ${hm(new Date(r.start))}–${hm(
+                new Date(r.end)
+              )}z`}
+              className="absolute top-0 bottom-0"
+              style={{
+                left: start * pxPerMinute,
+                width: (end - start) * pxPerMinute,
+                backgroundImage:
+                  "repeating-linear-gradient(135deg, rgba(239,68,68,0.28) 0 1.5px, transparent 1.5px 7px)",
+              }}
+            />
+          );
+        });
 
   /** Zeitspanne einer Schicht, überall gleich geschrieben */
   const span = (a: PublicRosterAssignment) =>
@@ -903,10 +957,11 @@ export default function PublicRoster({
                       backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.14) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.07) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
                     }}
                   >
+                    {renderUnavailable(userCID ?? undefined)}
                     {ownAssignments.map((a) => {
                       const start = toMin(a.startTime);
                       const end = toMin(a.endTime);
-                      const callsign = stationById.get(a.stationId)?.callsign ?? "?";
+                      const callsign = placeOf(a);
                       const tone = toneFor(callsign);
                       return (
                         <button
@@ -1187,14 +1242,21 @@ export default function PublicRoster({
                           backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.18) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.08) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
                         }}
                       >
+                        {view === "controllers" && renderUnavailable(row.cid)}
                         {row.blocks.map((a) => {
                           const start = toMin(a.startTime);
                           const end = toMin(a.endTime);
                           const own = userCID !== null && a.userCID === userCID;
-                          const callsign = stationById.get(a.stationId)?.callsign ?? "";
+                          const callsign =
+                            a.stationId === null
+                              ? ""
+                              : stationById.get(a.stationId)?.callsign ?? "";
                           const tone = toneFor(callsign);
+                          // Custom- und persönliche Blöcke tragen eine Bezeichnung
+                          // statt einer Station oder Person
+                          const labelled = a.type === "custom" || a.type === "personal";
                           const label =
-                            a.type === "custom"
+                            labelled
                               ? a.label ?? "Sonstiges"
                               : view === "stations"
                               ? own
@@ -1210,7 +1272,7 @@ export default function PublicRoster({
                               }
                               className={cn(
                                 "absolute top-1 bottom-1 rounded-md px-1.5 flex items-center overflow-hidden text-left text-[11px] font-medium",
-                                a.type === "custom" &&
+                                labelled &&
                                   "bg-station-none/70 border border-dashed border-white/40 text-white",
                                 own &&
                                   "ring-2 ring-offset-1 ring-accent-500 ring-offset-background z-10",
@@ -1219,7 +1281,7 @@ export default function PublicRoster({
                               style={{
                                 left: Math.max(0, start) * pxPerMinute,
                                 width: Math.max((end - start) * pxPerMinute, 8),
-                                ...(a.type === "custom"
+                                ...(labelled
                                   ? {}
                                   : { backgroundColor: tone.background, color: tone.text }),
                               }}
@@ -1281,7 +1343,7 @@ export default function PublicRoster({
               <span
                 className="rounded px-1.5 py-0.5 text-xs font-semibold"
                 style={
-                  selectedBlock.type === "custom"
+                  selectedBlock.type !== "controller"
                     ? undefined
                     : {
                         backgroundColor: toneFor(selectedBlock.callsign).background,

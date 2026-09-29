@@ -361,11 +361,14 @@ export async function syncEventStationBookings(eventId: number): Promise<Booking
     });
   }
 
-  // Die im Event gepflegten Stationen sind führend; ist dort nichts
-  // hinterlegt, greifen die im Roster bestätigten Stationen.
-  const stations = parseStations(event.staffedStations);
-  const fallback = (event.roster?.stations ?? []).map((s) => s.callsign.trim().toUpperCase());
-  const callsigns = Array.from(new Set(stations.length > 0 ? stations : fallback));
+  // Event und Besetzungsplan führen dieselbe Stationsliste (lib/roster/
+  // eventStations). Hat der Plan Stationen, zählen sie – das bereinigt auch
+  // Events aus der Zeit, als beide Listen getrennt gepflegt wurden und
+  // auseinanderliefen. Ohne Plan (oder nach einem Zurücksetzen samt
+  // Stationen) gilt die Liste des Events.
+  const fromRoster = (event.roster?.stations ?? []).map((s) => s.callsign.trim().toUpperCase());
+  const fromEvent = parseStations(event.staffedStations);
+  const callsigns = Array.from(new Set(fromRoster.length > 0 ? fromRoster : fromEvent));
 
   if (callsigns.length === 0) {
     return emptyResult(reference, { skipped: "Für das Event sind keine zu besetzenden Stationen eingetragen." });

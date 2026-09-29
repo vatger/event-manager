@@ -40,6 +40,8 @@ import { controllerInfoUrl } from "@/config/externalLinks";
 import { AirportChips } from "./AirportChips";
 import { buildEndorsementView } from "../_lib/endorsementView";
 import { FlagPicker } from "./FlagPicker";
+import { CharLimitHint } from "@/components/CharLimitHint";
+import { USER_COMMENT_MAX } from "@/lib/users/userComments";
 
 interface AtcStation {
   station: string;
@@ -531,13 +533,17 @@ export function ControllerSidePanel({
             )}
             {canEdit && (
               <div className="flex gap-1.5">
-                <Textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="Interne RMK hinzufügen…"
-                  className="min-h-9 text-sm py-1.5"
-                  rows={1}
-                />
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <Textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Interne RMK hinzufügen…"
+                    className="min-h-9 text-sm py-1.5"
+                    rows={1}
+                    maxLength={USER_COMMENT_MAX}
+                  />
+                  <CharLimitHint length={newComment.length} max={USER_COMMENT_MAX} />
+                </div>
                 <Button
                   size="icon"
                   className="h-9 w-9 shrink-0"

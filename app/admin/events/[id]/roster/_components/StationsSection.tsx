@@ -137,6 +137,12 @@ export function StationsSection({
 
   return (
     <div className="space-y-4">
+          {/* Es gibt nur eine Stationsliste – wer hier ändert, ändert auch die
+              Eventbearbeitung und die Blockbuchungen. Das soll man vorher wissen. */}
+          <p className="text-xs text-muted-foreground">
+            Dieselbe Liste wie in der Eventbearbeitung: Änderungen gelten auch dort und für die
+            Blockbuchungen auf der Homepage.
+          </p>
           <div>
             <Label className="text-sm font-medium mb-2 block">
               Ausgewählt ({stations.length})

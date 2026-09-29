@@ -11,23 +11,34 @@ import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import {
   blockLabel,
   logRosterActivity,
+  personLabel,
   timeRange,
   userName,
 } from "@/lib/roster/rosterActivity";
 
 const createSchema = z
   .object({
-    stationId: z.number().int(),
-    type: z.enum(["controller", "custom"]).default("controller"),
+    // Fehlt nur bei persönlichen Blöcken, die in der Zeile einer Person stehen
+    stationId: z.number().int().nullable().optional(),
+    type: z.enum(["controller", "custom", "personal"]).default("controller"),
     userCID: z.number().int().optional(),
     label: z.string().max(60).optional(),
     color: z.string().max(30).optional(),
     startTime: z.string().refine((v) => !isNaN(Date.parse(v)), { message: "Invalid startTime" }),
     endTime: z.string().refine((v) => !isNaN(Date.parse(v)), { message: "Invalid endTime" }),
   })
-  .refine((d) => (d.type === "custom" ? !!d.label : !!d.userCID), {
-    message: "Controller-Block braucht userCID, Custom-Block braucht label",
-  });
+  .refine(
+    (d) =>
+      d.type === "custom"
+        ? !!d.label && d.stationId != null
+        : d.type === "personal"
+        ? !!d.label && !!d.userCID && d.stationId == null
+        : !!d.userCID && d.stationId != null,
+    {
+      message:
+        "Controller-Block braucht Station und userCID, Custom-Block Station und label, persönlicher Block userCID und label ohne Station",
+    }
+  );
 
 // POST: Neue Zuweisung anlegen
 export async function POST(
@@ -60,12 +71,13 @@ export async function POST(
   }
 
   const isCustom = parsed.data.type === "custom";
+  const isPersonal = parsed.data.type === "personal";
   const input = {
-    stationId: parsed.data.stationId,
+    stationId: isPersonal ? null : parsed.data.stationId ?? null,
     type: parsed.data.type,
     userCID: isCustom ? null : parsed.data.userCID ?? null,
-    label: isCustom ? parsed.data.label?.trim() ?? null : null,
-    color: isCustom ? parsed.data.color ?? null : null,
+    label: isCustom || isPersonal ? parsed.data.label?.trim() ?? null : null,
+    color: isCustom || isPersonal ? parsed.data.color ?? null : null,
     startTime: new Date(parsed.data.startTime),
     endTime: new Date(parsed.data.endTime),
   };
@@ -83,16 +95,19 @@ export async function POST(
   });
 
   const station = roster.stations.find((s) => s.id === input.stationId);
+  const who = await userName(input.userCID);
   await logRosterActivity({
     rosterId: roster.id,
     actorCID: Number(user.cid),
     action: "assignment_created",
-    summary: `${blockLabel(
-      input.type,
-      await userName(input.userCID),
-      input.userCID,
-      input.label
-    )} auf ${station?.callsign ?? "?"} ${timeRange(input.startTime, input.endTime)} eingeplant`,
+    summary: isPersonal
+      ? `„${input.label}" für ${personLabel(who, input.userCID)} ${timeRange(
+          input.startTime,
+          input.endTime
+        )} eingetragen`
+      : `${blockLabel(input.type, who, input.userCID, input.label)} auf ${
+          station?.callsign ?? "?"
+        } ${timeRange(input.startTime, input.endTime)} eingeplant`,
     stationCallsign: station?.callsign ?? null,
     targetCID: input.userCID,
   });

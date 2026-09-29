@@ -47,8 +47,10 @@ export interface PlanningAlert {
 
 /** Zuweisung, wie sie die Roster-API liefert */
 export interface AlertAssignmentInput {
-  stationId: number;
+  /** null bei persönlichen Blöcken wie „Mentor" */
+  stationId: number | null;
   userCID: number | null;
+  label?: string | null;
   startTime: string;
   endTime: string;
 }
@@ -116,7 +118,10 @@ export function shiftsByController(
     const entry = entryByCid.get(a.userCID);
     const blocked = entry ? unavailableRanges(entry, eventStart, totalMinutes) : [];
     const shift: PlannedShift = {
-      callsign: callsignById.get(a.stationId) ?? "?",
+      callsign:
+        a.stationId === null
+          ? `„${a.label ?? "Block"}"`
+          : callsignById.get(a.stationId) ?? "?",
       start,
       end,
       conflict: blocked.some((r) => rangesOverlap(start, end, r.start, r.end)),

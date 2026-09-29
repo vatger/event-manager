@@ -315,7 +315,8 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
         let message = `HTTP ${res.status}`;
         try {
           const data = await res.json();
-          message = data.message || message;
+          // Manche Routen melden den Grund als message, andere als error
+          message = data.message || data.error || message;
         } catch {
           const text = await res.text().catch(() => "");
           if (text) message = text;
@@ -664,7 +665,9 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
               <CardHeader>
                 <CardTitle>Zu besetzende Stationen</CardTitle>
                 <CardDescription>
-                  Welche Stationen sollen während des Events besetzt werden?
+                  Welche Stationen sollen während des Events besetzt werden? Dieselbe Liste
+                  nutzt der Besetzungsplan – Änderungen hier gelten auch dort und für die
+                  Blockbuchungen auf der Homepage, und umgekehrt.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

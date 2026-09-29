@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { hmRangeToMinutes } from "@/lib/roster/rosterTime";
+import type { TimeRange } from "@/types/timerange";
 import {
   getRosterForEvent,
   serializeRoster,
@@ -23,7 +25,8 @@ export interface PublicRosterPayload {
   stations: { id: number; callsign: string; sortOrder: number }[];
   assignments: {
     id: number;
-    stationId: number;
+    /** null bei persönlichen Blöcken, die in der Zeile einer Person stehen */
+    stationId: number | null;
     type: string;
     userCID: number | null;
     label: string | null;
@@ -31,6 +34,14 @@ export interface PublicRosterPayload {
     startTime: string;
     endTime: string;
   }[];
+  /**
+   * Nichtverfügbare Zeiten der eingeplanten Personen, laut Anmeldung.
+   *
+   * Nur für Leute, die im Plan stehen, und nur die Zeitfenster – nicht die
+   * Anmeldung selbst. Wer Schichten tauschen will, sieht so auf einen Blick,
+   * wann das Gegenüber gar nicht kann.
+   */
+  unavailable: Record<number, { start: string; end: string }[]>;
 }
 
 export interface PublicRosterResult {
@@ -111,6 +122,27 @@ export async function buildPublicRoster(
   });
   const nameByCid = new Map(users.map((u) => [u.cid, u.name]));
 
+  // Nichtverfügbarkeit der eingeplanten Personen. Die Anmeldung hält sie als
+  // Uhrzeiten ("HH:mm"); für die Anzeige braucht es echte Zeitpunkte.
+  const totalMinutes = Math.round((event.endTime.getTime() - event.startTime.getTime()) / 60000);
+  const signups = cids.length
+    ? await prisma.eventSignup.findMany({
+        where: { eventId, userCID: { in: cids }, deletedAt: null },
+        select: { userCID: true, availability: true },
+      })
+    : [];
+  const unavailable: Record<number, { start: string; end: string }[]> = {};
+  for (const signup of signups) {
+    const ranges = ((signup.availability as { unavailable?: TimeRange[] } | null)?.unavailable ?? [])
+      .map((r) => hmRangeToMinutes(r, event.startTime, totalMinutes))
+      .filter((r): r is { start: number; end: number } => r !== null)
+      .map((r) => ({
+        start: new Date(event.startTime.getTime() + r.start * 60000).toISOString(),
+        end: new Date(event.startTime.getTime() + r.end * 60000).toISOString(),
+      }));
+    if (ranges.length > 0) unavailable[signup.userCID] = ranges;
+  }
+
   // Snapshots referenzieren Stationen über das Callsign; für die Anzeige
   // brauchen wir wieder stabile IDs.
   const stationIdByCallsign = new Map(source.stations.map((s, i) => [s.callsign, i + 1] as const));
@@ -130,7 +162,8 @@ export async function buildPublicRoster(
         })),
       assignments: source.assignments.map((a, i) => ({
         id: i + 1,
-        stationId: stationIdByCallsign.get(a.stationCallsign) ?? 0,
+        // Persönliche Blöcke ("Mentor") stehen an keiner Station
+        stationId: a.stationCallsign ? stationIdByCallsign.get(a.stationCallsign) ?? 0 : null,
         type: a.type,
         userCID: a.userCID,
         label: a.label,
@@ -141,6 +174,7 @@ export async function buildPublicRoster(
         startTime: a.startTime,
         endTime: a.endTime,
       })),
+      unavailable,
     },
   };
 }

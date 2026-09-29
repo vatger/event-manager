@@ -30,8 +30,9 @@ import {
 interface PlanningRoster {
   stations: { id: number; callsign: string }[];
   assignments: {
-    stationId: number;
+    stationId: number | null;
     userCID: number | null;
+    label?: string | null;
     startTime: string;
     endTime: string;
   }[];

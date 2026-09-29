@@ -63,9 +63,14 @@ export async function getStationRequirement(callsign: string): Promise<StationRe
 }
 
 export interface AssignmentInput {
-  stationId: number;
-  /** "controller" = Controller-Zuweisung (userCID gesetzt), "custom" = Label-Block */
-  type?: "controller" | "custom";
+  /** null nur bei "personal" – der Block steht in der Zeile einer Person */
+  stationId: number | null;
+  /**
+   * "controller" = Controller auf einer Station (userCID gesetzt),
+   * "custom" = Label-Block auf einer Station,
+   * "personal" = Label-Block in der Zeile einer Person, z. B. "Mentor"
+   */
+  type?: "controller" | "custom" | "personal";
   userCID?: number | null;
   label?: string | null;
   color?: string | null;
@@ -107,24 +112,36 @@ export async function validateAssignment(
     return { code: "outside_event", message: "Block liegt außerhalb des Event-Zeitraums" };
   }
 
-  const station = roster.stations.find((s) => s.id === stationId);
-  if (!station) {
-    return { code: "unknown_station", message: "Station gehört nicht zu diesem Roster" };
-  }
+  if (type === "personal") {
+    // Ein persönlicher Block hängt an keiner Station, braucht aber eine
+    // Person und eine Bezeichnung. Die Person ist in der Zeit beschäftigt –
+    // deshalb gilt unten dieselbe Doppelbelegungsprüfung wie für Schichten.
+    if (stationId !== null) {
+      return { code: "invalid_station", message: "Persönliche Blöcke gehören zu keiner Station" };
+    }
+    if (!input.label || input.label.trim() === "") {
+      return { code: "missing_label", message: "Für den Block wird eine Bezeichnung benötigt" };
+    }
+  } else {
+    const station = roster.stations.find((s) => s.id === stationId);
+    if (!station) {
+      return { code: "unknown_station", message: "Station gehört nicht zu diesem Roster" };
+    }
 
-  // Station kann nur einen Block gleichzeitig haben (Controller oder Custom)
-  const stationOverlap = roster.assignments.find(
-    (a) =>
-      a.id !== ignoreAssignmentId &&
-      a.stationId === stationId &&
-      a.startTime < endTime &&
-      startTime < a.endTime
-  );
-  if (stationOverlap) {
-    return {
-      code: "station_occupied",
-      message: `${station.callsign} ist in diesem Zeitraum bereits belegt`,
-    };
+    // Station kann nur einen Block gleichzeitig haben (Controller oder Custom)
+    const stationOverlap = roster.assignments.find(
+      (a) =>
+        a.id !== ignoreAssignmentId &&
+        a.stationId === stationId &&
+        a.startTime < endTime &&
+        startTime < a.endTime
+    );
+    if (stationOverlap) {
+      return {
+        code: "station_occupied",
+        message: `${station.callsign} ist in diesem Zeitraum bereits belegt`,
+      };
+    }
   }
 
   // Custom-Block: nur Label erforderlich, keine Controller-Prüfungen
@@ -161,7 +178,9 @@ export async function validateAssignment(
     const otherStation = roster.stations.find((s) => s.id === overlap.stationId);
     return {
       code: "overlap",
-      message: `${entry.user.name} ist in diesem Zeitraum bereits eingeplant (${otherStation?.callsign ?? "andere Station"})`,
+      message: `${entry.user.name} ist in diesem Zeitraum bereits eingeplant (${
+        otherStation?.callsign ?? overlap.label ?? "andere Station"
+      })`,
     };
   }
 
@@ -191,7 +210,8 @@ export interface RosterSnapshotData {
   slotMinutes: number;
   stations: { callsign: string; sortOrder: number }[];
   assignments: {
-    stationCallsign: string;
+    /** null bei persönlichen Blöcken (type "personal") */
+    stationCallsign: string | null;
     type: string;
     userCID: number | null;
     label: string | null;
@@ -208,7 +228,8 @@ export function serializeRoster(roster: RosterWithRelations): RosterSnapshotData
     slotMinutes: roster.slotMinutes,
     stations: roster.stations.map((s) => ({ callsign: s.callsign, sortOrder: s.sortOrder })),
     assignments: roster.assignments.map((a) => ({
-      stationCallsign: stationById.get(a.stationId)?.callsign ?? "",
+      stationCallsign:
+        a.stationId === null ? null : stationById.get(a.stationId)?.callsign ?? "",
       type: a.type,
       userCID: a.userCID,
       label: a.label,
@@ -233,8 +254,8 @@ export function hasUnpublishedChanges(roster: RosterWithRelations): boolean {
       assignments: [...d.assignments]
         .map((a) => ({ ...a }))
         .sort((a, b) =>
-          (a.stationCallsign + a.startTime + String(a.userCID ?? a.label)).localeCompare(
-            b.stationCallsign + b.startTime + String(b.userCID ?? b.label)
+          ((a.stationCallsign ?? "") + a.startTime + String(a.userCID ?? a.label)).localeCompare(
+            (b.stationCallsign ?? "") + b.startTime + String(b.userCID ?? b.label)
           )
         ),
     });
@@ -273,10 +294,12 @@ export async function restoreSnapshot(
       callsignToId.set(s.callsign, created.id);
     }
 
-    // Zuweisungen neu anlegen (nur wenn die Station noch existiert)
+    // Zuweisungen neu anlegen (nur wenn die Station noch existiert).
+    // Persönliche Blöcke haben keine Station und kommen immer zurück.
     for (const a of data.assignments) {
-      const stationId = callsignToId.get(a.stationCallsign);
-      if (!stationId) continue;
+      const personal = a.type === "personal";
+      const stationId = personal ? null : callsignToId.get(a.stationCallsign ?? "");
+      if (!personal && !stationId) continue;
       await tx.eventRosterAssignment.create({
         data: {
           rosterId,

@@ -12,6 +12,7 @@ import {
 } from "@/lib/roster/eventRosterService";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import { logRosterActivities } from "@/lib/roster/rosterActivity";
+import { normalizeStations, writeStationsToEvent } from "@/lib/roster/eventStations";
 
 /** Berechtigungs-Flags für den Client bündeln */
 async function computeCapabilities(cid: number, eventId: number) {
@@ -39,18 +40,6 @@ const updateSchema = z.object({
   stations: z.array(z.string().min(3).max(20)).min(1).optional(),
 });
 
-function normalizeStations(stations: string[]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const s of stations) {
-    const cs = s.trim().toUpperCase();
-    if (cs && !seen.has(cs)) {
-      seen.add(cs);
-      result.push(cs);
-    }
-  }
-  return result;
-}
 
 async function loadEvent(eventId: number) {
   return prisma.event.findUnique({ where: { id: eventId } });
@@ -129,6 +118,9 @@ export async function POST(
       },
     },
   });
+  // Was beim Anlegen bestätigt wurde, gilt ab jetzt auch für das Event und
+  // seine Buchungen – es gibt nur eine Stationsliste.
+  await writeStationsToEvent(eventId, stations);
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   const roster = await getRosterForEvent(eventId);
@@ -241,6 +233,11 @@ export async function PATCH(
     }
   }
   await logRosterActivities(entries);
+
+  // Stationsänderungen im Editor gelten auch für das Event und seine Buchungen
+  if (parsed.data.stations) {
+    await writeStationsToEvent(eventId, normalizeStations(parsed.data.stations));
+  }
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   const updated = await getRosterForEvent(eventId);

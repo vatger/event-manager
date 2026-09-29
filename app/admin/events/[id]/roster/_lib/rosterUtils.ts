@@ -411,6 +411,9 @@ export function computeWarnings(
     const controller = controllerByCid.get(cid);
     const name = controller?.name ?? `CID ${cid}`;
     const sorted = [...list].sort((a, b) => a.start - b.start);
+    // Pausen, Stationswechsel und Freigaben betreffen nur Schichten auf einer
+    // Station – ein persönlicher Block wie „Mentor" ist keine Lotsenzeit.
+    const shifts = sorted.filter((a) => a.stationId !== null);
 
     // 1) Doppelbelegung (sollte serverseitig verhindert sein, zur Sicherheit anzeigen)
     for (let i = 0; i < sorted.length - 1; i++) {
@@ -425,13 +428,13 @@ export function computeWarnings(
     }
 
     // 2) Stationswechsel ohne Pause
-    for (let i = 0; i < sorted.length - 1; i++) {
-      const a = sorted[i];
-      const b = sorted[i + 1];
+    for (let i = 0; i < shifts.length - 1; i++) {
+      const a = shifts[i];
+      const b = shifts[i + 1];
       const gap = b.start - a.end;
       if (gap <= 0 && a.stationId !== b.stationId) {
-        const from = stationById.get(a.stationId)?.callsign ?? "?";
-        const to = stationById.get(b.stationId)?.callsign ?? "?";
+        const from = stationById.get(a.stationId ?? -1)?.callsign ?? "?";
+        const to = stationById.get(b.stationId ?? -1)?.callsign ?? "?";
         warnings.push({
           type: "no_break_switch",
           userCID: cid,
@@ -461,7 +464,7 @@ export function computeWarnings(
       }
       stretchIds.length = 0;
     };
-    for (const a of sorted) {
+    for (const a of shifts) {
       if (stretchEnd !== null && a.start - stretchEnd < MIN_BREAK_MINUTES) {
         stretchEnd = Math.max(stretchEnd, a.end);
         stretchIds.push(a.id);
@@ -501,8 +504,8 @@ export function computeWarnings(
     // 6) Station passt nicht zur Anmeldung – erlaubt, aber sichtbar markiert.
     // Der Grund steht in der Meldung, weil er über die Lösung entscheidet.
     if (controller && stationMetaFor) {
-      for (const a of sorted) {
-        const station = stationById.get(a.stationId);
+      for (const a of shifts) {
+        const station = stationById.get(a.stationId ?? -1);
         if (!station) continue;
         const meta = stationMetaFor(station.callsign);
         const check = checkEligibility(controller, meta, eventAirports);
@@ -659,7 +662,8 @@ export function stationCoverage(
 export function assignedMinutesByController(assignments: Assignment[]): Map<number, number> {
   const map = new Map<number, number>();
   for (const a of assignments) {
-    if (a.userCID == null) continue;
+    // Gezählt wird Lotsenzeit – ein „Mentor"-Block ist keine
+    if (a.userCID == null || a.stationId === null) continue;
     map.set(a.userCID, (map.get(a.userCID) ?? 0) + (a.end - a.start));
   }
   return map;
@@ -680,15 +684,19 @@ export function rosterToCsv(
 ): string {
   const stationById = new Map(stations.map((s) => [s.id, s]));
   const controllerByCid = new Map(controllers.map((c) => [c.cid, c]));
+  // Persönliche Blöcke ("Mentor") stehen hinter allen Stationen; in der
+  // Stationsspalte steht dort ihre Bezeichnung.
+  const order = (a: Assignment) =>
+    a.stationId === null
+      ? Number.MAX_SAFE_INTEGER
+      : stationById.get(a.stationId)?.sortOrder ?? 0;
   const rows = [...assignments]
-    .sort((a, b) => {
-      const sa = stationById.get(a.stationId)?.sortOrder ?? 0;
-      const sb = stationById.get(b.stationId)?.sortOrder ?? 0;
-      if (sa !== sb) return sa - sb;
-      return a.start - b.start;
-    })
+    .sort((a, b) => order(a) - order(b) || a.start - b.start)
     .map((a) => {
-      const station = stationById.get(a.stationId)?.callsign ?? "?";
+      const station =
+        a.stationId === null
+          ? a.label ?? "Sonstiges"
+          : stationById.get(a.stationId)?.callsign ?? "?";
       return [
         station,
         `${minuteToHM(eventStart, a.start)}z`,

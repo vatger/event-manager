@@ -16,9 +16,10 @@ import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { userAgent } from 'next/server';
-import { isVatgerEventleitung } from '@/lib/acl/permissions';
 import { useUser } from '@/hooks/useUser';
+import { ControllerLookup } from './_components/ControllerLookup';
+import { CharLimitHint } from '@/components/CharLimitHint';
+import { USER_COMMENT_MAX } from '@/lib/users/userComments';
 
 interface UserQualifications {
   cid: number;
@@ -59,7 +60,6 @@ export default function UserInfoPage() {
   const { data: session } = useSession();
   const { isFIRLead, isVATGERLead } = useUser();
   
-  const [cid, setCid] = useState(urlCid || '');
   const [data, setData] = useState<UserQualifications | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +82,6 @@ export default function UserInfoPage() {
   // Lade Daten wenn CID in URL-Param vorhanden
   useEffect(() => {
     if (urlCid) {
-      setCid(urlCid);
       loadUserData(urlCid);
     }
   }, [urlCid]);
@@ -186,10 +185,8 @@ export default function UserInfoPage() {
     }
   };
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cid.trim()) return;
-    router.push(`/admin/userinfo?cid=${cid.trim()}`);
+  const openController = (cid: number) => {
+    router.push(`/admin/userinfo?cid=${cid}`);
   };
 
   const toggleStation = (station: string) => {
@@ -332,21 +329,10 @@ export default function UserInfoPage() {
         )}
       </div>
 
-      {/* CID Suchfeld */}
+      {/* Suche nach Name oder CID */}
       <Card>
         <CardContent className="p-4">
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <Input
-              placeholder="CID eingeben (z.B. 1234567)"
-              value={cid}
-              onChange={(e) => setCid(e.target.value)}
-              type="number"
-            />
-            <Button type="submit" disabled={loading || !cid.trim()}>
-              <Search className="w-4 h-4 mr-2" />
-              Anzeigen
-            </Button>
-          </form>
+          <ControllerLookup onSelect={openController} initialValue={urlCid ?? ''} />
         </CardContent>
       </Card>
 
@@ -361,7 +347,7 @@ export default function UserInfoPage() {
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Fehler beim Laden</h3>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <Button onClick={() => loadUserData(cid)} variant="outline">
+          <Button onClick={() => urlCid && loadUserData(urlCid)} variant="outline">
             Erneut versuchen
           </Button>
         </div>
@@ -679,7 +665,9 @@ export default function UserInfoPage() {
                           onChange={(e) => setEditCommentText(e.target.value)}
                           className="min-h-[80px] text-sm"
                           disabled={commentSaving}
+                          maxLength={USER_COMMENT_MAX}
                         />
+                        <CharLimitHint length={editCommentText.length} max={USER_COMMENT_MAX} />
                         <div className="flex gap-2 justify-end">
                           <Button
                             size="sm"
@@ -742,8 +730,10 @@ export default function UserInfoPage() {
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[80px]"
                 disabled={commentSaving}
+                maxLength={USER_COMMENT_MAX}
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-end gap-2">
+                <CharLimitHint length={newComment.length} max={USER_COMMENT_MAX} />
                 <Button
                   onClick={handleAddComment}
                   disabled={commentSaving || !newComment.trim()}
