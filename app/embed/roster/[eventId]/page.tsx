@@ -2,9 +2,8 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, LogIn, RefreshCw } from "lucide-react";
+import { ExternalLink, LogIn, RefreshCw } from "lucide-react";
 import PublicRoster from "@/app/events/[id]/_components/PublicRoster";
 
 interface EmbedEvent {
@@ -67,19 +66,6 @@ export default function EmbeddedRosterPage({
       cancelled = true;
     };
   }, [eventId, authenticated]);
-
-  /**
-   * Läuft die Seite für sich allein oder in einem fremden Rahmen?
-   *
-   * Von der Eventseite aus wird sie als Vollbild des Plans aufgerufen – dann
-   * gehört ein Weg zurück dazu. In ATCISS steckt dieselbe Seite in einem
-   * iframe, und dort wäre ein Verweis auf den Eventmanager fehl am Platz: Der
-   * Rahmen ist knapp, und die Navigation gehört der einbettenden Anwendung.
-   */
-  const [standalone, setStandalone] = useState(false);
-  useEffect(() => {
-    setStandalone(window.self === window.top);
-  }, []);
 
   // Nach der Anmeldung im anderen Fenster: sobald dieses hier wieder den Fokus
   // bekommt, noch einmal nachsehen – das erspart den Klick auf „Erneut prüfen“.
