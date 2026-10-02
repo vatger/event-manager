@@ -6,7 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarClock, Crosshair, FileText, Radio, Timer, User, Users, X } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarClock,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  FileText,
+  Maximize2,
+  Radio,
+  Timer,
+  User,
+  Users,
+  X,
+} from "lucide-react";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { airportTintColors, stationBlockColors } from "@/lib/roster/stationColors";
 import { cn } from "@/lib/utils";
@@ -28,8 +42,6 @@ const GROUP_H = 26;
 const MIN_PX_PER_HOUR = 64;
 /** Wie oft die Jetzt-Linie nachgeführt wird */
 const TICK_MS = 30_000;
-/** Ab dieser Eventlänge nutzt der Plan die volle Seitenbreite */
-const WIDE_FROM_HOURS = 8;
 /** Unterhalb dieser Breite fallen Beschriftung und Stundenbreite kleiner aus */
 const NARROW_PX = 768;
 /** Merkt sich eingeklappte Airport-Gruppen je Event, wie im Roster-Editor */
@@ -253,7 +265,9 @@ export default function PublicRoster({
     setExtraLabelW(0);
   }, [view, narrow, roster]);
 
-  const labelW = Math.min(MAX_LABEL_W, estimatedLabelW + extraLabelW);
+  const labelW = sidebarCollapsed
+    ? SIDEBAR_COLLAPSED_W
+    : Math.min(MAX_LABEL_W, estimatedLabelW + extraLabelW);
 
   /**
    * Tatsächlich verfügbare Breite der beiden Zeitstrahlen (Besetzungsplan und
@@ -641,6 +655,17 @@ export default function PublicRoster({
       });
   }, [roster, view, userCID, toMin, multiAirport, rosterAirports, stationLabel]);
 
+  /** Anzahl Schichten je Airport – als Anhaltspunkt, wenn dessen Gruppe eingeklappt ist */
+  const blocksByAirport = useMemo(() => {
+    const map = new Map<string, number>();
+    if (view === "stations") {
+      for (const row of rows) {
+        if (row.airport) map.set(row.airport, (map.get(row.airport) ?? 0) + row.blocks.length);
+      }
+    }
+    return map;
+  }, [rows, view]);
+
   /**
    * Nachmessen statt rechnen.
    *
@@ -651,7 +676,7 @@ export default function PublicRoster({
    * kann also nicht hin- und herspringen.
    */
   useEffect(() => {
-    if (narrow) return;
+    if (narrow || sidebarCollapsed) return;
     const host = scrollRef.current;
     if (!host) return;
     let missing = 0;
@@ -663,7 +688,7 @@ export default function PublicRoster({
     }
     // Läuft nach jeder Verbreiterung erneut, bis nichts mehr fehlt – die
     // Obergrenze macht daraus eine endliche Folge.
-  }, [narrow, estimatedLabelW, labelW, rows]);
+  }, [narrow, sidebarCollapsed, estimatedLabelW, labelW, rows]);
 
 
   const hourMarks = useMemo(() => {
@@ -845,44 +870,20 @@ export default function PublicRoster({
 
   // In der Einbettung tragen Karte und Überschrift nichts bei – das iframe ist
   // knapp bemessen, und die einbettende Seite sagt bereits, worum es geht.
-  // Ein Tagesevent über zwölf Stunden bekommt in einer Spalte von 1280 Pixeln
-  // keine lesbaren Blöcke mehr. Ab einer gewissen Länge bricht die Karte
-  // deshalb aus der Seitenbreite aus – erst auf großen Bildschirmen, weil
-  // darunter ohnehin die ganze Breite genutzt wird.
-  const wide = totalHours >= WIDE_FROM_HOURS;
-
-  const Shell = embedded
-    ? ({ children }: { children: React.ReactNode }) => (
-        <div className="space-y-3 p-2">{children}</div>
-      )
-    : ({ children }: { children: React.ReactNode }) => (
-        <Card
-          id="besetzungsplan"
-          className={cn(
-            "scroll-mt-20",
-            wide && "lg:mx-[calc(50%-50vw+0.5rem)] lg:w-[calc(100vw-1rem)]"
-          )}
-        >
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="flex items-center gap-2">
-                <CalendarClock className="w-5 h-5" />
-                Besetzungsplan
-              </span>
-              <span className="flex items-center gap-2">
-                {!published && <Badge variant="secondary">Vorschau (unveröffentlicht)</Badge>}
-                <Badge variant="outline" className="font-normal">
-                  Alle Zeiten UTC
-                </Badge>
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">{children}</CardContent>
-        </Card>
-      );
-
-  return (
-    <Shell>
+  //
+  // Die Karte bleibt in der Spaltenbreite der Eventseite: Ein Ausbruch auf die
+  // volle Fensterbreite ließ den Plan neben den übrigen Karten wie ein
+  // Fremdkörper wirken. Lange Events werden stattdessen im Vollbild gelesen
+  // (Verweis auf die Einbettungsansicht) oder seitlich gescrollt.
+  //
+  // Bewusst ein Fragment und keine hier definierte Wrapper-Komponente: Eine
+  // im Render angelegte Komponente ist bei jedem Durchlauf ein neuer Typ, und
+  // React wirft dann den gesamten Teilbaum weg und baut ihn neu auf. Der
+  // ResizeObserver hing danach an einem abgehängten Knoten, meldete Breite 0,
+  // und der Zeitstrahl blieb für immer auf der Mindestbreite je Stunde
+  // stehen, statt sich auf die Bildschirmbreite zu strecken.
+  const content = (
+    <>
         {briefingBlock}
         
         {/* Eigene Schichten */}
@@ -926,12 +927,18 @@ export default function PublicRoster({
                     im Plan darunter, samt Beschriftungsspalte als Versatz. */}
                 <div className="flex border-b border-accent-500/20" style={{ height: 20 }}>
                   <div
-                    className="sticky left-0 z-30 shrink-0 border-r border-accent-500/20 bg-background/80 px-2 text-[10px] font-semibold text-muted-foreground flex items-center"
+                    className={cn(
+                      "sticky left-0 z-30 shrink-0 border-r border-accent-500/20 bg-background/80 text-[10px] font-semibold text-muted-foreground flex items-center",
+                      sidebarCollapsed ? "justify-center px-0" : "px-2"
+                    )}
                     style={{ width: labelW }}
                   >
-                    Du
+                    {!sidebarCollapsed && "Du"}
                   </div>
-                  <div className="relative shrink-0 overflow-hidden" style={{ width: timelineWidth }}>
+                  <div
+                    className="relative flex-1 overflow-hidden"
+                    style={{ minWidth: timelineWidth }}
+                  >
                     {hourMarks.map((mark) => (
                       <div
                         key={mark.minute}
@@ -950,9 +957,9 @@ export default function PublicRoster({
                     style={{ width: labelW, height: ROW_H }}
                   />
                   <div
-                    className="relative shrink-0"
+                    className="relative flex-1"
                     style={{
-                      width: timelineWidth,
+                      minWidth: timelineWidth,
                       height: ROW_H,
                       backgroundImage: `repeating-linear-gradient(to right, rgba(120,120,120,0.14) 0 1px, transparent 1px ${pxPerHour}px), repeating-linear-gradient(to right, rgba(120,120,120,0.07) 0 1px, transparent 1px ${pxPerHour / 4}px)`,
                     }}
@@ -1005,38 +1012,6 @@ export default function PublicRoster({
               </div>
             </div>
 
-            {/* Dieselben Schichten ausgeschrieben. Wie viel Text in einen Balken
-                passt, hängt an seiner Länge – eine kurze Schicht zeigt gar
-                nichts. Hier stehen die Zeiten unabhängig davon. */}
-            <ul className="mt-2 flex flex-wrap gap-1.5">
-              {ownAssignments.map((a) => {
-                const callsign = stationById.get(a.stationId)?.callsign ?? "?";
-                const running = isRunning(a);
-                return (
-                  <li key={a.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId((prev) => (prev === a.id ? null : a.id))}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
-                        running
-                          ? "border-accent-500 bg-accent-500/15 font-medium"
-                          : "bg-background/70 hover:bg-background",
-                        selectedId === a.id && "outline outline-2 outline-foreground"
-                      )}
-                    >
-                      <span className="font-mono text-[11px] tabular-nums">{span(a)}</span>
-                      <span>{callsign}</span>
-                      {running && (
-                        <span className="rounded-full bg-accent-500 px-1 text-[9px] font-semibold leading-4 text-white">
-                          jetzt
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
         )}
 
@@ -1083,49 +1058,6 @@ export default function PublicRoster({
             </Button>
           )}
         </div>
-
-        {/* Eckdaten der angeklickten Schicht.
-            Wie viel in einen Balken passt, hängt an seiner Länge, und lange
-            Callsigns werden in der Beschriftungsspalte abgeschnitten – hier
-            steht beides vollständig. */}
-        {selectedBlock && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-            <span
-              className="rounded px-1.5 py-0.5 text-xs font-semibold"
-              style={
-                selectedBlock.type === "custom"
-                  ? undefined
-                  : {
-                      backgroundColor: toneFor(selectedBlock.callsign).background,
-                      color: toneFor(selectedBlock.callsign).text,
-                    }
-              }
-            >
-              {selectedBlock.callsign || selectedBlock.label || "Sonstiges"}
-            </span>
-            <span className="font-medium">{selectedBlock.name}</span>
-            <span className="font-mono tabular-nums">{span(selectedBlock.assignment)}</span>
-            <span className="text-xs text-muted-foreground">
-              {untilText(
-                new Date(selectedBlock.assignment.endTime).getTime() -
-                  new Date(selectedBlock.assignment.startTime).getTime()
-              )}
-            </span>
-            {isRunning(selectedBlock.assignment) && (
-              <span className="rounded-full bg-accent-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-                läuft
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setSelectedId(null)}
-              className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Auswahl schließen"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
 
         {/* Zeitstrahl */}
       <div className="border rounded-lg overflow-hidden">
@@ -1211,20 +1143,30 @@ export default function PublicRoster({
                         )}
                         style={{ width: labelW, height: ROW_H }}
                       >
-                        <span
-                          data-roster-label
-                          title={row.fullTitle ?? row.title}
-                          className={cn(
-                            "text-sm font-medium truncate leading-tight",
-                            row.own && "text-accent-600 dark:text-accent-400"
-                          )}
-                        >
-                          {row.title}
-                        </span>
-                        {row.subtitle && (
-                          <span className="text-[10px] text-muted-foreground leading-tight">
-                            {row.subtitle}
-                          </span>
+                        {!sidebarCollapsed && (
+                          <>
+                            <span
+                              data-roster-label
+                              title={row.fullTitle ?? row.title}
+                              className={cn(
+                                "text-sm font-medium truncate leading-tight",
+                                row.own && "text-accent-600 dark:text-accent-400"
+                              )}
+                            >
+                              {row.title}
+                            </span>
+                            {row.subtitle && (
+                              <span className="text-[10px] text-muted-foreground leading-tight">
+                                {row.subtitle}
+                              </span>
+                            )}
+                          </>
+                        )}
+                        {sidebarCollapsed && row.own && (
+                          <span
+                            className="mx-auto h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500"
+                            title={row.fullTitle ?? row.title}
+                          />
                         )}
                       </div>
                       <div
@@ -1325,13 +1267,13 @@ export default function PublicRoster({
           </div>
         </div>
 
-        {/* Eckschirmrand: Bei einem Plan über
-            zwanzig Stationen liegt derdaten der angeklickten Schicht.
+        {/* Eckdaten der angeklickten Schicht.
             Wie viel in einen Balken passt, hängt an seiner Länge, und lange
             Callsigns werden in der Beschriftungsspalte abgeschnitten – hier
             steht beides vollständig.
 
-            Die Leiste klebt am unteren Bild angeklickte Balken sonst weit weg von
+            Die Leiste klebt am unteren Bildschirmrand: Bei einem Plan über
+            zwanzig Stationen liegt der angeklickte Balken sonst weit weg von
             der Stelle, an der seine Eckdaten stehen, und man scrollt für jede
             Schicht einmal hin und zurück. */}
         {selectedBlock && (
