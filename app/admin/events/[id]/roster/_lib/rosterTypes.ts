@@ -1,6 +1,8 @@
-import type { SignupTableEntry } from "@/lib/cache/types";
-import type { StationGroup } from "@/lib/weeklys/stationUtils";
 import type { RosterFlag } from "@/lib/roster/rosterFlags";
+
+// Stationsmetadaten und Controller-Modell liegen in lib/roster/rosterEligibility.ts,
+// damit Auto-Roster und Anmeldungsseite sie ohne Editor-Abhängigkeit nutzen.
+export type { RosterController, StationMeta } from "@/lib/roster/rosterEligibility";
 
 /** Station wie vom Roster-API geliefert */
 export interface RosterStation {
@@ -110,41 +112,8 @@ export type UndoEntry =
       entries: UndoEntry[];
     };
 
-/** Stationsmetadaten aus dem Datahub (bzw. Callsign-Heuristik) */
-export interface StationMeta {
-  /** Callsign der Station – Tier-1-Center-Freigaben lauten genau darauf */
-  callsign: string;
-  group: StationGroup | null;
-  airport: string | null;
-  s1Twr: boolean;
-  /**
-   * Nötige Familiarisierungen laut Datahub – aussen Alternativen, innen die
-   * zusammen geforderten Kürzel. Leer heißt: keine Vorgabe für diese Position.
-   */
-  requiredFamiliarizations: string[][];
-  /** gcap_status aus dem Datahub: "1" kennzeichnet eine Tier-1-Position */
-  gcapStatus: string | null;
-}
-
 /** Sortierung des Controller-Boards – gilt auch für Vorschläge im Assign-Dialog */
 export type ControllerSort = "group" | "name" | "assigned" | "flag";
-
-/** Controller = aktive Anmeldung inkl. abgeleiteter Daten */
-export interface RosterController {
-  cid: number;
-  name: string;
-  rating: string;
-  entry: SignupTableEntry;
-  /** Nicht-verfügbare Bereiche in Minuten seit Event-Start */
-  unavailable: { start: number; end: number }[];
-  /** Hat der Controller überhaupt Verfügbarkeiten angegeben? */
-  hasAvailability: boolean;
-  /** Wunsch-Stationen (Freitext) */
-  preferredStations: string;
-  remarks: string | null;
-  /** Anmeldung wurde zurückgezogen, Controller aber ggf. noch eingeplant */
-  withdrawn: boolean;
-}
 
 export type WarningType =
   | "no_break_switch"

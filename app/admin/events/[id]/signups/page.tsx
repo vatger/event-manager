@@ -17,6 +17,16 @@ import { parseEventAirports } from "@/lib/multiAirport";
 import { SignupTableEntry } from "@/lib/cache/types";
 import PlanningPanel from "./_components/PlanningPanel";
 import type { RosterFlag } from "@/lib/roster/rosterFlags";
+import type { Station } from "@/lib/stations/types";
+import {
+  buildControllers,
+  resolveStationMeta,
+  toStationMeta,
+  type StationMeta,
+} from "@/lib/roster/rosterEligibility";
+import { minutesBetween } from "@/lib/roster/rosterTime";
+import { analyzeFeasibility } from "@/lib/roster/autoRoster";
+import { toPlanningInput } from "@/lib/roster/autoRoster/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,10 +38,12 @@ import {
 
 /** Ausschnitt aus der Roster-API, den der Planungsbereich braucht */
 interface PlanningRoster {
-  stations: { id: number; callsign: string }[];
+  slotMinutes?: number;
+  stations: { id: number; callsign: string; sortOrder?: number }[];
   assignments: {
     stationId: number | null;
     userCID: number | null;
+    type?: string;
     label?: string | null;
     startTime: string;
     endTime: string;
@@ -53,6 +65,8 @@ export default function AdminEventSignupsPage() {
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
   const [roster, setRoster] = useState<PlanningRoster | null>(null);
   const [canEditRoster, setCanEditRoster] = useState(false);
+  // Datahub-Stationen für die Machbarkeitsprüfung (null = noch nicht geladen)
+  const [stationMetaMap, setStationMetaMap] = useState<Map<string, StationMeta> | null>(null);
 
   const tableRef = useRef<SignupsTableRef>(null);
   const tabsRef = useRef<AirportSignupTabsRef>(null);
@@ -113,6 +127,20 @@ export default function AdminEventSignupsPage() {
     loadPlanningData();
   }, [loadPlanningData]);
 
+  useEffect(() => {
+    fetch("/api/stations")
+      .then((res) => (res.ok ? res.json() : { stations: [] }))
+      .then((data) => {
+        const map = new Map<string, StationMeta>();
+        for (const st of (data.stations ?? []) as Station[]) {
+          map.set(st.callsign.toUpperCase(), toStationMeta(st));
+        }
+        setStationMetaMap(map);
+      })
+      // Ohne Datahub greift die Callsign-Heuristik
+      .catch(() => setStationMetaMap(new Map()));
+  }, []);
+
   // Slots für Timeline generieren
   const slots = useMemo(() => generateSlotsUTC(event?.startTime, event?.endTime, event?.signupSlotMinutes ?? 30), [event?.startTime, event?.endTime, event?.signupSlotMinutes]);
 
@@ -136,6 +164,58 @@ export default function AdminEventSignupsPage() {
       Math.round((new Date(event.endTime).getTime() - eventStart.getTime()) / 60000)
     );
   }, [eventStart, event?.endTime]);
+
+  // Stationen des Plans – solange es keinen gibt, die am Event hinterlegten
+  const planningStations = useMemo(() => {
+    if (roster) {
+      return roster.stations.map((st, i) => ({
+        id: st.id,
+        callsign: st.callsign,
+        sortOrder: st.sortOrder ?? i,
+      }));
+    }
+    const list = Array.isArray(event?.staffedStations) ? event.staffedStations : [];
+    return list.map((callsign, i) => ({ id: -(i + 1), callsign, sortOrder: i }));
+  }, [roster, event?.staffedStations]);
+
+  /**
+   * Geht der Plan mit den Anmeldungen auf? Bewusst „von null an": Bestehende
+   * Schichten zählen nicht, nur Custom- und persönliche Blöcke als Vorgabe –
+   * die Frage ist, ob die Anmeldungen überhaupt reichen.
+   */
+  const feasibility = useMemo(() => {
+    if (!eventStart || totalMinutes <= 0 || !stationMetaMap) return null;
+    if (planningStations.length === 0) return null;
+    const blocks = (roster?.assignments ?? []).map((a) => ({
+      stationId: a.stationId,
+      userCID: a.userCID,
+      type:
+        a.type ?? (a.stationId === null ? "personal" : a.userCID === null ? "custom" : "controller"),
+      start: minutesBetween(eventStart, new Date(a.startTime)),
+      end: minutesBetween(eventStart, new Date(a.endTime)),
+    }));
+    return analyzeFeasibility(
+      toPlanningInput({
+        stations: planningStations,
+        stationMetaFor: (callsign) => resolveStationMeta(callsign, stationMetaMap),
+        controllers: buildControllers(signups, eventStart, totalMinutes),
+        blocks,
+        mode: "replace",
+        eventAirports,
+        totalMinutes,
+        slotMinutes: roster?.slotMinutes ?? event?.signupSlotMinutes ?? 30,
+      })
+    );
+  }, [
+    eventStart,
+    totalMinutes,
+    stationMetaMap,
+    planningStations,
+    roster,
+    signups,
+    eventAirports,
+    event?.signupSlotMinutes,
+  ]);
 
   const flagByCid = useMemo(() => {
     const map = new Map<number, RosterFlag>();
@@ -230,6 +310,8 @@ export default function AdminEventSignupsPage() {
           stations={roster?.stations ?? []}
           flagByCid={flagByCid}
           hasRoster={roster !== null}
+          feasibility={feasibility}
+          hasStations={planningStations.length > 0}
           canOpenRoster={canEditRoster}
           canAcknowledge={canInFIR(event.firCode, "signups.manage")}
           onChanged={handleSignupChanged}

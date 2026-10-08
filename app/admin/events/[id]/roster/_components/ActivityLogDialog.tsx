@@ -34,6 +34,7 @@ import {
   Trash2,
   UserCog,
   Users,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +64,7 @@ const ACTION_ICON: Record<string, typeof Plus> = {
   assignment_recolored: Settings2,
   assignment_deleted: Trash2,
   assignment_swapped: ArrowRightLeft,
+  auto_roster: Wand2,
   stations_changed: Settings2,
   slot_changed: Settings2,
   roster_published: Eye,
@@ -84,6 +86,7 @@ const ACTION_GROUP: Record<string, string> = {
   assignment_recolored: "Besetzung",
   assignment_deleted: "Besetzung",
   assignment_swapped: "Besetzung",
+  auto_roster: "Besetzung",
   stations_changed: "Aufbau",
   slot_changed: "Aufbau",
   roster_published: "Veröffentlichung",

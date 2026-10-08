@@ -25,6 +25,7 @@ export type RosterActivityAction =
   | "assignment_recolored"
   | "assignment_deleted"
   | "assignment_swapped"
+  | "auto_roster"
   | "stations_changed"
   | "slot_changed"
   | "roster_published"

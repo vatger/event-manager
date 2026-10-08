@@ -5,8 +5,8 @@ import { getSessionUser } from "@/lib/getSessionUser";
 import {
   canEditEventRoster,
   canViewEventRoster,
+  createRosterSnapshot,
   getRosterForEvent,
-  serializeRoster,
 } from "@/lib/roster/eventRosterService";
 
 const postSchema = z.object({ name: z.string().min(1).max(80).optional() });
@@ -82,16 +82,7 @@ export async function POST(
       ? parsed.data.name
       : `Snapshot ${new Date().toLocaleString("de-DE", { timeZone: "UTC" })} UTC`;
 
-  const data = serializeRoster(roster);
-  const snapshot = await prisma.eventRosterSnapshot.create({
-    data: {
-      rosterId: roster.id,
-      name,
-      data: JSON.parse(JSON.stringify(data)),
-      createdByCID: Number(user.cid),
-    },
-    select: { id: true, name: true, createdAt: true },
-  });
+  const snapshot = await createRosterSnapshot(roster, name, Number(user.cid));
 
   return NextResponse.json({ snapshot }, { status: 201 });
 }

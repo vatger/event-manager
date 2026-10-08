@@ -10,6 +10,14 @@ import type { TimeRange } from "@/types";
  * Anmeldungsseite und öffentliche Ansicht dieselbe Rechnung benutzen.
  */
 
+/**
+ * Pausenregel der Planung: Nach höchstens zwei Stunden am Stück ist eine
+ * Pause von mindestens 30 Minuten fällig. Kürzere Lücken zählen nicht als
+ * Pause. Der Editor warnt danach, und der Auto-Roster plant danach.
+ */
+export const MAX_CONTINUOUS_MINUTES = 120;
+export const MIN_BREAK_MINUTES = 30;
+
 export function minutesBetween(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 60000);
 }

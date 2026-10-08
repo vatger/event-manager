@@ -36,6 +36,8 @@ import {
   type RosterFlag,
 } from "@/lib/roster/rosterFlags";
 import { getSolidClassForStationGroup } from "@/utils/EndorsementBadge";
+import type { FeasibilityReport } from "@/lib/roster/autoRoster";
+import { FeasibilitySummary } from "../../_components/FeasibilitySummary";
 import { extractStationGroup } from "@/lib/weeklys/stationUtils";
 
 interface PlanningPanelProps {
@@ -49,6 +51,10 @@ interface PlanningPanelProps {
   flagByCid: Map<number, RosterFlag>;
   /** Existiert überhaupt ein Besetzungsplan? */
   hasRoster: boolean;
+  /** Geht der Plan mit den Anmeldungen auf? (null = noch nicht berechenbar) */
+  feasibility: FeasibilityReport | null;
+  /** Sind Stationen festgelegt (im Plan oder am Event)? */
+  hasStations: boolean;
   canOpenRoster: boolean;
   canAcknowledge: boolean;
   /** Nach dem Quittieren neu laden */
@@ -128,6 +134,8 @@ export function PlanningPanel({
   stations,
   flagByCid,
   hasRoster,
+  feasibility,
+  hasStations,
   canOpenRoster,
   canAcknowledge,
   onChanged,
@@ -235,6 +243,28 @@ export function PlanningPanel({
             zeigt dieser Bereich, wen Änderungen an der Anmeldung im Plan betreffen.
           </p>
         )}
+
+        {/* Machbarkeit: früh sehen, ob die Anmeldungen für den Plan reichen */}
+        <div className="space-y-2">
+          <p className="text-sm font-medium">
+            Machbarkeit{" "}
+            <span className="font-normal text-muted-foreground">
+              – reichen die Anmeldungen für alle Stationen?
+            </span>
+          </p>
+          {feasibility ? (
+            <FeasibilitySummary report={feasibility} eventStart={eventStart} maxGaps={6} />
+          ) : !hasStations ? (
+            <p className="text-sm text-muted-foreground">
+              Für dieses Event sind noch keine Stationen festgelegt – die Prüfung startet, sobald
+              sie hinterlegt sind.
+            </p>
+          ) : (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Wird geprüft…
+            </p>
+          )}
+        </div>
 
         {/* Änderungen seit dem Anmeldeschluss */}
         <div className="space-y-2">

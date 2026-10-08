@@ -53,6 +53,7 @@ import {
   Undo2,
   UserPlus,
   UserX,
+  Wand2,
   Wifi,
   WifiOff,
   X,
@@ -122,6 +123,9 @@ import { ControllerSidePanel } from "./ControllerSidePanel";
 import { SnapshotsDialog } from "./SnapshotsDialog";
 import { ActivityLogDialog } from "./ActivityLogDialog";
 import { PersonalBlockDialog } from "./PersonalBlockDialog";
+import { AutoRosterDialog } from "./AutoRosterDialog";
+import { analyzeFeasibility } from "@/lib/roster/autoRoster";
+import { toPlanningInput } from "@/lib/roster/autoRoster/input";
 import SignupEditDialog from "../../_components/SignupEditDialog";
 
 // (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
@@ -363,6 +367,7 @@ export function RosterEditor({
   const [selectedCID, setSelectedCID] = useState<number | null>(null);
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [autoRosterOpen, setAutoRosterOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
   // Schnellnotiz direkt in der Infospalte (Doppelklick)
@@ -2042,6 +2047,26 @@ export function RosterEditor({
     },
     [event.id, apiHeaders]
   );
+  // Geht der Rest des Plans mit den Anmeldungen noch auf? Geprüft wird der
+  // aktuelle Stand: Was schon eingeplant ist, zählt als besetzt.
+  const feasibility = useMemo(
+    () =>
+      analyzeFeasibility(
+        toPlanningInput({
+          stations,
+          stationMetaFor,
+          controllers,
+          blocks: assignments,
+          mode: "fill",
+          eventAirports: event.airports,
+          totalMinutes,
+          slotMinutes,
+        })
+      ),
+    [stations, stationMetaFor, controllers, assignments, event.airports, totalMinutes, slotMinutes]
+  );
+  const feasibilityIssues = feasibility.gaps.length + feasibility.shortfalls.length;
+
   const warningsByAssignment = useMemo(() => {
     const map = new Map<number, RosterWarning[]>();
     for (const w of warnings) {
@@ -2761,6 +2786,31 @@ export function RosterEditor({
               </Badge>
             </button>
           )}
+          {feasibility.verdict !== "ok" && (
+            <button
+              onClick={() => canEdit && setAutoRosterOpen(true)}
+              title={
+                feasibility.verdict === "insufficient"
+                  ? "Mit den Anmeldungen lässt sich nicht alles besetzen – Details im Auto-Roster"
+                  : "Rechnerisch reicht es, aber mit wenig Reserve"
+              }
+            >
+              <Badge
+                variant="outline"
+                className={cn(
+                  "cursor-pointer",
+                  feasibility.verdict === "insufficient"
+                    ? "border-danger-600/40 bg-danger-600/5 text-danger-700 dark:text-danger-300"
+                    : "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+                )}
+              >
+                <CircleSlash className="h-3 w-3 mr-1" />
+                {feasibility.verdict === "insufficient"
+                  ? `${feasibilityIssues} ${feasibilityIssues === 1 ? "Engpass" : "Engpässe"}`
+                  : "knapp"}
+              </Badge>
+            </button>
+          )}
           {selectedIds.size > 1 && (
             <button
               onClick={() => setSelectedIds(new Set())}
@@ -2824,6 +2874,18 @@ export function RosterEditor({
               <ZoomIn className="h-4 w-4" />
             </Button>
           </div>
+
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAutoRosterOpen(true)}
+              title="Plan automatisch aus den Anmeldungen erstellen"
+            >
+              <Wand2 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden lg:inline">Auto-Roster</span>
+            </Button>
+          )}
 
           {canEdit && (
             <Button
@@ -3680,6 +3742,41 @@ export function RosterEditor({
         onOpenChange={setActivityOpen}
         eventId={event.id}
       />
+
+      {canEdit && (
+        <AutoRosterDialog
+          open={autoRosterOpen}
+          onOpenChange={setAutoRosterOpen}
+          eventId={event.id}
+          eventStart={eventStart}
+          totalMinutes={totalMinutes}
+          slotMinutes={slotMinutes}
+          eventAirports={event.airports}
+          stations={stations}
+          stationMetaFor={stationMetaFor}
+          controllers={controllers}
+          assignments={assignments}
+          markByCid={markByCid}
+          apiHeaders={apiHeaders}
+          onApplied={({ createdIds, mode }) => {
+            if (mode === "fill") {
+              pushUndo({
+                kind: "batch",
+                label: "Auto-Roster zurückgenommen",
+                entries: createdIds.map((id) => ({ kind: "created", assignmentId: id })),
+              });
+            } else {
+              // Die ersetzten Schichten gibt es nicht mehr – ältere Schritte
+              // ließen sich nicht sauber zurücknehmen. Zurück geht es über
+              // den Snapshot.
+              setUndoStack([]);
+            }
+            refreshPublishState();
+            onReload();
+          }}
+          onConflict={onReload}
+        />
+      )}
 
       <SnapshotsDialog
         open={snapshotsOpen}

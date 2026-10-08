@@ -241,6 +241,26 @@ export function serializeRoster(roster: RosterWithRelations): RosterSnapshotData
 }
 
 /**
+ * Aktuellen Stand als Snapshot sichern – auf Wunsch und vor Aktionen, die
+ * viel auf einmal ändern (Zurücksetzen, Auto-Roster).
+ */
+export async function createRosterSnapshot(
+  roster: RosterWithRelations,
+  name: string,
+  createdByCID: number
+): Promise<{ id: number; name: string; createdAt: Date }> {
+  return prisma.eventRosterSnapshot.create({
+    data: {
+      rosterId: roster.id,
+      name,
+      data: JSON.parse(JSON.stringify(serializeRoster(roster))),
+      createdByCID,
+    },
+    select: { id: true, name: true, createdAt: true },
+  });
+}
+
+/**
  * Weicht der Arbeitsstand von der veröffentlichten Fassung ab?
  * Vergleicht die serialisierten Stände; Reihenfolge der Zuweisungen wird
  * normalisiert, damit reines Neuladen keinen Unterschied erzeugt.
