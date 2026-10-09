@@ -53,6 +53,10 @@ Populate your database with initial data:
 npx tsx prisma/seed.ts
 ```
 
+For a larger test setup with controllers of different ratings, endorsements, solos and
+familiarizations (roster editor, Auto-Roster, feasibility check), run
+`npm run seed:roster-test` – see [AUTO_ROSTER_TESTDATEN.md](AUTO_ROSTER_TESTDATEN.md).
+
 ### 4. Start Development
 
 ```bash
