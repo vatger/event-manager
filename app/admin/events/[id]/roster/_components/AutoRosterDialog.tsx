@@ -339,7 +339,7 @@ export function AutoRosterDialog({
               Wunschstationen aus der Anmeldung berücksichtigen
             </label>
             <p className="pl-6 text-xs text-muted-foreground">
-              Freitext wird gedeutet („APN“, „MUC Tower“, „kein DEL“). Wer trotzdem auf einer
+              Freitext wird gedeutet („APN“, „kein DEL“). Wer trotzdem auf einer
               nicht gewünschten Station landet, wird anschließend orange markiert.
             </p>
           </div>
