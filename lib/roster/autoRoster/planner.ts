@@ -34,9 +34,10 @@ import type {
  *
  * Mehrere Durchläufe mit unterschiedlicher Schichtlänge und leichtem,
  * reproduzierbarem Zufall konkurrieren; gewählt wird nach Abdeckung von oben
- * nach unten, dann nach möglichst wenigen kurzen Restschichten, möglichst
- * vielen eingesetzten Personen, erfüllten Wünschen, wenigen Übergaben und
- * gleichmäßiger Verteilung.
+ * nach unten, dann nach möglichst wenig Zeit auf nicht gewünschten Stationen,
+ * möglichst wenigen kurzen Restschichten, möglichst vielen eingesetzten
+ * Personen, erfüllten Wünschen, wenigen Übergaben und gleichmäßiger
+ * Verteilung.
  */
 
 /** Gewichte für die Wahl der Person, sobald feststeht, welche Station besetzt wird */
@@ -45,7 +46,10 @@ const WEIGHT = {
   extension: -2,
   /** … es sei denn, sonst entstünde nur noch ein kurzer Rest */
   tailExtension: 6,
+  /** Wunschstation – mal Gewicht (erster Wunsch 1, später genannte weniger) */
   preference: 3,
+  /** Ausdrücklich nicht gewünscht: nur, wenn es sonst nicht aufgeht */
+  avoided: -12,
   solo: 4,
   /** Je knapper die höheren Stationen, die die Person sonst besetzen könnte */
   scarcity: 4,
@@ -156,7 +160,8 @@ function sweep(
   const quality = (s: number, c: number, extension: boolean, shortTail: boolean) => {
     let q = 0;
     if (extension) q += shortTail ? WEIGHT.tailExtension : WEIGHT.extension;
-    if (model.prefers[c][s]) q += WEIGHT.preference;
+    q += model.prefers[c][s] * WEIGHT.preference;
+    if (model.avoids[c][s]) q += WEIGHT.avoided;
     if (model.solo[c][s]) q += WEIGHT.solo;
     q -= scarcity[c][s];
     q += (assigned[c] / 60) * WEIGHT.perHourAssigned;
@@ -370,7 +375,9 @@ function repair(model: PlanningModel, state: PlanState, scarcity: Float64Array[]
           if (y - x < need && !state.touchesOwnShift(c, s, x, y)) continue;
           const assigned = state.minutesOf(c);
           const quality =
-            (model.prefers[c][s] ? WEIGHT.preference : 0) +
+            model.prefers[c][s] * WEIGHT.preference +
+            // Eine halbe Stunde mehr Abdeckung wiegt eine Abneigung auf
+            (model.avoids[c][s] ? -3000 : 0) +
             (model.solo[c][s] ? WEIGHT.solo : 0) -
             scarcity[c][s] +
             (assigned / 60) * WEIGHT.perHourAssigned +
@@ -422,6 +429,8 @@ const LEVEL_ORDER = [5, 4, 3, 2, 1, 0];
 
 interface Score {
   coverageByLevel: number[];
+  /** Zeit auf ausdrücklich nicht gewünschten Stationen */
+  avoidedMinutes: number;
   /** Schichten unter `minShift` – ein stimmiger Plan kommt ohne aus */
   shortBlocks: number;
   idle: number;
@@ -448,6 +457,7 @@ function scorePlan(model: PlanningModel, blocks: Block[], usable: number[]): Sco
   const coverage = new Map<number, number>();
   const minutes = Float64Array.from(model.fixedMinutes);
   let preferenceMinutes = 0;
+  let avoidedMinutes = 0;
   let shortBlocks = 0;
   for (const bl of blocks) {
     const len = bl.end - bl.start;
@@ -455,7 +465,8 @@ function scorePlan(model: PlanningModel, blocks: Block[], usable: number[]): Sco
     const level = model.levels[bl.s];
     coverage.set(level, (coverage.get(level) ?? 0) + len);
     minutes[bl.c] += len;
-    if (model.prefers[bl.c][bl.s]) preferenceMinutes += len;
+    preferenceMinutes += len * model.prefers[bl.c][bl.s];
+    if (model.avoids[bl.c][bl.s]) avoidedMinutes += len;
   }
   const idle = usable.filter((c) => minutes[c] === 0).length;
   const mean = usable.reduce((sum, c) => sum + minutes[c], 0) / Math.max(1, usable.length);
@@ -463,6 +474,7 @@ function scorePlan(model: PlanningModel, blocks: Block[], usable: number[]): Sco
     usable.reduce((sum, c) => sum + (minutes[c] - mean) ** 2, 0) / Math.max(1, usable.length);
   return {
     coverageByLevel: LEVEL_ORDER.map((l) => coverage.get(l) ?? 0),
+    avoidedMinutes,
     shortBlocks,
     idle,
     preferenceMinutes,
@@ -477,6 +489,7 @@ function compareScores(a: Score, b: Score): number {
     const d = a.coverageByLevel[i] - b.coverageByLevel[i];
     if (d !== 0) return d;
   }
+  if (a.avoidedMinutes !== b.avoidedMinutes) return b.avoidedMinutes - a.avoidedMinutes;
   if (a.shortBlocks !== b.shortBlocks) return b.shortBlocks - a.shortBlocks;
   if (a.idle !== b.idle) return b.idle - a.idle;
   if (a.preferenceMinutes !== b.preferenceMinutes) return a.preferenceMinutes - b.preferenceMinutes;
@@ -558,5 +571,24 @@ function buildResult(model: PlanningModel, blocks: Block[], usable: number[]): A
     .filter((c) => !minutesByCid[model.controllers[c].cid] && model.fixedMinutes[c] === 0)
     .map((c) => model.controllers[c].cid);
 
-  return { assignments, uncovered, openMinutes, coveredMinutes, minutesByCid, unassignedCids };
+  const conflicts = new Map<number, Set<string>>();
+  for (const bl of blocks) {
+    if (!model.avoids[bl.c][bl.s]) continue;
+    const cid = model.controllers[bl.c].cid;
+    (conflicts.get(cid) ?? conflicts.set(cid, new Set()).get(cid)!).add(model.stations[bl.s].callsign);
+  }
+  const wishConflicts = [...conflicts].map(([userCID, callsigns]) => ({
+    userCID,
+    callsigns: [...callsigns],
+  }));
+
+  return {
+    assignments,
+    uncovered,
+    openMinutes,
+    coveredMinutes,
+    minutesByCid,
+    unassignedCids,
+    wishConflicts,
+  };
 }

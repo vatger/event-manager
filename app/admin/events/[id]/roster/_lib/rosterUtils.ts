@@ -52,6 +52,39 @@ export {
 } from "@/lib/roster/rosterEligibility";
 
 // =====================================================================
+// Wunschstationen
+// =====================================================================
+
+/**
+ * Steht die Station auf der Wunschliste? Mit gedeuteten Wünschen (siehe
+ * lib/roster/stationWishes.ts) zählt die Deutung, sonst der wörtliche Text.
+ */
+export function prefersStation(controller: RosterController, callsign: string): boolean {
+  const cs = callsign.toUpperCase();
+  return controller.wishes
+    ? controller.wishes.preferred.has(cs)
+    : controller.preferredStations.toUpperCase().includes(cs);
+}
+
+/** Hat die Person diese Station ausdrücklich ausgeschlossen („kein DEL")? */
+export function avoidsStation(controller: RosterController, callsign: string): boolean {
+  return controller.wishes?.avoided.has(callsign.toUpperCase()) ?? false;
+}
+
+/** Kurzfassung der Deutung für Tooltips, z. B. „EDDM_1_GND, EDDM_2_GND · nicht: EDDM_DEL" */
+export function describeWishes(controller: RosterController): string | null {
+  const w = controller.wishes;
+  if (!w || (w.preferred.size === 0 && w.avoided.size === 0)) return null;
+  const preferred = [...w.preferred].sort((a, b) => b[1] - a[1]).map(([cs]) => cs);
+  return [
+    preferred.length > 0 ? preferred.join(", ") : null,
+    w.avoided.size > 0 ? `nicht: ${[...w.avoided].join(", ")}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// =====================================================================
 // Eligibility – Ableitungen für Board und Dialoge
 // =====================================================================
 
@@ -347,6 +380,8 @@ export interface ControllerSuggestion {
   free: boolean;
   available: boolean;
   prefersStation: boolean;
+  /** Laut Anmeldung ausdrücklich nicht gewünscht */
+  avoidsStation: boolean;
   assignedMinutes: number;
 }
 
@@ -379,16 +414,14 @@ export function suggestControllers(
       const eligibility = checkEligibility(c, stationMeta, eventAirports);
       const free = !hasOverlap(assignments, c.cid, start, end);
       const available = !isUnavailable(c, start, end);
-      const prefersStation = c.preferredStations
-        .toUpperCase()
-        .includes(station.callsign.toUpperCase());
       return {
         controller: c,
         eligible: eligibility.ok,
         eligibility,
         free,
         available,
-        prefersStation,
+        prefersStation: prefersStation(c, station.callsign),
+        avoidsStation: avoidsStation(c, station.callsign),
         assignedMinutes: assignedByCid.get(c.cid) ?? 0,
       };
     });
@@ -399,7 +432,8 @@ export function suggestControllers(
   // die Reihenfolge im Dialog der im Board gewohnten entspricht.
   return suggestions
     .sort((a, b) => {
-      // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station
+      // berechtigt & frei & verfügbar zuerst, dann Wunsch-Station,
+      // ausdrücklich nicht Gewünschtes nach hinten
       const score = (s: ControllerSuggestion) =>
         (s.eligibility.ok
           ? 0
@@ -408,7 +442,7 @@ export function suggestControllers(
           : 16) +
         (s.free ? 0 : 4) +
         (s.available ? 0 : 2) +
-        (s.prefersStation ? 0 : 1);
+        (s.prefersStation ? 0 : s.avoidsStation ? 1.5 : 1);
       const d = score(a) - score(b);
       if (d !== 0) return d;
       return compareControllersByBoardSort(a.controller, b.controller, boardSort, {

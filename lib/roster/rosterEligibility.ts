@@ -6,6 +6,11 @@ import {
 } from "@/lib/stations/familiarizations";
 import { canStaffStation, extractStationGroup, type StationGroup } from "@/lib/weeklys/stationUtils";
 import { hmRangeToMinutes } from "@/lib/roster/rosterTime";
+import {
+  parseStationWishes,
+  type StationWishes,
+  type WishStation,
+} from "@/lib/roster/stationWishes";
 
 /**
  * Eignung und Verfügbarkeit für die Roster-Planung.
@@ -29,6 +34,9 @@ export interface StationMeta {
   requiredFamiliarizations: string[][];
   /** gcap_status aus dem Datahub: "1" kennzeichnet eine Tier-1-Position */
   gcapStatus: string | null;
+  /** Klartext und Kürzel aus dem Datahub – helfen beim Deuten von Wünschen */
+  description?: string | null;
+  abbreviation?: string | null;
 }
 
 /** Controller = aktive Anmeldung inkl. abgeleiteter Daten */
@@ -43,6 +51,8 @@ export interface RosterController {
   hasAvailability: boolean;
   /** Wunsch-Stationen (Freitext) */
   preferredStations: string;
+  /** Die gedeuteten Wünsche – nur, wenn die Stationen beim Aufbau bekannt waren */
+  wishes?: StationWishes;
   remarks: string | null;
   /** Anmeldung wurde zurückgezogen, Controller aber ggf. noch eingeplant */
   withdrawn: boolean;
@@ -57,6 +67,8 @@ export function toStationMeta(st: Station): StationMeta {
     s1Twr: st.s1Twr === true,
     requiredFamiliarizations: st.requiredFamiliarizations ?? [],
     gcapStatus: st.gcapStatus ?? null,
+    description: st.description ?? null,
+    abbreviation: st.abbreviation ?? null,
   };
 }
 
@@ -68,7 +80,9 @@ export function toStationMeta(st: Station): StationMeta {
 export function buildControllers(
   signups: SignupTableEntry[],
   eventStart: Date,
-  totalMinutes: number
+  totalMinutes: number,
+  /** Stationen des Plans – damit lassen sich die Wünsche gleich deuten */
+  wishStations?: WishStation[]
 ): RosterController[] {
   // Zurückgezogene Anmeldungen bleiben erhalten und werden markiert – sonst
   // verschwänden bereits eingeplante Controller kommentarlos aus dem Plan.
@@ -88,6 +102,9 @@ export function buildControllers(
         unavailable,
         hasAvailability,
         preferredStations: s.preferredStations ?? "",
+        wishes: wishStations
+          ? parseStationWishes(s.preferredStations ?? "", wishStations)
+          : undefined,
         remarks: s.remarks,
         withdrawn: !!s.deletedAt,
       };

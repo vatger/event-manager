@@ -36,8 +36,6 @@ export interface PlanningInput {
   eventAirports: string[];
   totalMinutes: number;
   slotMinutes: number;
-  /** Personen, die nicht automatisch eingeplant werden (z. B. rot markiert) */
-  excludedCids?: number[];
 }
 
 export interface PlannerOptions {
@@ -47,7 +45,11 @@ export interface PlannerOptions {
   maxShift: number;
   /** Mindestlänge einer Pause zwischen zwei Schichten */
   minBreak: number;
-  /** Wunschstationen aus der Anmeldung bevorzugen */
+  /**
+   * Wunschstationen aus der Anmeldung berücksichtigen: Gewünschtes wird
+   * bevorzugt, ausdrücklich nicht Gewünschtes („kein DEL") nur genommen,
+   * wenn es sonst nicht aufgeht.
+   */
   respectPreferences: boolean;
   /** Stationen, die der Plan nicht anfasst */
   excludedStationIds: number[];
@@ -85,6 +87,8 @@ export interface AutoRosterResult {
   minutesByCid: Record<number, number>;
   /** Einsetzbare Personen, die trotzdem keine Schicht bekommen haben */
   unassignedCids: number[];
+  /** Wer auf einer ausdrücklich nicht gewünschten Station gelandet ist */
+  wishConflicts: { userCID: number; callsigns: string[] }[];
 }
 
 // ---------------------------------------------------------------------

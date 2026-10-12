@@ -36,7 +36,49 @@ const bodySchema = z.object({
       })
     )
     .max(1000),
+  /**
+   * Wer auf einer laut Anmeldung nicht gewünschten Station gelandet ist
+   * („kein DEL"). Diese Personen werden orange markiert.
+   */
+  wishConflicts: z
+    .array(
+      z.object({
+        userCID: z.number().int(),
+        callsigns: z.array(z.string().max(32)).max(50),
+      })
+    )
+    .max(500)
+    .optional(),
 });
+
+/**
+ * Wunsch nicht erfüllbar: orange markieren und den Grund in die Notiz
+ * schreiben. Eine rote Markierung bleibt stehen – sie hat eine eigene
+ * Bedeutung und soll vom Auto-Roster nicht überschrieben werden.
+ */
+async function markWishConflicts(
+  rosterId: number,
+  actorCID: number,
+  conflicts: { userCID: number; callsigns: string[] }[]
+): Promise<number> {
+  let marked = 0;
+  for (const { userCID, callsigns } of conflicts) {
+    const line = `Auto-Roster: Wunsch nicht erfüllbar – auf ${callsigns.join(", ")} eingeplant`;
+    const existing = await prisma.eventRosterNote.findUnique({
+      where: { rosterId_userCID: { rosterId, userCID } },
+    });
+    const oldNote = existing?.note ?? "";
+    const note = oldNote.includes(line) ? oldNote : [oldNote, line].filter(Boolean).join("\n");
+    const flag = existing?.flag === "red" ? "red" : "amber";
+    await prisma.eventRosterNote.upsert({
+      where: { rosterId_userCID: { rosterId, userCID } },
+      create: { rosterId, userCID, note, flag, authorCID: actorCID },
+      update: { note, flag, authorCID: actorCID },
+    });
+    marked++;
+  }
+  return marked;
+}
 
 /**
  * Übernimmt einen im Editor berechneten Auto-Roster-Plan auf einmal.
@@ -168,17 +210,25 @@ export async function POST(
   if (mode === "replace") {
     parts.push(`${count(removedCount, "bisherige Schicht", "bisherige Schichten")} ersetzt`);
   }
+
+  // Nur Personen, die in diesem Lauf tatsächlich eingeplant wurden
+  const plannedCids = new Set(inputs.map((i) => i.userCID));
+  const conflicts = (parsed.data.wishConflicts ?? []).filter((c) => plannedCids.has(c.userCID));
+  const marked = await markWishConflicts(roster.id, Number(user.cid), conflicts);
+  if (marked > 0) {
+    parts.push(`${count(marked, "Person", "Personen")} mit nicht erfüllbarem Wunsch markiert`);
+  }
   await logRosterActivity({
     rosterId: roster.id,
     actorCID: Number(user.cid),
     action: "auto_roster",
     summary: `${parts.join(", ")}${snapshotId ? " (Zwischenstand gesichert)" : ""}`,
-    details: { mode, created: created.length, removed: removedCount, snapshotId },
+    details: { mode, created: created.length, removed: removedCount, snapshotId, marked },
   });
 
   broadcastRosterChange(eventId, req.headers.get("x-roster-client"));
   return NextResponse.json(
-    { created, deletedCount: mode === "replace" ? removedCount : 0, snapshotId },
+    { created, deletedCount: mode === "replace" ? removedCount : 0, snapshotId, marked },
     { status: 201 }
   );
 }

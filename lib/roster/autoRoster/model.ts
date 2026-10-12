@@ -5,6 +5,7 @@ import {
   type RosterController,
 } from "@/lib/roster/rosterEligibility";
 import { MAX_CONTINUOUS_MINUTES, MIN_BREAK_MINUTES } from "@/lib/roster/rosterTime";
+import { parseStationWishes } from "@/lib/roster/stationWishes";
 import type {
   FixedBlock,
   PlannerOptions,
@@ -77,7 +78,9 @@ export interface PlanningModel {
   /** [s] – offene Zeiträume der Station auf Minutenbasis */
   openRanges: TimeRangeMinutes[][];
   /** [c][s] – Wunschstation laut Anmeldung */
-  prefers: Uint8Array[];
+  prefers: Float64Array[];
+  /** [c][s] – laut Anmeldung ausdrücklich nicht gewünscht („kein DEL") */
+  avoids: Uint8Array[];
   /** [c][s] – Solo auf genau dieser Position (Trainee soll dort üben) */
   solo: Uint8Array[];
   /** [c] – Lotsenzeit, die schon fest eingeplant ist (zählt für die faire Verteilung) */
@@ -125,8 +128,7 @@ export function buildModel(input: PlanningInput, options: PlannerOptions): Plann
   const stations = sortByPriority(input.stations.filter((s) => !excludedStations.has(s.id)));
   const levels = stations.map(stationLevel);
 
-  const excludedCids = new Set(input.excludedCids ?? []);
-  const controllers = input.controllers.filter((c) => !c.withdrawn && !excludedCids.has(c.cid));
+  const controllers = input.controllers.filter((c) => !c.withdrawn);
 
   const stationIndex = new Map(stations.map((s, i) => [s.id, i]));
   const controllerIndex = new Map(controllers.map((c, i) => [c.cid, i]));
@@ -179,12 +181,22 @@ export function buildModel(input: PlanningInput, options: PlannerOptions): Plann
     free.push(fr);
   }
 
-  const prefers = controllers.map((c) => {
-    const wish = c.preferredStations.toUpperCase();
-    return Uint8Array.from(stations, (s) =>
-      options.respectPreferences && wish.includes(s.callsign.toUpperCase()) ? 1 : 0
-    );
-  });
+  // Wünsche werden gegen alle Stationen des Plans gedeutet – auch gegen die,
+  // die gerade nicht mitgeplant werden; sonst verschöbe sich die Deutung.
+  const wishStations = input.stations.map((s) => ({
+    callsign: s.callsign,
+    description: s.meta.description,
+    abbreviation: s.meta.abbreviation,
+  }));
+  const wishes = controllers.map((c) =>
+    options.respectPreferences ? parseStationWishes(c.preferredStations, wishStations) : null
+  );
+  const prefers = wishes.map((w) =>
+    Float64Array.from(stations, (s) => w?.preferred.get(s.callsign.toUpperCase()) ?? 0)
+  );
+  const avoids = wishes.map((w) =>
+    Uint8Array.from(stations, (s) => (w?.avoided.has(s.callsign.toUpperCase()) ? 1 : 0))
+  );
   const solo = controllers.map((c) =>
     Uint8Array.from(stations, (s) => {
       const data = endorsementDataForStation(c.entry, s.meta.airport, input.eventAirports);
@@ -216,6 +228,7 @@ export function buildModel(input: PlanningInput, options: PlannerOptions): Plann
     open,
     openRanges,
     prefers,
+    avoids,
     solo,
     fixedMinutes,
     stationIndex,

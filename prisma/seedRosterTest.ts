@@ -110,7 +110,10 @@ interface Profile {
   endorsements?: string[];
   solos?: string[];
   fams?: string[];
-  /** Mögliche Wunschstationen (Freitext wie in der Anmeldung) */
+  /**
+   * Mögliche Wunschstationen – Freitext, wie er in Anmeldungen wirklich steht.
+   * Der Auto-Roster deutet ihn (siehe lib/roster/stationWishes.ts).
+   */
   wishes?: string[];
 }
 
@@ -124,7 +127,7 @@ const PROFILES: Profile[] = [
     count: 3,
     endorsements: ["EDMM_ZUG_CTR", ...T1_FULL],
     fams: ["STA", "WLD", "HOF"],
-    wishes: ["EDMM_ZUG_CTR", "EDMM_WLD_CTR"],
+    wishes: ["ZUG", "Zugspitze bitte", "Center, gern ZUG", "EDMM_ZUG_CTR"],
   },
   {
     tag: "C1 WLD+STA",
@@ -132,7 +135,7 @@ const PROFILES: Profile[] = [
     count: 4,
     endorsements: T1_FULL,
     fams: ["WLD", "STA"],
-    wishes: ["EDMM_WLD_CTR", "EDMM_STA_CTR", "EDDM_NH_APP"],
+    wishes: ["Walda oder Starnberg", "CTR", "Center, sonst Radar", "WLD"],
   },
   // CTR nur mit einer Familiarisierung, an EDDM nur APP (kein GNDDEL/TWR)
   { tag: "C1 WLD", rating: "C1", count: 2, endorsements: ["EDDM_APP"], fams: ["WLD"] },
@@ -149,12 +152,12 @@ const PROFILES: Profile[] = [
     rating: "S3",
     count: 7,
     endorsements: T1_FULL,
-    wishes: ["EDDM_NH_APP", "EDDM_SH_APP", "EDDM_ND_APP", "EDDM_N_TWR"],
+    wishes: ["Radar", "MUC APP", "Director", "1. APP 2. TWR", "Tower Nord", "APP, kein DEL"],
   },
   // APP-Freigabe ohne TWR-Endorsement: APP heißt nicht automatisch TWR
   { tag: "S3 nur APP", rating: "S3", count: 1, endorsements: ["EDDM_GNDDEL", "EDDM_APP"] },
   // Ohne Tier-1-Endorsements: an EDDM gar nichts, an EDDN alles bis APP
-  { tag: "S3 EDDN", rating: "S3", count: 4, wishes: ["EDDN_D_APP"] },
+  { tag: "S3 EDDN", rating: "S3", count: 4, wishes: ["NUE APP", "Nürnberg Arrival"] },
   // S2 mit APP-Solo
   { tag: "S2 Solo APP", rating: "S2", count: 1, endorsements: ["EDDM_GNDDEL", "EDDM_TWR"], solos: ["EDDM_APP"] },
 
@@ -164,10 +167,16 @@ const PROFILES: Profile[] = [
     rating: "S2",
     count: 8,
     endorsements: ["EDDM_GNDDEL", "EDDM_TWR"],
-    wishes: ["EDDM_N_TWR", "EDDM_S_TWR"],
+    wishes: ["Tower", "TWR N/S", "MUC Tower, kein DEL", "Tower Süd"],
   },
-  { tag: "S2 GNDDEL", rating: "S2", count: 3, endorsements: ["EDDM_GNDDEL"], wishes: ["EDDM_1_GND"] },
-  { tag: "S2 EDDN", rating: "S2", count: 4, wishes: ["EDDN_TWR"] },
+  {
+    tag: "S2 GNDDEL",
+    rating: "S2",
+    count: 3,
+    endorsements: ["EDDM_GNDDEL"],
+    wishes: ["ne Runde APN", "Apron 1 oder 2"],
+  },
+  { tag: "S2 EDDN", rating: "S2", count: 4, wishes: ["Nürnberg Tower", "EDDN_TWR"] },
 
   // Ground / Delivery
   {
@@ -175,10 +184,10 @@ const PROFILES: Profile[] = [
     rating: "S1",
     count: 9,
     endorsements: ["EDDM_GNDDEL"],
-    wishes: ["EDDM_DEL", "EDDM_1_GND", "EDDM_2_GND"],
+    wishes: ["ne Runde APN", "Apron", "Delivery", "GND, kein DEL", "Vorfeld 2", "kein DEL"],
   },
   // S1 an EDDN: GND und – dank S1-TWR – auch EDDN_TWR
-  { tag: "S1 EDDN", rating: "S1", count: 5, wishes: ["EDDN_TWR", "EDDN_GND"] },
+  { tag: "S1 EDDN", rating: "S1", count: 5, wishes: ["NUE TWR", "Nürnberg Ground"] },
   // S1 mit Tower-Solo an EDDM
   { tag: "S1 Solo TWR", rating: "S1", count: 1, endorsements: ["EDDM_GNDDEL"], solos: ["EDDM_TWR"] },
 ];
@@ -327,7 +336,7 @@ async function createOverloadEvent(controllers: TestController[]) {
   for (const c of controllers) {
     const s = special(i);
     const pattern = PATTERNS[i % PATTERNS.length];
-    const wish = c.profile.wishes && rnd() < 0.55 ? pick(c.profile.wishes) : "";
+    const wish = c.profile.wishes && rnd() < 0.7 ? pick(c.profile.wishes) : "";
     const excluded = s.excludeEddn ? ["EDDN"] : s.excludeEddm ? ["EDDM"] : null;
     await prisma.eventSignup.create({
       data: {
@@ -395,7 +404,7 @@ async function createOverloadEvent(controllers: TestController[]) {
 
   // Ampel-Markierungen
   const flags: [TestController, "green" | "amber" | "red", string][] = [
-    [byTag("S1 EDDM")[1], "red", "Erst nach Rücksprache einplanen"],
+    [byTag("S1 EDDM")[1], "red", ""],
     [byTag("S2 EDDN")[0], "red", ""],
     [byTag("S3 EDDM")[2], "amber", "Hat um kurze Schichten gebeten"],
     [byTag("S2 EDDM")[4], "amber", ""],

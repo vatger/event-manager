@@ -34,7 +34,6 @@ import { MAX_CONTINUOUS_MINUTES, formatDuration, minuteToDate } from "@/lib/rost
 import { FeasibilitySummary } from "../../_components/FeasibilitySummary";
 import type {
   Assignment,
-  ControllerMark,
   RosterController,
   RosterStation,
   StationMeta,
@@ -54,7 +53,6 @@ interface AutoRosterDialogProps {
   stationMetaFor: (callsign: string) => StationMeta;
   controllers: RosterController[];
   assignments: Assignment[];
-  markByCid: Map<number, ControllerMark>;
   apiHeaders: Record<string, string>;
   /** Plan übernommen – neu laden und ggf. Rückgängig-Eintrag anlegen */
   onApplied: (result: { createdIds: number[]; mode: Mode }) => void;
@@ -81,7 +79,6 @@ export function AutoRosterDialog({
   stationMetaFor,
   controllers,
   assignments,
-  markByCid,
   apiHeaders,
   onApplied,
   onConflict,
@@ -91,7 +88,6 @@ export function AutoRosterDialog({
   const [maxShift, setMaxShift] = useState(DEFAULT_PLANNER_OPTIONS.maxShift);
   const [minBreak, setMinBreak] = useState(DEFAULT_PLANNER_OPTIONS.minBreak);
   const [respectPreferences, setRespectPreferences] = useState(true);
-  const [skipRed, setSkipRed] = useState(true);
   const [excludedStations, setExcludedStations] = useState<Set<number>>(new Set());
   const [snapshot, setSnapshot] = useState(true);
   const [running, setRunning] = useState(false);
@@ -102,10 +98,6 @@ export function AutoRosterDialog({
     return list;
   }, [slotMinutes]);
 
-  const redCids = useMemo(
-    () => [...markByCid].filter(([, m]) => m.flag === "red").map(([cid]) => cid),
-    [markByCid]
-  );
   const shiftCount = assignments.filter((a) => a.type === "controller").length;
   const blockCount = assignments.length;
 
@@ -120,7 +112,6 @@ export function AutoRosterDialog({
         eventAirports,
         totalMinutes,
         slotMinutes,
-        excludedCids: skipRed ? redCids : [],
       }),
     [
       stations,
@@ -131,8 +122,6 @@ export function AutoRosterDialog({
       eventAirports,
       totalMinutes,
       slotMinutes,
-      skipRed,
-      redCids,
     ]
   );
   const options: PlannerOptions = useMemo(
@@ -184,6 +173,7 @@ export function AutoRosterDialog({
         body: JSON.stringify({
           mode,
           snapshot: blockCount > 0 && snapshot,
+          wishConflicts: result.wishConflicts,
           assignments: result.assignments.map((a) => ({
             stationId: a.stationId,
             userCID: a.userCID,
@@ -209,6 +199,9 @@ export function AutoRosterDialog({
         [
           createdIds.length === 1 ? "1 Schicht eingeplant" : `${createdIds.length} Schichten eingeplant`,
           openMinutes > 0 ? `${formatDuration(openMinutes)} Stationszeit offen` : "alles besetzt",
+          result.wishConflicts.length > 0
+            ? `${result.wishConflicts.length}× Wunsch nicht erfüllbar (orange markiert)`
+            : null,
           data.snapshotId ? "Zwischenstand gesichert" : null,
         ]
           .filter(Boolean)
@@ -343,15 +336,12 @@ export function AutoRosterDialog({
                 checked={respectPreferences}
                 onCheckedChange={(v) => setRespectPreferences(v === true)}
               />
-              Wunschstationen aus der Anmeldung bevorzugen
+              Wunschstationen aus der Anmeldung berücksichtigen
             </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={skipRed} onCheckedChange={(v) => setSkipRed(v === true)} />
-              Rot markierte Personen nicht einplanen
-              {redCids.length > 0 && (
-                <span className="text-xs text-muted-foreground">({redCids.length})</span>
-              )}
-            </label>
+            <p className="pl-6 text-xs text-muted-foreground">
+              Freitext wird gedeutet („APN“, „MUC Tower“, „kein DEL“). Wer trotzdem auf einer
+              nicht gewünschten Station landet, wird anschließend orange markiert.
+            </p>
           </div>
 
           {/* Stationen */}

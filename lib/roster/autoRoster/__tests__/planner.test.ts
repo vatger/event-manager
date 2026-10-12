@@ -159,19 +159,59 @@ describe("planRoster", () => {
     expect(result.assignments).toEqual([{ stationId: 1, userCID: 702, start: 90, end: 210 }]);
   });
 
-  it("plant zurückgezogene und ausgeschlossene Personen nie ein", () => {
-    const input = {
-      ...planningInput(
-        [station(1, "EDDM_TWR")],
+  describe("Wünsche aus dem Freitext", () => {
+    const del = () => station(1, "EDDM_DEL", 1, { description: "München Delivery" });
+    const apron = () => station(2, "EDDM_1_GND", 2, { description: "München Apron (Apron 1)" });
+
+    it('setzt „ne Runde APN" auf die Apron-Position', () => {
+      const input = planningInput(
+        [del(), apron()],
         [
-          signup(601, "Weg", AP, { levels: ["TWR"], withdrawn: true }),
-          signup(602, "Rot", AP, { levels: ["TWR"] }),
-          signup(603, "Da", AP, { levels: ["TWR"] }),
+          signup(801, "Apronfan", AP, { levels: ["DEL", "GND"], preferred: "ne Runde APN" }),
+          signup(802, "Neutral", AP, { levels: ["DEL", "GND"] }),
         ],
         { totalMinutes: 120 }
-      ),
-      excludedCids: [602],
-    };
+      );
+      const result = planRoster(input);
+      expect(on(result.assignments, 2).map((a) => a.userCID)).toEqual([801]);
+      expect(on(result.assignments, 1).map((a) => a.userCID)).toEqual([802]);
+    });
+
+    it('weicht „kein DEL" aus, solange es anders geht', () => {
+      const input = planningInput(
+        [del(), apron()],
+        [
+          signup(803, "Neutral", AP, { levels: ["DEL", "GND"] }),
+          signup(804, "OhneDel", AP, { levels: ["DEL", "GND"], preferred: "bitte kein DEL" }),
+        ],
+        { totalMinutes: 120 }
+      );
+      const result = planRoster(input);
+      expect(on(result.assignments, 1).map((a) => a.userCID)).toEqual([803]);
+      expect(result.wishConflicts).toEqual([]);
+    });
+
+    it('plant trotz „kein DEL" ein, wenn es nicht anders geht – und meldet den Konflikt', () => {
+      const input = planningInput(
+        [del()],
+        [signup(805, "OhneDel", AP, { levels: ["DEL", "GND"], preferred: "kein DEL" })],
+        { totalMinutes: 120 }
+      );
+      const result = planRoster(input);
+      expect(result.assignments.map((a) => a.userCID)).toEqual([805]);
+      expect(result.wishConflicts).toEqual([{ userCID: 805, callsigns: ["EDDM_DEL"] }]);
+    });
+  });
+
+  it("plant zurückgezogene Anmeldungen nie ein", () => {
+    const input = planningInput(
+      [station(1, "EDDM_TWR")],
+      [
+        signup(601, "Weg", AP, { levels: ["TWR"], withdrawn: true }),
+        signup(603, "Da", AP, { levels: ["TWR"] }),
+      ],
+      { totalMinutes: 120 }
+    );
     const result = planRoster(input);
     expect(result.assignments.map((a) => a.userCID)).toEqual([603]);
   });

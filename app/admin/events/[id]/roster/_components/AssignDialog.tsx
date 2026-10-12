@@ -207,6 +207,14 @@ export function AssignDialog({
                           <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />
                         </span>
                       )}
+                      {s.avoidsStation && (
+                        <span
+                          title="Laut Anmeldung nicht gewünscht"
+                          className="shrink-0 rounded border border-amber-500/50 px-1 text-[10px] leading-tight text-amber-700 dark:text-amber-300"
+                        >
+                          nicht gewünscht
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
                       <span>

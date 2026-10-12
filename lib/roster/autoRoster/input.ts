@@ -26,7 +26,6 @@ export function toPlanningInput(args: {
   eventAirports: string[];
   totalMinutes: number;
   slotMinutes: number;
-  excludedCids?: number[];
 }): PlanningInput {
   const fixed = args.blocks
     .filter((b) => args.mode === "fill" || b.type !== "controller")
@@ -43,6 +42,5 @@ export function toPlanningInput(args: {
     eventAirports: args.eventAirports,
     totalMinutes: args.totalMinutes,
     slotMinutes: args.slotMinutes,
-    excludedCids: args.excludedCids,
   };
 }

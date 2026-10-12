@@ -422,6 +422,25 @@ export function ControllerSidePanel({
                 <p className="text-sm break-words">
                   {controller.preferredStations || <span className="text-muted-foreground">–</span>}
                 </p>
+                {/* So wurde der Freitext verstanden – Grundlage für den Auto-Roster */}
+                {controller.wishes && controller.wishes.parts.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {controller.wishes.parts.map((part, i) => (
+                      <li key={i} className="text-[11px] leading-tight text-muted-foreground">
+                        <span
+                          className={
+                            part.negative
+                              ? "text-danger-700 dark:text-danger-300"
+                              : "text-amber-700 dark:text-amber-300"
+                          }
+                        >
+                          {part.negative ? "nicht " : ""}„{part.text}“
+                        </span>{" "}
+                        → {part.callsigns.join(", ")}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div>
                 <span className="text-xs text-muted-foreground flex items-center gap-1">

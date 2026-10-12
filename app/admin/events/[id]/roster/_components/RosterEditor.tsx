@@ -89,6 +89,7 @@ import {
   buildControllers,
   compareControllersByBoardSort,
   computeWarnings,
+  describeWishes,
   formatDuration,
   getControllerGroupForStation,
   checkEligibility,
@@ -98,6 +99,7 @@ import {
   minutesBetween,
   minuteToDate,
   minuteToHM,
+  prefersStation,
   resolveStationMeta,
   rosterToCsv,
   rosterToText,
@@ -302,9 +304,24 @@ export function RosterEditor({
   const groupByAirport = event.airports.length > 1;
 
 
+  // Wünsche aus der Anmeldung gleich gegen die Stationen des Plans deuten
+  // („APN" → die Apron-Positionen, „kein DEL" → keine Delivery)
   const controllers = useMemo(
-    () => buildControllers(signups, eventStart, totalMinutes),
-    [signups, eventStart, totalMinutes]
+    () =>
+      buildControllers(
+        signups,
+        eventStart,
+        totalMinutes,
+        roster.stations.map((st) => {
+          const meta = stationMetaFor(st.callsign);
+          return {
+            callsign: st.callsign,
+            description: meta.description,
+            abbreviation: meta.abbreviation,
+          };
+        })
+      ),
+    [signups, eventStart, totalMinutes, roster.stations, stationMetaFor]
   );
   const controllerByCid = useMemo(
     () => new Map(controllers.map((c) => [c.cid, c])),
@@ -1961,8 +1978,7 @@ export function RosterEditor({
       busy: assignments
         .filter((a) => a.userCID === drag.userCID)
         .map((a) => ({ start: a.start, end: a.end })),
-      prefers: (callsign: string) =>
-        c.preferredStations.toUpperCase().includes(callsign.toUpperCase()),
+      prefers: (callsign: string) => prefersStation(c, callsign),
     };
   }, [drag, controllerByCid, assignments]);
   /** Zuweisungen inkl. Drag-Vorschau */
@@ -3286,7 +3302,11 @@ export function RosterEditor({
                           )}
                           {/* Ohne Infospalte bleiben die Symbole die Kurzform */}
                           {!showRemarks && c.preferredStations && (
-                            <span title={`Wunschstationen: ${c.preferredStations}`}>
+                            <span
+                              title={`Wunschstationen: ${c.preferredStations}${
+                                describeWishes(c) ? `\nGedeutet: ${describeWishes(c)}` : ""
+                              }`}
+                            >
                               <Star className="h-3 w-3 text-amber-500 fill-amber-400 shrink-0" />
                             </span>
                           )}
@@ -3383,7 +3403,14 @@ export function RosterEditor({
                             />
                           )}
                           {infoFields.has("preferred") && c.preferredStations && (
-                            <p className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate">
+                            <p
+                              className="text-[10px] leading-tight text-amber-700 dark:text-amber-300 truncate"
+                              title={
+                                describeWishes(c)
+                                  ? `${c.preferredStations}\nGedeutet: ${describeWishes(c)}`
+                                  : c.preferredStations
+                              }
+                            >
                               <Star className="inline h-2.5 w-2.5 mb-0.5 mr-0.5 fill-current" />
                               {c.preferredStations}
                             </p>
@@ -3756,7 +3783,6 @@ export function RosterEditor({
           stationMetaFor={stationMetaFor}
           controllers={controllers}
           assignments={assignments}
-          markByCid={markByCid}
           apiHeaders={apiHeaders}
           onApplied={({ createdIds, mode }) => {
             if (mode === "fill") {

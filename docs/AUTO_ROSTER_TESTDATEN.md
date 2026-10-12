@@ -46,14 +46,18 @@ bei Bedarf angelegt.
   - 3 zurückgezogene Anmeldungen
   - 2 nach Anmeldeschluss
   - Abwahlen einzelner Airports
-  - Wunschstationen und Bemerkungen
+  - Wunschstationen als Freitext, wie sie in Anmeldungen wirklich stehen: „ne Runde
+    APN", „TWR N/S", „1. APP 2. TWR", „Walda oder Starnberg", „GND, kein DEL"
+  - Bemerkungen
   - Ampel-Markierungen: 3 grün, 2 orange, 2 rot
 - Im Plan steht schon einiges von Hand:
   - ZUG 16:00–18:00
   - ein Custom-Block „Combined (NH)" auf EDDM_ND_APP
   - ein „Mentor"-Block für den C3 von 18:00–20:00
-- Gedacht für: „Lücken füllen", „Neu planen", Stationen abwählen, rot Markierte ein-
-  und ausschließen.
+- Gedacht für: „Lücken füllen", „Neu planen", Stationen abwählen und die Deutung der
+  Wunschstationen. Wie ein Wunsch verstanden wurde, steht in der Seitenleiste des
+  Editors unter „Wunschstationen". Wer trotz „kein …" auf einer solchen Station landet,
+  ist danach orange markiert und hat eine Notiz dazu.
 
 ### „[Test] Nürnberg Engpass" (ohne Roster)
 
