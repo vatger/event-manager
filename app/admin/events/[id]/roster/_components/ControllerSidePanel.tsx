@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import {
   BarChart3,
   CalendarX2,
-  Clock,
   ExternalLink,
   GraduationCap,
   Loader2,
@@ -42,6 +41,7 @@ import { buildEndorsementView } from "../_lib/endorsementView";
 import { FlagPicker } from "./FlagPicker";
 import { CharLimitHint } from "@/components/CharLimitHint";
 import { USER_COMMENT_MAX } from "@/lib/users/userComments";
+import { S1TheoryBadge } from "@/components/S1TheoryBadge";
 
 interface AtcStation {
   station: string;
@@ -109,7 +109,6 @@ export function ControllerSidePanel({
   controller,
   bestGroup,
   assignedMinutes,
-  shiftLabels,
   eventStart,
   eventAirports,
   firCode,
@@ -251,6 +250,7 @@ export function ControllerSidePanel({
             <Badge className={`${getBadgeClassForEndorsement(bestGroup)} text-[10px] shrink-0`}>
               {bestGroup ?? "?"}
             </Badge>
+            {controller.entry.s1TheoryOnly && <S1TheoryBadge />}
           </div>
           <p className="text-xs text-muted-foreground">
             {controller.cid} • {controller.rating}

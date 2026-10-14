@@ -1,4 +1,5 @@
 import type { EventEndorsementData, SignupTableEntry } from "@/lib/cache/types";
+import type { Station } from "@/lib/stations/types";
 import {
   familiarizationsFromPositions,
   missingFamiliarizations,
@@ -85,6 +86,23 @@ export function isUnavailable(
 // Eligibility (Spiegel der Server-Logik in eventRosterService)
 // =====================================================================
 
+/** Datahub-Stationen als StationMeta nach Callsign – für Editor und automatische Planung */
+export function stationMetaMapFromDatahub(stations: Station[]): Map<string, StationMeta> {
+  const map = new Map<string, StationMeta>();
+  for (const st of stations) {
+    map.set(st.callsign.toUpperCase(), {
+      callsign: st.callsign.toUpperCase(),
+      group: st.group === "Sonstiges" ? null : (st.group as StationGroup),
+      airport: st.airport ?? null,
+      s1Twr: st.s1Twr === true,
+      requiredFamiliarizations: st.requiredFamiliarizations ?? [],
+      gcapStatus: st.gcapStatus ?? null,
+      abbreviation: st.abbreviation ?? null,
+    });
+  }
+  return map;
+}
+
 /** Stationsanforderung aus Datahub-Metadaten oder Callsign-Heuristik */
 export function resolveStationMeta(
   callsign: string,
@@ -102,7 +120,8 @@ export function resolveStationMeta(
   };
 }
 
-function groupRank(g: string | null | undefined): number {
+/** Rang einer Stationsgruppe (DEL < GND < … < CTR), -1 ohne Gruppe */
+export function groupRank(g: string | null | undefined): number {
   return g ? STATION_GROUP_ORDER.indexOf(g as StationGroup) : -1;
 }
 
@@ -242,11 +261,18 @@ export function checkEligibility(
     levels && levels.length >= 0 && Array.isArray(levels)
       ? levels.includes(stationMeta.group)
       : // Rückfall für Daten ohne Ebenenliste
-        canStaffStation(data?.group ?? null, stationMeta.group, stationMeta.s1Twr);
+        canStaffStation(
+          data?.group ?? null,
+          stationMeta.group,
+          stationMeta.s1Twr,
+          controller.entry.s1TheoryOnly
+        );
 
   // Sonderfall S1-TWR: Der Datahub erlaubt TWR ausdrücklich mit GND-Freigabe.
+  // Nicht für das Theory Roster – dort gelten allein die Ebenen.
   const s1TwrOk =
     !permitted &&
+    !controller.entry.s1TheoryOnly &&
     stationMeta.group === "TWR" &&
     stationMeta.s1Twr &&
     (levels ? levels.includes("GND") : false);

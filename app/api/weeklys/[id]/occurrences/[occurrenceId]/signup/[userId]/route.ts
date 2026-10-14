@@ -16,7 +16,7 @@ const weeklySignupSchema = z.object({
  */
 async function canManageSignups(
   userCid: number,
-  occurrence: any
+  occurrence: { config: { fir: { code: string } | null } }
 ): Promise<boolean> {
   if (!occurrence.config.fir) return false;
   

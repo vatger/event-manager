@@ -45,6 +45,7 @@ import {
   minuteToHM,
   suggestControllers,
 } from "../_lib/rosterUtils";
+import { S1TheoryBadge } from "@/components/S1TheoryBadge";
 
 /** Häufige Custom-Block-Vorlagen */
 const CUSTOM_PRESETS = ["Combined", "Training", "Sweatbox", "Mentoring", "Pause"];
@@ -202,6 +203,7 @@ export function AssignDialog({
                       <span className="font-medium text-sm truncate">
                         {s.controller.name}
                       </span>
+                      {s.controller.entry.s1TheoryOnly && <S1TheoryBadge compact />}
                       {s.prefersStation && (
                         <span title="Wunsch-Station des Controllers">
                           <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-400 shrink-0" />

@@ -53,7 +53,7 @@ export async function POST(req: Request) {
 
   const rating = getRatingValue(user.rating) ?? 0;
   const policy = await buildAirportPolicy(airport, fir);
-  const data = await loadEligibilityData(cid, policy);
+  const data = await loadEligibilityData(cid, rating, policy);
   const result = EligibilityEngine.evaluate({ userCID: cid, rating }, policy, data);
 
   return NextResponse.json({

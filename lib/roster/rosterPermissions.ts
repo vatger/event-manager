@@ -1,6 +1,8 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   isVatgerEventleitung,
+  userHasAnyFirPermission,
   userHasFirPermission,
   isEventResponsible,
   isEventFirTeamMember,
@@ -78,4 +80,27 @@ export async function canManageEventSignups(cid: number, eventId: number): Promi
   if (await userhasPermissiononEvent(cid, eventId, "signups.manage")) return true;
   if (await canEditEventRoster(cid, eventId)) return true;
   return false;
+}
+
+/**
+ * Filter auf die Events einer FIR, deren Anmeldungen der Nutzer verwalten darf –
+ * dieselben Regeln wie canManageEventSignups (ohne VATGER-Leitung, die vorab zu
+ * prüfen ist), aber für alle Events auf einmal: FIR-weite Rechte (signups.manage,
+ * event.edit, roster.edit) gelten für jedes Event, Verantwortliche und
+ * eingetragene Roster-Bearbeiter nur für ihr Event.
+ */
+export async function eventsWithManageableSignupsWhere(
+  cid: number,
+  fir: string
+): Promise<Prisma.EventWhereInput> {
+  if (await userHasAnyFirPermission(cid, fir, ["signups.manage", "event.edit", "roster.edit"])) {
+    return { firCode: fir };
+  }
+  return {
+    firCode: fir,
+    OR: [
+      { responsibles: { some: { userCID: cid } } },
+      { roster: { editors: { some: { userCID: cid } } } },
+    ],
+  };
 }

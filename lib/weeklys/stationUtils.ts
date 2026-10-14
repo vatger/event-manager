@@ -77,12 +77,14 @@ export function getMinimumStationGroup(stations: string[]): StationGroup | null 
 export function canStaffStation(
   userGroup: string | null | undefined,
   requiredGroup: StationGroup | null,
-  s1TwrFlag?: boolean
+  s1TwrFlag?: boolean,
+  /** Steht auf dem Theory Roster – dort gilt allein die Freigabe, kein S1-TWR-Sonderweg */
+  s1TheoryOnly?: boolean
 ): boolean {
   if (!userGroup || !requiredGroup) return false;
   
   // Special case: S1 TWR stations can be staffed by GND-endorsed controllers
-  if (requiredGroup === 'TWR' && s1TwrFlag === true && userGroup === 'GND') {
+  if (requiredGroup === 'TWR' && s1TwrFlag === true && userGroup === 'GND' && !s1TheoryOnly) {
     return true;
   }
   

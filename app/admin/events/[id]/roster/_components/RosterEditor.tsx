@@ -53,6 +53,7 @@ import {
   Undo2,
   UserPlus,
   UserX,
+  Wand2,
   Wifi,
   WifiOff,
   X,
@@ -123,6 +124,8 @@ import { SnapshotsDialog } from "./SnapshotsDialog";
 import { ActivityLogDialog } from "./ActivityLogDialog";
 import { PersonalBlockDialog } from "./PersonalBlockDialog";
 import SignupEditDialog from "../../_components/SignupEditDialog";
+import { S1TheoryBadge } from "@/components/S1TheoryBadge";
+import { SolverDialog } from "./SolverDialog";
 
 // (ControllerInfoPopover wurde durch die immer sichtbare Seitenleiste ersetzt)
 
@@ -363,6 +366,7 @@ export function RosterEditor({
   const [selectedCID, setSelectedCID] = useState<number | null>(null);
   const [snapshotsOpen, setSnapshotsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [solverOpen, setSolverOpen] = useState(false);
   // Signup bearbeiten/hinzufügen (null = zu, {signup:null} = neu anlegen)
   const [signupDialog, setSignupDialog] = useState<{ signup: SignupTableEntry | null } | null>(null);
   // Schnellnotiz direkt in der Infospalte (Doppelklick)
@@ -2843,6 +2847,18 @@ export function RosterEditor({
             </Button>
           )}
 
+          {canEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSolverOpen(true)}
+              title="Automatische Planung aus Wünschen und Regeln"
+            >
+              <Wand2 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden lg:inline">Auto-Planung</span>
+            </Button>
+          )}
+
           {canManageSignups && (
             <Button
               variant="outline"
@@ -3222,6 +3238,7 @@ export function RosterEditor({
                               <UserX className="h-3 w-3 shrink-0 text-danger-600" />
                             </span>
                           )}
+                          {c.entry.s1TheoryOnly && <S1TheoryBadge compact />}
                           {/* Ohne Infospalte bleiben die Symbole die Kurzform */}
                           {!showRemarks && c.preferredStations && (
                             <span title={`Wunschstationen: ${c.preferredStations}`}>
@@ -3553,6 +3570,26 @@ export function RosterEditor({
         apiHeaders={apiHeaders}
         onUpdated={onReload}
       />
+
+      {/* Dialog: Automatische Planung */}
+      {canEdit && (
+        <SolverDialog
+          open={solverOpen}
+          onOpenChange={setSolverOpen}
+          eventId={event.id}
+          eventStatus={event.status}
+          eventStart={eventStart}
+          totalMinutes={totalMinutes}
+          eventAirports={event.airports}
+          stations={stations}
+          assignments={assignments}
+          controllers={controllers}
+          stationMetaFor={stationMetaFor}
+          canEdit={canEdit}
+          apiHeaders={apiHeaders}
+          onApplied={onReload}
+        />
+      )}
 
       {/* Dialog: Controller-Briefing */}
       <BriefingDialog

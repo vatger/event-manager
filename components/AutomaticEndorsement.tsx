@@ -23,7 +23,10 @@ export default React.memo(function AutomaticEndorsement(params: EndorsementQuery
         const res = await fetch("/api/endorsements/group", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
+          body: JSON.stringify({
+            user: { userCID: user.userCID, rating: user.rating },
+            event: { airport: event.airport, fir: event.fir },
+          }),
         });
 
         if (!res.ok) {

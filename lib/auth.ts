@@ -1,5 +1,5 @@
 // lib/auth.ts
-import { User, type NextAuthOptions } from "next-auth";
+import { type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
 import { isMainAdminCid } from "./acl/mainAdmins";

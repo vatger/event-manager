@@ -9,7 +9,7 @@ export class GroupService {
     const { user, event } = params;
 
     const policy = await buildAirportPolicy(event.airport, event.fir);
-    const data = await loadEligibilityData(user.userCID, policy);
+    const data = await loadEligibilityData(user.userCID, user.rating, policy);
 
     const { maxAllowedGroup, allowedLevels, restrictions, reasonsPerLevel } =
       EligibilityEngine.evaluate(user, policy, data);
@@ -27,6 +27,7 @@ export class GroupService {
       blockReason,
       endorsements: data.allEndorsements,
       familiarizations: data.famsForFir,
+      s1TheoryOnly: data.isS1TheoryOnly,
       data: {
         endorsement: data.endorsements,
         solos: data.relevantSoloPositions,

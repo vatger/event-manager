@@ -81,7 +81,7 @@ export default function AdminEventsPage() {
       if (!res.ok) throw new Error("Fehler beim Löschen");
       setError("");
       refreshEvents();
-    } catch (err) {
+    } catch {
       setError("Fehler beim Löschen des Events");
     }
   };

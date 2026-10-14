@@ -28,7 +28,7 @@ interface AdminHeaderProps {
   };
 }
 
-export function AdminHeader({ title, user }: AdminHeaderProps) {
+export function AdminHeader({ title }: AdminHeaderProps) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const { setTheme, theme } = useTheme()
 

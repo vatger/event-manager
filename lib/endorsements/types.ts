@@ -67,6 +67,8 @@ type Familiarization = {
     blockReason?: string;
     endorsements: string[];
     familiarizations: string[];
+    /** Steht auf dem Theory Roster (siehe lib/training/s1TheoryRoster) */
+    s1TheoryOnly?: boolean;
     data?: EndorsementSoloFamsData
   }
   

@@ -27,7 +27,6 @@ import type { CptEntry } from "../_lib/cptTypes";
 import {
   copyBannerUrlToClipboard,
   formatLocal,
-  formatZulu,
   hasBanner,
   isUrgent,
   relativeDay,

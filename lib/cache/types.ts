@@ -97,6 +97,8 @@ export interface SignupTableEntry {
   airportEndorsements?: Record<string, EventEndorsementData>;
   /** Airports this signup can staff (based on endorsements and opt-outs) */
   selectedAirports?: string[];
+  /** Steht auf dem Theory Roster – nur zur Anzeige, die Freigaben oben berücksichtigen es bereits */
+  s1TheoryOnly?: boolean;
   deletedAt?: string | null;
   deletedBy?: number | null;
   modifiedAfterDeadline?: boolean;

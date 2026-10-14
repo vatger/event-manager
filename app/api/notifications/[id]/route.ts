@@ -14,12 +14,15 @@ export async function PATCH(_: NextRequest, { params }: { params: Promise<{ id: 
 
   try {
     const ID = parseInt(id);
-    const updated = await prisma.notification.update({
-      where: { id: ID },
+    // Nur eigene Benachrichtigungen – fremde verhalten sich wie nicht vorhanden
+    const { count } = await prisma.notification.updateMany({
+      where: { id: ID, userCID: cid },
       data: { readAt: new Date() },
     });
+    if (count === 0) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const updated = await prisma.notification.findUnique({ where: { id: ID } });
     return NextResponse.json(updated);
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: "Update failed" }, { status: 400 });
   }
 }

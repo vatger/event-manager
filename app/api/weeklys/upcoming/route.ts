@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, addMonths } from "date-fns";
 
@@ -7,7 +7,7 @@ import { startOfDay, addMonths } from "date-fns";
  * Get upcoming weekly event occurrences (publicly accessible)
  * Returns occurrences for the next 3 months
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const today = startOfDay(new Date());
     const threeMonthsFromNow = addMonths(today, 3);

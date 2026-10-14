@@ -6,20 +6,25 @@ import {
 import { EndorsementService } from '@/lib/endorsements/endorsementService';
 import { AirportLevel, AirportPolicy, EligibilityData, LEVEL_ORDER } from './types';
 import { getIncompleteCourseNames } from './courseService';
+import { isS1TheoryOnly as loadS1TheoryOnly } from '@/lib/training/s1TheoryRoster';
 
 /**
  * Load all data needed by the eligibility engine.
- * Real data: T1 endorsements, solos, familiarizations (from training cache), required courses.
+ * Real data: T1 endorsements, solos, familiarizations (from training cache), required courses,
+ * S1-theory roster (from the S1 signup).
  * The mock APIs will be replaced once real endpoints are available.
  */
 export async function loadEligibilityData(
   userCID: number,
+  rating: number,
   policy: AirportPolicy
 ): Promise<EligibilityData> {
-  const [allEndorsements, rawSolos, rawFams] = await Promise.all([
+  const [allEndorsements, rawSolos, rawFams, isS1TheoryOnly] = await Promise.all([
     getCachedUserEndorsements(userCID),
     getCachedUserSolos(userCID),
     getCachedUserFamiliarizations(userCID),
+    // Theory Roster aus der S1-Anmeldung (siehe lib/training/s1TheoryRoster)
+    loadS1TheoryOnly(userCID, rating),
   ]);
 
   const endorsements = EndorsementService.getEndorsementsForAirport(
@@ -41,9 +46,6 @@ export async function loadEligibilityData(
 
   // Mock: user is always considered to be on the roster
   const isOnRoster = true;
-
-  // Mock: no user is on the S1-theory-only roster
-  const isS1TheoryOnly = false;
 
   // Mock: no T2/AFIS endorsements available yet
   const t2AfisEndorsements: string[] = [];

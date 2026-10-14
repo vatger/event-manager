@@ -21,7 +21,7 @@ export async function generateOccurrences(configId: number) {
   
     // startDate als reines UTC-Datum
     const sd = new Date(config.startDate);
-    let cursor = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate()));
+    const cursor = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate()));
   
     // Zum gewünschten Wochentag vorspulen (vorwärts)
     // weekday: 0=So, 1=Mo, 2=Di, ...

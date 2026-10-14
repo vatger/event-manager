@@ -33,7 +33,6 @@ export const AvailabilityTimeline = forwardRef<
   AvailabilityTimelineProps
 >(({ eventId, slots, selectedAirport }, ref) => {
   const [signups, setSignups] = useState<SignupTableEntry[]>([]);
-  const [cached, setCached] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +49,6 @@ export const AvailabilityTimeline = forwardRef<
 
       const data = await res.json();
       setSignups(Array.isArray(data.signups) ? data.signups : []);
-      setCached(Boolean(data.cached));
     } catch (err) {
       console.error("[Timeline] Fehler beim Laden:", err);
       setError("Fehler beim Laden der Anmeldungen");
