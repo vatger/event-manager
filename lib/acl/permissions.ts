@@ -34,11 +34,24 @@ export async function userHasFirPermission(
   firCode: string,
   permissionKey: string
 ) {
+  return userHasAnyFirPermission(cid, firCode, [permissionKey]);
+}
+
+/**
+ * Hat der Nutzer in der FIR mindestens eine der Berechtigungen? Eine einzige
+ * Abfrage statt einer je Berechtigung.
+ */
+export async function userHasAnyFirPermission(
+  cid: number,
+  firCode: string,
+  permissionKeys: string[]
+) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
   if (user.effectivePermissions.includes("*")) return true;
   if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  return user.firScopedPermissions[firCode]?.includes(permissionKey) ?? false;
+  const scoped = user.firScopedPermissions[firCode] ?? [];
+  return permissionKeys.some((key) => scoped.includes(key));
 }
 
 /**
