@@ -1,4 +1,4 @@
-import { AirportLevel, RuleInput, RuleResult, LEVEL_ORDER, levelRank } from '../types';
+import { AirportLevel, RuleInput, RuleResult, levelRank } from '../types';
 import { EndorsementService } from '@/lib/endorsements/endorsementService';
 import { GroupService } from '@/lib/endorsements/groupService';
 

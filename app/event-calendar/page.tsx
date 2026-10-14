@@ -216,7 +216,8 @@ export default function PublicEventCalendar() {
   function toggleFIR(fir: string) {
     setVisibleFIRs((prev) => {
       const next = new Set(prev);
-      next.has(fir) ? next.delete(fir) : next.add(fir);
+      if (next.has(fir)) next.delete(fir);
+      else next.add(fir);
       return next;
     });
   }

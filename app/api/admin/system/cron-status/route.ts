@@ -9,7 +9,7 @@ import { isMainAdminCid } from '@/lib/acl/mainAdmins';
  * Get status of all CRON jobs
  * Requires MAIN_ADMIN role
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 

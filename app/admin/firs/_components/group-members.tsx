@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, UserPlus, UserMinus, Search } from 'lucide-react';
+import { UserPlus, UserMinus, Search } from 'lucide-react';
 import { firApi } from '@/lib/api/fir';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/utils/errorUtils';

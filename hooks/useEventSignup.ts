@@ -1,11 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import type { TimeRange } from "@/types";
+
+/** Anmeldung, wie GET /api/events/[id]/signup/[userId] sie liefert (genutzte Felder) */
+export interface EventSignupData {
+  deletedAt?: string | null;
+  availability?: { available?: TimeRange[]; unavailable?: TimeRange[] };
+  preferredStations?: string | null;
+  remarks?: string | null;
+  excludedAirports?: string[] | null;
+}
 
 export function useEventSignup(eventId?: number | string, userId?: number | string) {
   const [loading, setLoading] = useState(true);
   const [isSignedUp, setIsSignedUp] = useState(false);
-  const [signupData, setSignupData] = useState<any>(null);
+  const [signupData, setSignupData] = useState<EventSignupData | null>(null);
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!eventId || !userId) {
       // Kein eingeloggter User oder keine Event-ID: kein Signup vorhanden
       setIsSignedUp(false);
@@ -44,11 +54,11 @@ export function useEventSignup(eventId?: number | string, userId?: number | stri
         setSignupData(null);
       })
       .finally(() => setLoading(false));
-  };
+  }, [eventId, userId]);
 
   useEffect(() => {
     load();
-  }, [eventId, userId]);
+  }, [load]);
 
   return { loading, isSignedUp, signupData, refetch: load };
 }

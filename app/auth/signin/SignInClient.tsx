@@ -4,7 +4,7 @@ import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLogo } from "@/components/BrandLogo";
-import { CodesandboxIcon, LogInIcon, Plane } from "lucide-react";
+import { CodesandboxIcon, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { Session } from "next-auth";
 

@@ -21,7 +21,7 @@ export function calculateSignupDeadline(
   }
 
   // Parse the start time (HH:mm format, Europe/Berlin timezone)
-  let eventDateTime = new Date(occurrenceDate);
+  const eventDateTime = new Date(occurrenceDate);
   
   if (startTime) {
     const [hours, minutes] = startTime.split(':').map(Number);

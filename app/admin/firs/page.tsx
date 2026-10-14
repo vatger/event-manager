@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Users, Settings, Home } from 'lucide-react';
-import Link from 'next/link';
+import { Users, Settings } from 'lucide-react';
 
 export default function FIRsPage() {
   const [firs, setFirs] = useState<FIR[]>([]);

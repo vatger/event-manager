@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { FIRNavbar } from "./firs/_components/FIRnavbar";
 import { AdminSidebar } from "./_components/sidebar/AdminSidebar";
 import { AdminHeader } from "./_components/AdminHeader";
 import { EventAdminNav } from "./events/[id]/_components/EventAdminNav";
@@ -15,7 +14,6 @@ type User = {
 export default function AdminShell({ children, user }: { children: React.ReactNode; user: User }) {
   const pathname = usePathname();
 
-  const isFIRPage = pathname.includes("/firs");
   const isEventpage = pathname.includes("/events/") && !pathname.includes("/events/create");
   const pageTitle = getPageTitle(pathname);
 

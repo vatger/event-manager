@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useUserSettings } from "@/lib/stores/userSettingsStore";

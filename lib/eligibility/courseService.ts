@@ -35,6 +35,7 @@ async function fetchCoursesJson(): Promise<CourseEntry[]> {
  *   - the VATGER_API env var is not configured (graceful degradation), or
  *   - the API call fails for any reason.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Parameter für die auskommentierte Moodle-Abfrage
 async function isCourseComplete(moduleId: string, userCID: number): Promise<boolean> {
   // const base = process.env.VATGER_API;
   // if (!base) return true;

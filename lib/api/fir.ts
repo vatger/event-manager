@@ -1,5 +1,4 @@
 import { FIR, CreateFIRData, Group, CurrentUser, Permission} from '@/types/fir';
-import { User } from '@prisma/client';
 
 class FIRAPI {
   private async fetchWithAuth(url: string, options?: RequestInit) {

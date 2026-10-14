@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { ArrowLeft, Calendar, MoreVertical, Trash2, CheckCircle, XCircle, Loader2, Eye, Edit, Users, Link, RefreshCw, Edit2, Clock } from "lucide-react";
@@ -53,7 +52,6 @@ import { toast } from "sonner";
 import { getEffectiveSignupStatus } from "@/lib/weeklys/signupStatus";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-
 interface WeeklyConfig {
   id: number;
   name: string;
@@ -83,7 +81,6 @@ interface Occurrence {
 export default function OccurrencesPage() {
   const router = useRouter();
   const params = useParams();
-  const { data: session } = useSession();
   const configId = parseInt(params.id as string);
 
   const [config, setConfig] = useState<WeeklyConfig | null>(null);
@@ -120,12 +117,7 @@ export default function OccurrencesPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch data
-  useEffect(() => {
-    fetchData();
-  }, [configId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch weekly config
@@ -148,7 +140,12 @@ export default function OccurrencesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [configId]);
+
+  // Fetch data
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleEditDate = async () => {
     if (!editDateDialog.occurrence || !newDate || !newTime) return;
