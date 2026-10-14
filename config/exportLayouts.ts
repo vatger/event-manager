@@ -3,8 +3,7 @@
  * Each FIR can have its own layout configuration
  */
 
-import { ExportLayoutConfig, ConvertedEvent, ConvertedSignup, ComputedUserData } from "@/types/exportLayout";
-import { formatDateGerman, isUserAvailable } from "@/lib/export/exportUtils";
+import { ExportLayoutConfig } from "@/types/exportLayout";
 import { EDMMLayout } from "./layouts/EDMM";
 
 

@@ -1,16 +1,12 @@
-import { 
-    LayoutDashboard, 
-    Calendar, 
-    Users, 
-    Settings,
-    Map,
-    PlusCircle,
-    CheckCheckIcon,
-    Image,
-    TowerControl,
-    Repeat,
-    ClipboardList,
-  } from "lucide-react";
+import {
+  Calendar,
+  Settings,
+  Map,
+  CheckCheckIcon,
+  Image,
+  TowerControl,
+  ClipboardList,
+} from "lucide-react";
   import { LucideIcon } from "lucide-react";
   
   export interface NavItem {

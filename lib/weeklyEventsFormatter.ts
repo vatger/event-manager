@@ -50,7 +50,6 @@ export function formatWeeklyEventsWithPauses(
 
   // Track which week we're in within the pattern cycle
   let weekInCycle = 0;
-  let lastDate: Date | null = null;
 
   for (let i = 0; i < occurrences.length; i++) {
     const occ = occurrences[i];
@@ -95,7 +94,6 @@ export function formatWeeklyEventsWithPauses(
       weekInCycle = 0;
     }
 
-    lastDate = currentDate;
   }
 
   return result;

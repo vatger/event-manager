@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { User, Settings, LogOut, Home, Users } from 'lucide-react';
+import { User, LogOut, Home, Users } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
 export function FIRNavbar() {

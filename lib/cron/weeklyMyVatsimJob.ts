@@ -13,7 +13,6 @@ export async function checkWeeklyMyVatsim() {
   try {
     const now = new Date();
     const threeMonthsFromNow = addWeeks(now, 12);
-    const twoWeeksFromNow = addWeeks(now, 2);
 
     // Fetch upcoming occurrences that need checking
     const occurrences = await prisma.weeklyEventOccurrence.findMany({

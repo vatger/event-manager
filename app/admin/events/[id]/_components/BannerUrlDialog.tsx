@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Image, X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 
 interface BannerUrlDialogProps {
   event: Event;
@@ -78,7 +78,7 @@ export function BannerUrlDialog({ event, onUpdate, children }: BannerUrlDialogPr
       <DialogTrigger asChild>
         {children || (
           <Button variant="outline" size="sm">
-            <Image className="h-4 w-4 mr-2" />
+            <ImageIcon className="h-4 w-4 mr-2" />
             {event.bannerUrl ? "Banner bearbeiten" : "Banner hinzufügen"}
           </Button>
         )}
@@ -106,6 +106,7 @@ export function BannerUrlDialog({ event, onUpdate, children }: BannerUrlDialogPr
             <div className="space-y-2">
               <Label>Vorschau</Label>
               <div className="border rounded-md overflow-hidden h-32">
+                {/* eslint-disable-next-line @next/next/no-img-element -- Banner von beliebigen URLs */}
                 <img
                   src={bannerUrl}
                   alt="Banner Vorschau"

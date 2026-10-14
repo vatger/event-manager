@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Send, Users, Calendar, Filter, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Search, Send, Users, Calendar, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Event, Signup } from "@/types";
 

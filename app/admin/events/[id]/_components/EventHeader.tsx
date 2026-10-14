@@ -10,7 +10,7 @@ interface EventHeaderProps {
   loading: boolean;
 }
 
-export default function EventHeader({ event, onRefresh, loading }: EventHeaderProps) {
+export default function EventHeader({ event, onRefresh }: EventHeaderProps) {
   const formatTimeZ = (dateIso?: string | Date) => {
     if (!dateIso) return "-";
     const d = new Date(dateIso);

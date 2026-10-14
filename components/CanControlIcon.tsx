@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -26,13 +26,9 @@ function createCacheKey(params: CanControlIconProps['params']): string {
 }
 
 export function CanControlIcon({ params }: CanControlIconProps) {
-  // Stabiler Cache-Key mit useMemo
-  const cacheKey = useMemo(() => createCacheKey(params), [
-    params.user.userCID,
-    params.user.rating,
-    params.event.fir,
-    params.event.airport.sort().join(',') // Sortiert für Stabilität
-  ]);
+  // Der Schlüssel ist ein String und damit von selbst stabil; createCacheKey
+  // sortiert eine Kopie, statt die Airport-Liste der Props umzustellen
+  const cacheKey = createCacheKey(params);
 
   const [loading, setLoading] = useState(() => {
     // Initial State basierend auf Cache

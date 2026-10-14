@@ -5,6 +5,7 @@ import React, {
   useState,
   useImperativeHandle,
   forwardRef,
+  useCallback,
 } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,11 +23,10 @@ interface StatsCardProps {
 export const StatsCard = forwardRef<StatsCardHandle, StatsCardProps>(
   ({ eventId }, ref) => {
     const [signups, setSignups] = useState<SignupTableEntry[]>([]);
-    const [cached, setCached] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const loadSignups = async () => {
+    const loadSignups = useCallback(async () => {
       try {
         setLoading(true);
         setError(null);
@@ -36,7 +36,6 @@ export const StatsCard = forwardRef<StatsCardHandle, StatsCardProps>(
 
         const data = await res.json();
         setSignups(Array.isArray(data.signups) ? data.signups : []);
-        setCached(Boolean(data.cached));
       } catch (err) {
         console.error("[StatsCard] Load error:", err);
         setError("Fehler beim Laden der Statistikdaten");
@@ -44,12 +43,12 @@ export const StatsCard = forwardRef<StatsCardHandle, StatsCardProps>(
       } finally {
         setLoading(false);
       }
-    };
+    }, [eventId]);
 
     // Load on mount
     useEffect(() => {
       loadSignups();
-    }, [eventId]);
+    }, [loadSignups]);
 
     // Expose reload() to parent
     useImperativeHandle(ref, () => ({

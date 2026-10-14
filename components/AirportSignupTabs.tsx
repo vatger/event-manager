@@ -277,15 +277,12 @@ const AirportSignupTabs = forwardRef<AirportSignupTabsRef, AirportSignupTabsProp
             return (order[a[0] as keyof typeof order] || 999) - (order[b[0] as keyof typeof order] || 999);
           });
         
-        const total = stats?.total || 0;
-        
         return (
           <TabsContent key={airport} value={airport} className="space-y-6 mt-6">
             {/* Stats Cards Grid */}
             <div className="mb-6">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                 {groups.map(([group, count]) => {
-                  const percentage = total > 0 ? (count / total) * 100 : 0;
                   
                   return (
                     <div 

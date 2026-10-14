@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
@@ -153,21 +154,21 @@ export async function PATCH(
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Prisma.WeeklyEventConfigurationUncheckedUpdateInput = {};
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
     if (parsed.data.weekday !== undefined) updateData.weekday = parsed.data.weekday;
     if (parsed.data.weeksOn !== undefined) updateData.weeksOn = parsed.data.weeksOn;
     if (parsed.data.weeksOff !== undefined) updateData.weeksOff = parsed.data.weeksOff;
     if (parsed.data.skipInterval !== undefined) updateData.skipInterval = parsed.data.skipInterval;
     if (parsed.data.startDate !== undefined) updateData.startDate = new Date(parsed.data.startDate);
-    if (parsed.data.airports !== undefined) updateData.airports = parsed.data.airports ? JSON.stringify(parsed.data.airports) : null;
+    if (parsed.data.airports !== undefined) updateData.airports = parsed.data.airports ? JSON.stringify(parsed.data.airports) : Prisma.DbNull;
     if (parsed.data.startTime !== undefined) updateData.startTime = parsed.data.startTime;
     if (parsed.data.endTime !== undefined) updateData.endTime = parsed.data.endTime;
     if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
     if (parsed.data.bannerUrl !== undefined) updateData.bannerUrl = parsed.data.bannerUrl || null; // Added for banner image URL
     if (parsed.data.minStaffing !== undefined) updateData.minStaffing = parsed.data.minStaffing;
     if (parsed.data.requiresRoster !== undefined) updateData.requiresRoster = parsed.data.requiresRoster;
-    if (parsed.data.staffedStations !== undefined) updateData.staffedStations = parsed.data.staffedStations ? JSON.stringify(parsed.data.staffedStations) : null;
+    if (parsed.data.staffedStations !== undefined) updateData.staffedStations = parsed.data.staffedStations ? JSON.stringify(parsed.data.staffedStations) : Prisma.DbNull;
     if (parsed.data.signupDeadlineHours !== undefined) updateData.signupDeadlineHours = parsed.data.signupDeadlineHours;
     if (parsed.data.enabled !== undefined) updateData.enabled = parsed.data.enabled;
 

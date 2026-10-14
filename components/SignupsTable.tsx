@@ -33,8 +33,6 @@ import {
 } from "@/components/ui/tooltip";
 import {
   getHighestEndorsementGroup,
-  getAirportEndorsementGroup,
-  getAirportRestrictions,
   ENDORSEMENT_GROUP_PRIORITY,
 } from "@/lib/multiAirport";
 
@@ -125,7 +123,6 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
       eventId,
       editable = false,
       columns = ["cid", "name", "group", "availability", "preferredStations", "remarks"],
-      emptyMessage = "Keine Anmeldungen",
       event,
       onRefresh,
       filteredSignups,
@@ -482,7 +479,7 @@ const SignupsTable = forwardRef<SignupsTableRef, SignupsTableProps>(
                                   if (highestGroup) {
                                     // Find the endorsement with this group
                                     const endorsementEntry = Object.entries(s.airportEndorsements).find(
-                                      ([_, e]) => e && (e as { group?: string }).group === highestGroup
+                                      ([, e]) => e && (e as { group?: string }).group === highestGroup
                                     );
                                     displayEndorsement = endorsementEntry ? endorsementEntry[1] : s.endorsement;
                                   } else {

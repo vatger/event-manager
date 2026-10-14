@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Event } from "@/types";
 import EventHeader from "../_components/EventHeader";
-import { StatsCard, StatsCardHandle } from "../_components/StatsCard";
+import { StatsCardHandle } from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
 import { useUser } from "@/hooks/useUser";
-import { AvailabilityTimeline, AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
+import { AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
 import AirportSignupTabs, { AirportSignupTabsRef } from "@/components/AirportSignupTabs";
@@ -112,9 +112,6 @@ export default function AdminEventSignupsPage() {
   useEffect(() => {
     loadPlanningData();
   }, [loadPlanningData]);
-
-  // Slots für Timeline generieren
-  const slots = useMemo(() => generateSlotsUTC(event?.startTime, event?.endTime, event?.signupSlotMinutes ?? 30), [event?.startTime, event?.endTime, event?.signupSlotMinutes]);
 
   // Parse airports from event
   const eventAirports = useMemo(() => {
@@ -284,38 +281,4 @@ export default function AdminEventSignupsPage() {
       
     </div>
   );
-}
-
-// Helper function (kann später in separate utils Datei ausgelagert werden)
-function generateSlotsUTC(startIso?: string, endIso?: string, slotMinutes = 30): { slotStart: string; slotEnd: string }[] {
-  if (!startIso || !endIso) return [];
-  const start = new Date(startIso);
-  const end = new Date(endIso);
-  const t = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), start.getUTCHours(), start.getUTCMinutes()));
-  
-  const minutes = t.getUTCMinutes();
-  if (minutes % slotMinutes !== 0) {
-    const delta = slotMinutes - (minutes % slotMinutes);
-    t.setUTCMinutes(minutes + delta);
-  }
-  
-  const result: { slotStart: string; slotEnd: string }[] = [];
-  while (t < end) {
-    const slotStart = new Date(t);
-    t.setUTCMinutes(t.getUTCMinutes() + slotMinutes);
-    const slotEnd = new Date(t);
-    
-    if (slotEnd <= end) {
-      const startHH = String(slotStart.getUTCHours()).padStart(2, "0");
-      const startMM = String(slotStart.getUTCMinutes()).padStart(2, "0");
-      const endHH = String(slotEnd.getUTCHours()).padStart(2, "0");
-      const endMM = String(slotEnd.getUTCMinutes()).padStart(2, "0");
-      
-      result.push({
-        slotStart: `${startHH}:${startMM}`,
-        slotEnd: `${endHH}:${endMM}`
-      });
-    }
-  }
-  return result;
 }

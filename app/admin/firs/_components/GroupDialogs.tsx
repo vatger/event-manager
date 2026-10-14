@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Group } from "@/types/fir";
 import { Loader2, Users, AlertTriangle } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface GroupDialogProps {
   open: boolean;
