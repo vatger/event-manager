@@ -4,7 +4,8 @@ import { RuleInput, RuleResult, levelRank } from '../types';
  * S1-Theory Gatekeeper Rule.
  * If the user is on the S1-theory-only roster and the airport has no s1TheoryMaxLevel policy
  * (or the requested level exceeds it), the level is blocked.
- * Currently uses mock data (isS1TheoryOnly is always false) – replace when real API is available.
+ * The roster comes from the S1 signup (lib/training/s1TheoryRoster); isS1TheoryOnly is
+ * already limited to an S1 rating there.
  */
 export function s1TheoryRule(input: RuleInput): RuleResult {
   const { data, policy, level } = input;

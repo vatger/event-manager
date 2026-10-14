@@ -8,8 +8,11 @@ import { TimeRange } from "@/types";
 import { Availability, SignupTableEntry, EventEndorsementData, extractMinimalEndorsementData } from "./types";
 import { parseEventAirports } from "@/lib/multiAirport";
 import { computeSelectedAirportsSync } from "@/lib/multiAirport/selectedAirportsUtils.server";
+import { isS1TheoryOnly, loadS1TheoryRoster } from "@/lib/training/s1TheoryRoster";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 Stunden
+/** Laufzeit einer Tabelle, die ohne Theory Roster berechnet wurde */
+export const SHORT_TTL = 1000 * 60 * 2;
 
 // Track last update timestamps per event for cache busting
 const lastUpdateTimestamps = new Map<number, number>();
@@ -64,6 +67,12 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
   });
 
   // 4️⃣ Endorsements berechnen (zeitintensiv)
+  // Theory Roster vorab laden und seinen Stand jetzt festhalten: Auch ohne
+  // S1-Anmeldungen ist er dann bekannt (sonst grundlos kurze Laufzeit), und
+  // klappt der Abruf erst während der Berechnung, gilt die Tabelle trotzdem
+  // als ohne Roster berechnet
+  const rosterKnown = await loadS1TheoryRoster();
+
   const computed: SignupTableEntry[] = await Promise.all(
     signups.map(async (s): Promise<SignupTableEntry> => {
       const user = s.user;
@@ -129,6 +138,7 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           endorsement: extractMinimalEndorsementData(result),
           airportEndorsements: airportEndorsements,
           selectedAirports: selectedAirports,
+          s1TheoryOnly: result.s1TheoryOnly === true,
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -138,7 +148,6 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         };
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
-        const eventAirportsList = (event.airports as string[] | null) || [];
         const excludedAirports = Array.isArray(s.excludedAirports) 
           ? s.excludedAirports as string[]
           : null;
@@ -155,6 +164,9 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
           availability: parseAvailability(s.availability),
           endorsement: null,
           selectedAirports: [], // Empty on error - user should fix their endorsements
+          s1TheoryOnly: await isS1TheoryOnly(user.cid, getRatingValue(user.rating)).catch(
+            () => false
+          ),
           deletedAt: s.deletedAt?.toISOString() || null,
           deletedBy: s.deletedBy || null,
           modifiedAfterDeadline: s.modifiedAfterDeadline,
@@ -167,7 +179,9 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
   );
 
   // 5️⃣ Ergebnis in Cache speichern
-  await setCache(key, computed, TTL);
+  // Ohne Theory Roster (S1-Anmeldung nicht erreichbar) nur kurz merken,
+  // sonst bekämen Theory-Roster-Controller stundenlang volle Freigaben
+  await setCache(key, computed, rosterKnown ? TTL : SHORT_TTL);
   console.log(`[CACHE SET] SignupTableCache gespeichert für Event ${eventId}`);
 
   return computed;

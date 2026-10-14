@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { format, isBefore } from "date-fns";
+import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import { 
   ArrowLeft, 
@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { S1TheoryBadge } from "@/components/S1TheoryBadge";
 import {
   Dialog,
   DialogContent,
@@ -54,11 +55,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { extractStationGroup } from "@/lib/weeklys/stationUtils";
+import { canStaffStation, extractStationGroup } from "@/lib/weeklys/stationUtils";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { getRatingFromValue } from "@/utils/ratingToValue";
-import { getStationsMetadata } from "@/lib/stations/stationMetadata";
 import { cn } from "@/lib/utils";
 
 interface User {
@@ -118,6 +118,8 @@ interface Signup {
   } | null;
   endorsementGroup: string | null;
   restrictions: string[];
+  /** Steht auf dem Theory Roster */
+  s1TheoryOnly?: boolean;
   history?: UserHistory | null;
   atcStats?: ATCSessionStats | null;
   commentCount?: number;
@@ -213,13 +215,7 @@ export default function RosterEditorPage() {
     saving: false,
   });
 
-  // Fetch roster data
-  useEffect(() => {
-    if (!session) return;
-    fetchData();
-  }, [session, configId, occurrenceId]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const res = await fetch(
         `/api/admin/weeklys/${configId}/occurrences/${occurrenceId}/roster`
@@ -237,7 +233,7 @@ export default function RosterEditorPage() {
           
           for (const stationCallsign of json.config.staffedStations) {
             const station = stationsData.stations?.find(
-              (s: any) => s.callsign.toUpperCase() === stationCallsign.toUpperCase()
+              (s: { callsign: string; s1Twr?: boolean }) => s.callsign.toUpperCase() === stationCallsign.toUpperCase()
             );
             if (station?.s1Twr === true) {
               s1TwrSet.add(stationCallsign.toUpperCase());
@@ -252,9 +248,14 @@ export default function RosterEditorPage() {
       toast.error("Fehler beim Laden der Daten");
     } finally {
       setLoading(false);
-      console.log("signups", data)
     }
-  };
+  }, [configId, occurrenceId]);
+
+  // Fetch roster data
+  useEffect(() => {
+    if (!session) return;
+    fetchData();
+  }, [session, fetchData]);
 
   const assignUser = async (station: string, userCID: number, assignmentType: string = "normal") => {
     setSaving(true);
@@ -276,9 +277,9 @@ export default function RosterEditorPage() {
 
       toast.success("Benutzer zugewiesen");
       await fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Assign error:", error);
-      toast.error(error.message || "Fehler beim Zuweisen");
+      toast.error(error instanceof Error && error.message ? error.message : "Fehler beim Zuweisen");
     } finally {
       setSaving(false);
       setDraggedUser(null);
@@ -302,9 +303,9 @@ export default function RosterEditorPage() {
 
       toast.success("Zuweisung entfernt");
       await fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Unassign error:", error);
-      toast.error(error.message || "Fehler beim Entfernen");
+      toast.error(error instanceof Error && error.message ? error.message : "Fehler beim Entfernen");
     } finally {
       setSaving(false);
     }
@@ -334,9 +335,9 @@ export default function RosterEditorPage() {
       };
       toast.success(`Typ geändert zu: ${labels[assignmentType] || assignmentType}`);
       await fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error("Update type error:", error);
-      toast.error(error.message || "Fehler beim Aktualisieren");
+      toast.error(error instanceof Error && error.message ? error.message : "Fehler beim Aktualisieren");
     } finally {
       setSaving(false);
     }
@@ -362,9 +363,9 @@ export default function RosterEditorPage() {
       toast.success(publish ? "Roster veröffentlicht" : "Veröffentlichung zurückgezogen");
       await fetchData();
       setPublishDialog(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Publish error:", error);
-      toast.error(error.message || "Fehler beim Veröffentlichen");
+      toast.error(error instanceof Error && error.message ? error.message : "Fehler beim Veröffentlichen");
     } finally {
       setSaving(false);
     }
@@ -392,9 +393,9 @@ export default function RosterEditorPage() {
         : "Automatische Veröffentlichung deaktiviert.");
       await fetchData();
       setScheduleDialog(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Schedule error:", error);
-      toast.error(error.message || "Fehler beim Planen");
+      toast.error(error instanceof Error && error.message ? error.message : "Fehler beim Planen");
     } finally {
       setSaving(false);
     }
@@ -444,19 +445,13 @@ export default function RosterEditorPage() {
     const stationGroup = extractStationGroup(station);
     if (!signup.endorsementGroup || !stationGroup) return false;
     
-    // Check if this is an S1 TWR station
-    const isS1Twr = s1TwrStations.has(station.toUpperCase());
-    
-    // Special case: S1 TWR stations can be staffed by GND-endorsed controllers
-    if (stationGroup === 'TWR' && isS1Twr && signup.endorsementGroup === 'GND') {
-      return true;
-    }
-    
-    const groupOrder = ["DEL", "GND", "TWR", "APP", "CTR"];
-    const userGroupIndex = groupOrder.indexOf(signup.endorsementGroup);
-    const stationGroupIndex = groupOrder.indexOf(stationGroup);
-    
-    return userGroupIndex >= stationGroupIndex;
+    // Dieselbe Prüfung wie der Server (inkl. S1-TWR und Theory Roster)
+    return canStaffStation(
+      signup.endorsementGroup,
+      stationGroup,
+      s1TwrStations.has(station.toUpperCase()),
+      signup.s1TheoryOnly
+    );
   };
 
   const handleDragStart = (signup: Signup) => {
@@ -1071,6 +1066,7 @@ export default function RosterEditorPage() {
                                 {isTrainee(signup.restrictions) && (
                                   <Badge className="text-[9px] h-4 bg-yellow-500 hover:bg-yellow-600 text-black" title="Trainee">T</Badge>
                                 )}
+                                {signup.s1TheoryOnly && <S1TheoryBadge className="h-4 text-[9px]" />}
                                 {cptCount > 0 && (
                                   <Badge className="text-[9px] h-4 px-1.5 bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 border border-red-300 dark:border-red-700 hover:bg-red-100">
                                     <ClipboardCheck className="h-2.5 w-2.5 mr-0.5" />
@@ -1192,7 +1188,7 @@ export default function RosterEditorPage() {
                                   const stats = signup.atcStats.stationStats;
                                   const relevantStats = Object.entries(stats).filter(([station]) => isRelevantStation(station));
                                   if (relevantStats.length === 0) return null;
-                                  const totalMinutes = relevantStats.reduce((sum, [, s]) => sum + (s as any).totalMinutes, 0);
+                                  const totalMinutes = relevantStats.reduce((sum, [, s]) => sum + s.totalMinutes, 0);
                                   const totalHours = totalMinutes / 60;
                                   const experienceLevel = totalHours > 20 ? 'high' : totalHours > 5 ? 'medium' : 'low';
 
@@ -1216,9 +1212,8 @@ export default function RosterEditorPage() {
                                           <h4 className="font-medium text-sm">ATC Erfahrung (relevante Stationen)</h4>
                                           <div className="space-y-1.5 max-h-48 overflow-y-auto">
                                             {relevantStats
-                                              .sort(([, a], [, b]) => (b as any).totalMinutes - (a as any).totalMinutes)
-                                              .map(([station, exp]) => {
-                                                const e = exp as any;
+                                              .sort(([, a], [, b]) => b.totalMinutes - a.totalMinutes)
+                                              .map(([station, e]) => {
                                                 return (
                                                   <div key={station} className="text-xs p-2 rounded border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                                                     <div className="flex items-center justify-between">
@@ -1354,6 +1349,7 @@ export default function RosterEditorPage() {
                                 {isTrainee(signup.restrictions) && (
                                   <Badge className="text-[9px] h-4 bg-yellow-500 text-black">T</Badge>
                                 )}
+                                {signup.s1TheoryOnly && <S1TheoryBadge compact className="h-4" />}
                                 {hasCptOrTraining && (
                                   <Badge className="text-[9px] h-4 px-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
                                     CPT/Training

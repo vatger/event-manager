@@ -34,7 +34,9 @@ export type RosterActivityAction =
   | "editor_removed"
   | "note_changed"
   | "flag_changed"
-  | "briefing_changed";
+  | "briefing_changed"
+  | "solver_applied"
+  | "preferences_changed";
 
 interface LogInput {
   rosterId: number;

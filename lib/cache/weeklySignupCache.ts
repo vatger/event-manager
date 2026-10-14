@@ -1,10 +1,12 @@
 import prisma from "@/lib/prisma";
 import { GroupService } from "@/lib/endorsements/groupService";
+import { loadS1TheoryRoster } from "@/lib/training/s1TheoryRoster";
 import { getRatingValue } from "@/utils/ratingToValue";
 import type { EndorsementResponse } from "@/lib/endorsements/types";
 import { getMemoryCacheItem, setMemoryCacheItem, deleteMemoryCacheItem } from "@/lib/cache/cacheManager";
 
 const TTL = 1000 * 60 * 60 * 6; // 6 hours
+const SHORT_TTL = 1000 * 60 * 2;
 
 // Track last update timestamps per occurrence for cache busting
 const lastUpdateTimestamps = new Map<number, number>();
@@ -21,6 +23,8 @@ export interface WeeklySignupEntry {
   } | null;
   endorsementGroup: string | null;
   restrictions: string[];
+  /** Steht auf dem Theory Roster (siehe lib/training/s1TheoryRoster) */
+  s1TheoryOnly?: boolean;
 }
 
 /**
@@ -105,6 +109,12 @@ export async function getCachedWeeklySignups(
   });
 
   // 4️⃣ Fetch user details and calculate endorsements (time-intensive)
+  // Theory Roster vorab laden und seinen Stand jetzt festhalten: Auch ohne
+  // S1-Anmeldungen ist er dann bekannt (sonst grundlos kurze Laufzeit), und
+  // klappt der Abruf erst während der Berechnung, gilt die Tabelle trotzdem
+  // als ohne Roster berechnet
+  const rosterKnown = await loadS1TheoryRoster();
+
   const computed: WeeklySignupEntry[] = await Promise.all(
     signups.map(async (s): Promise<WeeklySignupEntry> => {
       const user = await prisma.user.findUnique({
@@ -155,6 +165,7 @@ export async function getCachedWeeklySignups(
           },
           endorsementGroup: result.group,
           restrictions: result.restrictions || [],
+          s1TheoryOnly: result.s1TheoryOnly === true,
         };
       } catch (err) {
         console.error(
@@ -179,7 +190,8 @@ export async function getCachedWeeklySignups(
   );
 
   // 5️⃣ Store in memory cache
-  setMemoryCacheItem(key, computed, TTL);
+  // Ohne Theory Roster (S1-Anmeldung nicht erreichbar) nur kurz merken
+  setMemoryCacheItem(key, computed, rosterKnown ? TTL : SHORT_TTL);
   console.log(`[WEEKLY CACHE SET] Signups cached for occurrence ${occurrenceId}`);
 
   return computed;

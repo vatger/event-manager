@@ -142,6 +142,64 @@ model EventRoster {
   editors     EventRosterEditor[]
   snapshots   EventRosterSnapshot[]
   activity    EventRosterActivity[]
+  preferences EventRosterPreference[]
+  solverRuns  EventRosterSolverRun[]
+
+  // Einstellungen der automatischen Planung (siehe lib/roster/solver/types.ts,
+  // SolverConfig). Null = Standardwerte.
+  solverConfig Json?
+}
+
+// Wünsche eines Controllers in einer Form, mit der die automatische Planung
+// rechnen kann. Das Eventteam überträgt sie nach Anmeldeschluss aus dem
+// Freitext der Anmeldung (EventSignup.preferredStations/remarks) – die
+// Anmeldung selbst bleibt unverändert.
+model EventRosterPreference {
+  id       Int @id @default(autoincrement())
+  rosterId Int
+  userCID  Int
+  // Wunschstationen in Rangfolge (Callsigns, erster Eintrag = liebste Station)
+  preferredStations Json?
+  // Stationen, die der Controller keinesfalls besetzen will (harte Grenze)
+  avoidedStations   Json?
+  // Höchstens so viele Minuten insgesamt einplanen (null = Standard des Plans)
+  maxTotalMinutes   Int?
+  // Gar nicht automatisch einplanen (z. B. Mentor, nur Reserve)
+  excludeFromSolver Boolean  @default(false)
+  updatedByCID      Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@unique([rosterId, userCID])
+  @@index([rosterId])
+}
+
+// Ein Lauf der automatischen Planung. Gerechnet wird im Hintergrund; das
+// Ergebnis ist zunächst nur ein Vorschlag und landet erst mit „Übernehmen"
+// im Plan.
+model EventRosterSolverRun {
+  id           Int       @id @default(autoincrement())
+  rosterId     Int
+  // "queued" | "running" | "done" | "failed" | "cancelled" | "applied"
+  status       String    @default("queued")
+  progress     Int       @default(0) // 0–100
+  // Eingestellte Werte zum Zeitpunkt des Starts (SolverConfig)
+  config       Json
+  // Vorschlag: Schichten + Kennzahlen (SolverResult)
+  result       Json?
+  error        String?
+  createdByCID Int?
+  createdAt    DateTime  @default(now())
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  appliedAt    DateTime?
+  appliedByCID Int?
+
+  roster EventRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+
+  @@index([rosterId, createdAt])
 }
 
 // Interne Planungsnotiz des Event-Teams zu einem Controller (pro Roster)

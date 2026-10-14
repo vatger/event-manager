@@ -30,10 +30,12 @@ import {
   RotateCcw,
   Search,
   Settings2,
+  Star,
   StickyNote,
   Trash2,
   UserCog,
   Users,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +75,8 @@ const ACTION_ICON: Record<string, typeof Plus> = {
   note_changed: StickyNote,
   flag_changed: Flag,
   briefing_changed: FileText,
+  solver_applied: Wand2,
+  preferences_changed: Star,
 };
 
 /** Grobe Einteilung für den Filter */
@@ -94,6 +98,8 @@ const ACTION_GROUP: Record<string, string> = {
   note_changed: "Notizen",
   flag_changed: "Notizen",
   briefing_changed: "Veröffentlichung",
+  solver_applied: "Besetzung",
+  preferences_changed: "Notizen",
 };
 
 /** Änderungen, die dicht beieinander liegen, gehören zu einem Arbeitsschritt */

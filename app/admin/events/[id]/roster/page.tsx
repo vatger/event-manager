@@ -8,7 +8,7 @@ import { AlertCircle, CalendarClock, Loader2 } from "lucide-react";
 import { parseEventAirports } from "@/lib/multiAirport";
 import type { SignupTableEntry } from "@/lib/cache/types";
 import type { Station } from "@/lib/stations/types";
-import type { StationGroup } from "@/lib/weeklys/stationUtils";
+import { stationMetaMapFromDatahub } from "./_lib/rosterUtils";
 import type { ApiRoster, StationMeta } from "./_lib/rosterTypes";
 import { RosterSetup } from "./_components/RosterSetup";
 import { RosterEditor } from "./_components/RosterEditor";
@@ -79,18 +79,7 @@ export default function EventRosterPage() {
       }
       if (stationsRes.ok) {
         const s = await stationsRes.json();
-        const map = new Map<string, StationMeta>();
-        for (const st of (s.stations ?? []) as Station[]) {
-          map.set(st.callsign.toUpperCase(), {
-            callsign: st.callsign.toUpperCase(),
-            group: st.group === "Sonstiges" ? null : (st.group as StationGroup),
-            airport: st.airport ?? null,
-            s1Twr: st.s1Twr === true,
-            requiredFamiliarizations: st.requiredFamiliarizations ?? [],
-            gcapStatus: st.gcapStatus ?? null,
-          });
-        }
-        setStationMetaMap(map);
+        setStationMetaMap(stationMetaMapFromDatahub((s.stations ?? []) as Station[]));
       }
       setError(null);
     } catch (err) {

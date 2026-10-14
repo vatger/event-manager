@@ -59,7 +59,7 @@ export interface EligibilityData {
   famsForFir: string[];
   /** Whether the user is on the active roster (mock: always true) */
   isOnRoster: boolean;
-  /** Whether the user is on the S1-theory-only roster (mock: always false) */
+  /** Whether the user is on the S1-theory-only roster (from the S1 signup) */
   isS1TheoryOnly: boolean;
   /** T2/AFIS endorsement identifiers for the user (mock: empty) */
   t2AfisEndorsements: string[];

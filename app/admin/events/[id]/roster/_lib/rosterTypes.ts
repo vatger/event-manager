@@ -124,6 +124,8 @@ export interface StationMeta {
   requiredFamiliarizations: string[][];
   /** gcap_status aus dem Datahub: "1" kennzeichnet eine Tier-1-Position */
   gcapStatus: string | null;
+  /** Kürzel aus dem Datahub (z. B. "DMC") – hilft beim Lesen freier Wünsche */
+  abbreviation?: string | null;
 }
 
 /** Sortierung des Controller-Boards – gilt auch für Vorschläge im Assign-Dialog */

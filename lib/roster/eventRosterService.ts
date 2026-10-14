@@ -2,13 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { fetchAllStations } from "@/lib/stations/fetchStations";
 import { extractStationGroup, StationGroup } from "@/lib/weeklys/stationUtils";
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
+import type { SignupTableEntry } from "@/lib/cache/types";
 import type {
   Event,
   EventRoster,
   EventRosterAssignment,
   EventRosterEditor,
   EventRosterNote,
-  EventRosterSnapshot,
   EventRosterStation,
 } from "@prisma/client";
 
@@ -25,7 +25,6 @@ export type RosterWithRelations = EventRoster & {
   assignments: EventRosterAssignment[];
   notes: EventRosterNote[];
   editors: EventRosterEditor[];
-  snapshots: EventRosterSnapshot[];
 };
 
 export interface StationRequirement {
@@ -102,6 +101,22 @@ export async function validateAssignment(
   input: AssignmentInput,
   ignoreAssignmentId?: number
 ): Promise<ValidationError | null> {
+  const signups = (input.type ?? "controller") === "custom" ? [] : await getCachedSignupTable(event.id);
+  return checkAssignment(event, roster, input, signups, ignoreAssignmentId);
+}
+
+/**
+ * Dieselbe Prüfung mit bereits geladenen Anmeldungen – für viele Blöcke am
+ * Stück (Übernahme der automatischen Planung). `roster.assignments` ist der
+ * Stand, gegen den geprüft wird.
+ */
+export function checkAssignment(
+  event: Event,
+  roster: Pick<RosterWithRelations, "stations" | "assignments">,
+  input: AssignmentInput,
+  signups: SignupTableEntry[],
+  ignoreAssignmentId?: number
+): ValidationError | null {
   const { stationId, startTime, endTime } = input;
   const type = input.type ?? "controller";
 
@@ -160,7 +175,6 @@ export async function validateAssignment(
 
   // Der Controller muss dem Event überhaupt bekannt sein. Eine zurückgezogene
   // Anmeldung blockiert bewusst nicht – der Editor markiert solche Zuweisungen.
-  const signups = await getCachedSignupTable(event.id);
   const entry = signups.find((s) => s.user.cid === userCID);
   if (!entry) {
     return { code: "no_signup", message: "Controller ist für dieses Event nicht angemeldet" };
@@ -187,19 +201,18 @@ export async function validateAssignment(
   return null;
 }
 
-/** Roster inkl. Stationen, Zuweisungen, Notizen, Bearbeitern und Snapshot-Metadaten laden */
+/** Roster inkl. Stationen, Zuweisungen, Notizen und Bearbeitern laden (Snapshots: eigene Route) */
 export async function getRosterForEvent(eventId: number): Promise<RosterWithRelations | null> {
-  return prisma.eventRoster.findUnique({
-    where: { eventId },
-    include: {
-      stations: { orderBy: { sortOrder: "asc" } },
-      assignments: { orderBy: { startTime: "asc" } },
-      notes: true,
-      editors: true,
-      snapshots: { orderBy: { createdAt: "desc" } },
-    },
-  });
+  return prisma.eventRoster.findUnique({ where: { eventId }, include: ROSTER_INCLUDE });
 }
+
+/** Was getRosterForEvent mitlädt – auch für Abfragen innerhalb einer Transaktion */
+export const ROSTER_INCLUDE = {
+  stations: { orderBy: { sortOrder: "asc" } },
+  assignments: { orderBy: { startTime: "asc" } },
+  notes: true,
+  editors: true,
+} as const;
 
 // ===================================================================
 // Snapshots (gespeicherte Zwischenstände)
