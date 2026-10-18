@@ -2062,19 +2062,6 @@ export function RosterEditor({
     () => (selectedCID != null ? controllerByCid.get(selectedCID) ?? null : null),
     [selectedCID, controllerByCid]
   );
-  const selectedShiftLabels = useMemo(() => {
-    if (selectedCID == null) return [];
-    return assignments
-      .filter((a) => a.userCID === selectedCID)
-      .sort((a, b) => a.start - b.start)
-      .map((a) => {
-        const st =
-          a.stationId === null
-            ? `„${a.label}"`
-            : stationById.get(a.stationId)?.callsign ?? "?";
-        return `${st} ${minuteToHM(eventStart, a.start)}–${minuteToHM(eventStart, a.end)}z`;
-      });
-  }, [selectedCID, assignments, stationById, eventStart]);
 
   /**
    * Trifft der Suchtext Stationen des Rosters?
@@ -3454,7 +3441,6 @@ export function RosterEditor({
                 : null
             }
             assignedMinutes={selectedCID != null ? assignedMinutes.get(selectedCID) ?? 0 : 0}
-            shiftLabels={selectedShiftLabels}
             eventStart={eventStart}
             eventAirports={event.airports}
             firCode={event.firCode}

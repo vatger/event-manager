@@ -11,7 +11,6 @@ import { toast } from "sonner";
 import {
   BarChart3,
   CalendarX2,
-  Clock,
   ExternalLink,
   GraduationCap,
   Loader2,
@@ -70,7 +69,6 @@ interface ControllerSidePanelProps {
   controller: RosterController | null;
   bestGroup: string | null;
   assignedMinutes: number;
-  shiftLabels: string[];
   eventStart: Date;
   /** Airports des Events – bei mehreren zählt die Freigabe je Airport */
   eventAirports: string[];
@@ -109,7 +107,6 @@ export function ControllerSidePanel({
   controller,
   bestGroup,
   assignedMinutes,
-  shiftLabels,
   eventStart,
   eventAirports,
   firCode,

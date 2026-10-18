@@ -138,7 +138,6 @@ export async function getCachedSignupTable(eventId: number, forceRefresh = false
         };
       } catch (err) {
         console.error(`[ENDORSEMENT ERROR] ${user.cid} @${event.fir?.code || "?"}:`, err);
-        const eventAirportsList = (event.airports as string[] | null) || [];
         const excludedAirports = Array.isArray(s.excludedAirports) 
           ? s.excludedAirports as string[]
           : null;

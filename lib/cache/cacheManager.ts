@@ -52,16 +52,20 @@ export async function setCache<T>(key: string, data: T, ttlMs = DEFAULT_TTL) {
         create: { eventId, data: data as unknown as Prisma.InputJsonValue, expiresAt },
       });
       break; // Success, exit loop
-    } catch (error: any) {
+    } catch (error) {
       // Handle unique constraint violation (P2002) - race condition
-      if (error?.code === 'P2002' && retries > 1) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        retries > 1
+      ) {
         retries--;
         // Wait a bit before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 50 * (4 - retries)));
         continue;
       }
       // Other errors or last retry - just log and continue
-      console.error('[CACHE ERROR] Failed to upsert cache:', error?.message || error);
+      console.error('[CACHE ERROR] Failed to upsert cache:', error instanceof Error ? error.message : error);
       break;
     }
   }
