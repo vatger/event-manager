@@ -6,6 +6,11 @@ import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
+import {
+  isSignupLocked,
+  LOCKED_SIGNUP_CONTACT_HINT,
+  lockedSignupViolation,
+} from "@/lib/signups/signupLock";
 
 
 
@@ -156,6 +161,17 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       }
     }
 
+    // Nach dem Anmeldeschluss nur noch in positive Richtung: Verfügbarkeit
+    // erweitern, Airports hinzufügen, Wünsche und Remarks frei. Alles andere
+    // passt das Eventteam an (siehe lib/signups/signupLock).
+    if (!hasManagePermission && isSignupLocked(eventdata)) {
+      const violation = lockedSignupViolation(eventdata, currentSignup, {
+        availability: body.availability,
+        excludedAirports: body.excludedAirports,
+      });
+      if (violation) return NextResponse.json({ error: violation }, { status: 403 });
+    }
+
     // Check if modification is after deadline
     const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
     
@@ -286,15 +302,18 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
     return NextResponse.json({ error: "Keine Berechtigung für Hard Delete" }, { status: 403 });
   }
   
-  // Allow soft delete even when SIGNUP_CLOSED
-  // Only block if event is in certain states AND user is not event team
-  if(!hasManagePermission && !["SIGNUP_OPEN", "SIGNUP_CLOSED"].includes(eventdata.status))
-    return NextResponse.json({error: "Die Anmeldung dieses Events ist geschlossen - Bitte wende dich an das Eventteam"}, {status: 500}) 
- 
+  // Selbst abmelden nur bis zum Anmeldeschluss (bzw. solange die Anmeldung
+  // offen ist). Danach meldet das Eventteam ab, nachdem es angeschrieben wurde.
+  if (!hasManagePermission && isSignupLocked(eventdata)) {
+    return NextResponse.json(
+      {
+        error: `Nach dem Anmeldeschluss kannst du dich nicht mehr selbst abmelden. ${LOCKED_SIGNUP_CONTACT_HINT}`,
+      },
+      { status: 403 }
+    );
+  }
+
   try {
-    // Check if deletion is after deadline and should notify team
-    const isAfterDeadline = eventdata.signupDeadline && new Date() > new Date(eventdata.signupDeadline);
-    
     if (hardDelete && hasManagePermission) {
       // Hard delete - actually remove from database
       await prisma.eventSignup.delete({
@@ -319,17 +338,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
           deletedBy: Number(session.user.cid),
         },
       });
-      
-      // Send notification if deleted after deadline and not by event team
-      if (isAfterDeadline && !hasManagePermission) {
-        await sendChangeNotificationToEventTeam(
-          parseInt(eventId, 10),
-          parseInt(userId, 10),
-          session.user.name || 'Unknown',
-          [{ field: 'signup', oldValue: 'aktiv', newValue: 'gelöscht' }],
-          eventdata.firCode
-        );
-      }
     }
 
     await invalidateSignupTable(Number(eventId))
@@ -393,8 +401,6 @@ async function sendChangeNotificationToEventTeam(
         return 'Bemerkungen geändert';
       } else if (c.field === 'excludedAirports') {
         return 'Ausgeschlossene Airports geändert';
-      } else if (c.field === 'signup') {
-        return `Anmeldung ${c.newValue}`;
       }
     }).join(', ');
 
