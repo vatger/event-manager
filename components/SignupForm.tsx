@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Lock, UserX } from "lucide-react";
+import { UserX } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -29,7 +29,6 @@ import {
   getExcludedAirports,
 } from "@/lib/multiAirport";
 import { Badge } from "./ui/badge";
-import { isSignupLocked, LOCKED_SIGNUP_CONTACT_HINT } from "@/lib/signups/signupLock";
 
 
 interface SignupFormProps {
@@ -146,27 +145,16 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     },
   }), [userCID, session?.user.rating, event.airports, event.firCode]);
   
-  // Nach dem Anmeldeschluss nur noch in positive Richtung (lib/signups/signupLock):
-  // Zeiten freigeben, Airports hinzufügen, Wünsche und Remarks anpassen
-  const locked = isSignedUp && !signupData?.deletedAt && isSignupLocked(event);
-  const savedExcluded = useMemo(
-    () => (Array.isArray(signupData?.excludedAirports) ? signupData.excludedAirports : []),
-    [signupData?.excludedAirports]
-  );
-  /** Darf der Airport (wieder) ausgeschlossen werden? */
-  const canExclude = (airport: string) => !locked || savedExcluded.includes(airport);
-
   // Toggle airport exclusion
   const toggleAirportExclusion = (airport: string) => {
     setExcludedAirports((prev) => {
       if (prev.includes(airport)) {
         // Remove from excluded list
         return prev.filter((a) => a !== airport);
-      } else if (canExclude(airport)) {
+      } else {
         // Add to excluded list
         return [...prev, airport];
       }
-      return prev;
     });
   };
 
@@ -336,12 +324,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               <span className="text-orange-600">
                 Deine Anmeldung wurde gelöscht. Du kannst sie nun wiederherstellen.
               </span>
-            ) : locked ? (
-              <span className="text-orange-600">
-                Der Anmeldeschluss ist vorbei. Du kannst weitere Zeiten freigeben, Airports
-                hinzufügen und Wunschposition und Remarks anpassen. Zeiten streichen, Airports
-                abwählen oder dich abmelden geht nur noch über das Eventteam.
-              </span>
             ) : isAfterDeadline && !isSignedUp ? (
               <span className="text-orange-600 font-medium">
                 ⚠️ Achtung: Der Anmeldeschluss ist bereits vorbei. Deine Anmeldung wird als Anfrage behandelt und das Eventteam wird informiert.
@@ -365,7 +347,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               initialUnavailable={availability?.unavailable}
               innerRef={avselectorRef}
               slotDuration={event.signupSlotMinutes ?? 30}
-              onlyExtend={locked}
             />
           </div>
           
@@ -387,32 +368,22 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                   const canStaff = endorsementData?.canStaff || false;
                   const endorsement = endorsementData?.endorsement;
                   const isExcluded = allExcluded.includes(airport);
-                  // Nach dem Anmeldeschluss: ausgewählte Airports bleiben ausgewählt
-                  const fixed = canStaff && !isExcluded && !canExclude(airport);
                   
                   return (
                     <button
                       key={airport}
                       type="button"
                       onClick={() => {
-                        if (canStaff && !fixed) {
+                        if (canStaff) {
                           toggleAirportExclusion(airport);
                         }
                       }}
                       disabled={!canStaff}
-                      aria-disabled={fixed || undefined}
-                      title={
-                        fixed
-                          ? "Nach dem Anmeldeschluss kannst du Airports nur noch hinzufügen"
-                          : undefined
-                      }
                       className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 text-left ${
                         canStaff 
                           ? isExcluded 
                             ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer'
-                            : fixed
-                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-default'
-                              : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
+                            : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
                           : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 cursor-not-allowed'
                       }`}
                     >
@@ -513,9 +484,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                     Tipp zur Airport-Auswahl
                   </p>
                   <p className="text-xs text-blue-700 dark:text-blue-400">
-                    {locked
-                      ? "Nach dem Anmeldeschluss kannst du ausgeschlossene Airports noch hinzufügen, aber keine mehr abwählen."
-                      : "Klicke auf einen Airport, um ihn ein- oder auszuschließen. Ausgeschlossene Airports werden orange markiert."}
+                    Klicke auf einen Airport, um ihn ein- oder auszuschließen. Ausgeschlossene Airports werden orange markiert.
                   </p>
                 </div>
               </div>
@@ -547,16 +516,6 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             />
           </div>
           
-          {locked && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <p>
-                Abmelden nach dem Anmeldeschluss geht nicht mehr per Klick. {LOCKED_SIGNUP_CONTACT_HINT}{" "}
-                Das Eventteam passt deine Anmeldung dann an.
-              </p>
-            </div>
-          )}
-
           {error && (
             <p className="text-red-500 text-sm" role="alert">
               {error}
@@ -586,7 +545,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                     ? "Save changes"
                     : "Sign up"}
                 </Button>
-                {isSignedUp && !locked && (
+                {isSignedUp && (
                   <Button
                     variant="destructive"
                     onClick={deleteSignup}
