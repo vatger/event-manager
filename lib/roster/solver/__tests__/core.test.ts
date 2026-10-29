@@ -250,6 +250,52 @@ describe("Rechenkern: Prioritäten und Wünsche", () => {
     const { sessions } = solve(inp);
     assert.deepEqual(coverage(inp, sessions), [4, 4]);
   });
+  it("setzt Höhergestufte auf die höhere Station, nicht auf den S1-Tower", () => {
+    // EDJA_TWR ist ein S1-Tower (1,5), EDDM_ND_APP Approach (3)
+    const inp = input(
+      4,
+      [
+        station("EDJA_TWR", 4, { level: 1.5, airport: "EDJA" }),
+        station("EDDM_ND_APP", 4, { level: 3, airport: "EDDM" }),
+      ],
+      [
+        controller(1, 4, { eligible: [0, 1], level: 4 }), // C1
+        controller(2, 4, { eligible: [0, 1], level: 2 }), // S2
+      ]
+    );
+    const { sessions } = solve(inp);
+    assert.deepEqual(coverage(inp, sessions), [4, 4]);
+    for (const s of sessions) assert.equal(s.station, s.ctrl === 0 ? 1 : 0);
+  });
+
+  it("setzt Partner gleichzeitig auf benachbarte Stationen", () => {
+    // Zwei Airports mit je Tower und Ground; 0 und 1 wollen zusammen arbeiten
+    const stations = [
+      station("EDDM_N_TWR", 4, { level: 2, airport: "EDDM" }),
+      station("EDJA_TWR", 4, { level: 2, airport: "EDJA" }),
+      station("EDDM_N_GND", 4, { level: 1, airport: "EDDM" }),
+      station("EDJA_GND", 4, { level: 1, airport: "EDJA" }),
+    ];
+    for (let seed = 1; seed <= 5; seed++) {
+      const inp = input(
+        4,
+        stations,
+        [
+          // 0 will nach EDJA, 2 nach EDDM; wohin 1 kommt, entscheidet nur der Paarwunsch
+          controller(1, 4, { eligible: [0, 1, 2, 3], partners: [1], wishRank: { 1: 0 } }),
+          controller(2, 4, { eligible: [0, 1, 2, 3], partners: [0] }),
+          controller(3, 4, { eligible: [0, 1, 2, 3], wishRank: { 2: 0 } }),
+          controller(4, 4, { eligible: [0, 1, 2, 3] }),
+        ],
+        { seed }
+      );
+      const { sessions } = solve(inp);
+      assert.deepEqual(coverage(inp, sessions), [4, 4, 4, 4]);
+      const airportOf = (ctrl: number) =>
+        inp.stations[sessions.find((s) => s.ctrl === ctrl)!.station].airport;
+      assert.equal(airportOf(0), airportOf(1), `Seed ${seed}: Partner getrennt`);
+    }
+  });
 });
 
 describe("Rechenkern: Ablauf", () => {

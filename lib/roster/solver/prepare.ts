@@ -23,7 +23,8 @@ import {
   resolveStationMeta,
   stationMetaMapFromDatahub,
 } from "@/app/admin/events/[id]/roster/_lib/rosterUtils";
-import type { RosterController } from "@/app/admin/events/[id]/roster/_lib/rosterTypes";
+import type { RosterController, StationMeta } from "@/app/admin/events/[id]/roster/_lib/rosterTypes";
+import { getRatingValue } from "@/utils/ratingToValue";
 import { toControllerPreference } from "./preferences";
 import type { CoreSession } from "./core";
 import {
@@ -37,6 +38,44 @@ import {
 } from "./types";
 
 /** Was neben der Eingabe gebraucht wird, um das Ergebnis zurückzuübersetzen */
+/** Ratingwert von C1 (utils/ratingToValue) */
+const C1_RATING = getRatingValue("C1");
+
+/**
+ * C1 oder höher auf einer Station, die schon S1 besetzen dürfen? Das sind
+ * S1-Tower und DEL/GND ohne Tier-1-Kennzeichen im Datahub (EDJA_GND, nicht
+ * EDDM_DEL).
+ */
+export function isC1OnS1Station(
+  meta: Pick<StationMeta, "group" | "s1Twr" | "gcapStatus">,
+  rating: string
+): boolean {
+  if (getRatingValue(rating) < C1_RATING) return false;
+  if (meta.group === "TWR") return meta.s1Twr;
+  return (meta.group === "DEL" || meta.group === "GND") && meta.gcapStatus !== "1";
+}
+
+/**
+ * Ebene einer Station für „niemanden verschwenden“: DEL 0, GND 1, TWR 2,
+ * APP 3, CTR 4. Ein Tower, den schon S1 besetzen dürfen, liegt dazwischen
+ * (1,5) – dort soll zuerst landen, wer sonst wenig besetzen kann.
+ */
+function stationLevel(meta: StationMeta): number {
+  const rank = groupRank(meta.group);
+  return meta.group === "TWR" && meta.s1Twr ? rank - 0.5 : rank;
+}
+
+/**
+ * Ebene einer Person nach Rating auf derselben Skala (S1 1 … C1 und höher 4).
+ * Das Rating ordnet strenger als die erreichte Freigabe: Auch ein C1 ohne
+ * Sektorkenntnis soll nicht auf dem S1-Tower sitzen, solange S1 bereitstehen.
+ */
+function ratingLevel(rating: string): number | null {
+  const value = getRatingValue(rating);
+  if (value < 2) return null;
+  return Math.min(4, value - 1);
+}
+
 export interface PreparedSolve {
   input: SolverInput;
   totalMinutes: number;
@@ -238,7 +277,8 @@ export async function prepareSolve(eventId: number, config: SolverConfig): Promi
       id: s.id,
       callsign: s.callsign,
       priority: s.priority,
-      level: groupRank(resolveStationMeta(s.callsign, metaMap).group),
+      level: stationLevel(resolveStationMeta(s.callsign, metaMap)),
+      airport: resolveStationMeta(s.callsign, metaMap).airport,
       open,
     };
   });
@@ -267,6 +307,7 @@ export async function prepareSolve(eventId: number, config: SolverConfig): Promi
       if (avoided.has(s.callsign)) return;
       if (config.onlyPreferredStations && hasWishes && wishRank[idx] === undefined) return;
       const meta = resolveStationMeta(s.callsign, metaMap);
+      if (config.keepC1OffS1Stations && isC1OnS1Station(meta, c.rating)) return;
       if (checkEligibility(c, meta, eventAirports).ok) eligible.push(idx);
     });
 
@@ -296,11 +337,23 @@ export async function prepareSolve(eventId: number, config: SolverConfig): Promi
       eligible,
       wishRank,
       hasWishes,
+      partners: [],
       maxTotalSlots:
         pref?.maxTotalMinutes != null ? Math.floor(pref.maxTotalMinutes / g) : null,
-      level: groupRank(best),
+      level: ratingLevel(c.rating) ?? groupRank(best),
       fixed,
     };
+  });
+
+  // Paarwünsche gelten in beide Richtungen; wer nicht mitgeplant wird, fällt weg
+  const indexByCid = new Map(planned.map((c, i) => [c.cid, i]));
+  planned.forEach((c, i) => {
+    for (const partner of prefByCid.get(c.cid)?.partnerCids ?? []) {
+      const j = indexByCid.get(partner);
+      if (j === undefined || j === i) continue;
+      if (!controllerInputs[i].partners.includes(j)) controllerInputs[i].partners.push(j);
+      if (!controllerInputs[j].partners.includes(i)) controllerInputs[j].partners.push(i);
+    }
   });
 
   // Obergrenzen sind hart und werden aufs Raster abgerundet. Liegt eine

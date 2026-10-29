@@ -41,9 +41,14 @@ import {
 import { cn } from "@/lib/utils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { S1TheoryBadge } from "@/components/S1TheoryBadge";
-import { formatDuration, getControllerGroupForStation, minuteToHM } from "../_lib/rosterUtils";
+import {
+  formatDuration,
+  getControllerGroupForStation,
+  hasExcludedAirport,
+  minuteToHM,
+} from "../_lib/rosterUtils";
 import type { Assignment, RosterController, RosterStation, StationMeta } from "../_lib/rosterTypes";
-import { parseWishes, type WishStation } from "@/lib/roster/solver/wishParser";
+import { parsePartners, parseWishes, type WishStation } from "@/lib/roster/solver/wishParser";
 import {
   DEFAULT_SOLVER_CONFIG,
   DEFAULT_STATION_PRIORITY,
@@ -80,6 +85,7 @@ const EMPTY_PREF: PrefDraft = {
   avoidedStations: [],
   maxTotalMinutes: null,
   excludeFromSolver: false,
+  partnerCids: [],
 };
 
 const PRIORITY_LABEL: Record<StationPriority, string> = {
@@ -113,6 +119,7 @@ function sameList(a: string[], b: string[]) {
 
 function samePref(a: PrefDraft, b: PrefDraft) {
   return (
+    sameList(a.partnerCids.map(String), b.partnerCids.map(String)) &&
     sameList(a.preferredStations, b.preferredStations) &&
     sameList(a.avoidedStations, b.avoidedStations) &&
     a.maxTotalMinutes === b.maxTotalMinutes &&
@@ -157,6 +164,7 @@ export function SolverDialog({
   const base = `/api/events/${eventId}/roster`;
   const active = useMemo(() => controllers.filter((c) => !c.withdrawn), [controllers]);
   const callsigns = useMemo(() => stations.map((s) => s.callsign), [stations]);
+  const nameByCid = useMemo(() => new Map(controllers.map((c) => [c.cid, c.name])), [controllers]);
 
   const wishStations: WishStation[] = useMemo(
     () =>
@@ -167,6 +175,7 @@ export function SolverDialog({
           group: meta.group,
           airport: meta.airport,
           abbreviation: meta.abbreviation ?? null,
+          description: meta.description ?? null,
         };
       }),
     [stations, stationMetaFor]
@@ -288,20 +297,33 @@ export function SolverDialog({
   const suggestFromText = () => {
     let count = 0;
     const next = new Map(drafts);
+    const people = active.map((c) => ({ cid: c.cid, name: c.name }));
     for (const c of active) {
       const current = drafts.get(c.cid) ?? EMPTY_PREF;
+      // Bemerkungen nach den Wünschen: „bitte kein DEL“ steht oft dort
+      const text = [c.preferredStations, c.remarks].filter(Boolean).join("\n");
+      const patch: Partial<PrefDraft> = {};
       // Bereits gepflegte Einträge bleiben unangetastet
-      if (current.preferredStations.length > 0 || current.avoidedStations.length > 0) continue;
-      const parsed = parseWishes(c.preferredStations, wishStations);
-      if (parsed.preferredStations.length === 0 && parsed.avoidedStations.length === 0) continue;
-      next.set(c.cid, { ...current, ...parsed });
+      if (current.preferredStations.length === 0 && current.avoidedStations.length === 0) {
+        const own = wishStations.filter((st) => !st.airport || !hasExcludedAirport(c.entry, st.airport));
+        const parsed = parseWishes(text, own);
+        if (parsed.preferredStations.length > 0 || parsed.avoidedStations.length > 0) {
+          Object.assign(patch, parsed);
+        }
+      }
+      if (current.partnerCids.length === 0) {
+        const partners = parsePartners(text, people, c.cid);
+        if (partners.length > 0) patch.partnerCids = partners;
+      }
+      if (Object.keys(patch).length === 0) continue;
+      next.set(c.cid, { ...current, ...patch });
       count++;
     }
     setDrafts(next);
     toast.info(
       count > 0
         ? `Vorschläge für ${count} Controller eingetragen – bitte prüfen und speichern`
-        : "Im Freitext wurden keine weiteren Stationen erkannt"
+        : "Im Freitext wurden keine weiteren Stationen oder Namen erkannt"
     );
   };
 
@@ -534,7 +556,8 @@ export function SolverDialog({
               </div>
               <p className="text-xs text-muted-foreground">
                 Wunschstationen in Rangfolge (oben = am liebsten). „Will nicht“ ist eine harte
-                Grenze. Der Vorschlag aus dem Freitext überschreibt keine gepflegten Einträge.
+                Grenze. „Zusammen mit“ plant beide möglichst gleichzeitig auf benachbarten
+                Stationen. Der Vorschlag aus dem Freitext überschreibt keine gepflegten Einträge.
               </p>
 
               <div className="flex-1 min-h-0 overflow-y-auto border rounded-md">
@@ -545,6 +568,7 @@ export function SolverDialog({
                       <th className="p-2 font-medium">Angabe in der Anmeldung</th>
                       <th className="p-2 font-medium w-64">Wunschstationen</th>
                       <th className="p-2 font-medium w-52">Will nicht</th>
+                      <th className="p-2 font-medium w-48">Zusammen mit</th>
                       <th className="p-2 font-medium w-24">Max. Std.</th>
                       <th className="p-2 font-medium w-20">Planen</th>
                     </tr>
@@ -634,6 +658,24 @@ export function SolverDialog({
                             )}
                           </td>
                           <td className="p-2">
+                            <PartnerList
+                              cids={pref.partnerCids}
+                              nameOf={(cid) => nameByCid.get(cid) ?? String(cid)}
+                              canEdit={canEdit}
+                              onChange={(list) => updatePref(c.cid, { partnerCids: list })}
+                            />
+                            {canEdit && pref.partnerCids.length < 10 && (
+                              <PartnerAdd
+                                options={active.filter(
+                                  (o) => o.cid !== c.cid && !pref.partnerCids.includes(o.cid)
+                                )}
+                                onAdd={(cid) =>
+                                  updatePref(c.cid, { partnerCids: [...pref.partnerCids, cid] })
+                                }
+                              />
+                            )}
+                          </td>
+                          <td className="p-2">
                             {/* Dieselben Grenzen wie der Server (15 Minuten bis 24 Stunden) */}
                             <DraftNumberInput
                               min={15}
@@ -662,7 +704,7 @@ export function SolverDialog({
                     })}
                     {filtered.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                        <td colSpan={7} className="p-4 text-center text-muted-foreground">
                           Keine Anmeldungen gefunden
                         </td>
                       </tr>
@@ -760,6 +802,13 @@ export function SolverDialog({
                     disabled={!canEdit}
                     onChange={(v) => setCfg({ onlyPreferredStations: v })}
                   />
+                  <ToggleField
+                    label="Keine C1 auf S1-Stationen"
+                    description="C1 und höher kommen nicht auf Stationen, die schon S1 besetzen dürfen: S1-Tower sowie DEL/GND außerhalb von Tier 1. Dort bleibt es lieber leer."
+                    checked={config.keepC1OffS1Stations}
+                    disabled={!canEdit}
+                    onChange={(v) => setCfg({ keepC1OffS1Stations: v })}
+                  />
                   <div className="space-y-1">
                     <Label className="text-xs">Rechenzeit: {config.timeLimitSeconds} s</Label>
                     <Slider
@@ -776,8 +825,9 @@ export function SolverDialog({
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Priorität der Stationen</h3>
                   <p className="text-xs text-muted-foreground">
-                    Stationen mit Priorität 1 werden vollständig besetzt, bevor 2 an die Reihe
-                    kommt, und so weiter. „Aus“ lässt die Station für die Handplanung frei.
+                    1 ist die wichtigste Stufe, 5 die unwichtigste: Stationen mit Priorität 1
+                    werden vollständig besetzt, bevor 2 an die Reihe kommt, und so weiter. „Aus“
+                    lässt die Station für die Handplanung frei.
                   </p>
                   <div className="border rounded-md divide-y">
                     {stations.map((s) => {
@@ -1041,6 +1091,67 @@ function StationList({
         </li>
       ))}
     </ol>
+  );
+}
+
+function PartnerList({
+  cids,
+  nameOf,
+  canEdit,
+  onChange,
+}: {
+  cids: number[];
+  nameOf: (cid: number) => string;
+  canEdit: boolean;
+  onChange: (list: number[]) => void;
+}) {
+  if (cids.length === 0) return null;
+  return (
+    <ul className="space-y-0.5 mb-1">
+      {cids.map((cid) => (
+        <li key={cid} className="flex items-center gap-1 rounded border bg-muted/40 px-1 py-0.5 text-xs">
+          <span className="flex-1 truncate">{nameOf(cid)}</span>
+          {canEdit && (
+            <button
+              type="button"
+              title="Entfernen"
+              onClick={() => onChange(cids.filter((x) => x !== cid))}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function PartnerAdd({
+  options,
+  onAdd,
+}: {
+  options: { cid: number; name: string }[];
+  onAdd: (cid: number) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <select
+      className="h-7 w-full rounded-md border bg-background px-1 text-xs text-muted-foreground"
+      value=""
+      onChange={(e) => {
+        if (e.target.value) onAdd(Number(e.target.value));
+      }}
+    >
+      <option value="">+ Person</option>
+      {[...options]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((o) => (
+          <option key={o.cid} value={o.cid}>
+            {o.name}
+          </option>
+        ))}
+    </select>
   );
 }
 

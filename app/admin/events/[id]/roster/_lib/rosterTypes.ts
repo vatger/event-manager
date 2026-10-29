@@ -126,6 +126,8 @@ export interface StationMeta {
   gcapStatus: string | null;
   /** Kürzel aus dem Datahub (z. B. "DMC") – hilft beim Lesen freier Wünsche */
   abbreviation?: string | null;
+  /** Bezeichnung aus dem Datahub (z. B. "München Apron (Apron 1)") – ebenso */
+  description?: string | null;
 }
 
 /** Sortierung des Controller-Boards – gilt auch für Vorschläge im Assign-Dialog */

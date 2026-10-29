@@ -38,6 +38,11 @@ export interface SolverConfig {
   keepExisting: boolean;
   /** Wer Wünsche hat, kommt nur auf Wunschstationen */
   onlyPreferredStations: boolean;
+  /**
+   * Keine C1 und höher auf Stationen, die schon S1 besetzen dürfen (hart):
+   * S1-Tower und DEL/GND außerhalb von Tier 1 – dort bleibt es lieber leer
+   */
+  keepC1OffS1Stations: boolean;
   /** Gewicht der Wünsche (0 = egal … 10 = sehr wichtig) */
   preferenceWeight: number;
   /** Gewicht einer gleichmäßigen Verteilung der Zeit (0 = egal … 10 = sehr wichtig) */
@@ -56,6 +61,7 @@ export const DEFAULT_SOLVER_CONFIG: SolverConfig = {
   stationPriorities: {},
   keepExisting: true,
   onlyPreferredStations: false,
+  keepC1OffS1Stations: true,
   preferenceWeight: 5,
   fairnessWeight: 5,
   timeLimitSeconds: 30,
@@ -102,6 +108,8 @@ export interface ControllerPreference {
   maxTotalMinutes: number | null;
   /** Gar nicht automatisch einplanen */
   excludeFromSolver: boolean;
+  /** Mit diesen Personen gern gleichzeitig auf benachbarten Stationen */
+  partnerCids: number[];
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +122,10 @@ export interface SolverStationInput {
   callsign: string;
   /** 1–5; Stationen mit Priorität 0 werden gar nicht erst übergeben */
   priority: number;
-  /** Ebene als Rang (DEL = 0 … CTR = 4), -1 = unbekannt */
+  /** Ebene (DEL = 0, GND = 1, S1-Tower = 1,5, TWR = 2, APP = 3, CTR = 4), -1 = unbekannt */
   level: number;
+  /** ICAO des Airports, null bei FIR-weiten Stationen (Center) */
+  airport: string | null;
   /** Zu besetzende Slots (false = ohnehin belegt, z. B. Custom-Block) */
   open: boolean[];
 }
@@ -130,9 +140,17 @@ export interface SolverControllerInput {
   wishRank: Record<number, number>;
   /** Hat überhaupt Wünsche angegeben */
   hasWishes: boolean;
+  /**
+   * Indizes der Personen, mit denen sie gern gleichzeitig auf benachbarten
+   * Stationen sitzt – beidseitig eingetragen
+   */
+  partners: number[];
   /** Persönliche Obergrenze in Slots – ersetzt die des Plans (null = die des Plans) */
   maxTotalSlots: number | null;
-  /** Höchste freigegebene Ebene als Rang – für „niemanden verschwenden" */
+  /**
+   * Ebene nach Rating auf derselben Skala (S1 = 1 … C1 und höher = 4) – für
+   * „niemanden verschwenden“
+   */
   level: number;
   /**
    * Schon feste Blöcke der Person (bleiben stehen, zählen für die Pausen).

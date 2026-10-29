@@ -20,6 +20,8 @@ const preferenceSchema = z.object({
   avoidedStations: callsigns,
   maxTotalMinutes: z.number().int().min(15).max(1440).nullable(),
   excludeFromSolver: z.boolean(),
+  // Ältere Clients schicken das Feld nicht
+  partnerCids: z.array(z.number().int().positive()).max(10).default([]),
 });
 
 const putSchema = z.object({ preferences: z.array(preferenceSchema).min(1).max(500) });
@@ -74,8 +76,11 @@ export async function PUT(
   }
 
   // Wünsche nur für Personen, die sich für dieses Event angemeldet haben
-  // (auch zurückgezogene – ihre Einträge sollen sich noch löschen lassen)
-  const cids = [...new Set(parsed.data.preferences.map((p) => p.userCID))];
+  // (auch zurückgezogene – ihre Einträge sollen sich noch löschen lassen);
+  // Partner ebenso
+  const cids = [
+    ...new Set(parsed.data.preferences.flatMap((p) => [p.userCID, ...p.partnerCids])),
+  ];
   const signedUp = await prisma.eventSignup.findMany({
     where: { eventId: ctx.eventId, userCID: { in: cids } },
     select: { userCID: true },
@@ -100,6 +105,7 @@ export async function PUT(
         avoidedStations: avoided,
         maxTotalMinutes: p.maxTotalMinutes,
         excludeFromSolver: p.excludeFromSolver,
+        partnerCids: [...new Set(p.partnerCids)].filter((c) => c !== p.userCID),
         updatedByCID: ctx.cid,
       };
       if (isEmptyPreference({ ...data })) {

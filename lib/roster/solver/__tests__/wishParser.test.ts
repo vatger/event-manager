@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseWishes, type WishStation } from "../wishParser";
+import { parsePartners, parseWishes, type WishStation } from "../wishParser";
 
 const STATIONS: WishStation[] = [
   { callsign: "EDDF_DEL", group: "DEL", airport: "EDDF" },
@@ -174,5 +174,109 @@ describe("Wünsche aus dem Freitext", () => {
   it("hält das deutsche „dir“ nicht für Director", () => {
     assert.deepEqual(parse("egal, wie es dir passt"), { preferredStations: [], avoidedStations: [] });
     assert.deepEqual(parse("DIR").preferredStations, ["EDDF_N_APP"]);
+  });
+});
+
+// Münchner Stationen mit Datahub-Bezeichnungen: Vorfeld und Rollkontrolle
+// teilen sich _GND, Approach-Sektoren stecken im Callsign
+const MUC: WishStation[] = [
+  { callsign: "EDDM_DEL", group: "DEL", airport: "EDDM", abbreviation: "DMC", description: "München Delivery" },
+  { callsign: "EDDM_1_GND", group: "GND", airport: "EDDM", abbreviation: "DMG1", description: "München Apron (Apron 1)" },
+  { callsign: "EDDM_2_GND", group: "GND", airport: "EDDM", abbreviation: "DMG2", description: "München Apron (Apron 2)" },
+  // Für die Freigabe zählt die Rollkontrolle in München zum Tower
+  { callsign: "EDDM_N_GND", group: "TWR", airport: "EDDM", abbreviation: "DMGN", description: "München Ground (North)" },
+  { callsign: "EDDM_S_GND", group: "TWR", airport: "EDDM", abbreviation: "DMGS", description: "München Ground (South)" },
+  { callsign: "EDDM_N_TWR", group: "TWR", airport: "EDDM", abbreviation: "DMTN", description: "München Tower (North)" },
+  { callsign: "EDDM_S_TWR", group: "TWR", airport: "EDDM", abbreviation: "DMTS", description: "München Tower (South)" },
+  { callsign: "EDDM_ND_APP", group: "APP", airport: "EDDM", abbreviation: "DMND", description: "München Arrival (North Director)" },
+  { callsign: "EDDM_NH_APP", group: "APP", airport: "EDDM", abbreviation: "DMNH", description: "München Radar (North High)" },
+  { callsign: "EDDM_NL_APP", group: "APP", airport: "EDDM", abbreviation: "DMNL", description: "München Radar (North Low)" },
+  { callsign: "EDDM_SH_APP", group: "APP", airport: "EDDM", abbreviation: "DMSH", description: "München Radar (South High)" },
+  { callsign: "EDDM_SL_APP", group: "APP", airport: "EDDM", abbreviation: "DMSL", description: "München Radar (South Low)" },
+];
+const muc = (text: string) => parseWishes(text, MUC);
+
+describe("Wünsche mit Münchner Bezeichnungen", () => {
+  it("meint mit TWR nur Tower, nicht die zum Tower zählende Rollkontrolle", () => {
+    assert.deepEqual(muc("TWR").preferredStations, ["EDDM_N_TWR", "EDDM_S_TWR"]);
+    assert.deepEqual(muc("gerne TWR/GND :)").preferredStations, [
+      "EDDM_N_TWR", "EDDM_S_TWR", "EDDM_N_GND", "EDDM_S_GND",
+    ]);
+  });
+
+  it("unterscheidet Vorfeld und Rollkontrolle, auch mit Vorfeld-Nummer", () => {
+    assert.deepEqual(muc("APN2>TWR>GND").preferredStations, [
+      "EDDM_2_GND", "EDDM_N_TWR", "EDDM_S_TWR", "EDDM_N_GND", "EDDM_S_GND",
+    ]);
+    assert.deepEqual(muc("Gerne mal nen Apron").preferredStations, ["EDDM_1_GND", "EDDM_2_GND"]);
+  });
+
+  it("erkennt Sektoren aus dem Callsign und High/Low aus der Bezeichnung", () => {
+    const r = muc("gerne NL/SL, ungerne High, Gerne mal ein TWR/APN");
+    assert.deepEqual(r.preferredStations, [
+      "EDDM_NL_APP", "EDDM_SL_APP", "EDDM_N_TWR", "EDDM_S_TWR", "EDDM_1_GND", "EDDM_2_GND",
+    ]);
+    assert.deepEqual(r.avoidedStations, ["EDDM_NH_APP", "EDDM_SH_APP"]);
+  });
+
+  it("hält die Reihenfolge über Sätze und „>“ hinweg", () => {
+    const r = muc("Bitte kein NH. Gerne 1 Schicht NL oder ND und eine Schicht aufm Boden TWR>GND>APN");
+    assert.deepEqual(r.avoidedStations, ["EDDM_NH_APP"]);
+    assert.deepEqual(r.preferredStations, [
+      "EDDM_NL_APP", "EDDM_ND_APP", "EDDM_N_TWR", "EDDM_S_TWR",
+      "EDDM_N_GND", "EDDM_S_GND", "EDDM_1_GND", "EDDM_2_GND",
+    ]);
+  });
+
+  it("lässt eine Verneinung über „/“ hinweg gelten, außer bei ausdrücklichem Wunsch", () => {
+    assert.deepEqual(muc("Kein Del/ apn 1").avoidedStations, ["EDDM_DEL", "EDDM_1_GND"]);
+    const r = muc("kein DEL / gerne TWR");
+    assert.deepEqual(r.avoidedStations, ["EDDM_DEL"]);
+    assert.deepEqual(r.preferredStations, ["EDDM_N_TWR", "EDDM_S_TWR"]);
+  });
+
+  it("zählt CO_DEL nicht als Delivery", () => {
+    assert.deepEqual(muc("am liebsten kein CoDEL").avoidedStations, []);
+    assert.deepEqual(muc("TWR>DEL>CO_DEL").preferredStations, ["EDDM_N_TWR", "EDDM_S_TWR", "EDDM_DEL"]);
+  });
+
+  it("liest Großgeschriebenes als Sektor, aber keine gewöhnlichen Wörter", () => {
+    // „an“, „nl“ kleingeschrieben sind keine Sektoren
+    assert.deepEqual(muc("gerne an den Tower").preferredStations, ["EDDM_N_TWR", "EDDM_S_TWR"]);
+  });
+
+  it("liest „Not am Mann“ nicht als Ablehnung", () => {
+    const r = muc("Wenn Not am Mann auch DEL");
+    assert.deepEqual(r.avoidedStations, []);
+    assert.deepEqual(r.preferredStations, ["EDDM_DEL"]);
+  });
+});
+
+describe("Paarwünsche aus dem Freitext", () => {
+  const PEOPLE = [
+    { cid: 1, name: "Giuseppe Bonvissuto" },
+    { cid: 2, name: "Justin Korte" },
+    { cid: 3, name: "Max Renner" },
+    { cid: 4, name: "Max Bogdanski" },
+    { cid: 5, name: "Jakob Wyrwich" },
+  ];
+
+  it("erkennt vollen Namen, eindeutigen Vor- oder Nachnamen", () => {
+    assert.deepEqual(
+      parsePartners("Bei der Bodenschicht gerne einteilen mit Justin Korte z.B TWR und GND", PEOPLE, 1),
+      [2]
+    );
+    assert.deepEqual(parsePartners("Bitte was angrenzendes mit Giuseppe, keine Pause nötig", PEOPLE, 2), [1]);
+    assert.deepEqual(parsePartners("gern neben Bogdanski", PEOPLE, 5), [4]);
+  });
+
+  it("rät nicht bei mehrdeutigen Vornamen oder Kürzeln", () => {
+    assert.deepEqual(parsePartners("gerne mit Max", PEOPLE, 5), []);
+    assert.deepEqual(parsePartners("Wenn MF lotst irgendwas mit MF zusammen", PEOPLE, 5), []);
+  });
+
+  it("ignoriert die eigene Person und verneinte Nennungen", () => {
+    assert.deepEqual(parsePartners("Ich, Giuseppe, gerne TWR", PEOPLE, 1), []);
+    assert.deepEqual(parsePartners("bitte nicht mit Justin", PEOPLE, 1), []);
   });
 });

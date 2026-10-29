@@ -83,6 +83,7 @@ export async function fetchAllStations(): Promise<Station[]> {
         group,
         airport,
         abbreviation: entry.abbreviation,
+        description: entry.description,
         s1Twr,
         s1Theory,
         gcapStatus: entry.gcap_status,

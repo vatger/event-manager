@@ -5,6 +5,7 @@ export interface Station {
   group: StationGroup;
   airport?: string; // wenn undefined -> FIR-weit gültig
   abbreviation?: string; // Kürzel aus dem Datahub, z. B. "DMC" für EDDM_DEL
+  description?: string; // Bezeichnung aus dem Datahub, z. B. "München Apron (Apron 1)"
   s1Twr?: boolean; // true if this TWR station can be staffed with S1 (GND endorsement)
   s1Theory?: boolean; // true if this station can be staffed by S1-theory-only controllers
   gcapStatus?: string; // gcap_status from Datahub: "0" | "1" | "AFIS" | "MIL TWR" | "MIL APP"

@@ -171,6 +171,9 @@ model EventRosterPreference {
   maxTotalMinutes   Int?
   // Gar nicht automatisch einplanen (z. B. Mentor, nur Reserve)
   excludeFromSolver Boolean  @default(false)
+  // CIDs, mit denen die Person gern gleichzeitig auf benachbarten Stationen
+  // sitzt („bitte was angrenzendes mit …“)
+  partnerCids       Json?
   updatedByCID      Int?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

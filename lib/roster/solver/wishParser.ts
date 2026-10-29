@@ -16,6 +16,8 @@ export interface WishStation {
   airport: string | null;
   /** Kürzel aus dem Datahub, z. B. "DMC" */
   abbreviation?: string | null;
+  /** Bezeichnung aus dem Datahub, z. B. "München Apron (Apron 1)" */
+  description?: string | null;
 }
 
 export interface ParsedWishes {
@@ -23,32 +25,82 @@ export interface ParsedWishes {
   avoidedStations: string[];
 }
 
-const GROUP_WORDS: { group: StationGroup; re: RegExp }[] = [
-  { group: "DEL", re: /\b(del|delivery|clearance)\b/i },
-  { group: "GND", re: /\b(gnd|ground|apron|vorfeld|rollkontrolle)\b/i },
-  { group: "TWR", re: /\b(twr|tower|turm)\b/i },
-  { group: "APP", re: /\b(app|approach|anflug|dep|departure|director)\b/i },
-  // „DIR“ nur großgeschrieben – kleingeschrieben ist es meist das deutsche „dir“
-  { group: "APP", re: /\bDIR\b/ },
-  { group: "CTR", re: /\b(ctr|center|centre|radar|enroute|en-route)\b/i },
+/**
+ * Art einer Station, wie Controller sie nennen – nicht die Endorsement-Gruppe:
+ * In München zählt EDDM_N_GND für die Freigabe zum Tower, „TWR“ im Wunsch
+ * meint trotzdem nur die Tower. Vorfeld (Apron) und Rollkontrolle (Ground)
+ * teilen sich das Kürzel _GND und unterscheiden sich nur in der Bezeichnung.
+ */
+type StationKind = "DEL" | "CODEL" | "GND" | "APN" | "DEICE" | "TWR" | "APP" | "CTR";
+
+const KIND_WORDS: { kind: StationKind; re: RegExp }[] = [
+  // Vor DEL, damit „CO_DEL“ nicht auch als Delivery zählt
+  { kind: "CODEL", re: /\bco[\s_-]?(?:del|delivery)\b|\bcoordinator\b/gi },
+  { kind: "DEL", re: /\b(del|delivery|clearance)\b/gi },
+  { kind: "GND", re: /\b(gnd|ground|rollkontrolle|rollfeld)\b/gi },
+  { kind: "TWR", re: /\b(twr|tower|turm)\b/gi },
+  { kind: "APP", re: /\b(app|approach|anflug|dep|departure)\b/gi },
+  { kind: "CTR", re: /\b(ctr|center|centre|radar|enroute|en-route)\b/gi },
 ];
 
-const NEGATION = /\b(kein|keine|keinen|nicht|no|not|without|ohne|außer|ausser|except|bitte nicht)\b/i;
-/** Redewendungen mit Verneinungswort, die nichts ablehnen („kein Problem mit GND“) */
-const NEGATION_IDIOM = /\b(kein|keine|no)\s+(problem|probleme|problems|thema|issue|issues|stress)\b/gi;
+/** Vorfeld, optional mit Nummer: „APN2“, „apn 1“, „Apron 3“ */
+const APRON = /\b(?:apn|apron|vorfeld)(?:[\s_-]?(\d))?\b/gi;
+
+/**
+ * Teile eines Approach-Bereichs, die nur die Datahub-Bezeichnung kennt
+ * („München Radar (North High)“). Findet sich keine passende Station, gelten
+ * Director und Feeder als Approach allgemein, High und Low als nichts.
+ */
+const APP_PARTS: { re: RegExp; desc: RegExp; fallbackToApp: boolean }[] = [
+  { re: /\bhigh\b/gi, desc: /\bhigh\b/i, fallbackToApp: false },
+  { re: /\blow\b/gi, desc: /\blow\b/i, fallbackToApp: false },
+  // „DIR“ nur großgeschrieben – kleingeschrieben ist es meist das deutsche „dir“
+  { re: /\bdirector\b|\bDIR\b/g, desc: /\bdirector\b/i, fallbackToApp: true },
+  { re: /\bfeeder\b/gi, desc: /\b(feeder|arrival)\b/i, fallbackToApp: true },
+];
+
+function kindOf(st: WishStation): StationKind | null {
+  const m = /_(DEL|GND|TWR|APP|DEP|CTR)$/.exec(st.callsign.toUpperCase());
+  if (!m) return null;
+  const desc = st.description ?? "";
+  switch (m[1]) {
+    case "DEL":
+      return /_CO_DEL$/i.test(st.callsign) || /coordinator/i.test(desc) ? "CODEL" : "DEL";
+    case "GND":
+      if (/de-?icing/i.test(desc) || /_ICE_GND$/i.test(st.callsign)) return "DEICE";
+      return /apron|vorfeld/i.test(desc) ? "APN" : "GND";
+    case "DEP":
+      return "APP";
+    default:
+      return m[1] as StationKind;
+  }
+}
+
+/** Mittelteile des Callsigns: EDDM_NL_APP → ["NL"], EDDF_CO_DEL → ["CO"] */
+function designators(st: WishStation): string[] {
+  const parts = st.callsign.toUpperCase().split("_");
+  return parts.slice(/^[A-Z]{4}$/.test(parts[0]) ? 1 : 0, -1);
+}
+
+const NEGATION =
+  /\b(kein|keine|keinen|nicht|nix|nichts|ungern|ungerne|no|not|without|ohne|außer|ausser|except|bitte nicht)\b/i;
+/**
+ * Redewendungen mit Verneinungswort, die nichts ablehnen: „kein Problem mit
+ * GND“, „wenn Not am Mann auch EDMA“.
+ */
+const NEGATION_IDIOM =
+  /\b(kein|keine|no)\s+(problem|probleme|problems|thema|issue|issues|stress)\b|\bnot\s+am\s+mann?\b/gi;
 function isNegated(text: string): boolean {
   return NEGATION.test(text.replace(NEGATION_IDIOM, ""));
 }
+/** Ausdrücklich Gewünschtes übernimmt keine Verneinung vom Vorgänger („kein DEL / gerne TWR“) */
+const POSITIVE = /\b(gerne|gern|lieber|bevorzugt|bevorzuge|prefer|preferred|please)\b/i;
 const ANYTHING = /^\s*(egal|alles|any|anything|whatever|flexibel|flexible|-)\s*[.!]?\s*$/i;
-
-function normalize(text: string): string {
-  return text.toUpperCase().replace(/[\s-]+/g, "_");
-}
 
 // Ein Satzende („No DEL please. Tower“) trennt ebenfalls – nur mit folgendem
 // Leerraum, damit „EDDF.TWR“ oder „19.30“ zusammenbleiben
 const SEPARATOR = /([,;/\n|>]+|\.\s+|\s+(?:oder|or|und|and|dann|then|sonst|else)\s+|&)/i;
-const CONJUNCTION = /^\s*(oder|or|und|and|&)\s*$/i;
+const CONJUNCTION = /^\s*(oder|or|und|and|&|\/)\s*$/i;
 /** Trenner, über die ein „außer …“ hinwegreicht – „dann“, „>“, „;“ beenden es */
 const LIST_SEPARATOR = /^\s*(,+|\/|oder|or|und|and|&)\s*$/i;
 const EXCEPT = /\b(außer|ausser|except|ohne|without)\b/i;
@@ -58,7 +110,7 @@ const EXCEPT = /\b(außer|ausser|except|ohne|without)\b/i;
  * nicht“) bleiben beim Vorangehenden.
  */
 const NEGATION_START =
-  /\s*(?=\()|\s+(?=(?:ohne|außer|ausser|except|without|but|aber|kein|keine|keinen|no|not)(?![\p{L}\p{N}]))/iu;
+  /\s*(?=\()|\s+(?=(?:ohne|außer|ausser|except|without|but|aber|kein|keine|keinen|nix|nichts|ungern|ungerne|no|not)(?![\p{L}\p{N}]))/iu;
 const EVERYTHING = /^(alles|all|everything|anything|egal)$/i;
 
 /**
@@ -67,7 +119,9 @@ const EVERYTHING = /^(alles|all|everything|anything|egal)$/i;
  * please“, „keine Lust“). „kein Problem“, „nicht vor 19z“ oder „aber nicht zu
  * lange“ sagen etwas anderes und bleiben unberücksichtigt.
  */
-const BARE_NEGATION_WORDS = new Set(["kein", "keine", "keinen", "nicht", "no", "not"]);
+const BARE_NEGATION_WORDS = new Set([
+  "kein", "keine", "keinen", "nicht", "nix", "nichts", "ungern", "ungerne", "no", "not",
+]);
 const BARE_NEGATION_FILLER = new Set([
   "bitte", "please", "pls", "plz", "danke", "thanks", "thx", "lust", "bock", "mehr",
   "gerne", "gern", "so", "really", "wirklich", "gar", "überhaupt", "ueberhaupt",
@@ -106,7 +160,8 @@ function segments(text: string): { text: string; negated: boolean; continues: bo
       .map((p) => p.trim())
       .filter(Boolean);
     parts.forEach((p, j) => {
-      const inherited = j === 0 && (carryExcept || (prevNegated && afterConjunction));
+      const inherited =
+        j === 0 && (carryExcept || (prevNegated && afterConjunction && !POSITIVE.test(p)));
       const negated: boolean = isNegated(p) || inherited;
       if (negated && EXCEPT.test(p)) {
         // Weiter reicht es nur für „alles außer …“ bzw. ein alleinstehendes
@@ -126,60 +181,122 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Gefundene Stelle durch Leerzeichen ersetzen – Positionen bleiben gleich */
+function blank(text: string, index: number, length: number): string {
+  return text.slice(0, index) + " ".repeat(length) + text.slice(index + length);
+}
+
 /**
  * Welche Stationen des Plans meint ein Abschnitt? In der Reihenfolge, in der
  * sie im Text stehen (sie ist die Rangfolge), bei Gleichstand wie im Plan.
+ *
+ * Erkannt werden ganze Callsigns, Datahub-Kürzel, Callsign-Mittelteile
+ * („NL“ → EDDM_NL_APP), Vorfeld mit Nummer („APN2“), Approach-Teile aus der
+ * Bezeichnung („High“, „Feeder“) und Stationsarten („Tower“). Genaues wird vor
+ * Allgemeinem gesucht und danach ausgeblendet: „EDDF_N_TWR“ meint nicht alle
+ * Tower.
  */
 function matchSegment(segment: string, stations: WishStation[]): { cs: string; pos: number }[] {
   const found = new Map<string, number>();
   const add = (cs: string, pos: number) => {
-    if (!found.has(cs)) found.set(cs, pos);
+    if (!found.has(cs) || found.get(cs)! > pos) found.set(cs, pos);
   };
-  const ordered = () =>
-    [...found.entries()].sort((a, b) => a[1] - b[1]).map(([cs, pos]) => ({ cs, pos }));
-  const norm = normalize(segment);
+  let text = segment;
+  /** Treffer, die noch auf genannte Airports eingegrenzt werden */
+  const general: { st: WishStation; pos: number }[] = [];
 
   // 1. Vollständige Callsigns (EDDF_TWR, EDDF_N_TWR, EDDF TWR, EDDF-N-TWR)
   for (const st of stations) {
-    const cs = escapeRegExp(st.callsign.toUpperCase()).replace(/_/g, "_?");
-    const m = new RegExp(`(^|[^A-Z0-9])${cs}($|[^A-Z0-9])`).exec(norm);
-    if (m) add(st.callsign, m.index);
+    const parts = st.callsign.toUpperCase().split("_").map(escapeRegExp);
+    const re = new RegExp(`(?<![A-Z0-9])${parts.join("[\\s_-]*")}(?![A-Z0-9])`, "gi");
+    for (const m of segment.matchAll(re)) {
+      add(st.callsign, m.index);
+      text = blank(text, m.index, m[0].length);
+    }
   }
-  if (found.size > 0) return ordered();
 
-  // 2. Datahub-Kürzel (DMC, DMG …)
-  const words: string[] = segment.toUpperCase().match(/[A-Z0-9]+/g) ?? [];
+  // 2. Datahub-Kürzel (DMC, DMG1 …)
   for (const st of stations) {
     const abbr = st.abbreviation?.toUpperCase();
-    const pos = abbr && abbr.length >= 2 ? words.indexOf(abbr) : -1;
-    if (pos >= 0) add(st.callsign, pos);
+    if (!abbr || abbr.length < 2) continue;
+    const re = new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(abbr)}(?![A-Za-z0-9])`, "gi");
+    for (const m of text.matchAll(re)) {
+      add(st.callsign, m.index);
+      text = blank(text, m.index, m[0].length);
+    }
   }
-  if (found.size > 0) return ordered();
 
-  // 3. Ebene, ggf. auf genannte Airports eingegrenzt („EDDF Tower")
+  // 3. Callsign-Mittelteile, nur großgeschrieben („NL“, „SD“ – nicht „an“, „as“)
+  const byDesignator = new Map<string, WishStation[]>();
+  for (const st of stations) {
+    for (const d of designators(st)) {
+      if (d.length < 2 || !/^[A-Z0-9]+$/.test(d)) continue;
+      byDesignator.set(d, [...(byDesignator.get(d) ?? []), st]);
+    }
+  }
+  for (const m of text.matchAll(/(?<![A-Za-z0-9])[A-Z0-9]{2,4}(?![A-Za-z0-9])/g)) {
+    const hits = byDesignator.get(m[0]);
+    if (!hits) continue;
+    for (const st of hits) general.push({ st, pos: m.index });
+    text = blank(text, m.index, m[0].length);
+  }
+
+  // 4. Vorfeld, ggf. mit Nummer
+  for (const m of text.matchAll(APRON)) {
+    const nr = m[1];
+    for (const st of stations) {
+      if (kindOf(st) !== "APN") continue;
+      if (nr && !designators(st).includes(nr) && !new RegExp(`apron\\s*${nr}\\b`, "i").test(st.description ?? "")) {
+        continue;
+      }
+      general.push({ st, pos: m.index });
+    }
+    text = blank(text, m.index, m[0].length);
+  }
+
+  // 5. Approach-Teile aus der Datahub-Bezeichnung
+  for (const part of APP_PARTS) {
+    for (const m of text.matchAll(part.re)) {
+      let hits = stations.filter((st) => kindOf(st) === "APP" && part.desc.test(st.description ?? ""));
+      if (hits.length === 0 && part.fallbackToApp) hits = stations.filter((st) => kindOf(st) === "APP");
+      for (const st of hits) general.push({ st, pos: m.index });
+      text = blank(text, m.index, m[0].length);
+    }
+  }
+
+  // 6. Stationsarten. „Ground“ ohne Rollkontrolle im Plan meint das Vorfeld.
+  const hasGround = stations.some((st) => kindOf(st) === "GND");
+  for (const { kind, re } of KIND_WORDS) {
+    for (const m of text.matchAll(re)) {
+      for (const st of stations) {
+        const k = kindOf(st);
+        if (k === kind || (kind === "GND" && !hasGround && k === "APN")) general.push({ st, pos: m.index });
+      }
+      text = blank(text, m.index, m[0].length);
+    }
+  }
+
+  // Genannte Airports („EDDF Tower“) grenzen das Allgemeine ein
+  const words: string[] = text.toUpperCase().match(/[A-Z0-9]+/g) ?? [];
   const airports = new Set(
     words.filter((w) => /^[A-Z]{4}$/.test(w) && stations.some((s) => s.airport === w))
   );
-  const groups = new Map<StationGroup, number>();
-  for (const g of GROUP_WORDS) {
-    const m = g.re.exec(segment);
-    if (m) groups.set(g.group, Math.min(m.index, groups.get(g.group) ?? Infinity));
-  }
-  if (groups.size > 0) {
-    for (const st of stations) {
-      const pos = st.group ? groups.get(st.group) : undefined;
-      if (pos === undefined) continue;
-      if (airports.size > 0 && st.airport && !airports.has(st.airport)) continue;
-      add(st.callsign, pos);
-    }
-    return ordered();
+  for (const { st, pos } of general) {
+    if (airports.size > 0 && st.airport && !airports.has(st.airport)) continue;
+    add(st.callsign, pos);
   }
 
-  // 4. Nur ein Airport genannt: alle seine Stationen
-  for (const st of stations) {
-    if (st.airport && airports.has(st.airport)) add(st.callsign, 0);
+  // 7. Nur ein Airport genannt: alle seine Stationen
+  if (found.size === 0) {
+    for (const st of stations) {
+      if (st.airport && airports.has(st.airport)) add(st.callsign, 0);
+    }
   }
-  return ordered();
+
+  const planOrder = new Map(stations.map((st, i) => [st.callsign, i]));
+  return [...found.entries()]
+    .sort((a, b) => a[1] - b[1] || planOrder.get(a[0])! - planOrder.get(b[0])!)
+    .map(([cs, pos]) => ({ cs, pos }));
 }
 
 export function parseWishes(text: string | null | undefined, stations: WishStation[]): ParsedWishes {
@@ -222,4 +339,67 @@ export function parseWishes(text: string | null | undefined, stations: WishStati
     preferredStations: preferred.filter((c) => !avoided.includes(c)),
     avoidedStations: avoided,
   };
+}
+
+export interface WishPerson {
+  cid: number;
+  name: string;
+}
+
+/** Bis zu so vielen Wörtern vor einem Namen hebt eine Verneinung ihn auf („nicht mit Max“) */
+const PARTNER_NEGATION_WINDOW = 3;
+
+/**
+ * Wen will die Person neben sich haben? Erkennt die Namen anderer
+ * Angemeldeter im Freitext („gerne mit Justin Korte“, „was angrenzendes mit
+ * Giuseppe“): den vollen Namen, oder Vor- bzw. Nachnamen allein, wenn er
+ * unter den Angemeldeten eindeutig ist. Kürzel wie „MF“ werden nicht geraten.
+ * In der Reihenfolge des Textes; verneinte Nennungen („nicht mit …“) fallen weg.
+ */
+export function parsePartners(
+  text: string | null | undefined,
+  people: WishPerson[],
+  selfCid: number
+): number[] {
+  if (!text) return [];
+  const words = [...text.matchAll(/[\p{L}][\p{L}'-]*/gu)].map((m) => ({
+    word: m[0].toLowerCase(),
+    index: m.index,
+  }));
+  const others = people.filter((p) => p.cid !== selfCid);
+  const parts = (p: WishPerson) => p.name.toLowerCase().split(/\s+/).filter(Boolean);
+  const count = (pick: (n: string[]) => string | undefined) => {
+    const c = new Map<string, number>();
+    for (const p of people) {
+      const w = pick(parts(p));
+      if (w) c.set(w, (c.get(w) ?? 0) + 1);
+    }
+    return c;
+  };
+  const firstCount = count((n) => n[0]);
+  const lastCount = count((n) => (n.length > 1 ? n[n.length - 1] : undefined));
+
+  const hits: { cid: number; at: number }[] = [];
+  for (const p of others) {
+    const n = parts(p);
+    let at = -1;
+    for (let i = 0; i < words.length && at < 0; i++) {
+      const full = n.every((part, k) => words[i + k]?.word === part);
+      const first = n[0].length >= 3 && words[i].word === n[0] && firstCount.get(n[0]) === 1;
+      const last =
+        n.length > 1 &&
+        n[n.length - 1].length >= 3 &&
+        words[i].word === n[n.length - 1] &&
+        lastCount.get(n[n.length - 1]) === 1;
+      if (!full && !first && !last) continue;
+      const before = words
+        .slice(Math.max(0, i - PARTNER_NEGATION_WINDOW), i)
+        .map((w) => w.word)
+        .join(" ");
+      if (isNegated(before)) continue;
+      at = words[i].index;
+    }
+    if (at >= 0) hits.push({ cid: p.cid, at });
+  }
+  return hits.sort((a, b) => a.at - b.at).map((h) => h.cid);
 }

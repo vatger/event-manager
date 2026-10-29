@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { EventRosterSolverRun } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
+  DEFAULT_SOLVER_CONFIG,
   resolveSolverConfig,
   SOLVER_MINUTES_MAX,
   SOLVER_TIME_LIMIT_MAX,
@@ -37,6 +38,8 @@ export const solverConfigSchema = z
     ),
     keepExisting: z.boolean(),
     onlyPreferredStations: z.boolean(),
+    // Ältere Clients kennen den Schalter nicht
+    keepC1OffS1Stations: z.boolean().default(DEFAULT_SOLVER_CONFIG.keepC1OffS1Stations),
     preferenceWeight: z.number().min(0).max(10),
     fairnessWeight: z.number().min(0).max(10),
     timeLimitSeconds: z.number().int().min(5).max(SOLVER_TIME_LIMIT_MAX),

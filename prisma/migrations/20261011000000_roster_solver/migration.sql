@@ -10,6 +10,7 @@ CREATE TABLE `EventRosterPreference` (
   `avoidedStations` JSON NULL,
   `maxTotalMinutes` INTEGER NULL,
   `excludeFromSolver` BOOLEAN NOT NULL DEFAULT false,
+  `partnerCids` JSON NULL,
   `updatedByCID` INTEGER NULL,
   `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updatedAt` DATETIME(3) NOT NULL,

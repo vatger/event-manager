@@ -12,6 +12,15 @@ function stringList(value: unknown): string[] {
   return out;
 }
 
+function cidList(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const out: number[] = [];
+  for (const v of value) {
+    if (typeof v === "number" && Number.isInteger(v) && v > 0 && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 /** Datenbankzeile in die Form bringen, mit der Editor und Planer rechnen */
 export function toControllerPreference(row: EventRosterPreference): ControllerPreference {
   return {
@@ -20,6 +29,7 @@ export function toControllerPreference(row: EventRosterPreference): ControllerPr
     avoidedStations: stringList(row.avoidedStations),
     maxTotalMinutes: row.maxTotalMinutes ?? null,
     excludeFromSolver: row.excludeFromSolver,
+    partnerCids: cidList(row.partnerCids),
   };
 }
 
@@ -29,6 +39,7 @@ export function isEmptyPreference(p: Omit<ControllerPreference, "userCID">): boo
     p.preferredStations.length === 0 &&
     p.avoidedStations.length === 0 &&
     p.maxTotalMinutes === null &&
-    !p.excludeFromSolver
+    !p.excludeFromSolver &&
+    p.partnerCids.length === 0
   );
 }

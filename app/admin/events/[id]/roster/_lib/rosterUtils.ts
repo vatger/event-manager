@@ -98,6 +98,7 @@ export function stationMetaMapFromDatahub(stations: Station[]): Map<string, Stat
       requiredFamiliarizations: st.requiredFamiliarizations ?? [],
       gcapStatus: st.gcapStatus ?? null,
       abbreviation: st.abbreviation ?? null,
+      description: st.description ?? null,
     });
   }
   return map;

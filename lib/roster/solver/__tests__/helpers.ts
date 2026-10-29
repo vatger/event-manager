@@ -16,6 +16,7 @@ export function station(
     callsign,
     priority: opts.priority ?? 3,
     level: opts.level ?? 2,
+    airport: opts.airport ?? null,
     open: opts.open ?? Array.from({ length: slotCount }, () => true),
   };
 }
@@ -31,6 +32,7 @@ export function controller(
     eligible: opts.eligible ?? [],
     wishRank: opts.wishRank ?? {},
     hasWishes: opts.hasWishes ?? Object.keys(opts.wishRank ?? {}).length > 0,
+    partners: opts.partners ?? [],
     maxTotalSlots: opts.maxTotalSlots ?? null,
     level: opts.level ?? 2,
     fixed: opts.fixed ?? [],
