@@ -6,6 +6,13 @@
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
+    // Lokaler Testmodus: externe Schnittstellen vor allem anderen abklemmen
+    const { isLocalTestMode } = await import('@/lib/localTest/mode')
+    if (isLocalTestMode()) {
+      const { installOfflineFetch } = await import('@/lib/localTest/offlineFetch')
+      installOfflineFetch()
+    }
+
     const { initializeCronJobs } = await import('@/lib/cron/cronService')
     initializeCronJobs()
   }

@@ -2,6 +2,7 @@ import axios from 'axios'
 import { prisma } from '@/lib/prisma'
 import { EndoTrainingResponse, SoloTrainingResponse, FamiliarizationResponse } from '../endorsements/types'
 import { invalidateAllCaches } from '../cache/cacheManager'
+import { isLocalTestMode } from '../localTest/mode'
 
 type SoloApiItem = {
   id: number
@@ -35,6 +36,9 @@ function requireEnv(name: string): string {
 }
 
 export async function refreshTrainingCache() {
+  // Lokaler Testmodus: Die Trainingsdaten legt das Seed-Skript an
+  if (isLocalTestMode()) return { solos: 0, endorsements: 0, familiarizations: 0 }
+
   const token = requireEnv('TRAINING_API_TOKEN')
   const solosUrl = requireEnv('TRAINING_API_SOLOS_URL')
   const endoUrl = requireEnv('TRAINING_API_ENDORSEMENTS_URL')

@@ -2,7 +2,9 @@
 import { type NextAuthOptions } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { OAuthConfig } from "next-auth/providers/oauth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { isMainAdminCid } from "./acl/mainAdmins";
+import { isLocalTestMode } from "./localTest/mode";
 
 interface VatsimProfile {
   id: number,
@@ -109,6 +111,34 @@ interface VatsimProfile {
   };
   
   
+/**
+ * Lokaler Testmodus: Anmeldung als beliebiger vorhandener Nutzer ohne
+ * Passwort (siehe lib/localTest/mode.ts – nur mit SQLite, nie in Produktion).
+ */
+const LocalTestProvider = CredentialsProvider({
+  id: "local-test",
+  name: "Lokaler Testnutzer",
+  credentials: { cid: { label: "CID", type: "text" } },
+  async authorize(credentials) {
+    if (!isLocalTestMode()) return null;
+    const cid = Number(credentials?.cid);
+    if (!Number.isInteger(cid) || cid <= 0) return null;
+    const user = await prisma.user.findUnique({
+      where: { cid },
+      select: { cid: true, name: true, rating: true, fir: { select: { code: true } } },
+    });
+    if (!user) return null;
+    return {
+      id: String(user.cid),
+      cid: String(user.cid),
+      name: user.name,
+      rating: user.rating,
+      role: "USER",
+      fir: user.fir?.code ?? "",
+    };
+  },
+});
+
 // Deine gesamte authOptions Konfiguration hier...
 /**
  * Sitzungscookie für eingebettete Ansichten.
@@ -139,9 +169,11 @@ const embedCookies: NextAuthOptions["cookies"] = crossSiteEmbedding
 export const authOptions: NextAuthOptions = {
     ...(embedCookies ? { cookies: embedCookies } : {}),
     providers: [
-      ...(process.env.DEV_MODE === "true" 
-        ? [VatsimSandboxProvider, VatgerProvider] 
-        : [VatgerProvider]
+      ...(isLocalTestMode()
+        ? [LocalTestProvider]
+        : process.env.DEV_MODE === "true"
+          ? [VatsimSandboxProvider, VatgerProvider]
+          : [VatgerProvider]
       ),
     ],
     pages: {
@@ -152,6 +184,10 @@ export const authOptions: NextAuthOptions = {
         if (account?.provider === "vatsim-sandbox" && process.env.DEV_MODE !== "true") {
           console.error("Sandbox login attempted in production");
           return false; // Login verweigern
+        }
+        if (account?.provider === "local-test" && !isLocalTestMode()) {
+          console.error("Local test login attempted outside local test mode");
+          return false;
         }
         const cid = Number(user.cid);
         if (!Number.isFinite(cid)) {

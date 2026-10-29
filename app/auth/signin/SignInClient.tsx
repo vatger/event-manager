@@ -8,12 +8,21 @@ import { CodesandboxIcon, LogInIcon } from "lucide-react";
 import Link from "next/link";
 import { Session } from "next-auth";
 
+export interface LocalTestLogin {
+  cid: number;
+  name: string;
+  rating: string;
+  role?: string;
+}
+
 interface SignInClientProps {
   session: Session | null;
   isDevMode: boolean;
+  /** Nur im lokalen Testmodus: alle Nutzer, als die man sich anmelden kann */
+  localTestLogins?: LocalTestLogin[] | null;
 }
 
-export default function SignInClient({ session, isDevMode }: SignInClientProps) {
+export default function SignInClient({ session, isDevMode, localTestLogins }: SignInClientProps) {
   // Wenn bereits angemeldet
   if (session) {
     return (
@@ -56,6 +65,31 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
               </CardDescription>
             </div>
           </CardHeader>
+          {localTestLogins ? (
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Lokaler Testmodus – als Testnutzer anmelden:
+            </p>
+            <div className="max-h-[60vh] overflow-y-auto divide-y rounded-md border">
+              {localTestLogins.map((u) => (
+                <button
+                  key={u.cid}
+                  type="button"
+                  onClick={() => signIn("local-test", { cid: String(u.cid), callbackUrl: "/" })}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
+                >
+                  <span>
+                    {u.name}
+                    {u.role && <span className="text-muted-foreground"> · {u.role}</span>}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {u.rating} · {u.cid}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+          ) : (
           <CardContent className="space-y-4">
             {isDevMode && (
               <Button 
@@ -83,6 +117,7 @@ export default function SignInClient({ session, isDevMode }: SignInClientProps) 
               Mit VATGER Connect anmelden
             </Button>
           </CardContent>
+          )}
         </Card>
         
         <div className="mt-8 text-center">
