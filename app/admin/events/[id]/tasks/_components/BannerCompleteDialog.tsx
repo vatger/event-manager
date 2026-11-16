@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Image } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 
 interface BannerCompleteDialogProps {
   open: boolean;
@@ -41,7 +41,7 @@ export function BannerCompleteDialog({ open, onOpenChange, onComplete }: BannerC
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Image className="h-5 w-5" />
+            <ImageIcon className="h-5 w-5" />
             Banner als erledigt markieren
           </DialogTitle>
           <DialogDescription>

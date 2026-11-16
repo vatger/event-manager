@@ -6,7 +6,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Trash2, Edit, Eye, Users, Calendar, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
-import { useSession } from "next-auth/react";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
 import { cn } from "@/lib/utils";
@@ -32,7 +31,6 @@ function initials(name: string): string {
 }
 
 export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
-  const { data: session } = useSession();
   const { canInFIR, user } = useUser();
 
   const responsibles = event.responsibles ?? [];

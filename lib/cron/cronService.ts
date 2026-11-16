@@ -131,7 +131,7 @@ async function recordJobExecution(
 /**
  * Wrap a cron job handler with status tracking
  */
-function wrapJobHandler(jobName: string, handler: () => Promise<any>) {
+function wrapJobHandler(jobName: string, handler: () => Promise<unknown>) {
   return async () => {
     // Skip execution if the job has been disabled in the database
     const statusRecord = await prisma.cronJobStatus.findUnique({ where: { jobName } })

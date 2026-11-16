@@ -37,6 +37,7 @@ interface WeeklyEventConfig {
   startTime?: string;
   endTime?: string;
   description?: string;
+  bannerUrl?: string | null;
   requiresRoster?: boolean;
   staffedStations?: string[];
   signupDeadlineHours?: number;
@@ -144,7 +145,7 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
         startTime: config.startTime || "",
         endTime: config.endTime || "",
         description: config.description || "",
-        bannerUrl: (config as any).bannerUrl || "", // Added for banner image URL
+        bannerUrl: config.bannerUrl || "", // Added for banner image URL
         firId: config.firId,
         requiresRoster: config.requiresRoster || false,
         staffedStations,
@@ -287,8 +288,8 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
       });
       setNewManagerCid("");
       toast.success(`${data.manager.user.name} als Verantwortlicher hinzugefügt`);
-    } catch (err: any) {
-      toast.error(err.message || "Fehler beim Hinzufügen");
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Fehler beim Hinzufügen");
     } finally {
       setSavingManager(false);
     }
@@ -307,8 +308,8 @@ export default function AdminWeeklyForm({ config, firs }: Props) {
       }
       setManagers((prev) => prev.filter((m) => m.userCID !== userCID));
       toast.success("Verantwortlicher entfernt");
-    } catch (err: any) {
-      toast.error(err.message || "Fehler beim Entfernen");
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : "Fehler beim Entfernen");
     } finally {
       setSavingManager(false);
     }

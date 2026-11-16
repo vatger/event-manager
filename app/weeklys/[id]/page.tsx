@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -88,13 +88,7 @@ export default function WeeklyDetailPage() {
   const [error, setError] = useState("");
   const [showPastOccurrences, setShowPastOccurrences] = useState(false);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchWeeklyConfig();
-    }
-  }, [params.id]);
-
-  const fetchWeeklyConfig = async () => {
+  const fetchWeeklyConfig = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -110,7 +104,13 @@ export default function WeeklyDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchWeeklyConfig();
+    }
+  }, [params.id, fetchWeeklyConfig]);
 
   /**
    * Generates a complete calendar view including pause weeks

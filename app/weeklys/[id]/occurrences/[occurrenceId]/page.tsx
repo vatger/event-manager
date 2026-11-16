@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -97,13 +97,11 @@ interface RosterEntry {
   restrictions?: string[];
 }
 
-
-
 export default function OccurrenceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { data: session } = useSession();
-  const { user, canInFIR } = useUser();
+  const { canInFIR } = useUser();
   const [occurrence, setOccurrence] = useState<Occurrence | null>(null);
   const [signups, setSignups] = useState<Signup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,18 +125,9 @@ export default function OccurrenceDetailPage() {
 
   // Roster state
   const [roster, setRoster] = useState<RosterEntry[]>([]);
-  const [rosterLoading, setRosterLoading] = useState(false);
   const [rosterPublished, setRosterPublished] = useState(false);
 
-  useEffect(() => {
-    if (params.id && params.occurrenceId) {
-      fetchOccurrence();
-      fetchSignups();
-      fetchRoster();
-    }
-  }, [params.id, params.occurrenceId]);
-
-  const fetchOccurrence = async () => {
+  const fetchOccurrence = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -151,14 +140,14 @@ export default function OccurrenceDetailPage() {
       } else {
         setError("Termin nicht gefunden");
       }
-    } catch (err) {
+    } catch {
       setError("Fehler beim Laden");
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id, params.occurrenceId]);
 
-  const fetchSignups = async () => {
+  const fetchSignups = useCallback(async () => {
     setSignupsLoading(true);
     try {
       const res = await fetch(
@@ -181,10 +170,9 @@ export default function OccurrenceDetailPage() {
     } finally {
       setSignupsLoading(false);
     }
-  };
+  }, [params.id, params.occurrenceId, session?.user?.cid]);
 
-  const fetchRoster = async () => {
-    setRosterLoading(true);
+  const fetchRoster = useCallback(async () => {
     try {
       const res = await fetch(
         `/api/weeklys/${params.id}/occurrences/${params.occurrenceId}/roster`
@@ -200,9 +188,20 @@ export default function OccurrenceDetailPage() {
       console.error("Error fetching roster:", err);
       setRosterPublished(false);
     } finally {
-      setRosterLoading(false);
     }
-  };
+  }, [params.id, params.occurrenceId]);
+
+  useEffect(() => {
+    if (params.id && params.occurrenceId) {
+      fetchOccurrence();
+      fetchRoster();
+    }
+  }, [params.id, params.occurrenceId, fetchOccurrence, fetchRoster]);
+
+  // Eigene Anmeldung erst prüfbar, wenn die Session da ist – deshalb eigener Effekt
+  useEffect(() => {
+    if (params.id && params.occurrenceId) fetchSignups();
+  }, [params.id, params.occurrenceId, fetchSignups]);
 
   const handleEditSignup = async () => {
     if (!editSignupDialog.signup) return;
@@ -226,7 +225,7 @@ export default function OccurrenceDetailPage() {
         const data = await res.json();
         toast.error(data.error || "Fehler beim Aktualisieren");
       }
-    } catch (err) {
+    } catch {
       toast.error("Netzwerkfehler");
     } finally {
       setBusy(false);
@@ -253,7 +252,7 @@ export default function OccurrenceDetailPage() {
         const data = await res.json();
         toast.error(data.error || "Fehler beim Löschen");
       }
-    } catch (err) {
+    } catch {
       toast.error("Netzwerkfehler");
     } finally {
       setBusy(false);

@@ -126,10 +126,6 @@ export async function getCachedUserFamiliarizations(cid: number): Promise<{ fami
 export async function getCachedUserSolos(cid: number): Promise<{ position: string; expiry: Date }[]> {
   const rows = await prisma.trainingSoloCache.findMany({ where: { userCID: cid } })
   
-  const soloExpiryByPosition = Object.fromEntries(
-    rows.map((r) => [r.position, r.expiry])
-  );
-
   return rows.map(r => ({ position: r.position, expiry: r.expiry }))
 }
 

@@ -18,14 +18,13 @@ import {
   Calendar,
   Clock,
   ExternalLink,
-  Maximize2,
   MapPin,
   RotateCcw,
   Users,
 } from "lucide-react";
 import Link from "next/link";
 import EventBanner from "@/components/Eventbanner";
-import { Event, Signup } from "@/types";
+import { Event } from "@/types";
 import StaffedStations from "@/components/StaffedStations";
 import PublicRoster from "./_components/PublicRoster";
 import { useUser,  } from "@/hooks/useUser";
@@ -95,22 +94,25 @@ export default function EventPage() {
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
 
+  const startTime = event?.startTime;
+  const endTime = event?.endTime;
+
   const dateLabel = useMemo(
-    () => (event ? `${formatEventWeekday(new Date(event.startTime))}, ${formatEventDate(new Date(event.startTime))}` : ""),
-    [event?.startTime]
+    () => (startTime ? `${formatEventWeekday(new Date(startTime))}, ${formatEventDate(new Date(startTime))}` : ""),
+    [startTime]
   );
 
   const timeLabel = useMemo(
-    () => (event ? `${formatZulu(new Date(event.startTime))} – ${formatZulu(new Date(event.endTime))}` : ""),
-    [event?.startTime, event?.endTime]
+    () => (startTime && endTime ? `${formatZulu(new Date(startTime))} – ${formatZulu(new Date(endTime))}` : ""),
+    [startTime, endTime]
   );
 
   const timeLabellcl = useMemo(
     () =>
-      event
-        ? `${formatLocalTime(new Date(event.startTime))} – ${formatLocalTime(new Date(event.endTime))} lcl`
+      startTime && endTime
+        ? `${formatLocalTime(new Date(startTime))} – ${formatLocalTime(new Date(endTime))} lcl`
         : "",
-    [event?.startTime, event?.endTime]
+    [startTime, endTime]
   );
 
   const normalizedEventForSignup = useMemo(() => 

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useImperativeHandle, useMemo, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { Button } from "./ui/button"
@@ -193,7 +193,7 @@ const Legend = () => (
 )
 
 export default function AvailabilitySelectorBlock(props: AvailabilitySelectorProps) {
-  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, title = "Verfügbarkeit", innerRef, showLegend = true, slotDuration = 30 } = props
+  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, innerRef, showLegend = true, slotDuration = 30 } = props
 
   const slots = useMemo(() => generateSlots(eventStart, eventEnd, slotDuration), [eventStart, eventEnd, slotDuration])
   const [ranges, setRanges] = useState<RangeIdx[]>([])
@@ -209,7 +209,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
     }
     setRanges(mergeRanges(idxRanges))
     setPendingStartIdx(null)
-  }, [initialUnavailable, slots])
+  }, [initialUnavailable, slots, eventEnd])
 
   // Imperative API for parent form
   useImperativeHandle(
@@ -247,7 +247,7 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
         setPendingStartIdx(null)
       },
     }),
-    [ranges, slots, minAvailableMinutes, slotDuration]
+    [ranges, slots, minAvailableMinutes, slotDuration, eventEnd]
   )
 
   // ===================== Interaction =====================

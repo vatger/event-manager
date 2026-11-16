@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { z } from "zod";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { getUserWithPermissions } from "@/lib/acl/permissions";
 import { CurrentUser } from "@/types/fir";
 
-const firSchema = z.object({
-  code: z.string().length(4, "FIR Code must be 4 letters"),
-  name: z.string().min(3),
-});
 /**
  * GET /api/firs
  * Gibt alle FIRs inkl. Gruppen, Mitglieder & Berechtigungen zurück.

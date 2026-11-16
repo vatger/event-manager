@@ -5,26 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventCard } from "../events/_components/EventCard";
 import { WeeklyEventCard } from "../events/_components/WeeklyEventCard";
 import Protected from "@/components/Protected";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  AlertCircle, 
-  CalendarPlus, 
-  ChevronDown, 
-  ChevronUp, 
-  CalendarClock, 
+import {
+  AlertCircle,
+  CalendarPlus,
+  ChevronDown,
+  ChevronUp,
   Calendar,
   Users,
   Clock,
   Search,
   Filter,
-  PlusCircle,
-  Repeat
+  Repeat,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Event } from "@/types";
@@ -58,8 +55,6 @@ interface WeeklyEventConfig {
   }>;
 }
 
-const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-
 export default function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
@@ -83,7 +78,6 @@ export default function AdminEventsPage() {
   const { user, isVATGERLead, canInFIR, canInOwnFIR, isWeeklyManager, isPureWeeklyManager } = useUser();
 
   const [showPastEvents, setShowPastEvents] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
   
   const router = useRouter();
 
@@ -144,7 +138,7 @@ export default function AdminEventsPage() {
         refreshEvents("ALL");
       }
     }
-  }, [user]);
+  }, [user, isPureWeeklyManager]);
 
   const handleDelete = async (releaseBookings: boolean) => {
     const target = deleteTarget;

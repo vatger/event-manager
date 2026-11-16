@@ -19,7 +19,6 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useUser } from "@/hooks/useUser";
 import { getAvatarColor } from "@/utils/getAvatarColor";
-import { ModeToggle } from "@/components/ModeToggle";
 
 interface AdminSidebarProps {
   user: {
@@ -151,8 +150,6 @@ const NavGroup = ({ group }: { group: NavGroup }) => {
 };
 
 export function AdminSidebar({ user }: AdminSidebarProps) {
-  const pathname = usePathname();
-
   const getInitials = () => {
     if (!user?.name) return "N";
     const names = user?.name.split(' ');

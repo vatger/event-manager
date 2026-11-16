@@ -137,7 +137,7 @@ export default function CronJobMonitor() {
         locale: 'de',
         use24HourTimeFormat: true
       });
-    } catch (error) {
+    } catch {
       return schedule; // Return original if translation fails
     }
   };
@@ -199,7 +199,7 @@ export default function CronJobMonitor() {
           <div className="text-gray-500">{format(date, 'HH:mm:ss', { locale: de })} Uhr</div>
         </div>
       );
-    } catch (error) {
+    } catch {
       return <span className="text-gray-400 text-sm">Ungültiges Datum</span>;
     }
   };

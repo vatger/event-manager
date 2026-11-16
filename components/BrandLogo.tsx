@@ -31,20 +31,6 @@ const LOGO_SRC = {
 // Seitenverhältnis der Originaldatei (139.38 × 55.22 mm)
 const ASPECT = 139.38039 / 55.216167;
 
-/**
- * Die gelieferten Dateien haben ihre Trägerfläche fest eingebaut: die
- * hellen Varianten secondary-50, die dunklen primary-900. Sie gehen daher
- * nur auf genau diesem Untergrund nahtlos auf. Weil die Fläche laut
- * Brandbook nicht entfernt werden darf, bekommt das Logo hier bewusst eine
- * passende Trägerfläche – dadurch wirkt sie als gestaltetes Logofeld statt
- * als sichtbarer Kasten.
- */
-const PLATE_BG = {
-  light: "bg-secondary-50",
-  dark: "bg-primary-900",
-  auto: "bg-secondary-50 dark:bg-primary-900",
-} as const;
-
 interface BrandLogoProps {
   /** Auf welchem Hintergrund liegt das Logo? "auto" schaltet per Theme um. */
   variant?: "light" | "dark" | "auto";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { startOfMonth, endOfMonth, addMonths } from "date-fns";
+import { addMonths } from "date-fns";
 
 /**
  * GET /api/public/weeklys

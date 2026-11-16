@@ -5,7 +5,6 @@ import prisma from "@/lib/prisma";
 import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permissions";
 import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
-import { invalidateCache } from "@/lib/cache/cacheManager";
 import { getSessionUser } from "@/lib/getSessionUser";
 
 // GET: alle Signups für ein Event

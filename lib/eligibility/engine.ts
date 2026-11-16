@@ -61,7 +61,7 @@ function evaluateLevel(
     if (soloResult.blockReason) blockReasons.push(soloResult.blockReason);
     return { allowed: false, restrictions, blockReasons };
   }
-  ratingResult.restriction && restrictions.push(ratingResult.restriction)
+  if (ratingResult.restriction) restrictions.push(ratingResult.restriction);
   // If solo is the reason for access, add the solo restriction
   if (!ratingOk && soloOk && soloResult.restriction) {
     restrictions.push(soloResult.restriction);

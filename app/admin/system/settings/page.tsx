@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Users, UserPlus, UserMinus, Shield, Loader2, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
-import TrainingCacheCard from './RefreshEndorsements';
 import CronJobMonitor from './CronJobMonitor';
 import EndorsementDebugCard from './EndorsementDebugCard';
 

@@ -11,11 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import NotificationsWidget from "./notifs/NotificationsWidget";
 import Link from "next/link";
-import { LogOut, ChevronDown, CalendarRange, CalendarDays, Monitor, Moon, Sun } from "lucide-react";
+import { LogOut, ChevronDown, CalendarRange, CalendarDays, Moon } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { BrandLogo } from "@/components/BrandLogo";
 import { getAvatarColor } from "@/utils/getAvatarColor";
-import { ModeToggle } from "@/components/ModeToggle";
 import { useTheme } from "next-themes";
 import { Switch } from "./ui/switch";
 

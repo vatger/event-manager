@@ -84,18 +84,6 @@ export async function checkStaffingFeasibility(
   // We need to dynamically calculate which stations each user can staff
   const userStationCapabilities = new Map<number, Set<string>>();
 
-  // Parse airports from config for endorsement checking
-  let airports: string[] = [];
-  try {
-    airports = occurrence.config.airports
-      ? (typeof occurrence.config.airports === "string"
-          ? JSON.parse(occurrence.config.airports)
-          : occurrence.config.airports)
-      : [];
-  } catch (e) {
-    console.error("Error parsing airports:", e);
-  }
-
   // Fetch cached endorsements for all users
   const enrichedSignups = await getCachedWeeklySignups(occurrenceId);
 
@@ -126,7 +114,7 @@ export async function checkStaffingFeasibility(
   for (const station of staffedStations) {
     let canStaff = false;
 
-    for (const [userCID, capabilities] of userStationCapabilities.entries()) {
+    for (const capabilities of userStationCapabilities.values()) {
       if (capabilities.has(station)) {
         canStaff = true;
         break;

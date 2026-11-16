@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,13 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import {
   Calendar,
@@ -35,10 +28,9 @@ import {
   Lock,
   Eye,
   Edit3,
-  RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Image,
+  ImageIcon,
   LinkIcon,
   ClipboardList,
   UserCog,
@@ -47,11 +39,7 @@ import {
   UserPlus,
   Loader2,
   ChevronRight,
-  BarChart3,
   MessageSquare,
-  UserCheck,
-  Flag,
-  Trash2,
   Search,
   CalendarClock,
 } from "lucide-react";
@@ -271,6 +259,7 @@ export default function EventOverviewPage() {
       <div className="relative rounded-xl overflow-hidden bg-muted/20 border">
         {event.bannerUrl ? (
           <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- Banner von beliebigen URLs */}
             <img 
               src={event.bannerUrl} 
               alt={`Banner für ${event.name}`} 
@@ -307,7 +296,7 @@ export default function EventOverviewPage() {
         ) : (
           <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Image className="h-8 w-8 text-muted-foreground" />
+              <ImageIcon className="h-8 w-8 text-muted-foreground" />
             </div>
             <h3 className="text-lg font-semibold mb-1">Kein Banner vorhanden</h3>
             <p className="text-muted-foreground text-sm mb-4">Füge einen Banner hinzu, um dein Event ansprechender zu gestalten.</p>

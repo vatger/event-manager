@@ -5,8 +5,12 @@ import prisma from "@/lib/prisma";
 import { userCanManageWeekly } from "@/lib/acl/permissions";
 import { getCachedWeeklySignups } from "@/lib/cache/weeklySignupCache";
 import { extractStationGroup, canStaffStation } from "@/lib/weeklys/stationUtils";
-import { getUsersHistoryBatch } from "@/lib/weeklys/signupHistory";
-import { getUsersATCStatsBatch } from "@/lib/weeklys/atcSessionStats";
+import { getUsersHistoryBatch, type UserHistory } from "@/lib/weeklys/signupHistory";
+import {
+  getUsersATCStatsBatch,
+  type ATCSessionStats,
+  type StationExperience,
+} from "@/lib/weeklys/atcSessionStats";
 import { isS1TwrStation } from "@/lib/stations/stationMetadata";
 
 // GET roster data for occurrence
@@ -103,7 +107,7 @@ export async function GET(
 
     // Get historical signup/roster data for all signed-up users (last 6 occurrences)
     const userCIDs = signupsData.map((s) => s.userCID);
-    let historyMap = new Map<number, any>();
+    let historyMap = new Map<number, UserHistory>();
     let historyLoadError = false;
     try {
       historyMap = await getUsersHistoryBatch(userCIDs, configId, occurrenceIdNum, 6);
@@ -113,7 +117,7 @@ export async function GET(
     }
 
     // Get ATC session statistics for all signed-up users
-    let atcStatsMap = new Map<number, any>();
+    let atcStatsMap = new Map<number, ATCSessionStats>();
     let atcStatsLoadError = false;
     try {
       atcStatsMap = await getUsersATCStatsBatch(userCIDs);
@@ -123,7 +127,10 @@ export async function GET(
     }
 
     // Convert Map to plain objects for JSON serialization
-    const atcStatsWithObjects = new Map<number, any>();
+    const atcStatsWithObjects = new Map<
+      number,
+      { userCID: number; stationStats: Record<string, StationExperience> }
+    >();
     for (const [cid, stats] of atcStatsMap.entries()) {
       atcStatsWithObjects.set(cid, {
         userCID: stats.userCID,

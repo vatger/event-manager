@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
 import { GroupKind } from "@prisma/client";
-import { getUserWithPermissions, isVatgerEventleitung } from "@/lib/acl/permissions";
+import { getUserWithPermissions } from "@/lib/acl/permissions";
 import { CurrentUser } from "@/types/fir";
 
 // 🔍 Zod-Schema für Eingaben

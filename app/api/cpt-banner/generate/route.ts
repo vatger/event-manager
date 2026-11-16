@@ -25,7 +25,7 @@ import React from 'react';
 
 // Cache fonts AND background images in memory
 let fontCache: { bold: ArrayBuffer; extraBold: ArrayBuffer } | null = null;
-let backgroundCache: Map<string, string> = new Map();
+const backgroundCache: Map<string, string> = new Map();
 
 async function loadFonts() {
   if (fontCache) return fontCache;

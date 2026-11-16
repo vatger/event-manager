@@ -49,6 +49,7 @@ function EventBanner({ bannerUrl, eventName, className = "", showFallbackCaption
     
     return (
       <div className={`overflow-hidden ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- Banner von beliebigen URLs */}
         <img
           src={bannerUrl}
           className="w-full h-full object-cover object-center"

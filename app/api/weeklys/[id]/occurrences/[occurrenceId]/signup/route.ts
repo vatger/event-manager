@@ -189,7 +189,6 @@ export async function POST(
 
     // Get user's endorsement group
     let endorsementGroup: string | null = null;
-    let restrictions: string[] = [];
 
     if (staffedStations.length > 0) {
       // Determine which airport to use for endorsement check
@@ -220,7 +219,6 @@ export async function POST(
         });
 
         endorsementGroup = endorsementData.group;
-        restrictions = endorsementData.restrictions || [];
 
         // Check if user can staff minimum required station
         const minRequiredGroup = getMinimumStationGroup(staffedStations);

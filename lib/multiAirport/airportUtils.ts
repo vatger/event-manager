@@ -13,9 +13,9 @@ const OPT_OUT_PATTERN = /!([A-Z]{4})/g;
  * @param airports - Can be string, string[], or JSON string
  * @returns Array of airport ICAO codes
  */
-export function parseEventAirports(airports: any): string[] {
+export function parseEventAirports(airports: unknown): string[] {
   if (Array.isArray(airports)) {
-    return airports;
+    return airports as string[];
   }
   
   if (typeof airports === 'string') {

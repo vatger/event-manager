@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Trash2Icon, UserRoundX, UserX } from "lucide-react";
+import { UserX } from "lucide-react";
 import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
@@ -63,7 +63,7 @@ function toHHMMUTC(dateIso?: string, round?: "down" | "up", slotMinutes = 30): s
 export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
   const {data: session} = useSession()
   
-  const [availability, setAvailability] = useState<Availability>();
+  const [availability, setAvailability] = useState<Partial<Availability>>();
   const [desiredPosition, setDesiredPosition] = useState("");
   const [remarks, setRemarks] = useState("");
   const [excludedAirports, setExcludedAirports] = useState<string[]>([]);
@@ -143,7 +143,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
       airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
       fir: event.firCode,
     },
-  }), [userCID, session?.user.rating, event.airports]);
+  }), [userCID, session?.user.rating, event.airports, event.firCode]);
   
   // Toggle airport exclusion
   const toggleAirportExclusion = (airport: string) => {

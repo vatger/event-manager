@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
 import { userHasFirPermission, isVatgerEventleitung } from "@/lib/acl/permissions";
-import { addWeeks } from "date-fns";
-import { calculateSignupDeadline } from "@/lib/weeklys/deadlineUtils";
 import { generateOccurrences } from "@/lib/weeklys/generateOccurrences";
 
 // Validation schema for weekly event configuration
@@ -36,7 +35,7 @@ const weeklyEventConfigSchema = z.object({
  * List all weekly event configurations
  * Returns configs with their next 5 upcoming occurrences
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   if (!prisma) {
     return NextResponse.json({ error: "Service unavailable" }, { status: 503 });
   }
@@ -194,14 +193,14 @@ export async function POST(req: NextRequest) {
         weeksOff: parsed.data.weeksOff,
         skipInterval: parsed.data.skipInterval ?? 0,
         startDate: new Date(parsed.data.startDate),
-        airports: parsed.data.airports ? (JSON.stringify(parsed.data.airports) as any) : null,
+        airports: parsed.data.airports ? JSON.stringify(parsed.data.airports) : Prisma.DbNull,
         startTime: parsed.data.startTime || null,
         endTime: parsed.data.endTime || null,
         description: parsed.data.description || null,
         bannerUrl: parsed.data.bannerUrl || null, // Added for banner image URL
         minStaffing: parsed.data.minStaffing ?? 0,
         requiresRoster: parsed.data.requiresRoster ?? false,
-        staffedStations: parsed.data.staffedStations ? (JSON.stringify(parsed.data.staffedStations) as any) : null,
+        staffedStations: parsed.data.staffedStations ? JSON.stringify(parsed.data.staffedStations) : Prisma.DbNull,
         signupDeadlineHours: parsed.data.signupDeadlineHours ?? 24,
         enabled: parsed.data.enabled ?? true,
       },

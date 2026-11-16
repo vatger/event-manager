@@ -22,7 +22,7 @@ export default function EditEventPage() {
         } else {
           router.push("/404");
         }
-      } catch (error) {
+      } catch {
         router.push("/404");
       } finally {
         setLoading(false);

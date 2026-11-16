@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { firApi } from '@/lib/api/fir';
 import { FIR, Group } from '@/types/fir';
@@ -30,11 +30,7 @@ export default function FIRDetailPage() {
 
   const { isVATGERLead, isFIRLead } = useUser();
 
-  useEffect(() => {
-    loadData();
-  }, [firCode]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const firsData = await firApi.getFIRs();
@@ -45,11 +41,15 @@ export default function FIRDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [firCode]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const canManageFIR = isVATGERLead() || isFIRLead();
 
-  const handleCreateGroup = (newGroupId: number) => {
+  const handleCreateGroup = () => {
     setCreateDialogOpen(false);
     loadData();
   };

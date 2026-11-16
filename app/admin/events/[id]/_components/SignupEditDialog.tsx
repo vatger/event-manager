@@ -17,8 +17,6 @@ import { Tooltip } from "@radix-ui/react-tooltip";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseEventAirports, fetchAirportEndorsements, getExcludedAirports } from "@/lib/multiAirport";
 import { EndorsementResponse } from "@/lib/endorsements/types";
-import { getRatingValue } from "@/utils/ratingToValue";
-import { set } from "date-fns";
 
 export type SignupRow = Signup;
 
@@ -77,7 +75,7 @@ export default function SignupEditDialog({
   onSaved?: () => void;
   onDeleted?: () => void;
 }) {
-  const { canInOwnFIR, user } = useUser();
+  const { canInOwnFIR } = useUser();
 
   const avRef = useRef<AvailabilitySelectorHandle>(null);
   const [preferredStations, setPreferredStations] = useState("");

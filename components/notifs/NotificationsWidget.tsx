@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { 
-  Bell, 
-  Check, 
-  CheckCircle2, 
-  Loader2, 
-  AlertCircle, 
+import {
+  Bell,
+  Check,
+  Loader2,
+  AlertCircle,
   Calendar,
   Info,
   AlertTriangle,
   TowerControl,
   RefreshCcw,
-  InfoIcon
+  InfoIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 

@@ -78,44 +78,6 @@ export default function EventsPage() {
     loadWeeklys();
   }, []);
 
-  // Countdown für das nächste angemeldete Event
-  useEffect(() => {
-    if (signedUpEvents.length > 0) {
-      // Finde das nächste Event an dem der User angemeldet ist
-      const nextEvent = signedUpEvents
-        .filter(event => new Date(event.startTime) > new Date())
-        .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0];
-
-      if (nextEvent) {
-        const updateCountdown = () => {
-          const now = new Date();
-          const eventTime = new Date(nextEvent.startTime);
-          const diff = eventTime.getTime() - now.getTime();
-
-          if (diff > 0) {
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-
-            if (days > 0) {
-              setTimeUntilNextEvent(`${days} Tag${days !== 1 ? 'en' : ''}`);
-            } else if (hours > 0) {
-              setTimeUntilNextEvent(`${hours} Std ${minutes} Min`);
-            } else {
-              setTimeUntilNextEvent(`${minutes} Minuten`);
-            }
-          } else {
-            setTimeUntilNextEvent('Event startet bald!');
-          }
-        };
-
-        updateCountdown();
-        const interval = setInterval(updateCountdown, 60000); // Update every minute
-        return () => clearInterval(interval);
-      }
-    }
-  }, [events]);
-
   useEffect(() => {
     const firParam = searchParams.get("fir");
     if (firParam) {
@@ -162,6 +124,50 @@ export default function EventsPage() {
 
     return { signedUpEvents, openEvents, archivedEvents, firOverviewEvents };
   }, [events, searchQuery, selectedFIR]);
+
+  // Countdown für das nächste angemeldete Event. Abhängig nur vom Startzeitpunkt,
+  // nicht von der Liste – die entsteht bei jeder Suche neu.
+  const nextSignedUpStart = useMemo(() => {
+    const now = Date.now();
+    const upcoming = signedUpEvents
+      .map((event) => new Date(event.startTime).getTime())
+      .filter((t) => t > now)
+      .sort((a, b) => a - b);
+    return upcoming[0] ?? null;
+  }, [signedUpEvents]);
+
+  useEffect(() => {
+    if (nextSignedUpStart === null) {
+      setTimeUntilNextEvent("");
+      return;
+    }
+    const nextStart = nextSignedUpStart;
+    const updateCountdown = () => {
+      const now = new Date();
+      const eventTime = new Date(nextStart);
+      const diff = eventTime.getTime() - now.getTime();
+
+      if (diff > 0) {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        if (days > 0) {
+          setTimeUntilNextEvent(`${days} Tag${days !== 1 ? 'en' : ''}`);
+        } else if (hours > 0) {
+          setTimeUntilNextEvent(`${hours} Std ${minutes} Min`);
+        } else {
+          setTimeUntilNextEvent(`${minutes} Minuten`);
+        }
+      } else {
+        setTimeUntilNextEvent('Event startet bald!');
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, [nextSignedUpStart]);
 
   // Filtered archive events based on archive search query
   const filteredArchivedEvents = useMemo(() => {

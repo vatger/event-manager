@@ -9,7 +9,6 @@ import { de } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { getBadgeClassForEndorsement } from "@/utils/EndorsementBadge";
 import { isTrainee } from "@/lib/weeklys/traineeUtils";
-import { getRatingFromValue } from "@/utils/ratingToValue";
 import { AddSignupByCIDDialog } from "./AddSignupByCIDDialog";
 
 interface User {
