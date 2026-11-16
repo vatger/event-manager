@@ -38,12 +38,6 @@ export type AvailabilitySelectorProps = {
   showLegend?: boolean
   /** Slot duration in minutes (default 30). Supported values: 15, 30. */
   slotDuration?: number
-  /**
-   * Nur noch erweitern (nach dem Anmeldeschluss): Nicht verfügbare Zeiten
-   * lassen sich freigeben, aber keine neuen eintragen. Was in dieser Sitzung
-   * freigegeben wurde, lässt sich wieder sperren.
-   */
-  onlyExtend?: boolean
 }
 
 // ===================== Helpers =====================
@@ -199,23 +193,11 @@ const Legend = () => (
 )
 
 export default function AvailabilitySelectorBlock(props: AvailabilitySelectorProps) {
-  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, innerRef, showLegend = true, slotDuration = 30, onlyExtend = false } = props
+  const { eventStart, eventEnd, initialUnavailable, minAvailableMinutes = 60, innerRef, showLegend = true, slotDuration = 30 } = props
 
   const slots = useMemo(() => generateSlots(eventStart, eventEnd, slotDuration), [eventStart, eventEnd, slotDuration])
   const [ranges, setRanges] = useState<RangeIdx[]>([])
   const [pendingStartIdx, setPendingStartIdx] = useState<number | null>(null)
-
-  // Slots, die laut gespeicherter Anmeldung nicht verfügbar sind – nur sie
-  // dürfen im Modus onlyExtend (wieder) gesperrt werden
-  const initiallyBlocked = useMemo(() => {
-    const set = new Set<number>()
-    for (const r of initialUnavailable ?? []) {
-      const idxR = timeRangeToIdxRange(r, slots, eventEnd)
-      if (!idxR) continue
-      for (let i = idxR.start; i <= idxR.end; i++) set.add(i)
-    }
-    return set
-  }, [initialUnavailable, slots, eventEnd])
 
   // hydrate from initialUnavailable (edit-mode)
   useEffect(() => {
@@ -277,15 +259,6 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
       return
     }
 
-    // Nur erweitern: keine Bereiche wählen, nur zuvor freigegebene Slots
-    // wieder sperren
-    if (onlyExtend) {
-      if (initiallyBlocked.has(idx)) {
-        setRanges((prev) => mergeRanges([...prev, { start: idx, end: idx }]))
-      }
-      return
-    }
-
     // 2) If no pending start → mark this slot as pending start (yellow)
     if (pendingStartIdx === null) {
       setPendingStartIdx(idx)
@@ -303,14 +276,10 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
     <Card className="w-full">
       <CardHeader className="flex items-start flex-col gap-3">
         <div className="flex-1">
-          <span className="mt-1 text-xs text-muted-foreground">
-            {onlyExtend
-              ? "Nach dem Anmeldeschluss kannst du nur noch zusätzliche Zeiten freigeben (all Times UTC)"
-              : "Wähle deine Verfügbarkeit aus (all Times UTC)"}
-          </span>
+          <span className="mt-1 text-xs text-muted-foreground">Wähle deine Verfügbarkeit aus (all Times UTC)</span>
         </div>
         
-        {showLegend && !onlyExtend && <Legend />}
+        {showLegend && <Legend />}
       </CardHeader>
       <CardContent>
         <TooltipProvider>
@@ -318,7 +287,6 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
             {slots.map((t, i) => {
               const isPending = pendingStartIdx === i
               const isBlocked = isIndexInRanges(ranges, i)
-              const isFixed = onlyExtend && !isBlocked && !initiallyBlocked.has(i)
               return (
                 <Tooltip key={t}>
                   <TooltipTrigger asChild>
@@ -340,25 +308,14 @@ export default function AvailabilitySelectorBlock(props: AvailabilitySelectorPro
                         // ✅ Available
                         !isBlocked &&
                           !isPending &&
-                          "bg-green-500/30 text-primary border-primary/40 hover:bg-primary/25",
-
-                        // 🔒 Nach dem Anmeldeschluss nicht mehr einschränkbar
-                        isFixed && "cursor-default hover:bg-green-500/30"
+                          "bg-green-500/30 text-primary border-primary/40 hover:bg-primary/25"
                       )}
                     >
                       {t}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    {isBlocked
-                      ? `Klicken, um diesen ${slotDuration}‑Min‑Slot wieder verfügbar zu machen`
-                      : isFixed
-                        ? "Nach dem Anmeldeschluss kannst du keine Zeiten mehr streichen"
-                        : onlyExtend
-                          ? "Klicken, um diesen Slot wieder als nicht verfügbar zu markieren"
-                          : pendingStartIdx != null
-                            ? "Endzeit wählen"
-                            : "Klicken, um Nicht‑Verfügbarkeit zu starten"}
+                    {isBlocked ? `Klicken, um diesen ${slotDuration}‑Min‑Slot wieder verfügbar zu machen` : pendingStartIdx!=null ? "Endzeit wählen" : "Klicken, um Nicht‑Verfügbarkeit zu starten"}
                   </TooltipContent>
                 </Tooltip>
               )

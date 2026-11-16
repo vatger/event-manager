@@ -1,36 +1,71 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  CalendarClock,
+  ExternalLink,
+  Loader2,
+  Lock,
+  MessageSquareText,
+  RotateCcw,
+  UserX,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CharLimitHint } from "@/components/CharLimitHint";
+import { cn } from "@/lib/utils";
 import { useEventSignup } from "@/hooks/useEventSignup";
-import { Lock, UserX } from "lucide-react";
-import AvailabilitySlider, { AvailabilitySelectorHandle } from "./AvailabilitySelector";
-import { toast } from "sonner";
-import { useSession } from "next-auth/react";
-import { Event, TimeRange } from "@/types";
-import { getRatingValue } from "@/utils/ratingToValue";
-import AutomaticEndorsement from "./AutomaticEndorsement";
-import { EndorsementResponse } from "@/lib/endorsements/types";
+import type { Event } from "@/types";
 import {
-  parseEventAirports,
   fetchAirportEndorsements,
   getSelectedAirportsForDisplay,
-  getExcludedAirports,
+  parseEventAirports,
 } from "@/lib/multiAirport";
-import { Badge } from "./ui/badge";
 import { isSignupLocked, LOCKED_SIGNUP_CONTACT_HINT } from "@/lib/signups/signupLock";
-
+import { SIGNUP_PREFERRED_MAX, SIGNUP_REMARKS_MAX } from "@/lib/signups/signupLimits";
+import {
+  availabilityFromBlocked,
+  availableMinutes,
+  blockedFromAvailability,
+  buildAvailabilityGrid,
+  shortAvailableRuns,
+  slotRuns,
+  type AvailabilityGrid,
+} from "@/lib/signups/availabilitySlots";
+import { forumMessageUrl, withdrawalTitle } from "@/lib/events/forumMessage";
+import {
+  formatEventDate,
+  formatEventWeekday,
+  formatLocalDate,
+  formatLocalTime,
+  formatZulu,
+} from "@/lib/events/eventDisplay";
+import { formatDuration } from "@/lib/roster/rosterTime";
+import { AvailabilityPicker } from "./signup/AvailabilityPicker";
+import { AirportPicker, type AirportEndorsements } from "./signup/AirportPicker";
 
 interface SignupFormProps {
   event: Event;
@@ -38,145 +73,168 @@ interface SignupFormProps {
   onChanged?: () => void;
 }
 
-type Availability = { available: TimeRange[]; unavailable: TimeRange[] };
+/** Mindestlänge einer verfügbaren Spanne – kürzere lassen sich kaum einplanen */
+const MIN_AVAILABLE_MINUTES = 60;
 
-// Hilfsfunktion: ISO -> HH:MM (UTC), optionales Runden auf Slot-Raster
-function toHHMMUTC(dateIso?: string, round?: "down" | "up", slotMinutes = 30): string {
-  if (!dateIso) return "00:00";
-  const d = new Date(dateIso);
-  let hh = d.getUTCHours();
-  let mm = d.getUTCMinutes();
-  if (round === "down") {
-    mm = mm - (mm % slotMinutes);
-  } else if (round === "up") {
-    const extra = mm % slotMinutes;
-    if (extra !== 0) {
-      mm = mm + (slotMinutes - extra);
-      if (mm >= 60) {
-        mm -= 60;
-        hh = (hh + 1) % 24;
-      }
-    }
-  }
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+/** Verfügbare Zeitspannen für die Anzeige, in Zulu und Ortszeit */
+function availableSpans(grid: AvailabilityGrid, blocked: boolean[]) {
+  return slotRuns(blocked, false).map((r) => {
+    const start = grid.slots[r.from].startMinute;
+    const end =
+      r.to < grid.slots.length
+        ? grid.slots[r.to].startMinute
+        : grid.slots[grid.slots.length - 1].startMinute + grid.slotMinutes;
+    const a = new Date(start * 60000);
+    const b = new Date(end * 60000);
+    return {
+      key: start,
+      zulu: `${formatZulu(a)}–${formatZulu(b)}`,
+      local: `${formatLocalTime(a)}–${formatLocalTime(b)} lcl`,
+      minutes: end - start,
+    };
+  });
 }
 
-export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
-  const {data: session} = useSession()
-  
-  const [availability, setAvailability] = useState<Partial<Availability>>();
-  const [desiredPosition, setDesiredPosition] = useState("");
-  const [remarks, setRemarks] = useState("");
-  const [excludedAirports, setExcludedAirports] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
-  const [hydrated, setHydrated] = useState(false);
-  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>>({});
-  const [loadingEndorsements, setLoadingEndorsements] = useState(false);
-  
-  const userCID = session?.user.id;
+function Section({
+  step,
+  title,
+  hint,
+  aside,
+  children,
+}: {
+  step: number;
+  title: string;
+  hint?: React.ReactNode;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+          {step}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold leading-6">{title}</h3>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+        {aside}
+      </div>
+      <div className="sm:pl-9">{children}</div>
+    </section>
+  );
+}
 
+function Notice({
+  tone,
+  icon: Icon,
+  children,
+}: {
+  tone: "info" | "warn";
+  icon: typeof Lock;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 rounded-lg border p-3 text-xs",
+        tone === "warn"
+          ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+          : "border-primary/20 bg-primary/5 text-foreground"
+      )}
+    >
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Anmelden, Anmeldung bearbeiten, abmelden.
+ *
+ * Drei Schritte – Verfügbarkeit, Flughäfen, Wünsche – mit fester
+ * Aktionsleiste unten. Auf dem Handy füllt der Dialog den Bildschirm.
+ *
+ * - Eine neue Anmeldung und geänderte Zeiten werden in einem eigenen Schritt
+ *   bestätigt: Wer sich anmeldet, sagt die Zeiten zu.
+ * - Nach dem Anmeldeschluss nur noch in positive Richtung (siehe
+ *   lib/signups/signupLock): Zeiten freigeben, Flughäfen hinzufügen, Wünsche
+ *   ändern. Abmelden geht dann über eine vorbereitete Forum-PN an die
+ *   Eventverantwortlichen und die Ansprechpartner der FIR (roster.contact).
+ */
+export default function SignupForm({ event, onClose, onChanged }: SignupFormProps) {
+  const { data: session } = useSession();
+  const userCID = session?.user.id;
   const { loading, isSignedUp, signupData } = useEventSignup(event.id, userCID);
 
-  const avselectorRef = useRef<AvailabilitySelectorHandle>(null)
+  const eventAirports = useMemo(() => parseEventAirports(event.airports), [event.airports]);
+  const grid = useMemo(
+    () => buildAvailabilityGrid(event.startTime, event.endTime, event.signupSlotMinutes ?? 30),
+    [event.startTime, event.endTime, event.signupSlotMinutes]
+  );
 
-  // Get event airports as array using utility function
-  const eventAirports = useMemo(() => {
-    const airports = parseEventAirports(event.airports);
-    console.log("[SignupForm] Event airports parsed:", airports);
-    return airports;
-  }, [event.airports]);
+  const [hydrated, setHydrated] = useState(false);
+  const [blocked, setBlocked] = useState<boolean[]>([]);
+  const [initialBlocked, setInitialBlocked] = useState<boolean[]>([]);
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [desiredPosition, setDesiredPosition] = useState("");
+  const [remarks, setRemarks] = useState("");
 
+  const [endorsements, setEndorsements] = useState<AirportEndorsements>({});
+  const [loadingEndorsements, setLoadingEndorsements] = useState(true);
+
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [contacts, setContacts] = useState<string[] | null>(null);
+
+  // Formular einmal aus der gespeicherten Anmeldung füllen
   useEffect(() => {
-    if (!signupData || hydrated) return;
-
-    console.log("Hydrating from signupData:", signupData);
-    
-    setAvailability(signupData.availability ?? {});
-    setDesiredPosition(signupData.preferredStations ?? "");
-    setRemarks(signupData.remarks ?? "");
-    // Load excludedAirports from signup data
-    setExcludedAirports(
-      Array.isArray(signupData.excludedAirports) ? signupData.excludedAirports : []
-    );
+    if (loading || hydrated) return;
+    const fromSignup = blockedFromAvailability(grid, signupData?.availability);
+    setBlocked(fromSignup);
+    setInitialBlocked(fromSignup);
+    setExcluded(Array.isArray(signupData?.excludedAirports) ? signupData.excludedAirports : []);
+    setDesiredPosition(signupData?.preferredStations ?? "");
+    setRemarks(signupData?.remarks ?? "");
     setHydrated(true);
-    
-  }, [signupData, hydrated, eventAirports]);
+  }, [loading, hydrated, grid, signupData]);
 
-  // Fetch endorsements for all airports to determine which ones user can staff
+  // Freigaben je Flughafen
+  const rating = session?.user.rating;
   useEffect(() => {
-    if (!userCID || !session?.user.rating || eventAirports.length === 0 || !event.firCode) return;
-    
-    const loadEndorsements = async () => {
-      setLoadingEndorsements(true);
-      
-      try {
-        console.log("[SignupForm] Fetching endorsements for airports:", eventAirports);
-        
-        const endorsements = await fetchAirportEndorsements(
-          eventAirports,
-          Number(userCID),
-          session.user.rating,
-          event.firCode
-        );
-        
-        console.log("[SignupForm] Endorsements loaded:", endorsements);
-        setAirportEndorsements(endorsements);
-      } catch (error) {
-        console.error("Error fetching airport endorsements:", error);
-      } finally {
-        setLoadingEndorsements(false);
-      }
+    if (!userCID || !rating || eventAirports.length === 0 || !event.firCode) {
+      setLoadingEndorsements(false);
+      return;
+    }
+    let cancelled = false;
+    setLoadingEndorsements(true);
+    fetchAirportEndorsements(eventAirports, Number(userCID), rating, event.firCode)
+      .then((res) => {
+        if (!cancelled) setEndorsements(res);
+      })
+      .catch((err) => console.error("Freigaben konnten nicht geladen werden:", err))
+      .finally(() => {
+        if (!cancelled) setLoadingEndorsements(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    
-    loadEndorsements();
-  }, [userCID, session?.user.rating, eventAirports, event.firCode]);
+  }, [userCID, rating, eventAirports, event.firCode]);
 
-  // Auto-endorsement uses the first airport as a representative
-  // This is acceptable as endorsements are typically valid across all airports in an event
-  const autoEndorsementProps = useMemo(() => ({
-    user: {
-      userCID: Number(userCID),
-      rating: getRatingValue(session?.user.rating || "OBS"),
-    },
-    event: {
-      airport: Array.isArray(event.airports) ? event.airports[0] : event.airports,
-      fir: event.firCode,
-    },
-  }), [userCID, session?.user.rating, event.airports, event.firCode]);
-  
-  // Nach dem Anmeldeschluss nur noch in positive Richtung (lib/signups/signupLock):
-  // Zeiten freigeben, Airports hinzufügen, Wünsche und Remarks anpassen
-  const locked = isSignedUp && !signupData?.deletedAt && isSignupLocked(event);
   const savedExcluded = useMemo(
     () => (Array.isArray(signupData?.excludedAirports) ? signupData.excludedAirports : []),
     [signupData?.excludedAirports]
   );
-  /** Darf der Airport (wieder) ausgeschlossen werden? */
-  const canExclude = (airport: string) => !locked || savedExcluded.includes(airport);
-
-  // Toggle airport exclusion
-  const toggleAirportExclusion = (airport: string) => {
-    setExcludedAirports((prev) => {
-      if (prev.includes(airport)) {
-        // Remove from excluded list
-        return prev.filter((a) => a !== airport);
-      } else if (canExclude(airport)) {
-        // Add to excluded list
-        return [...prev, airport];
-      }
-      return prev;
-    });
-  };
 
   if (!session) {
     return (
-      <Dialog open={true} onOpenChange={onClose}>
+      <Dialog open onOpenChange={onClose}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Fehler!</DialogTitle>
-            <DialogDescription>Du bist nicht angemeldet!</DialogDescription>
+            <DialogTitle>Nicht angemeldet</DialogTitle>
+            <DialogDescription>Bitte melde dich zuerst im Eventmanager an.</DialogDescription>
           </DialogHeader>
           <Button onClick={onClose}>Schließen</Button>
         </DialogContent>
@@ -184,111 +242,128 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
     );
   }
 
-  
+  const isDeleted = !!signupData?.deletedAt;
+  const isAfterDeadline = !!event.signupDeadline && new Date() > new Date(event.signupDeadline);
+  const locked = isSignedUp && !isDeleted && isSignupLocked(event);
+  const userName = session.user.name || `CID ${userCID}`;
 
-  async function submitSignup() {
-    
-    const val = avselectorRef.current?.validate();
-    if(!val?.ok) {
-      toast(val?.errors)
+  const canExclude = (airport: string) => !locked || savedExcluded.includes(airport);
+  const toggleAirport = (airport: string) =>
+    setExcluded((prev) =>
+      prev.includes(airport)
+        ? prev.filter((a) => a !== airport)
+        : canExclude(airport)
+        ? [...prev, airport]
+        : prev
+    );
+
+  // Ableitungen für Anzeige und Prüfung
+  const spans = availableSpans(grid, blocked);
+  const totalAvailable = availableMinutes(grid, blocked);
+  const shortRuns = shortAvailableRuns(grid, blocked, MIN_AVAILABLE_MINUTES);
+  const selectedAirports = getSelectedAirportsForDisplay(eventAirports, endorsements, excluded);
+  const availabilityChanged = blocked.some((b, i) => b !== initialBlocked[i]);
+
+  const start = new Date(event.startTime);
+  const end = new Date(event.endTime);
+  const dateLine = `${formatEventWeekday(start)}, ${formatEventDate(start)}`;
+  const timeLine = `${formatZulu(start)}–${formatZulu(end)} · ${formatLocalTime(start)}–${formatLocalTime(end)} lcl`;
+
+  /** Prüft das Formular; liefert die erste Meldung oder null */
+  const validationError = (): string | null => {
+    if (totalAvailable === 0) return "Wähle mindestens eine Zeit, in der du verfügbar bist.";
+    if (shortRuns.length > 0) {
+      const list = shortRuns.map((r) => `${r.start}–${r.end}z`).join(", ");
+      return `Verfügbare Zeiten müssen mindestens ${MIN_AVAILABLE_MINUTES} Minuten am Stück sein (${list}).`;
+    }
+    if (!loadingEndorsements && selectedAirports.length === 0) {
+      return eventAirports.length > 1
+        ? "Wähle mindestens einen Flughafen, für den du eine Freigabe hast."
+        : "Für diesen Flughafen hast du laut Trainingsdaten keine Freigabe.";
+    }
+    return null;
+  };
+
+  const requestSubmit = () => {
+    const problem = validationError();
+    if (problem) {
+      setError(problem);
+      toast.error(problem);
       return;
     }
+    setError("");
+    // Zusage der Zeiten bestätigen lassen – bei neuer Anmeldung und wenn
+    // sich die Verfügbarkeit geändert hat
+    if (!isSignedUp || availabilityChanged) setConfirmOpen(true);
+    else void save();
+  };
 
-    // Calculate airports based on endorsements and exclusions for validation
-    const selectedAirports = getSelectedAirportsForDisplay(eventAirports, airportEndorsements, excludedAirports);
-    
-    console.log("[SignupForm] Selected airports for validation:", selectedAirports);
-    
-    // Validate that user can staff at least one airport
-    if (selectedAirports.length === 0) {
-      toast.error("Du kannst keinen der Airports für dieses Event lotsen oder hast alle Airports ausgeschlossen");
-      return;
-    }
-
-    setSaving(true)
-    setError("")
-
-    const method = isSignedUp ? "PUT" : "POST";
-    const url =
-      isSignedUp ? `/api/events/${event.id}/signup/${userCID}` : `/api/events/${event.id}/signup`;
-
+  async function save() {
+    setSaving(true);
+    setError("");
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          eventId: event.id,
-          availability: {available: avselectorRef.current?.getAvailable(), unavailable: avselectorRef.current?.getUnavailable()},
-          endorsement: null,
-          preferredStations: desiredPosition,
-          remarks,
-          excludedAirports, // Send excluded airports to API
-          // selectedAirports is now computed on server from endorsements + excludedAirports + remarks
-        }),
-      });
-
+      const res = await fetch(
+        isSignedUp ? `/api/events/${event.id}/signup/${userCID}` : `/api/events/${event.id}/signup`,
+        {
+          method: isSignedUp ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: event.id,
+            availability: availabilityFromBlocked(grid, blocked),
+            endorsement: null,
+            preferredStations: desiredPosition.trim(),
+            remarks: remarks.trim(),
+            excludedAirports: excluded,
+          }),
+        }
+      );
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
-        setError(data.error || "Etwas ist schiefgelaufen.");
+        setError(data.error || "Speichern fehlgeschlagen.");
+        setConfirmOpen(false);
         return;
       }
-
+      toast.success(isSignedUp ? "Anmeldung gespeichert" : "Du bist angemeldet");
       onChanged?.();
       onClose();
     } catch (err) {
       console.error("Anmeldung speichern fehlgeschlagen:", err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
+      setConfirmOpen(false);
     } finally {
       setSaving(false);
     }
   }
-  async function deleteSignup() {
-    if (!event.id || !userCID) return;
-    const confirmDelete = window.confirm(
-      "Möchtest du dich wirklich abmelden?"
-    );
-    if (!confirmDelete) return;
 
-    setDeleting(true);
+  async function withdraw() {
+    setSaving(true);
     setError("");
-
     try {
-      const res = await fetch(`/api/events/${event.id}/signup/${userCID}`, {
-        method: "DELETE",
-      });
-
+      const res = await fetch(`/api/events/${event.id}/signup/${userCID}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Löschen fehlgeschlagen.");
+        setError(data.error || "Abmelden fehlgeschlagen.");
         return;
       }
-
-      toast.success("Anmeldung wurde gelöscht");
+      toast.success("Du bist abgemeldet");
       onChanged?.();
       onClose();
     } catch (err) {
-      console.error("Anmeldung löschen fehlgeschlagen:", err);
+      console.error("Abmelden fehlgeschlagen:", err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
-      setDeleting(false);
+      setSaving(false);
+      setWithdrawOpen(false);
     }
   }
 
-  async function restoreSignup() {
-    if (!event.id || !userCID) return;
-    
-    setDeleting(true);
+  async function restore() {
+    setSaving(true);
     setError("");
-
     try {
       const res = await fetch(`/api/events/${event.id}/signup/${userCID}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           restore: true,
           availability: signupData?.availability,
@@ -297,311 +372,395 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
           excludedAirports: signupData?.excludedAirports,
         }),
       });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error || "Wiederherstellen fehlgeschlagen.");
         return;
       }
-
-      toast.success("Anmeldung wurde wiederhergestellt");
+      toast.success("Anmeldung wiederhergestellt");
       onChanged?.();
       onClose();
     } catch (err) {
-      console.error("Anmeldung wiederherstellen fehlgeschlagen:", err);
+      console.error("Wiederherstellen fehlgeschlagen:", err);
       setError("Netzwerkfehler. Bitte erneut versuchen.");
     } finally {
-      setDeleting(false);
+      setSaving(false);
     }
   }
 
-  const isDeleted = signupData?.deletedAt;
-  const isAfterDeadline = event.signupDeadline && new Date() > new Date(event.signupDeadline);
+  const openWithdraw = () => {
+    setWithdrawOpen(true);
+    if (locked && contacts === null) {
+      fetch(`/api/events/${event.id}/contacts`)
+        .then((res) => (res.ok ? res.json() : { contacts: [] }))
+        .then((data) => setContacts((data.contacts ?? []).map((c: { name: string }) => c.name)))
+        .catch(() => setContacts([]));
+    }
+  };
+
+  const messageTitle = withdrawalTitle(event.name, userName);
+  const forumUrl = forumMessageUrl(contacts ?? [], messageTitle);
+
+  const stateLabel = isDeleted
+    ? "Abgemeldet"
+    : locked
+    ? "Nach Anmeldeschluss"
+    : isSignedUp
+    ? "Angemeldet"
+    : isAfterDeadline
+    ? "Nachmeldung"
+    : "Neue Anmeldung";
+
+  const showWithdraw = isSignedUp && !isDeleted;
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md rounded-xl max-h-[calc(100vh-4rem)] overflow-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            {isDeleted ? (
-              <p>Anmeldung wiederherstellen für {event.name}</p>
-            ) : isSignedUp ? (
-              <p>Edit Sign up for {event.name}</p>
-            ) : (
-              <p>Sign up for {event.name}</p>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            {isDeleted ? (
-              <span className="text-orange-600">
-                Deine Anmeldung wurde gelöscht. Du kannst sie nun wiederherstellen.
-              </span>
-            ) : locked ? (
-              <span className="text-orange-600">
-                Der Anmeldeschluss ist vorbei. Du kannst weitere Zeiten freigeben, Airports
-                hinzufügen und Wunschposition und Remarks anpassen. Zeiten streichen, Airports
-                abwählen oder dich abmelden geht nur noch über das Eventteam.
-              </span>
-            ) : isAfterDeadline && !isSignedUp ? (
-              <span className="text-orange-600 font-medium">
-                ⚠️ Achtung: Der Anmeldeschluss ist bereits vorbei. Deine Anmeldung wird als Anfrage behandelt und das Eventteam wird informiert.
-              </span>
-            ) : (
-              "Please fill in your availability and preferences."
-            )}
+    <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
+      <DialogContent
+        className={cn(
+          "flex flex-col gap-0 p-0",
+          // Handy: ganzer Bildschirm, Aktionsleiste unten fest
+          "top-0 left-0 h-[100dvh] max-h-[100dvh] w-full max-w-full translate-x-0 translate-y-0 rounded-none border-0",
+          "sm:top-[50%] sm:left-[50%] sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-xl sm:border"
+        )}
+      >
+        <DialogHeader className="space-y-1 border-b px-5 pb-4 pt-5 pr-12 text-left">
+          <span className="inline-flex w-fit items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+            {stateLabel}
+          </span>
+          <DialogTitle className="text-lg leading-snug">{event.name}</DialogTitle>
+          <DialogDescription className="flex flex-wrap items-center gap-x-2 text-xs tabular-nums">
+            <CalendarClock className="h-3.5 w-3.5" />
+            <span>{dateLine}</span>
+            <span aria-hidden>·</span>
+            <span>{timeLine}</span>
           </DialogDescription>
         </DialogHeader>
 
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
-          <div>
-            <Label className="pb-2">Availability</Label>
-            <AvailabilitySlider
-              eventStart={toHHMMUTC(event.startTime, "down", event.signupSlotMinutes ?? 30)}
-              eventEnd={toHHMMUTC(event.endTime, "up", event.signupSlotMinutes ?? 30)}
-              initialUnavailable={availability?.unavailable}
-              innerRef={avselectorRef}
-              slotDuration={event.signupSlotMinutes ?? 30}
-              onlyExtend={locked}
-            />
-          </div>
-          
-          {/* Airport Information for Multi-Airport Events */}
-          {eventAirports.length > 1 && (
-            <div className="space-y-4 border border-gray-200 dark:border-gray-800 rounded-lg p-4 bg-card dark:from-gray-900 dark:to-gray-800">
-            {loadingEndorsements ? (
-              <div className="flex items-center justify-center gap-3 py-6 bg-white dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-800">
-                <div className="h-5 w-5 border-2 border-gray-300 border-t-blue-600 dark:border-t-blue-500 rounded-full animate-spin" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Prüfe Endorsements...
-                </span>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {eventAirports.map((airport) => {
-                  const allExcluded = getExcludedAirports(excludedAirports);
-                  const endorsementData = airportEndorsements[airport];
-                  const canStaff = endorsementData?.canStaff || false;
-                  const endorsement = endorsementData?.endorsement;
-                  const isExcluded = allExcluded.includes(airport);
-                  // Nach dem Anmeldeschluss: ausgewählte Airports bleiben ausgewählt
-                  const fixed = canStaff && !isExcluded && !canExclude(airport);
-                  
-                  return (
-                    <button
-                      key={airport}
-                      type="button"
-                      onClick={() => {
-                        if (canStaff && !fixed) {
-                          toggleAirportExclusion(airport);
-                        }
-                      }}
-                      disabled={!canStaff}
-                      aria-disabled={fixed || undefined}
-                      title={
-                        fixed
-                          ? "Nach dem Anmeldeschluss kannst du Airports nur noch hinzufügen"
-                          : undefined
-                      }
-                      className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-all duration-200 text-left ${
-                        canStaff 
-                          ? isExcluded 
-                            ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 dark:hover:bg-orange-900/30 cursor-pointer'
-                            : fixed
-                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 cursor-default'
-                              : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 cursor-pointer'
-                          : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 cursor-not-allowed'
-                      }`}
-                    >
-                      {/* Status Icon */}
-                      <div className={`h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        canStaff 
-                          ? isExcluded 
-                            ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300'
-                            : 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
-                      }`}>
-                        {canStaff ? (
-                          isExcluded ? (
-                            <span className="text-xs font-bold">✗</span>
-                          ) : (
-                            <span className="text-xs font-bold">✓</span>
-                          )
-                        ) : (
-                          <span className="text-xs">○</span>
-                        )}
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 space-y-1.5">
-                        {/* Airport Header */}
-                        <div className="flex items-baseline gap-2">
-                          <span className={`font-medium ${
-                            canStaff 
-                              ? isExcluded 
-                                ? 'text-orange-800 dark:text-orange-300'
-                                : 'text-green-800 dark:text-green-300'
-                              : 'text-gray-700 dark:text-gray-400'
-                          }`}>
-                            {airport}
-                          </span>
-                          
-                          {endorsement?.group && (
-                            <Badge 
-                              variant="outline" 
-                              className={`text-xs ${
-                                canStaff 
-                                  ? isExcluded 
-                                    ? 'border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-400'
-                                    : 'border-green-300 dark:border-green-700 text-green-700 dark:text-green-400'
-                                  : 'border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-500'
-                              }`}
-                            >
-                              {endorsement.group}
-                            </Badge>
-                          )}
-                        </div>
-                        
-                        {/* Restrictions */}
-                        {endorsement?.restrictions && endorsement.restrictions.length > 0 && (
-                          <div className="space-y-1">
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-400">
-                              Einschränkungen:
-                            </div>
-                            <ul className="space-y-0.5">
-                              {endorsement.restrictions.map((r, i) => (
-                                <li 
-                                  key={i} 
-                                  className="text-xs text-gray-600 dark:text-gray-500 flex items-start gap-1.5"
-                                >
-                                  <div className="h-1 w-1 rounded-full bg-gray-400 dark:bg-gray-600 mt-1.5 flex-shrink-0" />
-                                  {r}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Quick Status */}
-                      <div className={`text-xs font-medium px-2 py-1 rounded ${
-                        canStaff 
-                          ? isExcluded 
-                            ? 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300'
-                            : 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                      }`}>
-                        {canStaff ? (isExcluded ? 'Ausgeschlossen' : 'Verfügbar') : 'Nicht berechtigt'}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            
-            {/* Tip */}
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <div className="flex items-start gap-2">
-                <div className="h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs text-blue-600 dark:text-blue-400">💡</span>
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-0.5">
-                    Tipp zur Airport-Auswahl
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-400">
-                    {locked
-                      ? "Nach dem Anmeldeschluss kannst du ausgeschlossene Airports noch hinzufügen, aber keine mehr abwählen."
-                      : "Klicke auf einen Airport, um ihn ein- oder auszuschließen. Ausgeschlossene Airports werden orange markiert."}
-                  </p>
-                </div>
-              </div>
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+          {loading || !hydrated ? (
+            <div className="space-y-3">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
             </div>
-          </div>
-          )}
-          
-          {/* Automatische Gruppenzuweisung */}
-          {!loading && userCID && eventAirports.length === 1 && (
-            <AutomaticEndorsement {...autoEndorsementProps} />
-          )}
-
-          <div>
-            <Label className="pb-2">Desired Position</Label>
-            <Input
-              placeholder="z.B. DEL ;-)"
-              value={desiredPosition}
-              onChange={(e) => setDesiredPosition(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label className="pb-2">Remarks</Label>
-            <Textarea
-              placeholder="Sonstiges..."
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              className="min-h-[80px]"
-            />
-          </div>
-          
-          {locked && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          ) : isDeleted ? (
+            <Notice tone="info" icon={RotateCcw}>
+              <p className="font-medium">Du hast dich von diesem Event abgemeldet.</p>
               <p>
-                Abmelden nach dem Anmeldeschluss geht nicht mehr per Klick. {LOCKED_SIGNUP_CONTACT_HINT}{" "}
-                Das Eventteam passt deine Anmeldung dann an.
+                Du kannst deine frühere Anmeldung mit denselben Angaben wiederherstellen und sie
+                danach bearbeiten.
               </p>
-            </div>
-          )}
+            </Notice>
+          ) : (
+            <>
+              {locked && (
+                <Notice tone="warn" icon={Lock}>
+                  <p className="font-medium">Der Anmeldeschluss ist vorbei.</p>
+                  <p>
+                    Du kannst weitere Zeiten freigeben, Flughäfen hinzufügen und Wunschposition und
+                    Bemerkungen anpassen. Zeiten streichen, Flughäfen abwählen oder abmelden geht
+                    nur noch über das Eventteam.
+                  </p>
+                </Notice>
+              )}
+              {!isSignedUp && isAfterDeadline && (
+                <Notice tone="warn" icon={AlertTriangle}>
+                  <p className="font-medium">Der Anmeldeschluss ist vorbei.</p>
+                  <p>Deine Anmeldung gilt als Nachmeldung – das Eventteam wird informiert.</p>
+                </Notice>
+              )}
 
+              <Section
+                step={1}
+                title="Wann bist du verfügbar?"
+                hint={
+                  locked
+                    ? "Gesperrte Zeiten kannst du noch freigeben. Alle Zeiten in UTC."
+                    : "Antippen schaltet einen Slot um, die Stunde links die ganze Stunde. Alle Zeiten in UTC."
+                }
+                aside={
+                  !locked && (
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setBlocked(blocked.map(() => false))}
+                      >
+                        Alles
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setBlocked(blocked.map(() => true))}
+                      >
+                        Nichts
+                      </Button>
+                    </div>
+                  )
+                }
+              >
+                <AvailabilityPicker
+                  grid={grid}
+                  blocked={blocked}
+                  onChange={setBlocked}
+                  onlyExtend={locked}
+                  initiallyBlocked={initialBlocked}
+                />
+                <div className="mt-3 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                  {totalAvailable === 0 ? (
+                    <span className="text-muted-foreground">Noch keine Zeit ausgewählt.</span>
+                  ) : (
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-medium">Verfügbar: {formatDuration(totalAvailable)}</span>
+                      {spans.map((s) => (
+                        <span key={s.key} className="tabular-nums text-muted-foreground">
+                          {s.zulu}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                  {shortRuns.length > 0 && (
+                    <p className="mt-1 text-danger-700 dark:text-danger-300">
+                      Zu kurz (unter {MIN_AVAILABLE_MINUTES} min am Stück):{" "}
+                      {shortRuns.map((r) => `${r.start}–${r.end}z`).join(", ")}
+                    </p>
+                  )}
+                </div>
+              </Section>
+
+              <Section
+                step={2}
+                title={eventAirports.length > 1 ? "Wo möchtest du lotsen?" : "Deine Freigabe"}
+                hint={
+                  eventAirports.length > 1
+                    ? locked
+                      ? "Du kannst noch Flughäfen hinzunehmen."
+                      : "Tippe einen Flughafen an, um ihn ab- oder wieder auszuwählen."
+                    : "Ermittelt aus deinen Trainingsdaten."
+                }
+              >
+                <AirportPicker
+                  airports={eventAirports}
+                  endorsements={endorsements}
+                  loading={loadingEndorsements}
+                  excluded={excluded}
+                  onToggle={toggleAirport}
+                  canExclude={canExclude}
+                />
+              </Section>
+
+              <Section
+                step={3}
+                title="Wünsche & Bemerkungen"
+                hint="Optional – hilft dem Eventteam beim Planen."
+              >
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-position" className="text-xs">
+                      Wunschposition
+                    </Label>
+                    <Input
+                      id="signup-position"
+                      placeholder="z. B. TWR, gern auch APP – kein DEL"
+                      value={desiredPosition}
+                      maxLength={SIGNUP_PREFERRED_MAX}
+                      onChange={(e) => setDesiredPosition(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="signup-remarks" className="text-xs">
+                        Bemerkungen
+                      </Label>
+                      <CharLimitHint length={remarks.length} max={SIGNUP_REMARKS_MAX} />
+                    </div>
+                    <Textarea
+                      id="signup-remarks"
+                      placeholder="z. B. komme etwas später, brauche eine längere Pause …"
+                      value={remarks}
+                      maxLength={SIGNUP_REMARKS_MAX}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                </div>
+              </Section>
+            </>
+          )}
+        </div>
+
+        <div className="border-t bg-background px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {error && (
-            <p className="text-red-500 text-sm" role="alert">
+            <p className="mb-2 text-xs text-danger-700 dark:text-danger-300" role="alert">
               {error}
             </p>
           )}
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose} disabled={saving || deleting}>
-              Cancel
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            {showWithdraw && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-danger-700 hover:bg-danger-50 hover:text-danger-800 dark:text-danger-300 dark:hover:bg-danger-900/30 sm:mr-auto"
+                onClick={openWithdraw}
+                disabled={saving}
+              >
+                {locked ? <MessageSquareText className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                {locked ? "Abmelden per Forum-PN" : "Abmelden"}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+              className={cn(!showWithdraw && "sm:ml-auto")}
+            >
+              Abbrechen
             </Button>
             {isDeleted ? (
-              <Button
-                onClick={restoreSignup}
-                disabled={saving || deleting}
-                aria-busy={deleting}
-              >
-                {deleting ? "Wiederherstellen..." : "Anmeldung wiederherstellen"}
+              <Button type="button" onClick={restore} disabled={saving || loading}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                Anmeldung wiederherstellen
               </Button>
             ) : (
-              <>
-                <Button onClick={submitSignup} disabled={saving || deleting} aria-busy={saving}>
-                  {saving
-                    ? isSignedUp
-                      ? "Saving..."
-                      : "Signing up..."
-                    : isSignedUp
-                    ? "Save changes"
-                    : "Sign up"}
-                </Button>
-                {isSignedUp && !locked && (
-                  <Button
-                    variant="destructive"
-                    onClick={deleteSignup}
-                    disabled={saving || deleting}
-                    aria-busy={deleting}
-                  >
-                    {deleting ? "Deleting..." : <UserX/>}
-                  </Button>
-                )}
-              </>
+              <Button type="button" onClick={requestSubmit} disabled={saving || loading || !hydrated}>
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isSignedUp ? "Änderungen speichern" : "Weiter"}
+              </Button>
             )}
           </div>
-          
-        </motion.div>
+        </div>
       </DialogContent>
+
+      {/* Zusage der Zeiten */}
+      <AlertDialog open={confirmOpen} onOpenChange={(o) => !saving && setConfirmOpen(o)}>
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bist du zu diesen Zeiten verfügbar?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm">
+                <p>
+                  Das Eventteam plant dich für diese Zeiten fest ein. Gib bitte nur Zeiten an, zu
+                  denen du sicher lotsen kannst.
+                </p>
+                <ul className="space-y-1 rounded-lg border bg-muted/40 p-3 text-foreground">
+                  {spans.map((s) => (
+                    <li key={s.key} className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="font-medium tabular-nums">{s.zulu}</span>
+                      <span className="text-xs tabular-nums text-muted-foreground">{s.local}</span>
+                    </li>
+                  ))}
+                  <li className="border-t pt-1 text-xs text-muted-foreground">
+                    {dateLine} · insgesamt {formatDuration(totalAvailable)}
+                    {eventAirports.length > 1 && selectedAirports.length > 0 && (
+                      <> · {selectedAirports.join(", ")}</>
+                    )}
+                  </li>
+                </ul>
+                {event.signupDeadline && (
+                  <p className="text-xs">
+                    Nach dem Anmeldeschluss ({formatLocalDate(new Date(event.signupDeadline))},{" "}
+                    {formatLocalTime(new Date(event.signupDeadline))} lcl) kannst du Zeiten nur noch
+                    erweitern. Abmelden geht dann nur noch per PN an das Eventteam.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Zurück</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={saving}
+              onClick={(e) => {
+                e.preventDefault();
+                void save();
+              }}
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isSignedUp ? "Ja, Zeiten speichern" : "Ja, verbindlich anmelden"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Abmelden – vor dem Anmeldeschluss direkt, danach per Forum-PN */}
+      <AlertDialog open={withdrawOpen} onOpenChange={(o) => !saving && setWithdrawOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {locked ? "Abmelden nach dem Anmeldeschluss" : "Wirklich abmelden?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                {locked ? (
+                  <>
+                    <p>
+                      Der Plan baut schon auf deiner Anmeldung auf. Abmelden kannst du dich deshalb
+                      nur noch beim Eventteam. {LOCKED_SIGNUP_CONTACT_HINT}
+                    </p>
+                    <p>Die Nachricht ist vorbereitet – schreib nur noch kurz den Grund dazu.</p>
+                    <div className="rounded-lg border bg-muted/40 p-3 text-xs text-foreground">
+                      <p className="font-medium">Empfänger</p>
+                      {contacts === null ? (
+                        <p className="flex items-center gap-1.5 text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" /> wird geladen …
+                        </p>
+                      ) : contacts.length > 0 ? (
+                        <p>{contacts.join(", ")}</p>
+                      ) : (
+                        <p className="text-muted-foreground">
+                          Keine Ansprechpartner hinterlegt – trag bitte die Eventleitung der FIR
+                          selbst als Empfänger ein.
+                        </p>
+                      )}
+                      <p className="mt-2 font-medium">Betreff</p>
+                      <p>{messageTitle}</p>
+                    </div>
+                  </>
+                ) : (
+                  <p>
+                    Deine Anmeldung wird zurückgezogen. Bis zum Anmeldeschluss kannst du sie
+                    wiederherstellen.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Abbrechen</AlertDialogCancel>
+            {locked ? (
+              <Button asChild disabled={contacts === null}>
+                <a
+                  href={forumUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setWithdrawOpen(false)}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  PN im Forum öffnen
+                </a>
+              </Button>
+            ) : (
+              <AlertDialogAction
+                className="bg-danger-600 text-white hover:bg-danger-700"
+                disabled={saving}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void withdraw();
+                }}
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Abmelden
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

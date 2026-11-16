@@ -14,6 +14,7 @@ async function ensureBasePermissions() {
     { key: "roster.publish", description: "Roster veröffentlichen" },
     { key: "roster.edit", description: "Besetzungsplan bearbeiten" },
     { key: "signups.manage", description: "Anmeldungen verwalten" },
+    { key: "roster.contact", description: "Ansprechpartner für Abmeldungen (Forum-PN)" },
     { key: "user.notif", description: "Benutzer benachrichtigen" },
   ];
 
