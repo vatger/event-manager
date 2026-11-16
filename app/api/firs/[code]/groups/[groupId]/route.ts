@@ -141,10 +141,14 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Gruppe löschen
-  await prisma.group.delete({
-    where: { id: parseInt(groupId) }
-  });
+  // Gruppe samt Mitgliedschaften und Rechten löschen – die Fremdschlüssel
+  // stehen auf RESTRICT, ohne Aufräumen scheitert das Löschen.
+  const id = parseInt(groupId);
+  await prisma.$transaction([
+    prisma.userGroup.deleteMany({ where: { groupId: id } }),
+    prisma.groupPermission.deleteMany({ where: { groupId: id } }),
+    prisma.group.delete({ where: { id } }),
+  ]);
 
   return NextResponse.json({ success: true });
 }

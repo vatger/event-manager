@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import { canManageFir } from "@/lib/acl/permissions";
+import { canManageFir, isVatgerEventleitung } from "@/lib/acl/permissions";
 
 // ✅ Eingabe-Validierung
 const addSchema = z.object({ cid: z.number() });
@@ -26,7 +26,10 @@ export async function GET(
     where: { id: Number(groupId) },
     select: { id: true, kind: true, firId: true },
   });
-  if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
+  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
+  if (!group || group.firId !== fir.id)
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
   const allowed = await canManageFir(Number(user.cid), fir.code)
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -57,10 +60,18 @@ export async function POST(
     where: { id: Number(groupId) },
     select: { id: true, kind: true, firId: true },
   });
-  if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
+  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
+  if (!group || group.firId !== fir.id)
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
   const allowed = await canManageFir(Number(user.cid), fir.code)
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (group.kind === "FIR_LEITUNG" && !(await isVatgerEventleitung(Number(user.cid))))
+    return NextResponse.json(
+      { error: "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung" },
+      { status: 403 }
+    );
 
   const body = await req.json();
   const parsed = addSchema.safeParse(body);
@@ -119,7 +130,10 @@ export async function DELETE(
     where: { id: Number(groupId) },
     select: { id: true, kind: true, firId: true },
   });
-  if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
+  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
+  if (!group || group.firId !== fir.id)
+    return NextResponse.json({ error: "Group not found" }, { status: 404 });
 
   const { searchParams } = new URL(req.url);
   const cid = Number(searchParams.get("cid"));
@@ -128,6 +142,11 @@ export async function DELETE(
   const allowed = await canManageFir(Number(user.cid), fir.code)
 
   if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (group.kind === "FIR_LEITUNG" && !(await isVatgerEventleitung(Number(user.cid))))
+    return NextResponse.json(
+      { error: "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung" },
+      { status: 403 }
+    );
 
   const target = await prisma.user.findUnique({ where: { cid: cid }, include: { groups: true } });
   if (!target)
