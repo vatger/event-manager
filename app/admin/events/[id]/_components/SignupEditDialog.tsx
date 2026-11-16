@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Trash2 } from "lucide-react";
+import {
+  Clock,
+  Loader2,
+  MapPin,
+  MessageSquareText,
+  RotateCcw,
+  Trash2,
+  UserRound,
+  UserX,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,7 +42,11 @@ import {
 } from "@/components/signup/SignupDialogFrame";
 import { AvailabilityPicker } from "@/components/signup/AvailabilityPicker";
 import { AirportPicker, type AirportEndorsements } from "@/components/signup/AirportPicker";
-import { PreferenceFields } from "@/components/signup/SignupFields";
+import {
+  AvailabilitySummary,
+  availableSpans,
+  PreferenceFields,
+} from "@/components/signup/SignupFields";
 
 export type SignupRow = Signup;
 
@@ -216,14 +229,14 @@ export default function SignupEditDialog({
   const isDeleted = !!signup?.deletedAt;
   const totalAvailable = availableMinutes(grid, blocked);
 
-  const subtitle = signup
-    ? [
-        `${signup.user?.name || "Unbekannt"} · CID ${userCID}`,
-        signup.modifiedAfterDeadline && !isDeleted ? "nach Anmeldeschluss geändert" : null,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : event.name;
+  const subtitle = signup ? `${signup.user?.name || "Unbekannt"} · CID ${userCID}` : event.name;
+  const status = !signup
+    ? { label: "Neu", tone: "neutral" as const }
+    : isDeleted
+    ? { label: "Abgemeldet", tone: "neutral" as const }
+    : signup.modifiedAfterDeadline
+    ? { label: "Nach Anmeldeschluss geändert", tone: "warning" as const }
+    : { label: "Angemeldet", tone: "success" as const };
 
   const footer = (
     <div className="space-y-2">
@@ -241,6 +254,7 @@ export default function SignupEditDialog({
               onClick={() => setConfirm("retract")}
               disabled={busy}
             >
+              <UserX className="h-4 w-4" />
               Abmelden
             </Button>
             {canManage && (
@@ -285,37 +299,65 @@ export default function SignupEditDialog({
         onOpenChange={(o) => !o && !busy && onClose()}
         title={signup ? "Anmeldung bearbeiten" : "Anmeldung hinzufügen"}
         subtitle={subtitle}
+        subtitleIcon={signup ? UserRound : undefined}
+        status={status}
         footer={footer}
       >
         {isDeleted && (
-          <SignupNotice>
+          <SignupNotice icon={RotateCcw}>
             Abgemeldet am {new Date(signup!.deletedAt!).toLocaleString("de-DE")}
             {signup?.deletedBy ? ` von CID ${signup.deletedBy}` : ""}.
           </SignupNotice>
         )}
 
         {!signup && (
-          <div className="space-y-2">
-            <Label htmlFor="signup-cid">CID</Label>
-            <Input
-              id="signup-cid"
-              inputMode="numeric"
-              value={cidInput}
-              onChange={(e) => setCidInput(e.target.value)}
-              placeholder="z. B. 1649341"
-            />
-          </div>
+          <SignupSection icon={UserRound} title="Lotse">
+            <div className="space-y-2">
+              <Label htmlFor="signup-cid">CID</Label>
+              <Input
+                id="signup-cid"
+                inputMode="numeric"
+                value={cidInput}
+                onChange={(e) => setCidInput(e.target.value)}
+                placeholder="z. B. 1649341"
+              />
+            </div>
+          </SignupSection>
         )}
 
         <SignupSection
-          title="Verfügbarkeit (UTC)"
-          aside={totalAvailable > 0 ? formatDuration(totalAvailable) : undefined}
+          icon={Clock}
+          title="Verfügbarkeit"
+          aside={
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setBlocked(blocked.map(() => false))}
+              >
+                Alle
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setBlocked(blocked.map(() => true))}
+              >
+                Keine
+              </Button>
+            </div>
+          }
         >
           <AvailabilityPicker grid={grid} blocked={blocked} onChange={setBlocked} />
+          <AvailabilitySummary
+            spans={availableSpans(grid, blocked)}
+            totalMinutes={totalAvailable > 0 ? formatDuration(totalAvailable) : null}
+          />
         </SignupSection>
 
         {signup && eventAirports.length > 1 && (
-          <SignupSection title="Flughäfen">
+          <SignupSection icon={MapPin} title="Flughäfen">
             <AirportPicker
               airports={eventAirports}
               endorsements={endorsements}
@@ -326,12 +368,14 @@ export default function SignupEditDialog({
           </SignupSection>
         )}
 
-        <PreferenceFields
-          position={position}
-          onPositionChange={setPosition}
-          remarks={remarks}
-          onRemarksChange={setRemarks}
-        />
+        <SignupSection icon={MessageSquareText} title="Wünsche & Bemerkungen">
+          <PreferenceFields
+            position={position}
+            onPositionChange={setPosition}
+            remarks={remarks}
+            onRemarksChange={setRemarks}
+          />
+        </SignupSection>
       </SignupDialogFrame>
 
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && !busy && setConfirm(null)}>

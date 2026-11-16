@@ -3,7 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
-import { ExternalLink, Loader2 } from "lucide-react";
+import {
+  Clock,
+  ExternalLink,
+  Loader2,
+  Lock,
+  MapPin,
+  MessageSquareText,
+  RotateCcw,
+  TriangleAlert,
+  UserX,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +52,7 @@ import { formatDuration } from "@/lib/roster/rosterTime";
 import { SignupDialogFrame, SignupNotice, SignupSection } from "./signup/SignupDialogFrame";
 import { AvailabilityPicker } from "./signup/AvailabilityPicker";
 import { AirportPicker, type AirportEndorsements } from "./signup/AirportPicker";
-import { availableSpans, PreferenceFields } from "./signup/SignupFields";
+import { AvailabilitySummary, availableSpans, PreferenceFields } from "./signup/SignupFields";
 
 interface SignupFormProps {
   event: Event;
@@ -152,7 +162,20 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
 
   const start = new Date(event.startTime);
   const end = new Date(event.endTime);
-  const subtitle = `${formatEventWeekday(start)}, ${formatEventDate(start)} · ${formatZulu(start)}–${formatZulu(end)} (${formatLocalTime(start)}–${formatLocalTime(end)} lcl)`;
+  const subtitle = `${formatEventWeekday(start)}, ${formatEventDate(start)} · ${formatZulu(start)}–${formatZulu(end)} · ${formatLocalTime(start)}–${formatLocalTime(end)} lcl`;
+  const status = isDeleted
+    ? { label: "Abgemeldet", tone: "neutral" as const }
+    : locked
+    ? { label: "Nach Anmeldeschluss", tone: "warning" as const }
+    : isSignedUp
+    ? { label: "Angemeldet", tone: "success" as const }
+    : isAfterDeadline
+    ? { label: "Nachmeldung", tone: "warning" as const }
+    : { label: "Neue Anmeldung", tone: "neutral" as const };
+  const shortProblem =
+    shortRuns.length > 0
+      ? `Mindestens ${MIN_AVAILABLE_MINUTES} min am Stück: ${shortRuns.map((r) => `${r.start}–${r.end}z`).join(", ")}`
+      : null;
 
   const validationError = (): string | null => {
     if (totalAvailable === 0) return "Wähle mindestens eine Zeit aus.";
@@ -270,6 +293,7 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
             onClick={openWithdraw}
             disabled={saving}
           >
+            {locked ? <MessageSquareText className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
             Abmelden
           </Button>
         )}
@@ -298,35 +322,59 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
         onOpenChange={(open) => !open && !saving && onClose()}
         title={event.name}
         subtitle={subtitle}
+        status={ready ? status : undefined}
         footer={footer}
       >
         {!ready ? (
-          <div className="space-y-2">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+          <div className="space-y-3">
+            <Skeleton className="h-48 w-full rounded-lg" />
+            <Skeleton className="h-24 w-full rounded-lg" />
           </div>
         ) : isDeleted ? (
-          <SignupNotice>
+          <SignupNotice icon={RotateCcw}>
             Du hast dich abgemeldet. Du kannst deine Anmeldung mit den bisherigen Angaben
             wiederherstellen.
           </SignupNotice>
         ) : (
           <>
             {locked && (
-              <SignupNotice tone="warning">
-                Anmeldeschluss vorbei: Du kannst nur noch Zeiten und Flughäfen hinzufügen.
+              <SignupNotice icon={Lock} tone="warning">
+                <p className="font-medium">Der Anmeldeschluss ist vorbei.</p>
+                <p>Du kannst noch Zeiten und Flughäfen hinzufügen. Abmelden geht per PN an das Eventteam.</p>
               </SignupNotice>
             )}
             {!isSignedUp && isAfterDeadline && (
-              <SignupNotice tone="warning">
-                Anmeldeschluss vorbei: Deine Anmeldung geht als Nachmeldung an das Eventteam.
+              <SignupNotice icon={TriangleAlert} tone="warning">
+                <p className="font-medium">Der Anmeldeschluss ist vorbei.</p>
+                <p>Deine Anmeldung geht als Nachmeldung an das Eventteam.</p>
               </SignupNotice>
             )}
 
             <SignupSection
-              title="Verfügbarkeit (UTC)"
-              aside={totalAvailable > 0 ? formatDuration(totalAvailable) : undefined}
+              icon={Clock}
+              title="Wann bist du verfügbar?"
+              aside={
+                !locked && (
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setBlocked(blocked.map(() => false))}
+                    >
+                      Alle
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2"
+                      onClick={() => setBlocked(blocked.map(() => true))}
+                    >
+                      Keine
+                    </Button>
+                  </div>
+                )
+              }
             >
               <AvailabilityPicker
                 grid={grid}
@@ -335,9 +383,17 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
                 onlyExtend={locked}
                 initiallyBlocked={initialBlocked}
               />
+              <AvailabilitySummary
+                spans={spans}
+                totalMinutes={totalAvailable > 0 ? formatDuration(totalAvailable) : null}
+                problem={shortProblem}
+              />
             </SignupSection>
 
-            <SignupSection title={eventAirports.length > 1 ? "Flughäfen" : "Freigabe"}>
+            <SignupSection
+              icon={MapPin}
+              title={eventAirports.length > 1 ? "Wo möchtest du lotsen?" : "Deine Freigabe"}
+            >
               <AirportPicker
                 airports={eventAirports}
                 endorsements={endorsements}
@@ -348,12 +404,14 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               />
             </SignupSection>
 
-            <PreferenceFields
-              position={position}
-              onPositionChange={setPosition}
-              remarks={remarks}
-              onRemarksChange={setRemarks}
-            />
+            <SignupSection icon={MessageSquareText} title="Wünsche & Bemerkungen">
+              <PreferenceFields
+                position={position}
+                onPositionChange={setPosition}
+                remarks={remarks}
+                onRemarksChange={setRemarks}
+              />
+            </SignupSection>
           </>
         )}
       </SignupDialogFrame>
@@ -366,14 +424,22 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
               Das Eventteam plant dich zu diesen Zeiten fest ein.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <ul className="divide-y rounded-md border text-sm">
+          <ul className="divide-y rounded-lg border bg-card text-sm">
             {spans.map((s) => (
-              <li key={s.key} className="flex justify-between gap-3 px-3 py-2 tabular-nums">
-                <span className="font-medium">{s.zulu}</span>
+              <li key={s.key} className="flex items-center justify-between gap-3 px-3.5 py-2.5 tabular-nums">
+                <span className="flex items-center gap-2 font-medium">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  {s.zulu}
+                </span>
                 <span className="text-muted-foreground">{s.local} lcl</span>
               </li>
             ))}
           </ul>
+          {event.signupDeadline && !isAfterDeadline && (
+            <p className="text-sm text-muted-foreground">
+              Ab dem Anmeldeschluss lassen sich Zeiten nur noch erweitern.
+            </p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={saving}>Zurück</AlertDialogCancel>
             <AlertDialogAction

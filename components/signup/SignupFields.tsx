@@ -26,6 +26,42 @@ export function availableSpans(grid: AvailabilityGrid, blocked: boolean[]) {
   });
 }
 
+/** Zusammenfassung unter der Zeitauswahl: Zeiträume als Chips, Summe, Fehler */
+export function AvailabilitySummary({
+  spans,
+  totalMinutes,
+  problem,
+}: {
+  spans: { key: number; zulu: string }[];
+  totalMinutes: string | null;
+  problem?: string | null;
+}) {
+  return (
+    <div className="space-y-1.5 border-t pt-3">
+      {spans.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Noch keine Zeit ausgewählt.</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {spans.map((s) => (
+            <span
+              key={s.key}
+              className="rounded-full bg-success-100 px-2.5 py-0.5 text-sm font-medium tabular-nums text-success-900 dark:bg-success-900/40 dark:text-success-100"
+            >
+              {s.zulu}
+            </span>
+          ))}
+          {totalMinutes && (
+            <span className="ml-auto text-sm text-muted-foreground tabular-nums">
+              {totalMinutes} gesamt
+            </span>
+          )}
+        </div>
+      )}
+      {problem && <p className="text-sm text-danger-700 dark:text-danger-300">{problem}</p>}
+    </div>
+  );
+}
+
 /** Wunschposition und Bemerkungen */
 export function PreferenceFields({
   position,

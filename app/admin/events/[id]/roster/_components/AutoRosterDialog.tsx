@@ -233,7 +233,12 @@ export function AutoRosterDialog({
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Auto-Roster</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            Auto-Roster
+            <span className="rounded bg-accent-100 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent-800 dark:bg-accent-900/50 dark:text-accent-200">
+              Beta
+            </span>
+          </DialogTitle>
           <DialogDescription>
             Plant die Anmeldungen von CTR abwärts ein. Die Schichten landen direkt im Plan.
           </DialogDescription>

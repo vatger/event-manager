@@ -2891,6 +2891,9 @@ export function RosterEditor({
             >
               <Wand2 className="h-4 w-4 sm:mr-1.5" />
               <span className="hidden lg:inline">Auto-Roster</span>
+              <span className="hidden rounded bg-accent-100 px-1 text-[11px] font-semibold uppercase leading-4 text-accent-800 dark:bg-accent-900/50 dark:text-accent-200 lg:inline">
+                Beta
+              </span>
             </Button>
           )}
 
