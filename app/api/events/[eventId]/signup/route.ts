@@ -6,6 +6,7 @@ import { isVatgerEventleitung, userHasFirPermission } from "@/lib/acl/permission
 import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { signupTextError } from "@/lib/signups/signupLimits";
 
 // GET: alle Signups für ein Event
 export async function GET(req: Request, { params }: { params: Promise<{ eventId: string }> }) {
@@ -70,6 +71,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
       });
       usercreated = true
     }
+
+    const textError = signupTextError(body);
+    if (textError) return NextResponse.json({ error: textError }, { status: 400 });
 
     // Validate excludedAirports
     if (body.excludedAirports !== null && body.excludedAirports !== undefined) {

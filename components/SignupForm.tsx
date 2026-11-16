@@ -416,6 +416,9 @@ export default function SignupForm({ event, onClose, onChanged }: SignupFormProp
   return (
     <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
       <DialogContent
+        // Kein Fokus beim Öffnen: sonst springt auf dem Handy die Tastatur
+        // auf bzw. ein Knopf trägt den Fokusring
+        onOpenAutoFocus={(e) => e.preventDefault()}
         className={cn(
           "flex flex-col gap-0 p-0",
           // Handy: ganzer Bildschirm, Aktionsleiste unten fest

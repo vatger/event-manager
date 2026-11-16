@@ -30,6 +30,7 @@ import PublicRoster from "./_components/PublicRoster";
 import { useUser,  } from "@/hooks/useUser";
 import RichText from "@/components/RichText";
 import { cn } from "@/lib/utils";
+import { isSignupLocked } from "@/lib/signups/signupLock";
 import {
   eventAirportList,
   eventStatusDisplay,
@@ -311,17 +312,21 @@ export default function EventPage() {
         
         </CardContent>
         
-        {event.status === "SIGNUP_CLOSED" && isSignedUp && (
-          <div className="px-5">
-            <Alert>
-              <AlertCircle className="h-4 w-4 text-accent-600 dark:text-accent-500" />
-              <AlertDescription>
-                Du kannst deine Anmeldung weiterhin bearbeiten. Das Eventteam wird über Änderungen
-                informiert.
-              </AlertDescription>
-            </Alert>
-          </div>
-        )}
+        {isSignedUp &&
+          !signupData?.deletedAt &&
+          (event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED") &&
+          isSignupLocked(event) && (
+            <div className="px-5 pb-5">
+              <Alert>
+                <AlertCircle className="h-4 w-4 text-accent-600 dark:text-accent-500" />
+                <AlertDescription>
+                  Der Anmeldeschluss ist vorbei. Du kannst noch weitere Zeiten freigeben, Flughäfen
+                  hinzufügen und Wünsche anpassen – das Eventteam wird informiert. Abmelden geht
+                  nur noch per PN an das Eventteam (über „Anmeldung bearbeiten“).
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
       </Card>
 
       

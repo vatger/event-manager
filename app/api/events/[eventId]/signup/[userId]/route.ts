@@ -6,6 +6,7 @@ import { userhasPermissiononEvent } from "@/lib/acl/permissions";
 import { canManageEventSignups } from "@/lib/roster/rosterPermissions";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { signupTextError } from "@/lib/signups/signupLimits";
 import {
   isSignupLocked,
   LOCKED_SIGNUP_CONTACT_HINT,
@@ -145,6 +146,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       await invalidateSignupTable(Number(eventId))
       return NextResponse.json(updated);
     }
+
+    const textError = signupTextError(body);
+    if (textError) return NextResponse.json({ error: textError }, { status: 400 });
 
     // Validate excludedAirports
     if (body.excludedAirports !== null && body.excludedAirports !== undefined) {

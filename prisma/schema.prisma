@@ -286,7 +286,7 @@ model EventSignup {
   availability          Json
   breakrequests         String?
   preferredStations     String?
-  remarks               String?
+  remarks               String? @db.Text
   excludedAirports      Json? // Array of ICAO codes the user excluded from multi-airport events
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
