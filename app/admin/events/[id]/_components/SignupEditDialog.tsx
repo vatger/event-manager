@@ -1,22 +1,39 @@
 "use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import AvailabilityEditor, { AvailabilitySelectorHandle } from "@/components/AvailabilitySelector";
-import { Signup, TimeRange } from "@/types";
-import { useUser } from "@/hooks/useUser";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Tooltip } from "@radix-ui/react-tooltip";
-import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { parseEventAirports, fetchAirportEndorsements, getExcludedAirports } from "@/lib/multiAirport";
-import { EndorsementResponse } from "@/lib/endorsements/types";
+import { Loader2, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Signup } from "@/types";
+import { useUser } from "@/hooks/useUser";
+import { parseEventAirports, fetchAirportEndorsements } from "@/lib/multiAirport";
+import {
+  availabilityFromBlocked,
+  availableMinutes,
+  blockedFromAvailability,
+  buildAvailabilityGrid,
+} from "@/lib/signups/availabilitySlots";
+import { formatDuration } from "@/lib/roster/rosterTime";
+import {
+  SignupDialogFrame,
+  SignupNotice,
+  SignupSection,
+} from "@/components/signup/SignupDialogFrame";
+import { AvailabilityPicker } from "@/components/signup/AvailabilityPicker";
+import { AirportPicker, type AirportEndorsements } from "@/components/signup/AirportPicker";
+import { PreferenceFields } from "@/components/signup/SignupFields";
 
 export type SignupRow = Signup;
 
@@ -25,41 +42,20 @@ export type EventRef = {
   name?: string;
   startTime: string;
   endTime: string;
-  airports?: string | string[]; // Multi-airport support
-  firCode?: string; // FIR code for endorsement checking
-  signupSlotMinutes?: number; // Duration of signup availability slots in minutes (15 or 30)
+  airports?: string | string[];
+  firCode?: string;
+  signupSlotMinutes?: number;
 };
 
-function toHHMMUTC(dateIso?: string, round?: "down" | "up", slotMinutes = 30): string {
-  if (!dateIso) return "00:00";
-  const d = new Date(dateIso);
-  let hh = d.getUTCHours();
-  let mm = d.getUTCMinutes();
-  if (round === "down") mm -= mm % slotMinutes;
-  else if (round === "up") {
-    const extra = mm % slotMinutes;
-    if (extra !== 0) {
-      mm += slotMinutes - extra;
-      if (mm >= 60) {
-        mm -= 60;
-        hh = (hh + 1) % 24;
-      }
-    }
-  }
-  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-}
+type Confirm = "retract" | "hard" | null;
 
-type SignupPayload = {
-  availability: {
-    available?: TimeRange[];
-    unavailable?: TimeRange[];
-  };
-  preferredStations?: string;
-  remarks?: string;
-  excludedAirports?: string[]; // Excluded airports
-  userCID?: number; // optional für Admins
-};
-
+/**
+ * Anmeldung bearbeiten oder anlegen – für das Eventteam.
+ *
+ * Dieselben Bausteine wie der Anmeldedialog der Lotsen, aber ohne die
+ * Grenzen nach dem Anmeldeschluss: Das Eventteam darf Zeiten streichen,
+ * Flughäfen abwählen und abmelden.
+ */
 export default function SignupEditDialog({
   open,
   onClose,
@@ -76,467 +72,296 @@ export default function SignupEditDialog({
   onDeleted?: () => void;
 }) {
   const { canInOwnFIR } = useUser();
+  const canManage = canInOwnFIR("signups.manage");
 
-  const avRef = useRef<AvailabilitySelectorHandle>(null);
-  const [preferredStations, setPreferredStations] = useState("");
+  const eventAirports = useMemo(() => parseEventAirports(event.airports), [event.airports]);
+  const grid = useMemo(
+    () => buildAvailabilityGrid(event.startTime, event.endTime, event.signupSlotMinutes ?? 30),
+    [event.startTime, event.endTime, event.signupSlotMinutes]
+  );
+
+  const [blocked, setBlocked] = useState<boolean[]>(() => grid.slots.map(() => false));
+  const [excluded, setExcluded] = useState<string[]>([]);
+  const [position, setPosition] = useState("");
   const [remarks, setRemarks] = useState("");
-  const [excludedAirports, setExcludedAirports] = useState<string[]>([]);
   const [cidInput, setCidInput] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [airportEndorsements, setAirportEndorsements] = useState<Record<string, { canStaff: boolean; endorsement: EndorsementResponse | null }>>({});
+  const [endorsements, setEndorsements] = useState<AirportEndorsements>({});
   const [loadingEndorsements, setLoadingEndorsements] = useState(false);
-  
-  // Get event airports as array
-  const eventAirports = useMemo(() => {
-    return parseEventAirports(event.airports);
-  }, [event.airports]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [confirm, setConfirm] = useState<Confirm>(null);
 
-  // Hydration für bestehende Signups
+  const userCID = signup?.user?.cid ?? signup?.userCID;
+  const userRating = signup?.user?.rating;
+
+  // Bei jedem Öffnen aus der Anmeldung füllen
   useEffect(() => {
-    if (!signup) {
-      setRemarks("");
-      setPreferredStations("");
-      return; 
-    }
-    setPreferredStations(signup.preferredStations || "");
-    setRemarks(signup.remarks || "");
-    setExcludedAirports(
-      Array.isArray(signup.excludedAirports) ? signup.excludedAirports : []
-    );
-  }, [signup]);
-  
-  // Fetch endorsements for all airports to determine which ones user can staff
+    if (!open) return;
+    setBlocked(blockedFromAvailability(grid, signup?.availability));
+    setExcluded(Array.isArray(signup?.excludedAirports) ? signup.excludedAirports : []);
+    setPosition(signup?.preferredStations ?? "");
+    setRemarks(signup?.remarks ?? "");
+    setCidInput("");
+    setError("");
+  }, [open, signup, grid]);
+
   useEffect(() => {
-    const userCID = signup?.user?.cid || signup?.userCID;
-    const userRating = signup?.user?.rating;
-    
-    if (!userCID || !userRating || eventAirports.length === 0 || !event.firCode) return;
-    
-    const loadEndorsements = async () => {
-      setLoadingEndorsements(true);
-      
-      try {
-        const endorsements = await fetchAirportEndorsements(
-          eventAirports,
-          Number(userCID),
-          userRating,
-          event.firCode!
-        );
-        
-        setAirportEndorsements(endorsements);
-      } catch (error) {
-        console.error("Error fetching airport endorsements:", error);
-      } finally {
-        setLoadingEndorsements(false);
-      }
+    if (!open || !userCID || !userRating || eventAirports.length === 0 || !event.firCode) return;
+    let cancelled = false;
+    setLoadingEndorsements(true);
+    fetchAirportEndorsements(eventAirports, Number(userCID), userRating, event.firCode)
+      .then((res) => {
+        if (!cancelled) setEndorsements(res);
+      })
+      .catch((err) => console.error("Freigaben konnten nicht geladen werden:", err))
+      .finally(() => {
+        if (!cancelled) setLoadingEndorsements(false);
+      });
+    return () => {
+      cancelled = true;
     };
-    
-    loadEndorsements();
-  }, [signup, eventAirports, event.firCode]);
-  
-  // Toggle airport exclusion
-  const toggleAirportExclusion = (airport: string) => {
-    setExcludedAirports((prev) => {
-      if (prev.includes(airport)) {
-        return prev.filter((a) => a !== airport);
-      } else {
-        return [...prev, airport];
-      }
-    });
-  };
+  }, [open, userCID, userRating, eventAirports, event.firCode]);
 
-  // 🧩 SAVE / CREATE
-  async function saveChanges() {
-    setSaving(true);
-    setError(null);
+  const signupUrl = userCID ? `/api/events/${event.id}/signup/${userCID}` : null;
+
+  async function send(
+    url: string,
+    init: RequestInit,
+    success: string,
+    done?: () => void
+  ): Promise<void> {
+    setBusy(true);
+    setError("");
     try {
-      const payload: SignupPayload = {
-        availability: {
-          available: avRef.current?.getAvailable(),
-          unavailable: avRef.current?.getUnavailable(),
-        },
-        preferredStations,
-        remarks,
-        excludedAirports,
-      };
-
-      // Admin darf userCID mitgeben (neuer Signup)
-      if (!signup && canInOwnFIR("signups.manage")) {
-        const cidNum = Number(cidInput);
-        if (!Number.isNaN(cidNum)) payload.userCID = cidNum;
+      const res = await fetch(url, init);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Das hat nicht geklappt.");
+        return;
       }
+      toast.success(success);
+      if (data.usercreated) {
+        toast.info(`CID ${data.signup?.userCID ?? ""} war noch unbekannt und wurde angelegt.`);
+      }
+      done?.();
+      onClose();
+    } catch {
+      setError("Netzwerkfehler. Bitte erneut versuchen.");
+    } finally {
+      setBusy(false);
+      setConfirm(null);
+    }
+  }
 
-      const method = signup ? "PUT" : "POST";
-      const url = signup
-        ? `/api/events/${event.id}/signup/${signup.user?.cid ?? signup.userCID}`
-        : `/api/events/${event.id}/signup`;
-
-      const res = await fetch(url, {
-        method,
+  const save = () => {
+    const payload: Record<string, unknown> = {
+      availability: availabilityFromBlocked(grid, blocked),
+      preferredStations: position.trim(),
+      remarks: remarks.trim(),
+      excludedAirports: excluded,
+    };
+    if (!signup) {
+      const cid = Number(cidInput.trim());
+      if (!Number.isInteger(cid) || cid <= 0) {
+        setError("Bitte eine gültige CID angeben.");
+        return;
+      }
+      payload.userCID = cid;
+    }
+    void send(
+      signupUrl ?? `/api/events/${event.id}/signup`,
+      {
+        method: signup ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
+      },
+      signup ? "Anmeldung gespeichert" : "Anmeldung angelegt",
+      onSaved
+    );
+  };
 
-      if (!res.ok) {
-        throw new Error(data.error || "Fehler beim Speichern des Signups");
-      }
-      toast.success(
-        signup ? "Signup erfolgreich aktualisiert!" : "Signup erfolgreich angelegt!"
-      );
-  
-      if (data.usercreated) {
-        toast.info(`Neuer Nutzer (CID ${data.signup?.userCID ?? "unbekannt"}) wurde automatisch angelegt.`);
-      }
-      
-      onSaved?.();
-      onClose();
-    } catch (err) {
-      console.error("Signup speichern fehlgeschlagen:", err);
-      if (err instanceof Error) toast.error(err.message);
-      else setError("Unbekannter Fehler beim Speichern");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const restore = () =>
+    signupUrl &&
+    send(
+      signupUrl,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restore: true,
+          availability: signup?.availability,
+          preferredStations: signup?.preferredStations,
+          remarks: signup?.remarks,
+          excludedAirports: signup?.excludedAirports,
+        }),
+      },
+      "Anmeldung wiederhergestellt",
+      onSaved
+    );
 
-  // 🧩 DELETE (soft delete)
-  async function deleteSignup() {
-    if (!signup) return;
-    if (!window.confirm("Anmeldung wirklich zurückziehen? (retract - kann wiederhergestellt werden)")) return;
+  const remove = (hard: boolean) =>
+    signupUrl &&
+    send(
+      hard ? `${signupUrl}?hard=true` : signupUrl,
+      { method: "DELETE" },
+      hard ? "Anmeldung endgültig gelöscht" : "Abgemeldet",
+      onDeleted
+    );
 
-    setDeleting(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/events/${event.id}/signup/${signup.user?.cid ?? signup.userCID}`,
-        { method: "DELETE" }
-      );
+  const toggleAirport = (airport: string) =>
+    setExcluded((prev) =>
+      prev.includes(airport) ? prev.filter((a) => a !== airport) : [...prev, airport]
+    );
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Löschen fehlgeschlagen");
-      }
+  const isDeleted = !!signup?.deletedAt;
+  const totalAvailable = availableMinutes(grid, blocked);
 
-      toast.success("Benutzer wurde abgemeldet (retracted)");
-      onDeleted?.();
-      onClose();
-    } catch (err) {
-      console.error("Signup löschen fehlgeschlagen:", err);
-      if (err instanceof Error) setError(err.message);
-      else toast.error("Unbekannter Fehler beim Löschen");
-    } finally {
-      setDeleting(false);
-    }
-  }
+  const subtitle = signup
+    ? [
+        `${signup.user?.name || "Unbekannt"} · CID ${userCID}`,
+        signup.modifiedAfterDeadline && !isDeleted ? "nach Anmeldeschluss geändert" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : event.name;
 
-  // 🧩 HARD DELETE (only for event team with signups.manage)
-  async function hardDeleteSignup() {
-    if (!signup) return;
-    if (!window.confirm("⚠️ ACHTUNG: Hard Delete entfernt die Anmeldung unwiderruflich aus der Datenbank!\n\nFortfahren?")) return;
-
-    setDeleting(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/events/${event.id}/signup/${signup.user?.cid ?? signup.userCID}?hard=true`,
-        { method: "DELETE" }
-      );
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Hard Delete fehlgeschlagen");
-      }
-
-      toast.success("Anmeldung wurde permanent gelöscht (Hard Delete)");
-      onDeleted?.();
-      onClose();
-    } catch (err) {
-      console.error("Hard delete fehlgeschlagen:", err);
-      if (err instanceof Error) setError(err.message);
-      else toast.error("Unbekannter Fehler beim Hard Delete");
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  // 🧩 RESTORE (undelete soft-deleted signup)
-  async function restoreSignup() {
-    if (!signup) return;
-
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/events/${event.id}/signup/${signup.user?.cid ?? signup.userCID}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            availability: signup.availability,
-            preferredStations: signup.preferredStations,
-            remarks: signup.remarks,
-            excludedAirports: signup.excludedAirports,
-            restore: true, // Special flag to restore
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Wiederherstellen fehlgeschlagen");
-      }
-
-      toast.success("Anmeldung wurde wiederhergestellt!");
-      onSaved?.();
-      onClose();
-    } catch (err) {
-      console.error("Restore fehlgeschlagen:", err);
-      if (err instanceof Error) setError(err.message);
-      else toast.error("Unbekannter Fehler beim Wiederherstellen");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // 🧩 UI
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[calc(100vh-4rem)] overflow-auto">
-        <DialogHeader>
-          <DialogTitle>
-            {signup ? "Signup bearbeiten" : "Neuen Signup hinzufügen"}
-            {signup && signup.modifiedAfterDeadline && !signup.deletedAt && (
-              <div className="pl-2 inline-block text-orange-500 align-text-middle">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger>
-                      <AlertCircle className="h-4 w-4 inline" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Diese Anmeldung wurde nach der Deadline geändert.</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* 🔹 Error Anzeige */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* 🔹 Admin-CID-Feld nur bei neuem Signup */}
-          {!signup && canInOwnFIR("signups.manage") && (
-            <div className="flex flex-col gap-2">
-              <Label>CID des Nutzers</Label>
-              <Input
-                value={cidInput}
-                onChange={(e) => setCidInput(e.target.value)}
-                placeholder="z. B. 1649341"
-              />
-            </div>
-          )}
-
-          {/* 🔹 Bestehender Signup */}
-          {signup && (
-            <div className="flex flex-col gap-2">
-              <div className="text-sm text-muted-foreground">
-                Nutzer: {signup.user?.name || "Unbekannt"} • CID{" "}
-                {String(signup.user?.cid ?? signup.userCID)}
-              </div>
-              {signup.deletedAt && (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Diese Anmeldung wurde am {new Date(signup.deletedAt).toLocaleString("de-DE")} gelöscht
-                    {signup.deletedBy && ` von CID ${signup.deletedBy}`}.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
-
-          {/* 🔹 Availability */}
-          <div className="flex flex-col gap-2">
-            <Label>Availability</Label>
-            <AvailabilityEditor
-              eventStart={toHHMMUTC(event.startTime, "down", event.signupSlotMinutes ?? 30)}
-              eventEnd={toHHMMUTC(event.endTime, "up", event.signupSlotMinutes ?? 30)}
-              initialUnavailable={signup?.availability?.unavailable}
-              innerRef={avRef}
-              slotDuration={event.signupSlotMinutes ?? 30}
-            />
-          </div>
-          
-          {/* 🔹 Airport Selection for Multi-Airport Events */}
-          {eventAirports.length > 1 && signup && (
-            <div className="flex flex-col gap-2">
-              <Label>Airport-Auswahl</Label>
-              <div className="space-y-3 border border-gray-200 dark:border-gray-800 rounded-lg p-3 bg-card">
-                {loadingEndorsements ? (
-                  <div className="flex items-center justify-center gap-2 py-4">
-                    <div className="h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Lade Endorsements...
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {eventAirports.map((airport) => {
-                      const allExcluded = getExcludedAirports(excludedAirports);
-                      const endorsementData = airportEndorsements[airport];
-                      const canStaff = endorsementData?.canStaff || false;
-                      const endorsement = endorsementData?.endorsement;
-                      const isExcluded = allExcluded.includes(airport);
-                      
-                      return (
-                        <button
-                          key={airport}
-                          type="button"
-                          onClick={() => {
-                            if (canStaff) {
-                              toggleAirportExclusion(airport);
-                            }
-                          }}
-                          disabled={!canStaff}
-                          className={`w-full flex items-center gap-2 p-2 rounded border transition-colors text-left text-sm ${
-                            canStaff 
-                              ? isExcluded 
-                                ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800 hover:bg-orange-100 cursor-pointer'
-                                : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 cursor-pointer'
-                              : 'bg-gray-50 dark:bg-gray-900/40 border-gray-200 dark:border-gray-800 cursor-not-allowed opacity-60'
-                          }`}
-                        >
-                          <div className={`h-5 w-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            canStaff 
-                              ? isExcluded 
-                                ? 'bg-orange-100 dark:bg-orange-800 text-orange-600 dark:text-orange-300'
-                                : 'bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-300'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                          }`}>
-                            {canStaff ? (isExcluded ? '✗' : '✓') : '○'}
-                          </div>
-                          
-                          <div className="flex-1">
-                            <span className={`font-medium ${
-                              canStaff 
-                                ? isExcluded 
-                                  ? 'text-orange-800 dark:text-orange-300'
-                                  : 'text-green-800 dark:text-green-300'
-                                : 'text-gray-600 dark:text-gray-500'
-                            }`}>
-                              {airport}
-                            </span>
-                            {endorsement?.group && (
-                              <Badge 
-                                variant="outline" 
-                                className="ml-2 text-xs"
-                              >
-                                {endorsement.group}
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          <div className={`text-xs px-2 py-0.5 rounded ${
-                            canStaff 
-                              ? isExcluded 
-                                ? 'bg-orange-100 dark:bg-orange-800 text-orange-700 dark:text-orange-300'
-                                : 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                          }`}>
-                            {canStaff ? (isExcluded ? 'Ausgeschlossen' : 'Aktiv') : 'Keine Berechtigung'}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                  Klicke auf einen Airport, um ihn ein- oder auszuschließen.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* 🔹 Desired Position */}
-          <div className="flex flex-col gap-2">
-            <Label>Desired Position</Label>
-            <Input
-              value={preferredStations}
-              onChange={(e) => setPreferredStations(e.target.value)}
-              placeholder="z. B. EDDM_TWR"
-            />
-          </div>
-
-          {/* 🔹 Remarks */}
-          <div className="flex flex-col gap-2">
-            <Label>Remarks</Label>
-            <Textarea
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Bemerkungen..."
-            />
-          </div>
-
-          {/* 🔹 Actions */}
-          <div className="flex justify-between gap-2 pt-2">
-            <div className="flex gap-2">
-              {signup && signup.deletedAt && canInOwnFIR("signups.manage") && (
-                <Button
-                  variant="outline"
-                  onClick={restoreSignup}
-                  disabled={deleting || saving}
-                >
-                  Wiederherstellen
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} disabled={saving || deleting}>
-                Abbrechen
+  const footer = (
+    <div className="space-y-2">
+      {error && (
+        <p className="text-sm text-danger-700 dark:text-danger-300" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+        {signup && !isDeleted && (
+          <div className="flex gap-1 sm:mr-auto">
+            <Button
+              variant="ghost"
+              className="flex-1 text-danger-700 hover:text-danger-700 dark:text-danger-300 sm:flex-none"
+              onClick={() => setConfirm("retract")}
+              disabled={busy}
+            >
+              Abmelden
+            </Button>
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-danger-700 hover:text-danger-700 dark:text-danger-300"
+                onClick={() => setConfirm("hard")}
+                disabled={busy}
+                title="Endgültig löschen"
+                aria-label="Endgültig löschen"
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
-              {signup && !signup.deletedAt && (
-                <>
-                  <Button
-                    variant="destructive"
-                    onClick={deleteSignup}
-                    disabled={deleting || saving}
-                  >
-                    {deleting ? "Lösche..." : "Abmelden"}
-                  </Button>
-                  {canInOwnFIR("signups.manage") && (
-                    <Button
-                      variant="destructive"
-                      onClick={hardDeleteSignup}
-                      disabled={deleting || saving}
-                      className="bg-red-700 hover:bg-red-800"
-                    >
-                      {deleting ? "Lösche..." : "Löschen"}
-                    </Button>
-                  )}
-                </>
-              )}
-              {(!signup || !signup.deletedAt) && (
-                <Button onClick={saveChanges} disabled={saving || deleting}>
-                  {saving ? "Speichere..." : signup ? "Speichern" : "Anlegen"}
-                </Button>
-              )}
-            </div>
+            )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        )}
+        <Button variant="outline" onClick={onClose} disabled={busy} className="sm:ml-auto">
+          Abbrechen
+        </Button>
+        {isDeleted ? (
+          canManage && (
+            <Button onClick={restore} disabled={busy}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Wiederherstellen
+            </Button>
+          )
+        ) : (
+          <Button onClick={save} disabled={busy}>
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {signup ? "Speichern" : "Anlegen"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <SignupDialogFrame
+        open={open}
+        onOpenChange={(o) => !o && !busy && onClose()}
+        title={signup ? "Anmeldung bearbeiten" : "Anmeldung hinzufügen"}
+        subtitle={subtitle}
+        footer={footer}
+      >
+        {isDeleted && (
+          <SignupNotice>
+            Abgemeldet am {new Date(signup!.deletedAt!).toLocaleString("de-DE")}
+            {signup?.deletedBy ? ` von CID ${signup.deletedBy}` : ""}.
+          </SignupNotice>
+        )}
+
+        {!signup && (
+          <div className="space-y-2">
+            <Label htmlFor="signup-cid">CID</Label>
+            <Input
+              id="signup-cid"
+              inputMode="numeric"
+              value={cidInput}
+              onChange={(e) => setCidInput(e.target.value)}
+              placeholder="z. B. 1649341"
+            />
+          </div>
+        )}
+
+        <SignupSection
+          title="Verfügbarkeit (UTC)"
+          aside={totalAvailable > 0 ? formatDuration(totalAvailable) : undefined}
+        >
+          <AvailabilityPicker grid={grid} blocked={blocked} onChange={setBlocked} />
+        </SignupSection>
+
+        {signup && eventAirports.length > 1 && (
+          <SignupSection title="Flughäfen">
+            <AirportPicker
+              airports={eventAirports}
+              endorsements={endorsements}
+              loading={loadingEndorsements}
+              excluded={excluded}
+              onToggle={toggleAirport}
+            />
+          </SignupSection>
+        )}
+
+        <PreferenceFields
+          position={position}
+          onPositionChange={setPosition}
+          remarks={remarks}
+          onRemarksChange={setRemarks}
+        />
+      </SignupDialogFrame>
+
+      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && !busy && setConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirm === "hard" ? "Endgültig löschen?" : "Abmelden?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirm === "hard"
+                ? "Die Anmeldung wird unwiderruflich entfernt."
+                : "Die Anmeldung lässt sich später wiederherstellen."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-danger-700 text-white hover:bg-danger-800"
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault();
+                void remove(confirm === "hard");
+              }}
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {confirm === "hard" ? "Löschen" : "Abmelden"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

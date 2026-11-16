@@ -2081,7 +2081,11 @@ export function RosterEditor({
       ),
     [stations, stationMetaFor, controllers, assignments, event.airports, totalMinutes, slotMinutes]
   );
-  const feasibilityIssues = feasibility.gaps.length + feasibility.shortfalls.length;
+  // Engpässe zählen wie in der Machbarkeitskarte: je Besetzungsgruppe
+  const feasibilityIssues = Math.max(
+    1,
+    feasibility.groups.filter((g) => g.status === "short").length
+  );
 
   const warningsByAssignment = useMemo(() => {
     const map = new Map<number, RosterWarning[]>();
@@ -2804,7 +2808,7 @@ export function RosterEditor({
                   "cursor-pointer",
                   feasibility.verdict === "insufficient"
                     ? "border-danger-600/40 bg-danger-600/5 text-danger-700 dark:text-danger-300"
-                    : "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-300"
+                    : "border-warning-700/60 bg-warning-50 text-warning-900 dark:bg-warning-950/40 dark:text-warning-200"
                 )}
               >
                 <CircleSlash className="h-3 w-3 mr-1" />

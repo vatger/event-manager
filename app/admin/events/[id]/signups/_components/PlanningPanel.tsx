@@ -63,7 +63,7 @@ interface PlanningPanelProps {
 
 const SEVERITY_STYLE: Record<PlanningSeverity, string> = {
   danger: "border-danger-600/40 bg-danger-600/5",
-  warning: "border-amber-500/40 bg-amber-500/5",
+  warning: "border-warning-700/60 bg-warning-50 dark:bg-warning-950/40",
   info: "border-border bg-muted/30",
 };
 
@@ -75,7 +75,7 @@ const SEVERITY_ICON: Record<PlanningSeverity, typeof TriangleAlert> = {
 
 const SEVERITY_TEXT: Record<PlanningSeverity, string> = {
   danger: "text-danger-700 dark:text-danger-300",
-  warning: "text-amber-700 dark:text-amber-300",
+  warning: "text-warning-900 dark:text-warning-200",
   info: "text-muted-foreground",
 };
 
@@ -222,7 +222,7 @@ export function PlanningPanel({
             <p
               className={cn(
                 "text-2xl font-semibold leading-none",
-                summary.unscheduled > 0 ? "text-amber-600 dark:text-amber-400" : ""
+                summary.unscheduled > 0 ? "text-warning-900 dark:text-warning-200" : ""
               )}
             >
               {summary.unscheduled}
@@ -246,19 +246,11 @@ export function PlanningPanel({
 
         {/* Machbarkeit: früh sehen, ob die Anmeldungen für den Plan reichen */}
         <div className="space-y-2">
-          <p className="text-sm font-medium">
-            Machbarkeit{" "}
-            <span className="font-normal text-muted-foreground">
-              – reichen die Anmeldungen für alle Stationen?
-            </span>
-          </p>
+          <p className="text-sm font-medium">Machbarkeit</p>
           {feasibility ? (
-            <FeasibilitySummary report={feasibility} eventStart={eventStart} maxGaps={6} />
+            <FeasibilitySummary report={feasibility} eventStart={eventStart} />
           ) : !hasStations ? (
-            <p className="text-sm text-muted-foreground">
-              Für dieses Event sind noch keine Stationen festgelegt – die Prüfung startet, sobald
-              sie hinterlegt sind.
-            </p>
+            <p className="text-sm text-muted-foreground">Noch keine Stationen festgelegt.</p>
           ) : (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Wird geprüft…
@@ -272,7 +264,7 @@ export function PlanningPanel({
             <p className="text-sm font-medium flex items-center gap-1.5">
               Nachträgliche Änderungen
               {summary.openAlerts > 0 && (
-                <Badge variant="outline" className="text-[10px] border-amber-500/50">
+                <Badge variant="outline" className="text-xs border-warning-700/60">
                   {summary.openAlerts} offen
                 </Badge>
               )}

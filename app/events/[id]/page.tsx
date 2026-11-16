@@ -320,9 +320,8 @@ export default function EventPage() {
               <Alert>
                 <AlertCircle className="h-4 w-4 text-accent-600 dark:text-accent-500" />
                 <AlertDescription>
-                  Der Anmeldeschluss ist vorbei. Du kannst noch weitere Zeiten freigeben, Flughäfen
-                  hinzufügen und Wünsche anpassen – das Eventteam wird informiert. Abmelden geht
-                  nur noch per PN an das Eventteam (über „Anmeldung bearbeiten“).
+                  Anmeldeschluss vorbei: Du kannst nur noch Zeiten und Flughäfen hinzufügen.
+                  Abmelden geht per PN an das Eventteam.
                 </AlertDescription>
               </Alert>
             </div>

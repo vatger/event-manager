@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Loader2, Wand2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -217,62 +217,58 @@ export function AutoRosterDialog({
 
   const plannedStations = stations.length - excludedStations.size;
 
+  const modes = [
+    { value: "fill", title: "Lücken füllen", text: "Bestehende Schichten bleiben." },
+    {
+      value: "replace",
+      title: "Neu planen",
+      text: "Ersetzt alle Controller-Schichten, Custom- und persönliche Blöcke bleiben.",
+    },
+  ] as const;
+
   return (
     <Dialog open={open} onOpenChange={(o) => !running && onOpenChange(o)}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-xl max-h-[90vh] overflow-y-auto outline-none"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5" /> Auto-Roster
-          </DialogTitle>
+          <DialogTitle>Auto-Roster</DialogTitle>
           <DialogDescription>
-            Erstellt aus den Anmeldungen einen Besetzungsplan – von oben nach unten (CTR vor APP
-            vor TWR …), unter Beachtung von Freigaben, Verfügbarkeit und Pausen. Die Schichten
-            landen direkt im Plan und lassen sich danach wie gewohnt bearbeiten.
+            Plant die Anmeldungen von CTR abwärts ein. Die Schichten landen direkt im Plan.
           </DialogDescription>
         </DialogHeader>
 
         {report && <FeasibilitySummary report={report} eventStart={eventStart} />}
 
-        <div className="space-y-4">
-          {/* Modus */}
-          <div className="space-y-1.5">
-            <Label>Was soll geplant werden?</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(
-                [
-                  {
-                    value: "fill",
-                    title: "Lücken füllen",
-                    text: "Bestehende Schichten bleiben, nur freie Zeiten werden besetzt.",
-                  },
-                  {
-                    value: "replace",
-                    title: "Neu planen",
-                    text: "Ersetzt alle Controller-Schichten. Custom- und persönliche Blöcke bleiben.",
-                  },
-                ] as const
-              ).map((m) => (
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 rounded-md border p-1" role="radiogroup">
+              {modes.map((m) => (
                 <button
                   key={m.value}
                   type="button"
+                  role="radio"
+                  aria-checked={mode === m.value}
                   onClick={() => setMode(m.value)}
                   className={cn(
-                    "rounded-lg border p-2.5 text-left transition-colors",
+                    "rounded px-3 py-1.5 text-sm font-medium transition-colors",
                     mode === m.value
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "hover:bg-muted/50"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <p className="text-sm font-medium">{m.title}</p>
-                  <p className="text-xs text-muted-foreground">{m.text}</p>
+                  {m.title}
                 </button>
               ))}
             </div>
+            <p className="text-sm text-muted-foreground">
+              {modes.find((m) => m.value === mode)?.text}
+            </p>
           </div>
 
-          {/* Schichtlängen */}
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Schicht mindestens</Label>
               <Select value={String(minShift)} onValueChange={(v) => setMinShift(Number(v))}>
                 <SelectTrigger className="w-full">
@@ -289,7 +285,7 @@ export function AutoRosterDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Höchstens am Stück</Label>
               <Select value={String(maxShift)} onValueChange={(v) => setMaxShift(Number(v))}>
                 <SelectTrigger className="w-full">
@@ -306,7 +302,7 @@ export function AutoRosterDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Pause danach</Label>
               <Select value={String(minBreak)} onValueChange={(v) => setMinBreak(Number(v))}>
                 <SelectTrigger className="w-full">
@@ -323,41 +319,32 @@ export function AutoRosterDialog({
             </div>
           </div>
           {maxShift > MAX_CONTINUOUS_MINUTES && (
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Der Editor weist Schichten über {formatDuration(MAX_CONTINUOUS_MINUTES)} am Stück
-              als Hinweis aus.
+            <p className="text-sm text-warning-900 dark:text-warning-200">
+              Über {formatDuration(MAX_CONTINUOUS_MINUTES)} am Stück markiert der Editor als Hinweis.
             </p>
           )}
 
-          {/* Personen */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={respectPreferences}
-                onCheckedChange={(v) => setRespectPreferences(v === true)}
-              />
-              Wunschstationen aus der Anmeldung berücksichtigen
-            </label>
-            <p className="pl-6 text-xs text-muted-foreground">
-              Freitext wird gedeutet („APN“, „kein DEL“). Wer trotzdem auf einer
-              nicht gewünschten Station landet, wird anschließend orange markiert.
-            </p>
-          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={respectPreferences}
+              onCheckedChange={(v) => setRespectPreferences(v === true)}
+            />
+            Wunschstationen berücksichtigen
+          </label>
 
-          {/* Stationen */}
-          <div className="space-y-1.5">
-            <Label>
-              Stationen ({plannedStations} von {stations.length})
-            </Label>
-            <p className="text-xs text-muted-foreground">
-              In Planungsreihenfolge. In Klammern: geeignete, verfügbare Anmeldungen.
-            </p>
-            <div className="grid gap-1 sm:grid-cols-2 max-h-48 overflow-y-auto rounded-lg border p-2">
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <Label>Stationen</Label>
+              <span className="text-sm text-muted-foreground tabular-nums">
+                {plannedStations}/{stations.length}
+              </span>
+            </div>
+            <div className="grid max-h-48 gap-x-4 overflow-y-auto rounded-md border px-3 py-2 sm:grid-cols-2">
               {stationsByPriority.map((st) => {
                 const included = !excludedStations.has(st.id);
                 const candidates = report?.candidatesByStation[st.id];
                 return (
-                  <label key={st.id} className="flex items-center gap-2 text-sm py-0.5">
+                  <label key={st.id} className="flex items-center gap-2 py-1 text-sm">
                     <Checkbox
                       checked={included}
                       onCheckedChange={(v) => toggleStation(st.id, v === true)}
@@ -366,13 +353,14 @@ export function AutoRosterDialog({
                     {included && candidates !== undefined && (
                       <span
                         className={cn(
-                          "text-xs",
+                          "ml-auto tabular-nums",
                           candidates === 0
                             ? "text-danger-700 dark:text-danger-300"
                             : "text-muted-foreground"
                         )}
+                        title="Geeignete, verfügbare Anmeldungen"
                       >
-                        ({candidates})
+                        {candidates}
                       </span>
                     )}
                   </label>
@@ -381,22 +369,16 @@ export function AutoRosterDialog({
             </div>
           </div>
 
-          {/* Bestehender Plan */}
           {blockCount > 0 && (
-            <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2.5 space-y-1.5">
-              <p className="text-sm">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
                 {mode === "replace"
-                  ? shiftCount === 1
-                    ? "Der Plan enthält 1 Controller-Schicht – sie wird ersetzt."
-                    : `Der Plan enthält ${shiftCount} Controller-Schichten – sie werden ersetzt.`
-                  : blockCount === 1
-                  ? "Der Plan enthält bereits 1 Block – er bleibt unverändert."
-                  : `Der Plan enthält bereits ${blockCount} Blöcke – sie bleiben unverändert.`}
+                  ? `${shiftCount} ${shiftCount === 1 ? "Schicht wird" : "Schichten werden"} ersetzt.`
+                  : `${blockCount} ${blockCount === 1 ? "bestehender Block bleibt" : "bestehende Blöcke bleiben"}.`}
               </p>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox checked={snapshot} onCheckedChange={(v) => setSnapshot(v === true)} />
-                <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                Vorher Snapshot anlegen
+                Vorher Zwischenstand sichern
               </label>
             </div>
           )}
@@ -407,12 +389,8 @@ export function AutoRosterDialog({
             Abbrechen
           </Button>
           <Button onClick={run} disabled={running || plannedStations === 0}>
-            {running ? (
-              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-            ) : (
-              <Wand2 className="h-4 w-4 mr-1.5" />
-            )}
-            {mode === "replace" ? "Plan neu erstellen" : "Lücken füllen"}
+            {running && <Loader2 className="h-4 w-4 animate-spin" />}
+            {mode === "replace" ? "Neu planen" : "Lücken füllen"}
           </Button>
         </DialogFooter>
       </DialogContent>
