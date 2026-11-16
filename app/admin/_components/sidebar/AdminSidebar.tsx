@@ -71,37 +71,19 @@ const NavItem = ({
 // Navigation Group Komponente
 const NavGroup = ({ group }: { group: NavGroup }) => {
   const pathname = usePathname();
-  const { user, can, isMainAdmin, canInOwnFIR } = useUser();
+  const { user, isMainAdmin, isVATGERLead, isFIRLead } = useUser();
   const [isOpen, setIsOpen] = useState(true);
 
-  const hasPermission = (requiredPermissions?: string[]): boolean => {
-    if (!requiredPermissions || requiredPermissions.length === 0) return true;
-    
-    // MAIN_ADMIN hat immer alle Berechtigungen
-    if (isMainAdmin()) return true;
-
-    if(requiredPermissions[0] == "MAIN_ADMIN") return false
-    
-    // Permission entspricht dem effektiven Level des Users
-    if(requiredPermissions[0] === user?.effectiveLevel) return true;
-
-    return requiredPermissions.some(permission => can(permission) || canInOwnFIR(permission));
-  };
-
-  // Permission check für diese Gruppe
-  if (group.permission && !hasPermission(group.permission)) {
-    return null;
-  }
+  // Sichtbarkeit nach Zielgruppe (siehe sidebar-nav.ts)
+  if (group.audience === "mainAdmin" && !isMainAdmin()) return null;
+  if (group.audience === "teamLead" && !isVATGERLead() && !isFIRLead()) return null;
 
   // FIR restriction check
   if (group.firRestriction && user?.fir?.code !== group.firRestriction && !isMainAdmin()) {
     return null;
   }
 
-  // Filter items based on permissions
-  const visibleItems = group.items.filter(item => 
-    !item.permission || hasPermission(item.permission)
-  );
+  const visibleItems = group.items;
 
   if (visibleItems.length === 0) return null;
 

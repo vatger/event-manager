@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
-import { userHasFirPermission } from "@/lib/acl/permissions";
+import { userHasAnyFirPermission } from "@/lib/acl/permissions";
 import { invalidateWeeklySignupCache } from "@/lib/cache/weeklySignupCache";
 
 // Validation schema for weekly event signup
@@ -20,19 +20,10 @@ async function canManageSignups(
 ): Promise<boolean> {
   if (!occurrence.config.fir) return false;
   
-  const hasSignupsManage = await userHasFirPermission(
-    userCid,
-    occurrence.config.fir.code,
-    "signups.manage"
-  );
-  
-  const hasEventManage = await userHasFirPermission(
-    userCid,
-    occurrence.config.fir.code,
-    "event.manage"
-  );
-  
-  return hasSignupsManage || hasEventManage;
+  return userHasAnyFirPermission(userCid, occurrence.config.fir.code, [
+    "signups.manage",
+    "event.edit",
+  ]);
 }
 
 /**
@@ -120,7 +111,7 @@ export async function GET(
 
 /**
  * PUT /api/weeklys/[id]/occurrences/[occurrenceId]/signup/[userId]
- * Update a specific user's signup (requires signups.manage or event.manage permission)
+ * Update a specific user's signup (requires signups.manage or event.edit permission)
  */
 export async function PUT(
   req: NextRequest,
@@ -240,7 +231,7 @@ export async function PUT(
 
 /**
  * DELETE /api/weeklys/[id]/occurrences/[occurrenceId]/signup/[userId]
- * Delete a specific user's signup (requires signups.manage or event.manage permission)
+ * Delete a specific user's signup (requires signups.manage or event.edit permission)
  */
 export async function DELETE(
   request: NextRequest,

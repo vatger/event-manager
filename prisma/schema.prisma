@@ -6,11 +6,6 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum PermissionScope {
-  OWN_FIR
-  ALL
-}
-
 enum EventStatus {
   PLANNING
   SIGNUP_OPEN
@@ -27,9 +22,10 @@ enum NotificationType {
   OTHER
 }
 
+// FIR_LEITUNG: die eine geschützte Leitungsgruppe einer FIR (alle FIR-Rechte fest).
+// CUSTOM: jede andere Gruppe – ihre Rechte verteilt die FIR-Leitung.
 enum GroupKind {
   FIR_LEITUNG
-  FIR_TEAM
   CUSTOM
 }
 
@@ -323,7 +319,7 @@ model Notification {
 
 model Permission {
   id          Int               @id @default(autoincrement())
-  key         String            @unique // e.g. "event.create", "event.edit", "group.manage"
+  key         String            @unique // Schlüssel aus lib/acl/catalog.ts – die Tabelle wird daraus synchronisiert
   description String?
   groups      GroupPermission[]
 }
@@ -346,15 +342,14 @@ model Group {
 }
 
 model GroupPermission {
-  id           Int             @id @default(autoincrement())
+  id           Int @id @default(autoincrement())
   groupId      Int
   permissionId Int
-  scope        PermissionScope @default(OWN_FIR)
 
-  group      Group      @relation(fields: [groupId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
+  group      Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  @@unique([groupId, permissionId, scope])
+  @@unique([groupId, permissionId])
 }
 
 model UserGroup {
@@ -363,7 +358,7 @@ model UserGroup {
   groupId Int
 
   user  User  @relation(fields: [userCID], references: [cid])
-  group Group @relation(fields: [groupId], references: [id])
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@unique([userCID, groupId])
 }

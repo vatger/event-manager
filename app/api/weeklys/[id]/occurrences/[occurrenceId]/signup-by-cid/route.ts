@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { userHasFirPermission } from '@/lib/acl/permissions';
+import { userHasAnyFirPermission } from '@/lib/acl/permissions';
 import { invalidateWeeklySignupCache } from '@/lib/cache/weeklySignupCache';
 
 /**
  * POST /api/weeklys/[id]/occurrences/[occurrenceId]/signup-by-cid
  * Add a signup for another user by CID
- * Requires signups.manage or event.manage permission in the FIR
+ * Requires signups.manage or event.edit permission in the FIR
  */
 export async function POST(
   request: NextRequest,
@@ -52,12 +52,14 @@ export async function POST(
     const firCode = occurrence.config.fir.code;
 
     // Check permission
-    const hasSignupsManage = await userHasFirPermission(Number(session.user.cid), firCode, 'signups.manage');
-    const hasEventManage = await userHasFirPermission(Number(session.user.cid), firCode, 'event.manage');
+    const allowed = await userHasAnyFirPermission(Number(session.user.cid), firCode, [
+      'signups.manage',
+      'event.edit',
+    ]);
 
-    if (!hasSignupsManage && !hasEventManage) {
+    if (!allowed) {
       return NextResponse.json(
-        { error: 'Insufficient permissions. Requires signups.manage or event.manage in this FIR' },
+        { error: 'Insufficient permissions. Requires signups.manage or event.edit in this FIR' },
         { status: 403 }
       );
     }

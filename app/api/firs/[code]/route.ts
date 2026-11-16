@@ -1,27 +1,17 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/getSessionUser";
-import { canManageFir } from "@/lib/acl/permissions";
+import { loadDepartment, requireDepartment } from "@/lib/acl/teamService";
 
+/**
+ * GET /api/firs/[code]
+ * Das Eventdepartment einer FIR: Gruppen mit Mitgliedern und Rechten.
+ */
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { code } = await params;
-  const fir = await prisma.fIR.findUnique({
-    where: { code },
-    include: { groups: true },
-  });
-  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
 
-  const hasAccess = await canManageFir(Number(user.cid), fir.code);
-  if (!hasAccess)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  return NextResponse.json(fir);
+  return NextResponse.json(await loadDepartment(ctx));
 }

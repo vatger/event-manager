@@ -1,7 +1,7 @@
 import {
   Calendar,
   Settings,
-  Map,
+  Users,
   CheckCheckIcon,
   Image,
   TowerControl,
@@ -14,13 +14,19 @@ import {
     label: string;
     icon: LucideIcon;
     badge?: string | number | null;
-    permission?: string[];
   }
+
+  /**
+   * Wer eine Navigationsgruppe sieht:
+   *  - teamLead:  Leitung eines FIR-Eventdepartments, VATGER-Eventleitung, Main-Admin
+   *  - mainAdmin: nur Main-Admins (Systemadministration)
+   */
+  export type NavAudience = "teamLead" | "mainAdmin";
   
   export interface NavGroup {
     title: string;
     items: NavItem[];
-    permission?: string[];
+    audience?: NavAudience;
     collapsible?: boolean;
     firRestriction?: string; // Restrict to specific FIR code
   }
@@ -65,15 +71,15 @@ import {
       ]
     },
     
-    // FIR Management (nur für berechtigte User)
+    // Team & Rechte (FIR-Leitung, VATGER-Eventleitung, Main-Admin)
     {
-      title: "FIR Management",
-      permission: ["FIR_EVENTLEITER"],
+      title: "Organisation",
+      audience: "teamLead",
       items: [
-        { 
-          href: "/admin/firs", 
-          label: "FIR Overview", 
-          icon: Map,
+        {
+          href: "/admin/team",
+          label: "Team & Rechte",
+          icon: Users,
         },
       ]
     },
@@ -94,7 +100,7 @@ import {
     // System Administration (nur für Super Admin)
     {
       title: "System Administration",
-      permission: ["MAIN_ADMIN"],
+      audience: "mainAdmin",
       items: [
         { 
           href: "/admin/system/settings", 

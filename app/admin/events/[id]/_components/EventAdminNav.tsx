@@ -7,6 +7,7 @@ import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon, Clipb
 import { useState, useEffect } from "react";
 import { useUser } from "@/hooks/useUser";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import type { PermissionKey } from "@/lib/acl/catalog";
 
 const eventAdminTabs: {
     id: string;
@@ -14,7 +15,7 @@ const eventAdminTabs: {
     href: string;
     icon: LucideIcon;
     badge?: "count";
-    permission?: string;
+    permission?: PermissionKey;
   }[] = [
   {
     id: "overview",

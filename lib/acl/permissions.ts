@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getUserWithEffectiveData } from "./policies";
 import { isMainAdminCid } from "./mainAdmins";
+import type { PermissionKey } from "./catalog";
+import { canManageDepartment } from "./teamRules";
 
 /**
  * Lädt den User inklusive effektiver Berechtigungen
@@ -11,28 +13,14 @@ export async function getUserWithPermissions(cid: number) {
 }
 
 /**
- * Prüft, ob ein Nutzer eine bestimmte globale Berechtigung hat
- * @example userHasPermission(1649341, "admin.access")
- */
-export async function userHasPermission(cid: number, permissionKey: string) {
-  const user = await getUserWithEffectiveData(cid);
-  if (!user) return false;
-
-  // MAIN_ADMIN darf alles
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  if (user.effectivePermissions.includes("*")) return true;
-  return user.effectivePermissions.includes(permissionKey);
-}
-
-/**
- * Prüft, ob ein Nutzer eine bestimmte Berechtigung in seiner eigenen FIR hat
- * (z. B. "fir.manage" oder "event.edit")
- * @example userHasFirPermission(1649341, "EDMM", "fir.manage")
+ * Prüft, ob ein Nutzer ein Recht in einer FIR hat. Rechte gelten immer je FIR;
+ * VATGER-Eventleitung und Main-Admins haben jedes Recht in jeder FIR.
+ * @example userHasFirPermission(1649341, "EDMM", "event.edit")
  */
 export async function userHasFirPermission(
   cid: number,
   firCode: string,
-  permissionKey: string
+  permissionKey: PermissionKey
 ) {
   return userHasAnyFirPermission(cid, firCode, [permissionKey]);
 }
@@ -44,52 +32,45 @@ export async function userHasFirPermission(
 export async function userHasAnyFirPermission(
   cid: number,
   firCode: string,
-  permissionKeys: string[]
+  permissionKeys: PermissionKey[]
 ) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
   if (user.effectivePermissions.includes("*")) return true;
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   const scoped = user.firScopedPermissions[firCode] ?? [];
   return permissionKeys.some((key) => scoped.includes(key));
 }
 
 /**
- * Prüft, ob ein Nutzer in seiner eigenen FIR eine bestimmte Berechtigung hat
- * (z. B. fir.manage, event.edit …)
+ * Prüft, ob ein Nutzer in seiner eigenen FIR eine bestimmte Berechtigung hat.
  */
 export async function userHasOwnFirPermission(
   cid: number,
-  permissionKey: string
+  permissionKey: PermissionKey
 ) {
   const user = await getUserWithEffectiveData(cid);
-  if (!user || !user.fir?.code) return false;
+  if (!user) return false;
   if (user.effectivePermissions.includes("*")) return true;
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  return (
-    user.firScopedPermissions[user.fir.code]?.includes(permissionKey) ?? false
-  );
+  if (!user.fir?.code) return false;
+  return user.firScopedPermissions[user.fir.code]?.includes(permissionKey) ?? false;
 }
 
 /**
- * Shortcut für fir.manage – ob der Nutzer seine FIR verwalten darf
+ * Darf der Nutzer das Eventdepartment einer FIR verwalten (Untergruppen,
+ * Mitglieder, Rechte)? Ohne FIR-Code ist die eigene FIR gemeint.
  */
 export async function canManageFir(cid: number, firCode?: string) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
 
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  if (user.effectiveLevel === "VATGER_LEITUNG") return true;
-  
   const code = firCode ?? user.fir?.code;
-  if (!code) return false;
-
-  return user.firLevels[code] == "FIR_EVENTLEITER";
+  if (!code) return user.effectivePermissions.includes("*");
+  return canManageDepartment(user, code);
 }
 
 /**
- * Prüft, ob der Nutzer zur VATGER-Eventleitung gehört
- * (d. h. in einer Gruppe mit kind == GLOBAL_VATGER_LEITUNG)
+ * Prüft, ob der Nutzer zur VATGER-Eventleitung gehört (Tabelle VATGERLeitung).
+ * Main-Admins zählen dazu.
  */
 export async function isVatgerEventleitung(cid: number) {
   // MAIN_ADMIN is exclusively determined by the MAIN_ADMIN_CIDS env variable
@@ -109,7 +90,7 @@ export async function isVatgerEventleitung(cid: number) {
  * Event hat (userHasFirPermission shortcut)
  * @example userhasPermissiononEvent(1649341, 1, "roster.publish")
  */
-export async function userhasPermissiononEvent(cid: number, eventId: number, permission: string){
+export async function userhasPermissiononEvent(cid: number, eventId: number, permission: PermissionKey){
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: { firCode: true }
@@ -129,7 +110,6 @@ export async function userhasPermissiononEvent(cid: number, eventId: number, per
 export async function userCanManageWeekly(cid: number, configId: number): Promise<boolean> {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
   if (user.effectivePermissions.includes("*")) return true;
 
   // Load config to check FIR
@@ -152,14 +132,14 @@ export async function userCanManageWeekly(cid: number, configId: number): Promis
 }
 
 /**
- * Prüft, ob ein Nutzer ein FIR-Team-Mitglied ist (FIR_LEITUNG oder FIR_TEAM) für das Event.
- * Eventler in der FIR können sich Tasks claimen und als erledigt markieren.
+ * Prüft, ob ein Nutzer zum Eventdepartment der FIR des Events gehört (Mitglied
+ * irgendeiner Gruppe dieser FIR). Teammitglieder können sich Tasks claimen und
+ * als erledigt markieren.
  */
 export async function isEventFirTeamMember(cid: number, eventId: number): Promise<boolean> {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  if (user.effectiveLevel === "VATGER_LEITUNG") return true;
+  if (user.effectivePermissions.includes("*")) return true;
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -167,7 +147,6 @@ export async function isEventFirTeamMember(cid: number, eventId: number): Promis
   });
   if (!event?.firCode) return false;
 
-  // Check if user is in any FIR group (FIR_LEITUNG or FIR_TEAM)
   return user.firLevels[event.firCode] !== undefined;
 }
 
@@ -196,7 +175,7 @@ export async function canManageEventTasks(cid: number, eventId: number): Promise
 
 /**
  * Prüft, ob ein Nutzer den Banner eines Events verwalten darf (show/hide).
- * Benötigt event.banner permission ODER ist Event-Verantwortlicher.
+ * Benötigt event.edit, event.banner ODER ist Event-Verantwortlicher.
  */
 export async function canManageEventBanner(cid: number, eventId: number): Promise<boolean> {
   if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
@@ -206,16 +185,15 @@ export async function canManageEventBanner(cid: number, eventId: number): Promis
 }
 
 /**
- * Prüft, ob ein Nutzer Admin-Zugriff hat
- * (d. h. in einer Gruppe ist, MAIN_ADMIN ist, oder Weekly-Manager)
+ * Prüft, ob ein Nutzer Admin-Zugriff hat (Mitglied eines FIR-Eventdepartments,
+ * VATGER-Eventleitung, Main-Admin oder Weekly-Manager)
  */
 export async function hasAdminAccess(cid: number) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
 
-  if (user.effectiveLevel === "MAIN_ADMIN") return true;
-  if (user.effectiveLevel === "VATGER_LEITUNG") return true;
-  if (user.groups && user.groups.length > 0) return true;
+  if (user.effectivePermissions.includes("*")) return true;
+  if (Object.keys(user.firLevels).length > 0) return true;
 
   // Weekly managers also need admin access to reach the roster editor
   const isWeeklyManager = await prisma.weeklyEventManager.findFirst({
@@ -224,11 +202,9 @@ export async function hasAdminAccess(cid: number) {
   return !!isWeeklyManager;
 }
 
-/** Prüft, ob ein Nutzer FIR-Eventleitung ist */
+/** Prüft, ob ein Nutzer zur Leitungsgruppe einer FIR gehört */
 export async function isFIRLead(cid: number) {
   const user = await getUserWithEffectiveData(cid);
   if (!user) return false;
-  console.log(`Checking FIR lead for CID ${cid}: effective level is ${user.effectiveLevel}`);
-  return user.effectiveLevel == "FIR_EVENTLEITER"
-  
+  return Object.values(user.firLevels).includes("FIR_EVENTLEITER");
 }

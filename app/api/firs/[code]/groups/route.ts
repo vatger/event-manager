@@ -1,109 +1,53 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import { GroupKind } from "@prisma/client";
-import { getUserWithPermissions } from "@/lib/acl/permissions";
-import { CurrentUser } from "@/types/fir";
+import { prisma } from "@/lib/prisma";
+import { requireDepartment } from "@/lib/acl/teamService";
+import { canCreateGroup } from "@/lib/acl/teamRules";
 
-// 🔍 Zod-Schema für Eingaben
 const createSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().optional(),
-  kind: z.nativeEnum(GroupKind).optional(), // optional; wird geprüft
+  name: z.string().trim().min(2, "Der Name braucht mindestens zwei Zeichen").max(80),
+  description: z.string().trim().max(190).optional(),
 });
 
-// ───────────────────────────── GET ─────────────────────────────
-export async function GET(
-  _: Request,
-  { params }: { params: Promise<{ code: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { code } = await params;
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir)
-    return NextResponse.json({ error: "FIR not found" }, { status: 404 });
-
-  const me = await getUserWithPermissions(Number(user.cid)) as CurrentUser | null
-  if(!me) return NextResponse.json({ error: "User not found" }, { status: 404 })
-  // FIR-Leitung darf nur eigene FIR sehen, andere dürfen alles
-  const allowed =
-    me.effectiveLevel == "MAIN_ADMIN" ||
-    me.effectiveLevel === "VATGER_LEITUNG" ||
-    (me.effectiveLevel === "FIR_EVENTLEITER" && me.fir?.id === fir.id);
-
-  if (!allowed)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-  const groups = await prisma.group.findMany({
-    where: { firId: fir.id },
-    include: {
-      members: { include: { user: true } },
-      permissions: { include: { permission: true } },
-    },
-  });
-
-  return NextResponse.json(groups);
-}
-
-// ───────────────────────────── POST ─────────────────────────────
+/**
+ * POST /api/firs/[code]/groups
+ * Legt eine Untergruppe an. Die Leitungsgruppe gibt es je FIR genau einmal,
+ * sie entsteht nicht über diese Route.
+ */
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { code } = await params;
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir)
-    return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
+  if (!canCreateGroup(ctx.actor, ctx.fir.code)) {
+    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
+  }
 
-  const me = await getUserWithPermissions(Number(user.cid)) as CurrentUser | null
-  if(!me) return NextResponse.json({ error: "User not found" }, { status: 404 })
+  const parsed = createSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" },
+      { status: 400 }
+    );
+  }
 
-  const parsed = createSchema.safeParse(await req.json());
-  if (!parsed.success)
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-
-  const { name, description, kind } = parsed.data;
-
-  // Sicherheitslogik:
-  // MainAdmin / VATGER-Leitung dürfen alles
-  // FIR-Leitung nur Gruppen in eigener FIR und keine Leitung-Gruppen
-  if (me.effectiveLevel == "MAIN_ADMIN" || me.effectiveLevel == "VATGER_LEITUNG") {
-    // ok, volle Rechte
-  } else if (me.effectiveLevel == "FIR_EVENTLEITER") {
-    if (me.fir?.id !== fir.id)
-      return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
-
-    if (kind && ([GroupKind.FIR_LEITUNG] as GroupKind[]).includes(kind))
-      return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung erstellen" },
-        { status: 403 }
-      );
-  } else {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { name, description } = parsed.data;
+  const duplicate = await prisma.group.findFirst({
+    where: { firId: ctx.fir.id, name },
+    select: { id: true },
+  });
+  if (duplicate) {
+    return NextResponse.json(
+      { error: `Eine Gruppe „${name}“ gibt es in dieser FIR bereits.` },
+      { status: 409 }
+    );
   }
 
   const group = await prisma.group.create({
-    data: {
-      name,
-      description,
-      kind: kind ?? GroupKind.CUSTOM,
-      firId: fir.id,
-    },
+    data: { name, description: description || null, kind: "CUSTOM", firId: ctx.fir.id },
   });
 
-  return NextResponse.json(group, { status: 201 });
+  return NextResponse.json({ id: group.id }, { status: 201 });
 }

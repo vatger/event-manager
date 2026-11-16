@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/getSessionUser";
 
 /**
  * GET /api/events/[eventId]/team
- * Returns all FIR team members (FIR_LEITUNG + FIR_TEAM groups) for the event's FIR.
+ * Returns all members of the event FIR's Eventdepartment (every group of the FIR).
  * Used for task assignment dropdowns and responsible person selection.
  */
 export async function GET(
@@ -29,7 +29,6 @@ export async function GET(
     return NextResponse.json({ error: "Event not found or has no FIR" }, { status: 404 });
   }
 
-  // Get all members of FIR_LEITUNG and FIR_TEAM groups for this FIR
   const fir = await prisma.fIR.findUnique({
     where: { code: event.firCode },
     select: { id: true },
@@ -40,10 +39,7 @@ export async function GET(
   }
 
   const groups = await prisma.group.findMany({
-    where: {
-      firId: fir.id,
-      kind: { in: ["FIR_LEITUNG", "FIR_TEAM"] },
-    },
+    where: { firId: fir.id },
     include: {
       members: {
         include: {
@@ -60,13 +56,13 @@ export async function GET(
   for (const group of groups) {
     for (const member of group.members) {
       const existing = userMap.get(member.user.cid);
-      // FIR_LEITUNG takes priority over FIR_TEAM
+      // Leitung hat Vorrang vor einfacher Teammitgliedschaft
       if (!existing || (group.kind === "FIR_LEITUNG" && existing.role !== "FIR_LEITUNG")) {
         userMap.set(member.user.cid, {
           cid: member.user.cid,
           name: member.user.name,
           rating: member.user.rating,
-          role: group.kind,
+          role: group.kind === "FIR_LEITUNG" ? "FIR_LEITUNG" : "FIR_TEAM",
         });
       }
     }

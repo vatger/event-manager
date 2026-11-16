@@ -11,9 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
 import NotificationsWidget from "@/components/notifs/NotificationsWidget";
-import { useEffect, useState } from "react";
-import { firApi } from "@/lib/api/fir";
-import { CurrentUser } from "@/types/fir";
+import { useUser } from "@/hooks/useUser";
 import { LogOut, ChevronDown, Moon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAvatarColor } from "@/utils/getAvatarColor";
@@ -29,12 +27,8 @@ interface AdminHeaderProps {
 }
 
 export function AdminHeader({ title }: AdminHeaderProps) {
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const { user: currentUser } = useUser();
   const { setTheme, theme } = useTheme()
-
-  useEffect(() => {
-    firApi.getCurrentUser().then(setCurrentUser).catch(console.error);
-  }, []);
 
   // Avatar mit Initialen erstellen
   const getInitials = () => {

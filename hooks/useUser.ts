@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import useSWR from "swr";
 import axios from "axios";
 import { CurrentUser } from "@/types/fir";
+import type { PermissionKey } from "@/lib/acl/catalog";
 
 const fetcher = async (url: string): Promise<CurrentUser> => {
   const res = await axios.get<CurrentUser>(url);
@@ -17,28 +18,23 @@ export function useUser() {
   );
 
   // ---------- PERMISSION HELPERS ----------
-  const can = useCallback((perm: string): boolean => {
-    if(!data) return false
-    if(data.effectiveLevel == "MAIN_ADMIN") return true
-    if(perm == "MAIN_ADMIN") return false
-    if(data.effectivePermissions.includes("*")) return true
-    if(data.effectivePermissions.includes(perm)) return true
-    return false
-  }, [data]);
+  // Rechte gelten immer je FIR. VATGER-Eventleitung und Main-Admins haben
+  // "*" und damit jedes Recht in jeder FIR.
+  const hasAll = data?.effectivePermissions.includes("*") ?? false;
 
-  const canInFIR = useCallback((firCode: string, perm: string): boolean => {
-    if(data?.effectiveLevel == "MAIN_ADMIN") return true;
-    if(data?.effectivePermissions.includes("*")) return true;
-    return data?.firScopedPermissions[firCode]?.includes(perm) ?? false;
-  }, [data]);
+  const canInFIR = useCallback((firCode: string, perm: PermissionKey): boolean => {
+    if (!data) return false;
+    if (hasAll) return true;
+    return data.firScopedPermissions[firCode]?.includes(perm) ?? false;
+  }, [data, hasAll]);
 
-  const canInOwnFIR = useCallback((perm: string): boolean => {
-    if(data?.effectiveLevel == "MAIN_ADMIN") return true
-    const code = data?.fir?.code;
+  const canInOwnFIR = useCallback((perm: PermissionKey): boolean => {
+    if (!data) return false;
+    if (hasAll) return true;
+    const code = data.fir?.code;
     if (!code) return false;
-    if(data?.effectivePermissions.includes("*")) return true;
-    return data?.firScopedPermissions[code]?.includes(perm) ?? false;
-  }, [data]);
+    return data.firScopedPermissions[code]?.includes(perm) ?? false;
+  }, [data, hasAll]);
 
   const isFIRLead = useCallback((firCode?: string): boolean => {
     const code = firCode ?? data?.fir?.code;
@@ -64,14 +60,14 @@ export function useUser() {
   const isPureWeeklyManager = useCallback((): boolean => {
     if (!data) return false;
     if (data.effectiveLevel === "MAIN_ADMIN" || data.effectiveLevel === "VATGER_LEITUNG") return false;
-    if (data.groups && data.groups.length > 0) return false;
+    if (Object.keys(data.firLevels).length > 0) return false;
     return (data.managedWeeklyIds?.length ?? 0) > 0;
   }, [data]);
 
   const hasAdminAcess = useCallback((): boolean => {
     if(data?.effectiveLevel == "MAIN_ADMIN") return true;
     if(data?.effectiveLevel == "VATGER_LEITUNG") return true;
-    if(data?.groups && data?.groups.length > 0) return true;
+    if(data && Object.keys(data.firLevels).length > 0) return true;
     // Weekly managers also need admin access to reach the roster editor
     if(data?.managedWeeklyIds && data.managedWeeklyIds.length > 0) return true;
     
@@ -79,12 +75,12 @@ export function useUser() {
 
   }, [data]);
 
-  //Returns true if the user is assigned to the FIR-Team of the given FIR code or is main admin. Used to determine if FIR team features should be shown.
+  // Gehört der Nutzer zum Eventdepartment der FIR (Mitglied irgendeiner ihrer
+  // Gruppen)? VATGER-Eventleitung und Main-Admins zählen überall dazu.
   const isEventFirTeamMember = useCallback((firCode: string): boolean => {
     if(data?.effectiveLevel == "MAIN_ADMIN") return true;
     if (data?.effectiveLevel === "VATGER_LEITUNG") return true;
-    if(!data?.fir) return false;
-    return data.firLevels[firCode] !== undefined;
+    return data?.firLevels[firCode] !== undefined;
   }, [data]);
   
   // ---------- RETURN ----------
@@ -94,7 +90,6 @@ export function useUser() {
     error,
     mutate,
 
-    can,
     canInFIR,
     canInOwnFIR,
     isFIRLead,

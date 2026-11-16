@@ -1,74 +1,31 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/getSessionUser";
-import { getUserWithPermissions } from "@/lib/acl/permissions";
-import { CurrentUser } from "@/types/fir";
+import { prisma } from "@/lib/prisma";
+import { requireActor } from "@/lib/acl/teamService";
+import { manageableDepartments } from "@/lib/acl/teamRules";
+import type { DepartmentSummary } from "@/types/fir";
 
 /**
  * GET /api/firs
- * Gibt alle FIRs inkl. Gruppen, Mitglieder & Berechtigungen zurück.
- * Zugriff nur für MAINADMIN, VATGER_LEITUNG oder FIR_LEITUNG (eigene FIR).
+ * Die Eventdepartments, die der Nutzer verwalten darf: alle für
+ * VATGER-Eventleitung und Main-Admins, sonst die FIRs, deren Leitung er angehört.
  */
 export async function GET() {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const sessionUser = await getSessionUser();
-  if (!sessionUser)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = await requireActor();
+  if (actor instanceof NextResponse) return actor;
 
-  const user = (await getUserWithPermissions(
-    Number(sessionUser.cid)
-  )) as CurrentUser | null;
-  if (!user)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  const isGlobal =
-    user.effectiveLevel === "MAIN_ADMIN" ||
-    user.effectiveLevel === "VATGER_LEITUNG";
-  const canManageOwnFIR =
-    !!user.fir?.code &&
-    user.effectiveLevel === "FIR_EVENTLEITER";
-  
-  if (!isGlobal && !canManageOwnFIR) {
-    return NextResponse.json(
-      { error: "Forbidden", level: user.effectiveLevel },
-      { status: 403 }
-    );
+  const scope = manageableDepartments(actor);
+  if (scope !== "ALL" && scope.length === 0) {
+    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
   }
-  
-  // MainAdmin / VATGER-Leitung → alle FIRs
-  // FIR-Leitung → nur eigene FIR
-  const firFilter = isGlobal
-    ? {}
-    : { id: user.fir?.id ?? -1 }; // eigene FIR oder nichts
-  
+
   const firs = await prisma.fIR.findMany({
-    where: firFilter,
+    where: scope === "ALL" ? {} : { code: { in: scope } },
     include: {
       groups: {
-        include: {
+        select: {
+          kind: true,
           members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  cid: true,
-                  name: true,
-                  rating: true,
-                },
-              },
-            },
-          },
-          permissions: {
-            include: {
-              permission: {
-                select: {
-                  key: true,
-                  description: true,
-                },
-              },
-            },
+            select: { user: { select: { cid: true, name: true, rating: true } } },
           },
         },
       },
@@ -76,28 +33,19 @@ export async function GET() {
     orderBy: { code: "asc" },
   });
 
-  // Daten etwas aufbereiten (flacher, lesbarer fürs Frontend)
-  const response = firs.map((fir) => ({
-    id: fir.id,
-    code: fir.code,
-    name: fir.name,
-    groups: fir.groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      kind: g.kind,
-      description: g.description,
-      members: g.members.map((m) => ({
-        id: m.user.id,
-        cid: m.user.cid,
-        name: m.user.name,
-        rating: m.user.rating,
-      })),
-      permissions: g.permissions.map((p) => ({
-        key: p.permission.key,
-        description: p.permission.description,
-        scope: p.scope,
-      })),
-    })),
-  }));
+  const response: DepartmentSummary[] = firs.map((fir) => {
+    const everyone = new Set(fir.groups.flatMap((g) => g.members.map((m) => m.user.cid)));
+    return {
+      code: fir.code,
+      name: fir.name,
+      groupCount: fir.groups.length,
+      memberCount: everyone.size,
+      leads: fir.groups
+        .filter((g) => g.kind === "FIR_LEITUNG")
+        .flatMap((g) => g.members.map((m) => m.user))
+        .sort((a, b) => a.name.localeCompare(b.name, "de")),
+    };
+  });
+
   return NextResponse.json(response);
 }

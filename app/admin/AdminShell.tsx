@@ -45,7 +45,7 @@ export default function AdminShell({ children, user }: { children: React.ReactNo
 function getPageTitle(pathname: string): string {
   for (const group of navigationConfig) {
     for (const item of group.items) {
-      if (pathname === item.href || pathname.startsWith(item.href + "/admin")) {
+      if (pathname === item.href || pathname.startsWith(item.href + "/")) {
         return item.label;
       }
     }

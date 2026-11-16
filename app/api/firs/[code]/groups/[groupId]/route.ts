@@ -1,154 +1,93 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import { GroupKind } from "@prisma/client";
-import { getUserWithPermissions } from "@/lib/acl/permissions";
-import { CurrentUser } from "@/types/fir";
+import { prisma } from "@/lib/prisma";
+import { loadGroup, releaseFirIfNoGroups, requireDepartment } from "@/lib/acl/teamService";
+import { canDeleteGroup, canEditGroup } from "@/lib/acl/teamRules";
 
-// Eingabe-Schema: Liste von Operationen
-const updateGroupSchema = z.object({
-  name: z.string().min(1, "Gruppenname ist erforderlich").optional(),
-  description: z.string().optional(),
-  kind: z.nativeEnum(GroupKind).optional(),
+type Params = { params: Promise<{ code: string; groupId: string }> };
+
+const updateSchema = z.object({
+  name: z.string().trim().min(2, "Der Name braucht mindestens zwei Zeichen").max(80).optional(),
+  description: z.string().trim().max(190).nullable().optional(),
 });
 
-// ───────────────────────────── PATCH ─────────────────────────────
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ code: string; groupId: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+/**
+ * PATCH /api/firs/[code]/groups/[groupId]
+ * Name und Beschreibung ändern. Der Typ einer Gruppe ist nicht änderbar.
+ */
+export async function PATCH(req: Request, { params }: Params) {
   const { code, groupId } = await params;
-  
-  // FIR und Gruppe finden
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir)
-    return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
 
-  const group = await prisma.group.findUnique({
-    where: { id: parseInt(groupId) },
-    include: { fir: true }
-  });
-  
-  if (!group)
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
-
-  // Prüfen ob Gruppe zur FIR gehört
-  if (group.firId !== fir.id)
-    return NextResponse.json({ error: "Group does not belong to this FIR" }, { status: 400 });
-
-  const me = await getUserWithPermissions(Number(user.cid)) as CurrentUser | null;
-  if (!me) 
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  // Validierung der Eingabedaten
-  const parsed = updateGroupSchema.partial().safeParse(await req.json());
-  if (!parsed.success)
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-
-  const { name, description, kind } = parsed.data;
-
-  // Sicherheitslogik - gleiche Regeln wie bei POST
-  if (me.effectiveLevel == "MAIN_ADMIN" || me.effectiveLevel == "VATGER_LEITUNG") {
-    // ok, volle Rechte
-  } else if (me.effectiveLevel == "FIR_EVENTLEITER") {
-    if (me.fir?.id !== fir.id)
-      return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
-
-    // FIR-Leitung darf keine Leitung/Gruppen bearbeiten
-    if (group.kind === GroupKind.FIR_LEITUNG)
-      return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitungbearbeiten" },
-        { status: 403 }
-      );
-
-    // FIR-Leitung darf keine Gruppen in Leitung/Gruppe umwandeln
-    if (kind && ([GroupKind.FIR_LEITUNG] as GroupKind[]).includes(kind))
-      return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitung erstellen" },
-        { status: 403 }
-      );
-  } else {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const group = await loadGroup(ctx.fir, groupId);
+  if (!group) return NextResponse.json({ error: "Gruppe nicht gefunden" }, { status: 404 });
+  if (!canEditGroup(ctx.actor, group)) {
+    return NextResponse.json(
+      { error: "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung." },
+      { status: 403 }
+    );
   }
 
-  // Update der Gruppe
-  const updatedGroup = await prisma.group.update({
-    where: { id: parseInt(groupId) },
+  const parsed = updateSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe" },
+      { status: 400 }
+    );
+  }
+  const { name, description } = parsed.data;
+
+  if (name && name !== group.name) {
+    const duplicate = await prisma.group.findFirst({
+      where: { firId: ctx.fir.id, name, id: { not: group.id } },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: `Eine Gruppe „${name}“ gibt es in dieser FIR bereits.` },
+        { status: 409 }
+      );
+    }
+  }
+
+  await prisma.group.update({
+    where: { id: group.id },
     data: {
       ...(name !== undefined && { name }),
-      ...(description !== undefined && { description }),
-      ...(kind !== undefined && { kind }),
+      ...(description !== undefined && { description: description || null }),
     },
   });
 
-  return NextResponse.json(updatedGroup);
+  return NextResponse.json({ success: true });
 }
 
-// ───────────────────────────── DELETE ─────────────────────────────
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ code: string; groupId: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+/**
+ * DELETE /api/firs/[code]/groups/[groupId]
+ * Löscht eine Untergruppe samt Mitgliedschaften und Rechten. Wer dadurch in
+ * keiner Gruppe der FIR mehr ist, gehört nicht mehr zum Department.
+ */
+export async function DELETE(_: Request, { params }: Params) {
   const { code, groupId } = await params;
-  
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir)
-    return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
 
-  const group = await prisma.group.findUnique({
-    where: { id: parseInt(groupId) },
-    include: { fir: true }
-  });
-  
-  if (!group)
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
-
-  if (group.firId !== fir.id)
-    return NextResponse.json({ error: "Group does not belong to this FIR" }, { status: 400 });
-
-  const me = await getUserWithPermissions(Number(user.cid)) as CurrentUser | null;
-  if (!me) 
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  // Sicherheitslogik - gleiche Regeln wie bei PATCH
-  if (me.effectiveLevel == "MAIN_ADMIN" || me.effectiveLevel == "VATGER_LEITUNG") {
-    // ok, volle Rechte
-  } else if (me.effectiveLevel == "FIR_EVENTLEITER") {
-    if (me.fir?.id !== fir.id)
-      return NextResponse.json({ error: "Forbidden (wrong FIR)" }, { status: 403 });
-
-    if (group.kind === GroupKind.FIR_LEITUNG)
-      return NextResponse.json(
-        { error: "FIR-Leitung darf keine Leitungs Gruppe löschen" },
-        { status: 403 }
-      );
-  } else {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const group = await loadGroup(ctx.fir, groupId);
+  if (!group) return NextResponse.json({ error: "Gruppe nicht gefunden" }, { status: 404 });
+  if (!canDeleteGroup(ctx.actor, group)) {
+    return NextResponse.json(
+      { error: "Die Leitungsgruppe kann nicht gelöscht werden." },
+      { status: 403 }
+    );
   }
 
-  // Gruppe samt Mitgliedschaften und Rechten löschen – die Fremdschlüssel
-  // stehen auf RESTRICT, ohne Aufräumen scheitert das Löschen.
-  const id = parseInt(groupId);
-  await prisma.$transaction([
-    prisma.userGroup.deleteMany({ where: { groupId: id } }),
-    prisma.groupPermission.deleteMany({ where: { groupId: id } }),
-    prisma.group.delete({ where: { id } }),
-  ]);
+  const members = await prisma.userGroup.findMany({
+    where: { groupId: group.id },
+    select: { userCID: true },
+  });
+
+  await prisma.group.delete({ where: { id: group.id } });
+  await releaseFirIfNoGroups(members.map((m) => m.userCID), ctx.fir.id);
 
   return NextResponse.json({ success: true });
 }

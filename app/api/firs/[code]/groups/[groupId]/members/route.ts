@@ -1,168 +1,64 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getSessionUser } from "@/lib/getSessionUser";
 import { z } from "zod";
-import { canManageFir, isVatgerEventleitung } from "@/lib/acl/permissions";
+import { prisma } from "@/lib/prisma";
+import {
+  addGroupMember,
+  loadGroup,
+  releaseFirIfNoGroups,
+  requireDepartment,
+} from "@/lib/acl/teamService";
+import { canManageGroupMembers } from "@/lib/acl/teamRules";
 
-// ✅ Eingabe-Validierung
-const addSchema = z.object({ cid: z.number() });
+type Params = { params: Promise<{ code: string; groupId: string }> };
 
-// ───────────────────────────── GET ─────────────────────────────
-export async function GET(
-  _: Request,
-  { params }: { params: Promise<{ code: string; groupId: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const addSchema = z.object({ cid: z.coerce.number().int().positive() });
 
+const LEITUNG_ONLY_VATGER = "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung.";
+
+/** POST /api/firs/[code]/groups/[groupId]/members – Person in die Gruppe aufnehmen */
+export async function POST(req: Request, { params }: Params) {
   const { code, groupId } = await params;
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
 
-  const group = await prisma.group.findUnique({
-    where: { id: Number(groupId) },
-    select: { id: true, kind: true, firId: true },
-  });
-  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
-  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
-  if (!group || group.firId !== fir.id)
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
+  const group = await loadGroup(ctx.fir, groupId);
+  if (!group) return NextResponse.json({ error: "Gruppe nicht gefunden" }, { status: 404 });
+  if (!canManageGroupMembers(ctx.actor, group)) {
+    return NextResponse.json({ error: LEITUNG_ONLY_VATGER }, { status: 403 });
+  }
 
-  const allowed = await canManageFir(Number(user.cid), fir.code)
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const parsed = addSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Ungültige CID" }, { status: 400 });
+  }
 
-  const members = await prisma.userGroup.findMany({
-    where: { groupId: Number(groupId) },
-    include: { user: true },
-  });
-  return NextResponse.json(members);
+  const result = await addGroupMember(ctx.fir, group.id, parsed.data.cid);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
+  return NextResponse.json({ success: true }, { status: 201 });
 }
 
-// ───────────────────────────── POST ─────────────────────────────
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ code: string; groupId: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
-  }
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+/** DELETE /api/firs/[code]/groups/[groupId]/members?cid=… – Person aus der Gruppe entfernen */
+export async function DELETE(req: Request, { params }: Params) {
   const { code, groupId } = await params;
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  const ctx = await requireDepartment(code);
+  if (ctx instanceof NextResponse) return ctx;
 
-  const group = await prisma.group.findUnique({
-    where: { id: Number(groupId) },
-    select: { id: true, kind: true, firId: true },
-  });
-  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
-  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
-  if (!group || group.firId !== fir.id)
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
-
-  const allowed = await canManageFir(Number(user.cid), fir.code)
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (group.kind === "FIR_LEITUNG" && !(await isVatgerEventleitung(Number(user.cid))))
-    return NextResponse.json(
-      { error: "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung" },
-      { status: 403 }
-    );
-
-  const body = await req.json();
-  const parsed = addSchema.safeParse(body);
-  if (!parsed.success)
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
-
-  const targetUser = await prisma.user.findUnique({
-    where: { cid: parsed.data.cid },
-  });
-  if (!targetUser)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  // falls FIR-gebunden → User der FIR zuordnen
-  if (group.firId) {
-    if(targetUser.firId && targetUser.firId !== group.firId) {
-      return NextResponse.json({ error: "User belongs to another FIR" }, { status: 409 });
-    }
-    await prisma.user.update({
-      where: { cid: targetUser.cid },
-      data: { firId: group.firId },
-    });
+  const group = await loadGroup(ctx.fir, groupId);
+  if (!group) return NextResponse.json({ error: "Gruppe nicht gefunden" }, { status: 404 });
+  if (!canManageGroupMembers(ctx.actor, group)) {
+    return NextResponse.json({ error: LEITUNG_ONLY_VATGER }, { status: 403 });
   }
 
-  const existing = await prisma.userGroup.findFirst({
-    where: { userCID: targetUser.cid, groupId: Number(groupId) },
-  });
-  if (existing)
-    return NextResponse.json({ error: "Already member" }, { status: 409 });
-
-  const newMember = await prisma.userGroup.create({
-    data: { userCID: targetUser.cid, groupId: Number(groupId) },
-    include: { user: true },
-  });
-
-  //Cache invalidieren
-
-  return NextResponse.json(newMember, { status: 201 });
-}
-
-// ───────────────────────────── DELETE ─────────────────────────────
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ code: string; groupId: string }> }
-) {
-  if (!prisma) {
-    return new Response("Service unavailable", { status: 503 });
+  const parsed = addSchema.safeParse({ cid: new URL(req.url).searchParams.get("cid") });
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Ungültige CID" }, { status: 400 });
   }
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { cid } = parsed.data;
 
-  const { code, groupId } = await params;
-  const fir = await prisma.fIR.findUnique({ where: { code } });
-  if (!fir) return NextResponse.json({ error: "FIR not found" }, { status: 404 });
+  await prisma.userGroup.deleteMany({ where: { userCID: cid, groupId: group.id } });
+  await releaseFirIfNoGroups([cid], ctx.fir.id);
 
-  const group = await prisma.group.findUnique({
-    where: { id: Number(groupId) },
-    select: { id: true, kind: true, firId: true },
-  });
-  // Die Gruppe muss zur FIR aus der URL gehören – sonst ließen sich über die
-  // eigene FIR-Adresse Gruppen fremder FIRs ansprechen.
-  if (!group || group.firId !== fir.id)
-    return NextResponse.json({ error: "Group not found" }, { status: 404 });
-
-  const { searchParams } = new URL(req.url);
-  const cid = Number(searchParams.get("cid"));
-  if (!cid) return NextResponse.json({ error: "CID required" }, { status: 400 });
-
-  const allowed = await canManageFir(Number(user.cid), fir.code)
-
-  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (group.kind === "FIR_LEITUNG" && !(await isVatgerEventleitung(Number(user.cid))))
-    return NextResponse.json(
-      { error: "Die Leitungsgruppe verwaltet nur die VATGER-Eventleitung" },
-      { status: 403 }
-    );
-
-  const target = await prisma.user.findUnique({ where: { cid: cid }, include: { groups: true } });
-  if (!target)
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  await prisma.userGroup.deleteMany({
-    where: { userCID: target.cid, groupId: Number(groupId) },
-  });
-
-  if(target.groups.length === 1 && group.firId) {
-    // Der User war nur in dieser Gruppe → FIR-Zuordnung entfernen
-    await prisma.user.update({
-      where: { cid: target.cid },
-      data: { firId: null },
-    });
-  }
-  
   return NextResponse.json({ success: true });
 }

@@ -179,9 +179,5 @@ export async function canManageCptResponsibles(cid: number, firCode: string): Pr
   if (!user) return false;
   if (user.effectivePermissions.includes("*")) return true;
   if (user.firLevels?.[firCode] === "FIR_EVENTLEITER") return true;
-  return (
-    user.firScopedPermissions?.[firCode]?.includes("fir.manage") ||
-    user.firScopedPermissions?.[firCode]?.includes("event.edit") ||
-    false
-  );
+  return user.firScopedPermissions?.[firCode]?.includes("event.edit") ?? false;
 }

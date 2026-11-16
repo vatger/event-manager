@@ -1,38 +1,13 @@
 import "dotenv/config";
-import { PrismaClient, GroupKind, PermissionScope } from "@prisma/client";
+import { PrismaClient, GroupKind } from "@prisma/client";
 import { createDatabaseAdapter } from "../lib/db-adapter";
+import { syncPermissionCatalog } from "../lib/acl/catalogSync";
 
 const adapter = createDatabaseAdapter();
 const prisma = new PrismaClient({ adapter });
 
-async function ensureBasePermissions() {
-  const permissions = [
-    { key: "event.create", description: "Events erstellen" },
-    { key: "event.edit", description: "Events bearbeiten" },
-    { key: "event.delete", description: "Events löschen" },
-    { key: "event.export", description: "Signups der Events Exportieren"},
-    { key: "roster.publish", description: "Roster veröffentlichen" },
-    { key: "roster.edit", description: "Besetzungsplan bearbeiten" },
-    { key: "signups.manage", description: "Anmeldungen verwalten" },
-    { key: "roster.contact", description: "Ansprechpartner für Abmeldungen (Forum-PN)" },
-    { key: "user.notif", description: "Benutzer benachrichtigen" },
-  ];
-
-  for (const p of permissions) {
-    await prisma.permission.upsert({
-      where: { key: p.key },
-      update: {},
-      create: { key: p.key, description: p.description },
-    });
-  }
-}
-
 async function createStandardGroups(firId: number, firCode: string) {
-  await ensureBasePermissions();
-  const allPerms = await prisma.permission.findMany();
-  const byKey = Object.fromEntries(allPerms.map((p) => [p.key, p.id]));
-
-  // FIR-Leitung
+  // Leitungsgruppe: genau eine je FIR, hat fest alle Rechte des Katalogs
   const firLeitung = await prisma.group.create({
     data: {
       name: `${firCode} Eventleitung`,
@@ -42,32 +17,12 @@ async function createStandardGroups(firId: number, firCode: string) {
     },
   });
 
-  const leitungPerms = [
-    "event.create",
-    "event.edit",
-    "event.delete",
-    "event.export",
-    "roster.publish",
-    "roster.edit",
-    "signups.manage",
-    "user.notif",
-  ];
-
-  await prisma.groupPermission.createMany({
-    data: leitungPerms.map((key) => ({
-      groupId: firLeitung.id,
-      permissionId: byKey[key],
-      scope: PermissionScope.OWN_FIR,
-    })),
-  });
-
-
-  // FIR-Team
+  // Eine normale Untergruppe als Ausgangspunkt – ihre Rechte verteilt die Leitung
   const firTeam = await prisma.group.create({
     data: {
       name: `${firCode} Eventteam`,
       description: `Eventteam der FIR ${firCode}`,
-      kind: GroupKind.FIR_TEAM,
+      kind: GroupKind.CUSTOM,
       firId,
     },
   });
@@ -90,8 +45,9 @@ async function main() {
   // await prisma.eventSignupCache.deleteMany();
   // await prisma.user.deleteMany();
   // await prisma.fIR.deleteMany();
-  // // Permissions
-  // await ensureBasePermissions();
+
+  // Rechtekatalog aus dem Code übernehmen
+  await syncPermissionCatalog(prisma);
 
   // FIRs erstellen
   const firs = [

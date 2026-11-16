@@ -263,7 +263,7 @@ export default function OccurrenceDetailPage() {
   const canManageSignups = (): boolean => {
     if (!occurrence?.config?.fir) return false;
     const firCode = occurrence.config.fir.code;
-    return canInFIR(firCode, "signups.manage") || canInFIR(firCode, "event.manage");
+    return canInFIR(firCode, "signups.manage") || canInFIR(firCode, "event.edit");
   };
 
   if (loading) {

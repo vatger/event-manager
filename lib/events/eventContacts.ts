@@ -7,11 +7,11 @@ import prisma from "@/lib/prisma";
  * schreibt eine PN im Forum. Empfänger sind:
  *
  * - die Verantwortlichen des Events,
- * - wer in der FIR des Events die Berechtigung `roster.contact` hat (oder
- *   sie FIR-übergreifend mit Scope ALL bekommen hat).
+ * - wer in der FIR des Events einer Gruppe mit dem Recht `roster.contact`
+ *   angehört.
  *
- * Bewusst nur ausdrücklich vergebene Rechte: Hauptadmins mit „*" sollen
- * nicht in jeder PN stehen.
+ * Bewusst nur ausdrücklich vergebene Rechte: Weder die Leitungsgruppe noch
+ * VATGER-Eventleitung oder Main-Admins stehen automatisch in jeder PN.
  */
 export async function getEventContacts(eventId: number): Promise<{ cid: number; name: string }[]> {
   const event = await prisma.event.findUnique({
@@ -23,18 +23,15 @@ export async function getEventContacts(eventId: number): Promise<{ cid: number; 
   });
   if (!event) return [];
 
-  const contactPermission = (scope: "OWN_FIR" | "ALL") => ({
-    some: { permission: { key: "roster.contact" }, scope },
-  });
-  const groups = await prisma.group.findMany({
-    where: {
-      OR: [
-        ...(event.fir ? [{ firId: event.fir.id, permissions: contactPermission("OWN_FIR") }] : []),
-        { permissions: contactPermission("ALL") },
-      ],
-    },
-    select: { members: { select: { user: { select: { cid: true, name: true } } } } },
-  });
+  const groups = event.fir
+    ? await prisma.group.findMany({
+        where: {
+          firId: event.fir.id,
+          permissions: { some: { permission: { key: "roster.contact" } } },
+        },
+        select: { members: { select: { user: { select: { cid: true, name: true } } } } },
+      })
+    : [];
 
   const byCid = new Map<number, string>();
   for (const r of event.responsibles) byCid.set(r.user.cid, r.user.name);
