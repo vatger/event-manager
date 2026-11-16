@@ -31,6 +31,7 @@ import { useUser,  } from "@/hooks/useUser";
 import RichText from "@/components/RichText";
 import { cn } from "@/lib/utils";
 import { isSignupLocked } from "@/lib/signups/signupLock";
+import EventAbsenceControl from "@/components/EventAbsenceControl";
 import {
   eventAirportList,
   eventStatusDisplay,
@@ -308,7 +309,15 @@ export default function EventPage() {
             )}
           </dl>
 
-          <div className="w-full shrink-0 lg:w-56">{actionButton}</div>
+          <div className="w-full shrink-0 space-y-2 lg:w-56">
+            {actionButton}
+            {session && !signupLoading && (event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED") && (
+              <EventAbsenceControl
+                eventId={Number(event.id)}
+                isSignedUp={isSignedUp && !signupData?.deletedAt}
+              />
+            )}
+          </div>
         
         </CardContent>
         

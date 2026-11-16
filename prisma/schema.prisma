@@ -56,6 +56,7 @@ model User {
   emailNotificationsEnabled Boolean?
 
   signups             EventSignup[]
+  eventAbsences       EventAbsence[]
   weeklyEventSignups  WeeklyEventSignup[]
   Notification        Notification[]
   groups              UserGroup[]
@@ -108,6 +109,7 @@ model Event {
 
   responsibles EventResponsible[]
   signups      EventSignup[]
+  absences     EventAbsence[]
   Notification Notification[]
   tasks        EventTask[]
   roster       EventRoster?
@@ -693,4 +695,24 @@ model ApiToken {
   expiresAt    DateTime?
   lastUsedAt   DateTime?
   revokedAt    DateTime?
+}
+
+// „Ich bin nicht dabei“: Lotsen melden, dass sie zu einem Event nicht können.
+// Bewusst getrennt von EventSignup – Anmeldezahlen, Export, Plan und
+// Machbarkeit sollen davon nichts sehen. Das Eventteam erkennt so, ob wenige
+// Anmeldungen am Termin liegen oder daran, dass das Event untergegangen ist.
+model EventAbsence {
+  id        Int      @id @default(autoincrement())
+  eventId   Int
+  userCID   Int
+  // Optionaler Grund, nur für das Eventteam sichtbar
+  reason    String?  @db.VarChar(200)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userCID], references: [cid], onDelete: Cascade)
+
+  @@unique([eventId, userCID])
+  @@index([eventId])
 }

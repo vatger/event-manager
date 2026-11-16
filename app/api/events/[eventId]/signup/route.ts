@@ -106,6 +106,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
       },
     });
 
+    // Wer sich anmeldet, ist nicht mehr „nicht dabei“
+    await prisma.eventAbsence.deleteMany({ where: { eventId: eventid, userCID: targetCID } });
+
     // Send notification if signup is after deadline
     if (isAfterDeadline && !isAdmin) {
       await sendLateSignupNotificationToEventTeam(

@@ -119,6 +119,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
           deletedBy: null,
         },
       });
+      // Wiederhergestellt heißt dabei: eine „nicht dabei“-Meldung entfällt
+      await prisma.eventAbsence.deleteMany({
+        where: { eventId: parseInt(eventId, 10), userCID: parseInt(userId, 10) },
+      });
       await invalidateSignupTable(Number(eventId))
       return NextResponse.json(updated);
     }

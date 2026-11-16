@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { Event } from "@/types";
 import EventHeader from "../_components/EventHeader";
+import { AbsencesCard } from "./_components/AbsencesCard";
 import { StatsCardHandle } from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
 import { useUser } from "@/hooks/useUser";
@@ -314,6 +315,11 @@ export default function AdminEventSignupsPage() {
           onChanged={handleSignupChanged}
         />
       )}
+
+      <AbsencesCard
+        eventId={Number(eventId)}
+        signupCount={signups.filter((s) => !s.deletedAt).length}
+      />
 
       <Card className="relative overflow-hidden">
         <CardHeader>
