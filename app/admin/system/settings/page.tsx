@@ -10,6 +10,8 @@ import { Users, UserPlus, UserMinus, Shield, Loader2, KeyRound } from 'lucide-re
 import { toast } from 'sonner';
 import CronJobMonitor from './CronJobMonitor';
 import EndorsementDebugCard from './EndorsementDebugCard';
+import ApiTokensCard from './ApiTokensCard';
+import { useUser } from '@/hooks/useUser';
 
 interface VATGERMember {
   id: string;
@@ -28,6 +30,7 @@ interface MainAdmin {
 }
 
 export default function SystemSettingsPage() {
+  const { isMainAdmin } = useUser();
   const [members, setMembers] = useState<VATGERMember[]>([]);
   const [userStats, setUserStats] = useState<{ totalUsers: number; recentUsers: number } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,6 +323,7 @@ export default function SystemSettingsPage() {
           )}
         </CardContent>
       </Card>
+      {isMainAdmin() && <ApiTokensCard />}
       <CronJobMonitor />
       <EndorsementDebugCard />
     </div>

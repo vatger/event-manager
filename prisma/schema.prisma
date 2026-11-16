@@ -679,3 +679,23 @@ model CptStatus {
   @@index([firCode])
   @@index([cptDate])
 }
+
+// Zugang zur externen API (/api/v1) ohne Login, z. B. für ATCISS oder Bots.
+// Vergeben und widerrufen nur durch Main Admins (Systemeinstellungen).
+// Gespeichert wird nur der SHA-256-Hash; das Token selbst sieht man einmal
+// beim Anlegen.
+model ApiToken {
+  id           Int       @id @default(autoincrement())
+  name         String @db.VarChar(100)
+  // SHA-256 (hex) des Tokens
+  tokenHash    String    @unique @db.VarChar(64)
+  // Anfang des Tokens zum Wiedererkennen, z. B. "emk_Ab3d"
+  tokenPrefix  String @db.VarChar(16)
+  // Nur Daten dieser FIR (null = alle FIRs)
+  firCode      String? @db.VarChar(8)
+  createdByCID Int
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+}
