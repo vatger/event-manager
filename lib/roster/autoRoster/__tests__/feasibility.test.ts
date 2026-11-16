@@ -81,4 +81,45 @@ describe("analyzeFeasibility", () => {
     expect(report.demandMinutes).toBe(120);
     expect(report.verdict).not.toBe("insufficient");
   });
+
+  it("zeigt je Besetzungsgruppe, wo es eng wird", () => {
+    const input = planningInput(
+      [station(1, "EDDM_APP"), station(2, "EDDM_TWR"), station(3, "EDDM_GND")],
+      [
+        signup(1, "App", AP, { levels: ["GND", "TWR", "APP"] }),
+        signup(2, "App2", AP, { levels: ["GND", "TWR", "APP"] }),
+        signup(3, "Twr", AP, { levels: ["GND", "TWR"] }),
+        signup(4, "Twr2", AP, { levels: ["GND", "TWR"] }),
+        signup(5, "Gnd", AP, { levels: ["GND"] }),
+        signup(6, "Gnd2", AP, { levels: ["GND"] }),
+        signup(7, "Gnd3", AP, { levels: ["GND"] }),
+      ],
+      { totalMinutes: 120 }
+    );
+    const report = analyzeFeasibility(input);
+    const byLabel = Object.fromEntries(report.groups.map((g) => [g.label, g]));
+    expect(report.groups.map((g) => g.label)).toEqual(["APP", "TWR", "GND"]);
+    // Für APP springt nach der Paarung niemand mehr ein: zwei Geeignete, beide
+    // werden auf APP bzw. TWR gebraucht
+    expect(byLabel.APP.minReserve).toBe(0);
+    expect(byLabel.APP.status).toBe("tight");
+    // GND hat mit drei reinen Ground-Lotsen Reserve
+    expect(byLabel.GND.status).toBe("ok");
+    expect(byLabel.GND.minReserve).toBeGreaterThan(0);
+  });
+
+  it("markiert eine Gruppe mit Lücke als fehlend und trennt Airports", () => {
+    const AP2 = ["EDDM", "EDDN"];
+    const input = planningInput(
+      [station(1, "EDDM_TWR"), station(2, "EDDN_TWR")],
+      [signup(1, "A", AP2, { levels: ["GND", "TWR"] })],
+      { totalMinutes: 120, eventAirports: AP2 }
+    );
+    const report = analyzeFeasibility(input);
+    expect(report.groups.map((g) => [g.label, g.status])).toEqual([
+      ["EDDM TWR", "tight"],
+      ["EDDN TWR", "short"],
+    ]);
+    expect(report.groups[1].gapMinutes).toBe(120);
+  });
 });

@@ -3,7 +3,7 @@
 import { AlertTriangle, CheckCircle2, CircleAlert, UserX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDuration, minuteToHM } from "@/lib/roster/rosterTime";
-import type { FeasibilityReport } from "@/lib/roster/autoRoster";
+import type { FeasibilityGroup, FeasibilityReport } from "@/lib/roster/autoRoster";
 
 /**
  * Ergebnis der Machbarkeitsprüfung: Geht der Plan mit den Anmeldungen auf,
@@ -30,6 +30,67 @@ const VERDICT_STYLE = {
     text: "text-danger-700 dark:text-danger-300",
   },
 } as const;
+
+const GROUP_STATUS = {
+  short: { dot: "bg-danger-600", label: "fehlt", text: "text-danger-700 dark:text-danger-300" },
+  tight: { dot: "bg-amber-500", label: "knapp", text: "text-amber-700 dark:text-amber-300" },
+  ok: { dot: "bg-success-600", label: "ok", text: "text-success-800 dark:text-success-300" },
+} as const;
+
+/** Was an einer engen Gruppe das Problem ist – kurz, für eine Zeile */
+function groupDetail(group: FeasibilityGroup, eventStart: Date): string {
+  const parts: string[] = [];
+  if (group.gapMinutes > 0) parts.push(`${formatDuration(group.gapMinutes)} unbesetzbar`);
+  if (group.ratio !== null && (group.ratio < 1.2 || group.status === "short")) {
+    parts.push(`Lotsenzeit ${Math.round(group.ratio * 100)} % des Bedarfs`);
+  }
+  if (group.noReserveRanges.length > 0) {
+    const ranges = group.noReserveRanges
+      .slice(0, 2)
+      .map((r) => `${minuteToHM(eventStart, r.start)}–${minuteToHM(eventStart, r.end)}z`)
+      .join(", ");
+    const more = group.noReserveRanges.length > 2 ? " …" : "";
+    parts.push(`keine Reserve ${ranges}${more}`);
+  }
+  return parts.join(" · ");
+}
+
+/**
+ * Besetzungsgruppen, in denen es eng ist oder werden kann. Gruppen ohne
+ * Engpass stehen nur als kurze Liste darunter.
+ */
+function GroupList({ groups, eventStart }: { groups: FeasibilityGroup[]; eventStart: Date }) {
+  const critical = groups.filter((g) => g.status !== "ok");
+  const fine = groups.filter((g) => g.status === "ok");
+  if (critical.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium">Besetzungsgruppen mit Engpass</p>
+      <ul className="space-y-1 text-xs">
+        {critical.map((g) => {
+          const st = GROUP_STATUS[g.status];
+          return (
+            <li
+              key={g.key}
+              className="flex flex-wrap items-baseline gap-x-2 rounded border bg-background/60 px-2 py-1"
+              title={g.callsigns.join(", ")}
+            >
+              <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full self-center", st.dot)} />
+              <span className="font-medium">{g.label}</span>
+              <span className={cn("font-medium", st.text)}>{st.label}</span>
+              <span className="text-muted-foreground">{groupDetail(g, eventStart)}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {fine.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Ohne Engpass: {fine.map((g) => g.label).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function verdictHeadline(report: FeasibilityReport): string {
   if (report.demandMinutes === 0) return "Keine offenen Stationszeiten";
@@ -77,6 +138,8 @@ export function FeasibilitySummary({
           )}
         </p>
       )}
+
+      <GroupList groups={report.groups} eventStart={eventStart} />
 
       {shownGaps.length > 0 && (
         <ul className="space-y-1 text-xs">

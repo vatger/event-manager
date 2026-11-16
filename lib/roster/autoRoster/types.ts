@@ -119,6 +119,44 @@ export interface CapacityShortfall {
   missingMinutes: number;
 }
 
+/**
+ * Lage einer Besetzungsgruppe – Stationen derselben Ebene, bei Multi-Airport-
+ * Events je Airport (z. B. „EDDM TWR"). Zeigt, wo es eng werden kann, auch
+ * wenn der Plan insgesamt noch aufgeht.
+ *
+ * `short`: dort bleibt etwas unbesetzt, oder mit Pausen reicht die Zeit
+ * der geeigneten Lotsen nicht. `tight`: es reicht, aber ohne Reserve – fällt
+ * jemand aus, entsteht eine Lücke.
+ */
+export interface FeasibilityGroup {
+  key: string;
+  /** Anzeigename, z. B. „TWR" oder „EDDM TWR" */
+  label: string;
+  /** Ebene (DEL … CTR) bzw. „Sonstige" */
+  level: string;
+  airport: string | null;
+  callsigns: string[];
+  /** Zu besetzende Stationsminuten */
+  demandMinutes: number;
+  /**
+   * Lotsenzeit der für die Gruppe geeigneten Personen mit Pausenregel –
+   * ohne Abzug dafür, dass sie auch woanders gebraucht werden
+   */
+  supplyMinutes: number;
+  /** supply / demand, null ohne Bedarf */
+  ratio: number | null;
+  /** Unbesetzbare Minuten aus den Momentaufnahmen (Ebenen von oben besetzt) */
+  gapMinutes: number;
+  /**
+   * Kleinste Reserve: geeignete, verfügbare Personen, die in einem Slot
+   * nirgends gebraucht werden. 0 = kein Spielraum.
+   */
+  minReserve: number;
+  /** Zeiträume ohne Reserve (ohne die ohnehin unbesetzbaren) */
+  noReserveRanges: TimeRangeMinutes[];
+  status: "ok" | "tight" | "short";
+}
+
 export interface FeasibilityReport {
   verdict: FeasibilityVerdict;
   /** Zu besetzende Stationsminuten */
@@ -136,4 +174,6 @@ export interface FeasibilityReport {
   candidatesByStation: Record<number, number>;
   /** Aktive Anmeldungen, die keine der Stationen besetzen dürfen */
   unusableCids: number[];
+  /** Lage je Besetzungsgruppe, Ebenen von oben */
+  groups: FeasibilityGroup[];
 }
