@@ -12,11 +12,20 @@ import {
 import { signOut } from "next-auth/react";
 import NotificationsWidget from "@/components/notifs/NotificationsWidget";
 import { useUser } from "@/hooks/useUser";
+import type { CurrentUser } from "@/types/fir";
 import { LogOut, ChevronDown, Moon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 import { Switch } from "@/components/ui/switch";
 import { useTheme } from "next-themes";
+
+// Rollen in Klartext – dieselben Bezeichnungen wie unter „Team & Rechte“
+const LEVEL_LABELS: Record<CurrentUser["effectiveLevel"], string> = {
+  MAIN_ADMIN: "Main-Admin",
+  VATGER_LEITUNG: "VATGER-Eventleitung",
+  FIR_EVENTLEITER: "FIR-Leitung",
+  USER: "Eventteam",
+};
 
 interface AdminHeaderProps {
   title: string;
@@ -71,12 +80,12 @@ export function AdminHeader({ title }: AdminHeaderProps) {
                     </div>
                     
                     {/* User Info - nur auf Desktop */}
-                    <div className="hidden md:flex flex-col items-start max-w-32">
+                    <div className="hidden md:flex flex-col items-start max-w-40">
                       <span className="text-sm font-medium text-foreground leading-none truncate">
                         {currentUser.name?.split(' ')[0] || "Admin"}
                       </span>
                       <span className="text-xs text-muted-foreground leading-none mt-0.5 truncate">
-                      {currentUser.effectiveLevel == "USER" ? "EVENTLER" : currentUser.effectiveLevel}
+                      {LEVEL_LABELS[currentUser.effectiveLevel]}
                       </span>
                     </div>
                     
@@ -105,7 +114,7 @@ export function AdminHeader({ title }: AdminHeaderProps) {
                         variant="secondary" 
                         className={`mt-2 text-xs ${getLevelBadgeColor(currentUser.effectiveLevel)}`}
                       >
-                        {currentUser.effectiveLevel == "USER" ? "EVENTLER" : currentUser.effectiveLevel}
+                        {LEVEL_LABELS[currentUser.effectiveLevel]}
                       </Badge>
                   </div>
                 </div>
