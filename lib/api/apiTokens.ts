@@ -32,6 +32,8 @@ export interface ApiTokenPrincipal {
   name: string;
   /** null = alle FIRs */
   firCode: string | null;
+  /** Darf auch Entwürfe sehen */
+  includeDrafts: boolean;
 }
 
 /**
@@ -50,5 +52,11 @@ export async function verifyApiToken(token: string): Promise<ApiTokenPrincipal |
       .update({ where: { id: row.id }, data: { lastUsedAt: now } })
       .catch(() => undefined);
   }
-  return { kind: "token", tokenId: row.id, name: row.name, firCode: row.firCode };
+  return {
+    kind: "token",
+    tokenId: row.id,
+    name: row.name,
+    firCode: row.firCode,
+    includeDrafts: row.includeDrafts,
+  };
 }

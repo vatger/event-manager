@@ -151,6 +151,21 @@ export async function isEventFirTeamMember(cid: number, eventId: number): Promis
 }
 
 /**
+ * Darf der Nutzer Entwürfe (Status DRAFT) dieser FIR sehen?
+ * Main Admin und VATGER-Eventleitung, FIR-Leitung und FIR-Team der FIR sowie
+ * wer dort Events anlegen oder bearbeiten darf.
+ */
+export async function canSeeFirDrafts(cid: number, firCode: string): Promise<boolean> {
+  const user = await getUserWithEffectiveData(cid);
+  if (!user) return false;
+  if (user.effectiveLevel === "MAIN_ADMIN" || user.effectiveLevel === "VATGER_LEITUNG") return true;
+  if (user.effectivePermissions.includes("*")) return true;
+  if (user.firLevels[firCode] !== undefined) return true;
+  const scoped = user.firScopedPermissions[firCode] ?? [];
+  return scoped.includes("event.create") || scoped.includes("event.edit");
+}
+
+/**
  * Prüft, ob ein Nutzer Verantwortlicher des Events ist.
  */
 export async function isEventResponsible(cid: number, eventId: number): Promise<boolean> {

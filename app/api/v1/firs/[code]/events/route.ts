@@ -1,11 +1,17 @@
 import prisma from "@/lib/prisma";
-import { apiJson, principalMayAccessFir, requireApiPrincipal } from "@/lib/api/apiAuth";
+import {
+  apiJson,
+  principalMayAccessFir,
+  principalMaySeeDrafts,
+  requireApiPrincipal,
+} from "@/lib/api/apiAuth";
 import { publicUrl } from "@/lib/api/publicUrl";
 
 /**
  * GET /api/v1/firs/{code}/events
  *
- * Alle Events einer FIR (ohne Entwürfe), nach Beginn sortiert.
+ * Alle Events einer FIR, nach Beginn sortiert. Entwürfe nur für Tokens mit
+ * „Entwürfe einschließen“ und für Nutzer, die für die FIR zuständig sind.
  * Anmeldung: Session oder `Authorization: Bearer <API-Token>`.
  *
  * Optionale Filter (ISO-8601): `from` – Events, die danach enden;
@@ -44,10 +50,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
   const fir = await prisma.fIR.findUnique({ where: { code }, select: { code: true, name: true } });
   if (!fir) return apiJson({ error: "FIR not found" }, 404);
 
+  const includesDrafts = await principalMaySeeDrafts(auth.principal, code);
+
   const events = await prisma.event.findMany({
     where: {
       firCode: code,
-      status: { not: "DRAFT" },
+      ...(includesDrafts ? {} : { status: { not: "DRAFT" as const } }),
       ...(from ? { endTime: { gte: from } } : {}),
       ...(to ? { startTime: { lte: to } } : {}),
     },
@@ -69,6 +77,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
 
   return apiJson({
     fir: { code: fir.code, name: fir.name },
+    includesDrafts,
     events: events.map((e) => ({
       id: e.id,
       name: e.name,

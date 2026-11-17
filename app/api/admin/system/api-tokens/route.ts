@@ -29,6 +29,8 @@ const createSchema = z.object({
     .nullable(),
   /** Laufzeit in Tagen, null = unbegrenzt */
   expiresInDays: z.number().int().min(1).max(730).nullable(),
+  /** Auch Entwürfe ausliefern */
+  includeDrafts: z.boolean().optional().default(false),
 });
 
 export async function GET() {
@@ -41,6 +43,7 @@ export async function GET() {
       name: true,
       tokenPrefix: true,
       firCode: true,
+      includeDrafts: true,
       createdByCID: true,
       createdAt: true,
       expiresAt: true,
@@ -67,7 +70,7 @@ export async function POST(req: Request) {
 
   const parsed = createSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Ungültige Angaben" }, { status: 400 });
-  const { name, firCode, expiresInDays } = parsed.data;
+  const { name, firCode, expiresInDays, includeDrafts } = parsed.data;
 
   if (firCode && !(await prisma.fIR.findUnique({ where: { code: firCode }, select: { code: true } }))) {
     return NextResponse.json({ error: "FIR nicht gefunden" }, { status: 400 });
@@ -80,10 +83,18 @@ export async function POST(req: Request) {
       tokenHash: hash,
       tokenPrefix: prefix,
       firCode,
+      includeDrafts,
       createdByCID: cid,
       expiresAt: expiresInDays ? new Date(Date.now() + expiresInDays * 86_400_000) : null,
     },
-    select: { id: true, name: true, tokenPrefix: true, firCode: true, expiresAt: true },
+    select: {
+      id: true,
+      name: true,
+      tokenPrefix: true,
+      firCode: true,
+      includeDrafts: true,
+      expiresAt: true,
+    },
   });
 
   return NextResponse.json(

@@ -15,7 +15,7 @@ Jede Anfrage braucht **entweder**
 
 API-Tokens vergeben und widerrufen nur Main Admins unter
 **Admin → System Einstellungen → API-Tokens**. Ein Token kann auf eine FIR
-beschränkt sein und ein Ablaufdatum haben. Es wird nur einmal beim Anlegen
+beschränkt sein, ein Ablaufdatum haben und optional **Entwürfe einschließen**. Es wird nur einmal beim Anlegen
 angezeigt; gespeichert ist nur sein SHA-256-Hash.
 
 - Tokens werden **nur im Header** angenommen, nie als URL-Parameter.
@@ -28,7 +28,15 @@ angezeigt; gespeichert ist nur sein SHA-256-Hash.
 
 ### `GET /api/v1/firs/{code}/events`
 
-Alle Events einer FIR (ohne Entwürfe), nach Beginn sortiert, höchstens 500.
+Alle Events einer FIR, nach Beginn sortiert, höchstens 500.
+
+Entwürfe (`status: "DRAFT"`) sind nur enthalten für
+- Tokens mit „Entwürfe einschließen“ (und passender FIR),
+- angemeldete Nutzer, die für die FIR zuständig sind: Main Admin,
+  VATGER-Eventleitung, FIR-Leitung/-Team der FIR oder `event.create` /
+  `event.edit` in der FIR.
+
+`includesDrafts` in der Antwort sagt, ob Entwürfe mitgeliefert wurden.
 
 Optionale Filter (ISO-8601): `from` – Events, die danach enden; `to` –
 Events, die davor beginnen.
@@ -36,6 +44,7 @@ Events, die davor beginnen.
 ```json
 {
   "fir": { "code": "EDMM", "name": "München" },
+  "includesDrafts": false,
   "events": [
     {
       "id": 12,
@@ -68,6 +77,9 @@ veröffentlicht, ist `published` `false` und `shifts` leer.
 `?version=live` liefert den Arbeitsstand – nur mit Session und Zugriff auf
 den Plan im Editor, nie mit einem Token.
 
+Für Entwürfe gelten dieselben Rechte wie in der Eventliste; ohne sie
+antwortet der Endpunkt mit `404`.
+
 Nie enthalten: interne Notizen, Markierungen, Bemerkungen und
 Nichtverfügbarkeiten der Lotsen.
 
@@ -95,5 +107,5 @@ Nichtverfügbarkeiten der Lotsen.
 | 400 | Ungültige Parameter (FIR-Code, ID, Datum, `version`) |
 | 401 | Keine Session und kein gültiges Token (unbekannt, widerrufen oder abgelaufen) |
 | 403 | Token gilt nicht für diese FIR; Live-Fassung ohne Berechtigung |
-| 404 | FIR/Event nicht gefunden – auch Entwürfe und Events außerhalb der FIR eines Tokens |
+| 404 | FIR/Event nicht gefunden – auch Entwürfe ohne Berechtigung und Events außerhalb der FIR eines Tokens |
 | 429 | Zu viele Anfragen, nach `Retry-After` Sekunden erneut versuchen |

@@ -690,6 +690,8 @@ model ApiToken {
   tokenPrefix  String @db.VarChar(16)
   // Nur Daten dieser FIR (null = alle FIRs)
   firCode      String? @db.VarChar(8)
+  // Darf auch Entwürfe (Status DRAFT) sehen
+  includeDrafts Boolean  @default(false)
   createdByCID Int
   createdAt    DateTime  @default(now())
   expiresAt    DateTime?

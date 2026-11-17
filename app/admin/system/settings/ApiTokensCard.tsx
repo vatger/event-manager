@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ interface ApiTokenRow {
   name: string;
   tokenPrefix: string;
   firCode: string | null;
+  includeDrafts: boolean;
   createdByName: string | null;
   createdByCID: number;
   createdAt: string;
@@ -83,6 +85,7 @@ export default function ApiTokensCard() {
   const [name, setName] = useState("");
   const [fir, setFir] = useState("all");
   const [expiry, setExpiry] = useState("365");
+  const [includeDrafts, setIncludeDrafts] = useState(false);
   const [secret, setSecret] = useState<{ name: string; value: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<ApiTokenRow | null>(null);
@@ -126,6 +129,7 @@ export default function ApiTokensCard() {
           name: name.trim(),
           firCode: fir === "all" ? null : fir,
           expiresInDays: expiry === "none" ? null : Number(expiry),
+          includeDrafts,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -133,6 +137,7 @@ export default function ApiTokensCard() {
       setSecret({ name: data.token.name, value: data.secret });
       setCopied(false);
       setName("");
+      setIncludeDrafts(false);
       void load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Token konnte nicht angelegt werden");
@@ -175,7 +180,7 @@ export default function ApiTokensCard() {
           Zugang zu <code className="text-xs">/api/v1</code> (Events einer FIR, Besetzungspläne) ohne
           Login – z. B. für ATCISS oder Bots. Gesendet wird das Token als{" "}
           <code className="text-xs">Authorization: Bearer …</code>. Es gibt nur veröffentlichte
-          Pläne und nie interne Notizen heraus.
+          Pläne und nie interne Notizen heraus; Entwürfe nur, wenn das Token sie einschließt.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -228,6 +233,11 @@ export default function ApiTokensCard() {
             Anlegen
           </Button>
         </div>
+
+        <label className="-mt-2 flex items-center gap-2 text-sm">
+          <Checkbox checked={includeDrafts} onCheckedChange={(v) => setIncludeDrafts(v === true)} />
+          Entwürfe einschließen
+        </label>
 
         {secret && (
           <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-800 dark:bg-amber-900/20">
@@ -282,7 +292,12 @@ export default function ApiTokensCard() {
                       <TableCell>
                         <code className="text-xs">{t.tokenPrefix}…</code>
                       </TableCell>
-                      <TableCell>{t.firCode ?? "Alle"}</TableCell>
+                      <TableCell>
+                        {t.firCode ?? "Alle"}
+                        {t.includeDrafts && (
+                          <span className="block text-xs text-muted-foreground">inkl. Entwürfe</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">
                         {fmt(t.createdAt)}
                         <span className="block text-muted-foreground">

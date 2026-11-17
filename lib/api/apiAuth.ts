@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/getSessionUser";
+import { canSeeFirDrafts } from "@/lib/acl/permissions";
 import { verifyApiToken, type ApiTokenPrincipal } from "./apiTokens";
 
 /**
@@ -32,6 +33,20 @@ export function principalMayAccessFir(principal: ApiPrincipal, firCode: string |
   if (principal.kind === "session") return true;
   if (principal.firCode === null) return true;
   return !!firCode && principal.firCode.toUpperCase() === firCode.toUpperCase();
+}
+
+/**
+ * Darf der Aufrufer Entwürfe dieser FIR sehen?
+ * Tokens nur mit „Entwürfe einschließen“, Nutzer nur mit Zuständigkeit für
+ * die FIR (siehe canSeeFirDrafts).
+ */
+export async function principalMaySeeDrafts(
+  principal: ApiPrincipal,
+  firCode: string | null
+): Promise<boolean> {
+  if (!firCode || !principalMayAccessFir(principal, firCode)) return false;
+  if (principal.kind === "token") return principal.includeDrafts;
+  return canSeeFirDrafts(principal.cid, firCode);
 }
 
 // --- Begrenzung der Anfragen -------------------------------------------

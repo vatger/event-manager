@@ -1,5 +1,10 @@
 import prisma from "@/lib/prisma";
-import { apiJson, principalMayAccessFir, requireApiPrincipal } from "@/lib/api/apiAuth";
+import {
+  apiJson,
+  principalMayAccessFir,
+  principalMaySeeDrafts,
+  requireApiPrincipal,
+} from "@/lib/api/apiAuth";
 import { buildPublicRoster } from "@/lib/roster/publicRoster";
 import { canViewEventRoster } from "@/lib/roster/rosterPermissions";
 
@@ -31,10 +36,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
     where: { id },
     select: { id: true, status: true, firCode: true },
   });
-  // Entwürfe gibt es für die API nicht – auch nicht als 403, damit sich ihre
-  // IDs nicht abtasten lassen
-  if (!event || event.status === "DRAFT") return apiJson({ error: "Event not found" }, 404);
-  if (!principalMayAccessFir(principal, event.firCode)) {
+  // Entwürfe nur für Berechtigte – für alle anderen gibt es sie nicht, auch
+  // nicht als 403, damit sich ihre IDs nicht abtasten lassen
+  if (!event || !principalMayAccessFir(principal, event.firCode)) {
+    return apiJson({ error: "Event not found" }, 404);
+  }
+  if (event.status === "DRAFT" && !(await principalMaySeeDrafts(principal, event.firCode))) {
     return apiJson({ error: "Event not found" }, 404);
   }
 
