@@ -31,7 +31,11 @@ import { useUser,  } from "@/hooks/useUser";
 import RichText from "@/components/RichText";
 import { cn } from "@/lib/utils";
 import { isSignupLocked } from "@/lib/signups/signupLock";
-import EventAbsenceControl from "@/components/EventAbsenceControl";
+import {
+  AbsenceNotice,
+  AbsenceReportButton,
+  useEventAbsence,
+} from "@/components/EventAbsenceControl";
 import {
   eventAirportList,
   eventStatusDisplay,
@@ -95,6 +99,17 @@ export default function EventPage() {
 
   const eventId = event?.id ?? id;
   const { loading: signupLoading, isSignedUp, signupData, refetch } = useEventSignup(eventId, Number(userCID));
+
+  // N/A-Meldung: nur relevant, solange man nicht (aktiv) angemeldet ist und
+  // die Anmeldephase läuft
+  const activelySignedUp = isSignedUp && !signupData?.deletedAt;
+  const absence = useEventAbsence(
+    event ? Number(event.id) : null,
+    !!session &&
+      !signupLoading &&
+      !activelySignedUp &&
+      (event?.status === "SIGNUP_OPEN" || event?.status === "SIGNUP_CLOSED")
+  );
 
   const startTime = event?.startTime;
   const endTime = event?.endTime;
@@ -173,6 +188,16 @@ export default function EventPage() {
       signupLoading ? (
         <Button className="w-full" disabled>
           Laden…
+        </Button>
+      ) : absence.absent ? (
+        // N/A gemeldet: Wer das loswerden will, will sich anmelden – die
+        // Anmeldung hebt die Meldung auf
+        <Button
+          className="w-full"
+          variant="outline"
+          onClick={() => setSelectedEvent(normalizedEventForSignup)}
+        >
+          Doch anmelden
         </Button>
       ) : (
         <Button className="w-full" onClick={() => setSelectedEvent(normalizedEventForSignup)}>
@@ -311,11 +336,13 @@ export default function EventPage() {
 
           <div className="w-full shrink-0 space-y-2 lg:w-56">
             {actionButton}
-            {session && !signupLoading && (event.status === "SIGNUP_OPEN" || event.status === "SIGNUP_CLOSED") && (
-              <EventAbsenceControl
-                eventId={Number(event.id)}
-                isSignedUp={isSignedUp && !signupData?.deletedAt}
-              />
+            {absence.absent ? (
+              <AbsenceNotice />
+            ) : (
+              absence.absent === false &&
+              absence.canReport && (
+                <AbsenceReportButton eventId={Number(event.id)} onReported={absence.markAbsent} />
+              )
             )}
           </div>
         

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarX2, Loader2, Undo, Undo2, X } from "lucide-react";
+import { CalendarX2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,43 +19,74 @@ import {
 import { ABSENCE_REASON_MAX } from "@/lib/events/eventAbsence";
 
 /**
- * „Ich bin nicht dabei“ unter dem Anmeldeknopf der Eventseite.
+ * N/A-Meldung („Ich bin nicht dabei“) auf der Eventseite.
  *
  * Für Lotsen, die zu einem Termin nicht können – das Eventteam sieht dann,
- * dass das Event nicht übersehen wurde. Wer angemeldet ist, sieht nichts
- * davon; wer sich anmeldet, verliert die Meldung automatisch (Server).
+ * dass das Event nicht übersehen wurde. Zurückgenommen wird die Meldung nicht
+ * eigens: Wer sie loswerden will, will sich anmelden – und eine Anmeldung hebt
+ * sie auf dem Server automatisch auf.
  */
-export function EventAbsenceControl({
+
+export interface EventAbsenceState {
+  /** null = noch nicht geladen oder nicht verfügbar */
+  absent: boolean | null;
+  canReport: boolean;
+  /** Nach erfolgreichem Melden */
+  markAbsent: () => void;
+}
+
+/**
+ * Stand der eigenen N/A-Meldung. `enabled` aus, solange man angemeldet ist –
+ * dann gibt es nichts zu melden; beim Wechsel wird neu geladen.
+ */
+export function useEventAbsence(eventId: number | null, enabled: boolean): EventAbsenceState {
+  const [absent, setAbsent] = useState<boolean | null>(null);
+  const [canReport, setCanReport] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!eventId || !enabled) {
+      setAbsent(null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/events/${eventId}/absence`);
+      if (!res.ok) return setAbsent(null);
+      const data = await res.json();
+      setAbsent(!!data.absent);
+      setCanReport(!!data.canReport);
+    } catch {
+      setAbsent(null);
+    }
+  }, [eventId, enabled]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  return { absent, canReport, markAbsent: () => setAbsent(true) };
+}
+
+/** Schlichter Hinweis unter „Doch anmelden“ */
+export function AbsenceNotice() {
+  return (
+    <p className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+      <CalendarX2 className="h-4 w-4 shrink-0" />
+      Du hast dich als N/A gemeldet
+    </p>
+  );
+}
+
+/** „Ich bin nicht dabei“ mit kurzer Rückfrage und optionalem Grund */
+export function AbsenceReportButton({
   eventId,
-  isSignedUp,
+  onReported,
 }: {
   eventId: number;
-  /** Aktiv angemeldet – dann gibt es nichts zu melden */
-  isSignedUp: boolean;
+  onReported: () => void;
 }) {
-  const [state, setState] = useState<{ absent: boolean; canReport: boolean } | null>(null);
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/events/${eventId}/absence`);
-      if (!res.ok) return setState(null);
-      const data = await res.json();
-      setState({ absent: !!data.absent, canReport: !!data.canReport });
-    } catch {
-      setState(null);
-    }
-  }, [eventId]);
-
-  // Neu laden, wenn sich der Anmeldestand ändert – eine Anmeldung hebt die
-  // Meldung auf
-  useEffect(() => {
-    void load();
-  }, [load, isSignedUp]);
-
-  if (!state || isSignedUp) return null;
 
   const report = async () => {
     setBusy(true);
@@ -67,9 +98,9 @@ export function EventAbsenceControl({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Melden fehlgeschlagen");
-      setState({ ...state, absent: true });
       setOpen(false);
       setReason("");
+      onReported();
       toast.success("Danke – das Eventteam weiß Bescheid");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Melden fehlgeschlagen");
@@ -78,50 +109,9 @@ export function EventAbsenceControl({
     }
   };
 
-  const withdraw = async () => {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/absence`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
-      setState({ ...state, absent: false });
-    } catch {
-      toast.error("Zurücknehmen fehlgeschlagen");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (state.absent) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-dashed border-red-600 px-3 py-2 text-sm">
-        <span className="flex items-center gap-2 whitespace-nowrap text-muted-foreground">
-          <CalendarX2 className="h-4 w-4 shrink-0" />
-          N/A gemeldet
-        </span>
-        {state.canReport && (
-          <Button
-            variant="link"
-            size="sm"
-            className="ml-auto h-auto p-0"
-            onClick={withdraw}
-            disabled={busy}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-    );
-  }
-
-  if (!state.canReport) return null;
-
   return (
     <>
-      <Button
-        variant="ghost"
-        className="w-full text-muted-foreground"
-        onClick={() => setOpen(true)}
-      >
+      <Button variant="ghost" className="w-full text-muted-foreground" onClick={() => setOpen(true)}>
         <CalendarX2 className="h-4 w-4" />
         Ich bin nicht dabei
       </Button>
@@ -129,10 +119,10 @@ export function EventAbsenceControl({
       <AlertDialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Nicht dabei melden</AlertDialogTitle>
+            <AlertDialogTitle>Als N/A melden</AlertDialogTitle>
             <AlertDialogDescription>
-              Das Eventteam sieht so, dass du zu diesem Termin nicht kannst. Du kannst dich
-              trotzdem jederzeit noch anmelden.
+              Das Eventteam sieht so, dass du zu diesem Termin nicht kannst. Anmelden kannst du
+              dich trotzdem jederzeit.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">
@@ -164,5 +154,3 @@ export function EventAbsenceControl({
     </>
   );
 }
-
-export default EventAbsenceControl;
