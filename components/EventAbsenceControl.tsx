@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarX2, Loader2 } from "lucide-react";
+import { CalendarX2, Loader2, Undo, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -93,10 +93,10 @@ export function EventAbsenceControl({
 
   if (state.absent) {
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-dashed px-3 py-2 text-sm">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-dashed border-red-600 px-3 py-2 text-sm">
         <span className="flex items-center gap-2 whitespace-nowrap text-muted-foreground">
           <CalendarX2 className="h-4 w-4 shrink-0" />
-          Nicht dabei gemeldet
+          N/A gemeldet
         </span>
         {state.canReport && (
           <Button
@@ -106,7 +106,7 @@ export function EventAbsenceControl({
             onClick={withdraw}
             disabled={busy}
           >
-            Zurücknehmen
+            <X className="h-4 w-4" />
           </Button>
         )}
       </div>
