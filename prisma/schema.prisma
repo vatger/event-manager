@@ -113,6 +113,29 @@ model Event {
   Notification Notification[]
   tasks        EventTask[]
   roster       EventRoster?
+  activity     EventActivity[]
+}
+
+// Änderungsprotokoll eines Events: wer hat wann was an der Verwaltung des
+// Events getan. Getrennt vom Protokoll des Besetzungsplans (EventRosterActivity).
+model EventActivity {
+  id       Int     @id @default(autoincrement())
+  eventId  Int
+  actorCID Int?
+  // Bereich für den Filter, z. B. "details", "banner", "team"
+  category String  @db.VarChar(20)
+  // Maschinenlesbare Art, z. B. "status_changed"
+  action   String  @db.VarChar(40)
+  // Fertig formulierte Zeile für die Anzeige
+  summary  String  @db.Text
+  // Vorher/Nachher und Zusatzangaben für die ausführliche Ansicht
+  details  Json?
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, createdAt])
+  @@index([actorCID])
 }
 
 // Roster editor for non-recurring (large) events:

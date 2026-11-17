@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logEventActivity, userName } from "@/lib/events/eventActivity";
+import { personLabel } from "@/lib/events/eventActivityFormat";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
@@ -34,6 +36,19 @@ export async function DELETE(
 
   await prisma.eventResponsible.delete({
     where: { eventId_userCID: { eventId: evId, userCID } },
+  });
+
+  const isSelf = userCID === Number(user.cid);
+  const name = isSelf ? null : await userName(userCID);
+  await logEventActivity({
+    eventId: evId,
+    actorCID: Number(user.cid),
+    category: "team",
+    action: isSelf ? "responsible_self_removed" : "responsible_removed",
+    summary: isSelf
+      ? "Hat sich als verantwortlich ausgetragen"
+      : `${personLabel(name, userCID)} als verantwortlich ausgetragen`,
+    details: { targetCID: userCID },
   });
 
   return NextResponse.json({ message: "Verantwortlicher entfernt" });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventChanges } from "@/lib/events/eventActivity";
 import { applyStationsToRoster, stationsWithShifts } from "@/lib/roster/eventStations";
 import { broadcastRosterChange } from "@/lib/roster/rosterEvents";
 import { getServerSession } from "next-auth";
@@ -156,6 +157,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
     where: { id: Number(eventId) },
     data: putData,
   });
+  await logEventChanges(Number(eventId), cid, firbyevent, event);
   // … und der Plan zieht die geänderte Liste nach.
   if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
     const changed = await applyStationsToRoster(Number(eventId), parsed.data.staffedStations);
@@ -329,6 +331,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
         responsibles: { include: { user: { select: { cid: true, name: true } } } },
       },
     });
+    await logEventChanges(id, cid, firbyevent, updatedEvent);
 
     // Mit dem Öffnen der Anmeldung stehen die Stationen fest genug, um sie auf
     // der Homepage zu blocken; danach zieht jede Änderung an den Stationen nach.

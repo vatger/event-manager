@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logEventActivity, userName } from "@/lib/events/eventActivity";
+import { personLabel } from "@/lib/events/eventActivityFormat";
 import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/auth";
 import { getServerSession } from "next-auth";
@@ -124,6 +126,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         where: { eventId: parseInt(eventId, 10), userCID: parseInt(userId, 10) },
       });
       await invalidateSignupTable(Number(eventId))
+      if (!isOwnSignup) await logSignupForOther(Number(eventId), Number(session.user.cid), Number(userId), "signup_restored", "wiederhergestellt");
       return NextResponse.json(updated);
     }
 
@@ -148,6 +151,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
         },
       });
       await invalidateSignupTable(Number(eventId))
+      await logSignupForOther(Number(eventId), Number(session.user.cid), Number(userId), "signup_changes_acknowledged", "– Änderungen nach Anmeldeschluss bestätigt");
       return NextResponse.json(updated);
     }
 
@@ -273,6 +277,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ eventId:
       },
     });
     await invalidateSignupTable(Number(eventId))
+    if (!isOwnSignup) await logSignupForOther(Number(eventId), Number(session.user.cid), Number(userId), "signup_updated", "bearbeitet");
     return NextResponse.json(updated);
   } catch (err) {
     console.error(err);
@@ -349,6 +354,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ event
     }
 
     await invalidateSignupTable(Number(eventId))
+    if (!isOwnSignup) {
+      await logSignupForOther(Number(eventId), Number(session.user.cid), Number(userId), hardDelete ? "signup_purged" : "signup_deleted", hardDelete ? "endgültig gelöscht" : "gelöscht");
+    }
     return NextResponse.json({ success: true, hardDelete });
   } catch (err) {
     console.error(err);
@@ -459,4 +467,27 @@ async function sendChangeNotificationToEventTeam(
     console.error('Error sending change notifications:', error);
     // Don't throw - notifications are not critical
   }
+}
+
+/**
+ * Anmeldungen, die jemand für eine andere Person bearbeitet, gehören ins
+ * Event-Protokoll. Eigene An- und Abmeldungen nicht – die zeigt der
+ * Anmeldungen-Tab nach dem Anmeldeschluss ohnehin an.
+ */
+async function logSignupForOther(
+  eventId: number,
+  actorCID: number,
+  targetCID: number,
+  action: string,
+  verb: string
+) {
+  const name = await userName(targetCID);
+  await logEventActivity({
+    eventId,
+    actorCID,
+    category: "signups",
+    action,
+    summary: `Anmeldung von ${personLabel(name, targetCID)} ${verb}`,
+    details: { targetCID },
+  });
 }

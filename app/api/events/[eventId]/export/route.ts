@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import { generateSignupCSV, generateExportFilename } from "@/lib/exportUtils";
 import prisma from "@/lib/prisma";
@@ -51,6 +52,14 @@ export async function GET(
     const filename = generateExportFilename(event.name, selectedAirport);
 
     // Return CSV file
+    await logEventActivity({
+      eventId,
+      actorCID: Number(user.cid),
+      category: "communication",
+      action: "csv_exported",
+      summary: selectedAirport ? `Anmeldungen (${selectedAirport}) als CSV exportiert` : "Anmeldungen als CSV exportiert",
+    });
+
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

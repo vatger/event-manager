@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
+import { statusLabel } from "@/lib/events/eventActivityFormat";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import {
@@ -76,6 +78,15 @@ export async function POST(
       data: { status: "ROSTER_PUBLISHED" },
     });
     notified = await notifyRosterPublished(eventId);
+    // Der Statuswechsel gehört auch ins Event-Protokoll; die Details zum
+    // Plan selbst stehen im Protokoll des Besetzungsplans.
+    await logEventActivity({
+      eventId,
+      actorCID: cid,
+      category: "details",
+      action: "status_changed",
+      summary: `Besetzungsplan im Editor veröffentlicht – Status „${statusLabel(event.status)}“ → „${statusLabel("ROSTER_PUBLISHED")}“`,
+    });
   }
 
   await logRosterActivity({

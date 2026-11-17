@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logEventActivity } from "@/lib/events/eventActivity";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
@@ -98,6 +99,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
 
     const successful = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.length - successful;
+
+    await logEventActivity({
+      eventId,
+      actorCID: Number(session.user.cid),
+      category: "communication",
+      action: "candidates_notified",
+      summary: `Benachrichtigung „${title}“ an ${users.length} potenzielle Lotsen gesendet`,
+      details: { recipients: users.length, message },
+    });
 
     return NextResponse.json({
       success: true,

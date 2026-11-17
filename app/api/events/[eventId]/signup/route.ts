@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
+import { personLabel } from "@/lib/events/eventActivityFormat";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import prisma from "@/lib/prisma";
@@ -120,6 +122,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ eventId
     }
 
     await invalidateSignupTable(eventid)
+    // Für andere angelegte Anmeldungen ins Event-Protokoll, eigene nicht
+    if (targetCID !== Number(session.user.cid)) {
+      await logEventActivity({
+        eventId: eventid,
+        actorCID: Number(session.user.cid),
+        category: "signups",
+        action: "signup_created",
+        summary: `${personLabel(user.name, targetCID)} angemeldet`,
+        details: { targetCID },
+      });
+    }
     return NextResponse.json({signup, usercreated, isAfterDeadline});
   } catch (err) {
     console.error("Error", err);

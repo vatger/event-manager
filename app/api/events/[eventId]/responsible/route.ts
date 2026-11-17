@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/getSessionUser";
@@ -65,12 +66,23 @@ export async function POST(
   const targetUser = await prisma.user.findUnique({ where: { cid: parsed.data.cid }, select: { cid: true, name: true } });
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Upsert to avoid duplicate errors
-  await prisma.eventResponsible.upsert({
+  const existing = await prisma.eventResponsible.findUnique({
     where: { eventId_userCID: { eventId: evId, userCID: parsed.data.cid } },
-    create: { eventId: evId, userCID: parsed.data.cid },
-    update: {},
+    select: { id: true },
   });
+  if (!existing) {
+    await prisma.eventResponsible.create({ data: { eventId: evId, userCID: parsed.data.cid } });
+    await logEventActivity({
+      eventId: evId,
+      actorCID: Number(user.cid),
+      category: "team",
+      action: isSelf ? "responsible_self_added" : "responsible_added",
+      summary: isSelf
+        ? "Hat sich als verantwortlich eingetragen"
+        : `${targetUser.name} als verantwortlich eingetragen`,
+      details: { targetCID: targetUser.cid },
+    });
+  }
 
   return NextResponse.json(targetUser, { status: 201 });
 }

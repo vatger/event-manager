@@ -1,4 +1,5 @@
 import { authOptions } from "@/lib/auth";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import prisma from "@/lib/prisma";
 import { Event } from "@prisma/client";
 import { google } from "googleapis";
@@ -431,6 +432,16 @@ export async function POST(req: Request) {
       requestBody: {
         requests: requests
       }
+    });
+
+    await logEventActivity({
+      eventId: rawEvent.id,
+      actorCID: Number(session.user.cid),
+      category: "communication",
+      action: "sheets_synced",
+      summary: selectedAirport
+        ? `Anmeldungen (${selectedAirport}) mit Google Sheets abgeglichen`
+        : "Anmeldungen mit Google Sheets abgeglichen",
     });
 
     return NextResponse.json({ success: true });

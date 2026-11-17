@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canManageEventTasks } from "@/lib/acl/permissions";
@@ -65,6 +66,14 @@ export async function POST(
       })
     )
   );
+
+  await logEventActivity({
+    eventId: id,
+    actorCID: Number(user.cid),
+    category: "tasks",
+    action: "tasks_generated",
+    summary: `${created.length} Standardaufgaben angelegt`,
+  });
 
   return NextResponse.json({ message: "Tasks generated", created: created.length, tasks: created });
 }

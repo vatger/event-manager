@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventActivities, logEventActivity } from "@/lib/events/eventActivity";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canManageEventTasks, isEventFirTeamMember } from "@/lib/acl/permissions";
@@ -147,7 +148,61 @@ export async function PATCH(
     },
   });
 
+  await logTaskUpdate(evId, userCid, existingTask, updated, parsed.data.bannerUrl);
+
   return NextResponse.json(updated);
+}
+
+const TASK_STATUS_TEXT: Record<string, string> = {
+  OPEN: "wieder geöffnet",
+  IN_PROGRESS: "in Bearbeitung genommen",
+  DONE: "erledigt",
+  SKIPPED: "übersprungen",
+};
+
+/** Was sich an einer Aufgabe geändert hat, als ein Protokolleintrag */
+async function logTaskUpdate(
+  eventId: number,
+  actorCID: number,
+  before: { title: string; status: string; assigneeCID: number | null; description: string | null; dueDate: Date | null },
+  after: { title: string; status: string; assigneeCID: number | null; description: string | null; dueDate: Date | null; assignee: { name: string } | null },
+  bannerUrl: string | null | undefined
+) {
+  const parts: string[] = [];
+  if (before.assigneeCID !== after.assigneeCID) {
+    if (after.assigneeCID === actorCID) parts.push("übernommen");
+    else if (after.assigneeCID === null) parts.push(before.assigneeCID === actorCID ? "abgegeben" : "Zuweisung aufgehoben");
+    else parts.push(`${after.assignee?.name ?? `CID ${after.assigneeCID}`} zugewiesen`);
+  }
+  if (before.status !== after.status) parts.push(TASK_STATUS_TEXT[after.status] ?? after.status);
+  if (
+    before.title !== after.title ||
+    before.description !== after.description ||
+    String(before.dueDate) !== String(after.dueDate)
+  ) {
+    parts.push("bearbeitet");
+  }
+
+  const entries: Parameters<typeof logEventActivities>[0] = [];
+  if (parts.length > 0) {
+    entries.push({
+      eventId,
+      actorCID,
+      category: "tasks",
+      action: "task_updated",
+      summary: `Aufgabe „${after.title}“ ${parts.join(", ")}`,
+    });
+  }
+  if (bannerUrl !== undefined) {
+    entries.push({
+      eventId,
+      actorCID,
+      category: "banner",
+      action: "banner_changed",
+      summary: bannerUrl ? "Banner über die Aufgabe „Banner erstellen“ gesetzt" : "Banner über die Aufgabe entfernt",
+    });
+  }
+  await logEventActivities(entries);
 }
 
 /**
@@ -183,6 +238,13 @@ export async function DELETE(
   }
 
   await prisma.eventTask.delete({ where: { id: tId } });
+  await logEventActivity({
+    eventId: evId,
+    actorCID: Number(user.cid),
+    category: "tasks",
+    action: "task_deleted",
+    summary: `Aufgabe „${task.title}“ gelöscht`,
+  });
 
   return NextResponse.json({ message: "Task deleted" });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon, ClipboardList, CalendarClock } from "lucide-react";
+import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon, ClipboardList, CalendarClock, History } from "lucide-react";
 import { useState, useEffect } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import type { CapabilityKey } from "@/lib/events/eventCapabilities";
@@ -57,6 +57,13 @@ const eventAdminTabs: {
     href: "/notify",
     icon: Bell,
     capability: "notify"
+  },
+  {
+    id: "activity",
+    label: "Verlauf",
+    href: "/activity",
+    icon: History,
+    capability: "viewLog"
   },
   {
     id: "edit",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { logEventActivity } from "@/lib/events/eventActivity";
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
@@ -94,6 +95,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
       console.error("VATGER API Error:", apiError);
       // Weiter auch bei API-Fehlern
     }
+
+    await logEventActivity({
+      eventId: id,
+      actorCID: Number(session.user.cid),
+      category: "communication",
+      action: "notification_sent",
+      summary: `Benachrichtigung „${title}“ an ${signup.user.name} gesendet`,
+      details: { targetCID: signup.user.cid, message },
+    });
 
     return NextResponse.json({
       success: true,

@@ -92,7 +92,7 @@ export function BannerUrlDialog({ event, onUpdate, children }: BannerUrlDialogPr
       {allowed ? (
         <DialogTrigger asChild>{trigger}</DialogTrigger>
       ) : (
-        <RequiresRight allowed={false} capability="banner">{trigger}</RequiresRight>
+        <RequiresRight allowed={false} capability="banner" className="inline-flex cursor-not-allowed">{trigger}</RequiresRight>
       )}
       <DialogContent>
         <DialogHeader>

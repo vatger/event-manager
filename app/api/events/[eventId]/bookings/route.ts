@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 import {
@@ -26,6 +27,18 @@ async function denyUnauthorized(eventId: number): Promise<NextResponse | null> {
   const capabilities = await getEventCapabilities(Number(user.cid), eventId);
   if (!capabilities) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
   return denyMissing(capabilities, ["publishRoster"]);
+}
+
+/** Manuelle Buchungsaktionen ins Event-Protokoll */
+async function logBookings(eventId: number, action: string, summary: string) {
+  const user = await getSessionUser();
+  await logEventActivity({
+    eventId,
+    actorCID: user ? Number(user.cid) : null,
+    category: "roster",
+    action,
+    summary,
+  });
 }
 
 function handleError(error: unknown) {
@@ -67,7 +80,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ eve
   if (denied) return denied;
 
   try {
-    return NextResponse.json(await syncEventStationBookings(eventId));
+    const result = await syncEventStationBookings(eventId);
+    await logBookings(eventId, "bookings_synced", "Stationsbuchungen abgeglichen");
+    return NextResponse.json(result);
   } catch (error) {
     return handleError(error);
   }
@@ -91,10 +106,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ e
       if (ids.length === 0) {
         return NextResponse.json({ error: "bookingIds must be integers" }, { status: 400 });
       }
-      return NextResponse.json(await releaseSingleEventBookings(eventId, ids));
+      const result = await releaseSingleEventBookings(eventId, ids);
+      await logBookings(eventId, "bookings_released", `${ids.length === 1 ? "Eine Stationsbuchung" : `${ids.length} Stationsbuchungen`} freigegeben`);
+      return NextResponse.json(result);
     }
 
-    return NextResponse.json(await releaseEventStationBookings(eventId));
+    const result = await releaseEventStationBookings(eventId);
+    await logBookings(eventId, "bookings_released", "Alle Stationsbuchungen freigegeben");
+    return NextResponse.json(result);
   } catch (error) {
     return handleError(error);
   }

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
+import { statusLabel } from "@/lib/events/eventActivityFormat";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -169,6 +171,14 @@ export async function POST(req: Request) {
         )
       );
     }
+
+    await logEventActivity({
+      eventId: event.id,
+      actorCID: Number(session.user.cid),
+      category: "details",
+      action: "event_created",
+      summary: `Event angelegt (${statusLabel(event.status)})`,
+    });
 
     return NextResponse.json(event, { status: 201 });
   } catch (err) {

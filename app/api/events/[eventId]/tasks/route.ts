@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logEventActivity } from "@/lib/events/eventActivity";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
 import { canManageEventTasks } from "@/lib/acl/permissions";
@@ -92,6 +93,14 @@ export async function POST(
     include: {
       assignee: { select: { cid: true, name: true } },
     },
+  });
+
+  await logEventActivity({
+    eventId: id,
+    actorCID: Number(user.cid),
+    category: "tasks",
+    action: "task_created",
+    summary: `Aufgabe „${task.title}“ angelegt${task.assignee ? ` und ${task.assignee.name} zugewiesen` : ""}`,
   });
 
   return NextResponse.json(task, { status: 201 });
