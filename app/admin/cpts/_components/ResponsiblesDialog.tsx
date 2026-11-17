@@ -134,7 +134,7 @@ export function ResponsiblesDialog({
             <Alert>
               <AlertDescription>
                 Noch niemand eingetragen. Erinnerungen gehen ersatzweise an die
-                FIR-Leitung.
+                FIR-Eventleitung.
               </AlertDescription>
             </Alert>
           ) : (

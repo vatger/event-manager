@@ -34,7 +34,7 @@ describe("Zugang zum Bereich", () => {
     expect(canAccessTeamArea(outsider)).toBe(false);
   });
 
-  it("beschränkt die FIR-Leitung auf ihr eigenes Department", () => {
+  it("beschränkt die FIR-Eventleitung auf ihr eigenes Department", () => {
     expect(manageableDepartments(edmmLead)).toEqual(["EDMM"]);
     expect(manageableDepartments(vatger)).toBe("ALL");
     expect(canManageDepartment(edmmLead, "EDMM")).toBe(true);
@@ -44,7 +44,7 @@ describe("Zugang zum Bereich", () => {
 });
 
 describe("Untergruppen", () => {
-  it("verwaltet die FIR-Leitung im eigenen Department vollständig", () => {
+  it("verwaltet die FIR-Eventleitung im eigenen Department vollständig", () => {
     expect(canCreateGroup(edmmLead, "EDMM")).toBe(true);
     expect(canEditGroup(edmmLead, subgroup("EDMM"))).toBe(true);
     expect(canDeleteGroup(edmmLead, subgroup("EDMM"))).toBe(true);
@@ -68,7 +68,7 @@ describe("Untergruppen", () => {
 });
 
 describe("Leitungsgruppe", () => {
-  it("kann die FIR-Leitung weder umbenennen noch besetzen", () => {
+  it("kann die FIR-Eventleitung weder umbenennen noch besetzen", () => {
     expect(canEditGroup(edmmLead, leitung("EDMM"))).toBe(false);
     expect(canManageGroupMembers(edmmLead, leitung("EDMM"))).toBe(false);
   });

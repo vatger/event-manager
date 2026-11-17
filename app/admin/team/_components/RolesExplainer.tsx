@@ -14,7 +14,7 @@ const ROLES = [
   },
   {
     icon: ShieldCheck,
-    title: "FIR-Leitung",
+    title: "FIR-Eventleitung",
     text: "Organisiert ihr Department: legt Untergruppen an, nimmt Mitglieder auf und verteilt Rechte.",
   },
   {

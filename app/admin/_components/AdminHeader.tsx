@@ -23,7 +23,7 @@ import { useTheme } from "next-themes";
 const LEVEL_LABELS: Record<CurrentUser["effectiveLevel"], string> = {
   MAIN_ADMIN: "Main-Admin",
   VATGER_LEITUNG: "VATGER-Eventleitung",
-  FIR_EVENTLEITER: "FIR-Leitung",
+  FIR_EVENTLEITER: "FIR-Eventleitung",
   USER: "Eventteam",
 };
 

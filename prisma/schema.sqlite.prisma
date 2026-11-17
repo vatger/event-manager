@@ -23,7 +23,7 @@ enum NotificationType {
 }
 
 // FIR_LEITUNG: die eine geschützte Leitungsgruppe einer FIR (alle FIR-Rechte fest).
-// CUSTOM: jede andere Gruppe – ihre Rechte verteilt die FIR-Leitung.
+// CUSTOM: jede andere Gruppe – ihre Rechte verteilt die FIR-Eventleitung.
 enum GroupKind {
   FIR_LEITUNG
   CUSTOM

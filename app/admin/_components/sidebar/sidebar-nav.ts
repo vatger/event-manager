@@ -71,7 +71,7 @@ import {
       ]
     },
     
-    // Team & Rechte (FIR-Leitung, VATGER-Eventleitung, Main-Admin)
+    // Team & Rechte (FIR-Eventleitung, VATGER-Eventleitung, Main-Admin)
     {
       title: "Organisation",
       audience: "teamLead",

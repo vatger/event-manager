@@ -37,7 +37,7 @@ function formatCptTime(date: Date): string {
 
 /**
  * Empfänger einer FIR: die eingetragenen CPT-Verantwortlichen. Ist für eine
- * FIR niemand hinterlegt, geht die Erinnerung ersatzweise an die FIR-Leitung,
+ * FIR niemand hinterlegt, geht die Erinnerung ersatzweise an die FIR-Eventleitung,
  * damit CPTs nicht unbemerkt liegenbleiben.
  */
 async function resolveTargets(firCode: string): Promise<ReminderTarget[]> {

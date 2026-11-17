@@ -6,13 +6,13 @@ import { isMainAdminCid } from "./mainAdmins";
  * damit sie sich testen lässt. Geladen wird in policies.ts.
  *
  * Das Modell:
- *  - MAIN_ADMIN      Systemadministration, ausschließlich über MAIN_ADMIN_CIDS.
- *  - VATGER_LEITUNG  führt alle Eventdepartments, darf inhaltlich alles.
- *  - FIR-Leitung     Mitglied der einen Leitungsgruppe einer FIR: alle Rechte
- *                    des Katalogs in dieser FIR (außer den nur ausdrücklich
- *                    vergebenen), verwaltet deren Untergruppen.
- *  - FIR-Team        Mitglied irgendeiner Gruppe der FIR: Grundrechte plus die
- *                    Rechte seiner Gruppen.
+ *  - MAIN_ADMIN       Systemadministration, ausschließlich über MAIN_ADMIN_CIDS.
+ *  - VATGER_LEITUNG   führt alle Eventdepartments, darf inhaltlich alles.
+ *  - FIR-Eventleitung Mitglied der einen Leitungsgruppe einer FIR: alle Rechte
+ *                     des Katalogs in dieser FIR (außer den nur ausdrücklich
+ *                     vergebenen), verwaltet deren Untergruppen.
+ *  - FIR-Team         Mitglied irgendeiner Gruppe der FIR: Grundrechte plus die
+ *                     Rechte seiner Gruppen.
  */
 
 export type EffectiveLevel = "USER" | "FIR_EVENTLEITER" | "VATGER_LEITUNG" | "MAIN_ADMIN";

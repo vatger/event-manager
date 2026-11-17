@@ -398,7 +398,7 @@ export function CptManager() {
               <span>
                 Für {CPT_FIR_NAMES[activeFir] ?? activeFir} ist niemand als
                 CPT-Verantwortlicher eingetragen – Erinnerungen gehen ersatzweise
-                an die FIR-Leitung.
+                an die FIR-Eventleitung.
               </span>
               {canEditResponsibles && (
                 <Button variant="outline" size="sm" onClick={() => setResponsiblesOpen(true)}>
