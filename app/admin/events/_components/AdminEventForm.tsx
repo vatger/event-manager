@@ -305,14 +305,17 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        bannerUrl: formData.bannerUrl.trim(),
+        // Felder ohne Recht weglassen – der Server behält dann den gespeicherten Wert
+        ...(allows("banner") ? { bannerUrl: formData.bannerUrl.trim() } : {}),
         startTime: formData.startTime,
         endTime: formData.endTime,
         airports: formData.airports.map(normalizeAirportCode),
         staffedStations: formData.staffedStations,
         status: formData.status,
-        rosterlink: formData.rosterUrl?.trim() || null,
-        signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+        ...(allows("publishRoster") ? { rosterlink: formData.rosterUrl?.trim() || null } : {}),
+        ...(allows("signupPhase")
+          ? { signupDeadline: formData.deadline ? new Date(formData.deadline).toISOString() : null }
+          : {}),
         signupSlotMinutes: formData.signupSlotMinutes,
         firCode: isVATGERLead() ? formData.fir : null,
         ...(releaseBookings === undefined ? {} : { releaseBookings }),

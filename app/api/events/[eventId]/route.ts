@@ -12,7 +12,7 @@ import {
 } from "@/lib/bookings/eventStationBookings";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
-import { isVatgerEventleitung, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
+import { isVatgerEventleitung, hasAdminAccess } from "@/lib/acl/permissions";
 import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 import { changedFields, requiredCapabilities, type EventStatus } from "@/lib/events/eventChangeRules";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
@@ -69,10 +69,12 @@ export async function GET(request: Request,
   }
   const flatResponsibles = event.responsibles.map((r) => r.user);
 
-  // Hide bannerUrl when bannerVisible is false, unless user can manage the banner
+  // Ein verborgener Banner ist nur für die Öffentlichkeit verborgen. Das
+  // Eventteam braucht die URL – sonst schickt das Bearbeiten-Formular ein
+  // leeres Feld zurück, und Speichern sähe aus wie „Banner entfernen“.
   if (!event.bannerVisible) {
-    const canBanner = await canManageEventBanner(Number(user.cid), event.id);
-    if (!canBanner) {
+    const capabilities = await getEventCapabilities(Number(user.cid), event.id);
+    if (!capabilities?.banner && !capabilities?.isTeamMember) {
       return NextResponse.json({ ...event, responsibles: flatResponsibles, bannerUrl: null });
     }
   }
@@ -111,18 +113,23 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
   const fir = parsed.data.firCode || firbyevent.firCode
 
   // Was das Formular speichern würde – geprüft wird, was sich davon ändert
+  // Fehlt ein Feld im Request, bleibt der gespeicherte Wert – das Formular
+  // lässt Felder weg, die der Nutzer nicht ändern darf.
+  const sent = (key: string) => body !== null && typeof body === "object" && key in body;
   const putData = {
     name: parsed.data.name,
-    description: parsed.data.description || "",
-    bannerUrl: parsed.data.bannerUrl || null,
+    description: sent("description") ? parsed.data.description || "" : firbyevent.description,
+    bannerUrl: sent("bannerUrl") ? parsed.data.bannerUrl || null : firbyevent.bannerUrl,
     startTime: new Date(parsed.data.startTime),
     endTime: new Date(parsed.data.endTime),
     airports: parsed.data.airports,
-    signupDeadline: parsed.data.signupDeadline ? new Date(parsed.data.signupDeadline) : null,
-    signupSlotMinutes: parsed.data.signupSlotMinutes ?? 30,
-    staffedStations: parsed.data.staffedStations || [],
+    signupDeadline: sent("signupDeadline")
+      ? parsed.data.signupDeadline ? new Date(parsed.data.signupDeadline) : null
+      : firbyevent.signupDeadline,
+    signupSlotMinutes: parsed.data.signupSlotMinutes ?? firbyevent.signupSlotMinutes ?? 30,
+    staffedStations: parsed.data.staffedStations ?? firbyevent.staffedStations ?? [],
     status: parsed.data.status || firbyevent.status,
-    rosterlink: body.rosterlink || null,
+    rosterlink: sent("rosterlink") ? body.rosterlink || null : firbyevent.rosterlink,
     firCode: fir,
   };
   const capabilities = await getEventCapabilities(cid, Number(eventId));
