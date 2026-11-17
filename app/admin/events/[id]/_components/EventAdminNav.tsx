@@ -5,9 +5,10 @@ import { useParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Users, Bell, UserCheck, BarChart3, Settings, Menu, X, LucideIcon, ClipboardList, CalendarClock } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useUser } from "@/hooks/useUser";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import type { PermissionKey } from "@/lib/acl/catalog";
+import type { CapabilityKey } from "@/lib/events/eventCapabilities";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
+import { RequiresRight } from "@/components/RequiresRight";
 
 const eventAdminTabs: {
     id: string;
@@ -15,7 +16,8 @@ const eventAdminTabs: {
     href: string;
     icon: LucideIcon;
     badge?: "count";
-    permission?: PermissionKey;
+    /** Ohne dieses Recht ist der Tab gesperrt (mit Begründung) */
+    capability?: CapabilityKey;
   }[] = [
   {
     id: "overview",
@@ -54,14 +56,14 @@ const eventAdminTabs: {
     label: "Benachrichtigungen",
     href: "/notify",
     icon: Bell,
-    permission: "user.notif"
+    capability: "notify"
   },
   {
     id: "edit",
     label: "Bearbeiten",
     href: "/edit",
     icon: Settings,
-    permission: "event.edit"
+    capability: "editDetails"
   }
 ];
 
@@ -82,7 +84,8 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   
-  const { canInOwnFIR } = useUser();
+  // Rechte am Event selbst (FIR des Events), nicht an der eigenen FIR
+  const { capabilities } = useEventCapabilities(eventId);
   
   const basePath = `/admin/events/${eventId}`;
 
@@ -112,10 +115,7 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
     }
   };
 
-  const visibleTabs = eventAdminTabs.filter((tab) => {
-    if (!tab.permission) return true;
-    return canInOwnFIR(tab.permission);
-  });
+  const visibleTabs = eventAdminTabs;
 
   const NavItem = ({ tab }: { tab: typeof eventAdminTabs[0] }) => {
     const href = `${basePath}${tab.href}`;
@@ -124,6 +124,21 @@ export function EventAdminNav({ signupsCount = 0, candidatesCount = 0, eventName
     
     const badgeCount = getBadgeCount(tab.id);
     const Icon = tab.icon;
+
+    // Gesperrter Tab: sichtbar, aber nicht anklickbar – der Tooltip nennt das Recht
+    if (tab.capability && !capabilities[tab.capability]) {
+      return (
+        <RequiresRight allowed={false} capability={tab.capability} className="inline-flex cursor-not-allowed">
+          <button
+            type="button"
+            className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-muted-foreground opacity-50"
+          >
+            <Icon className="h-4 w-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">{tab.label}</span>
+          </button>
+        </RequiresRight>
+      );
+    }
 
     return (
       <Link

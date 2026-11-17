@@ -198,7 +198,7 @@ export default function AdminEventsPage() {
         body: JSON.stringify({ status: "ROSTER_PUBLISHED", rosterlink: rosterInput }),
       });
       
-      if (!res.ok) throw new Error("Fehler beim Veröffentlichen des Rosters");
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Fehler beim Veröffentlichen des Rosters");
       
       setOpenRosterDialog(false);
       setOpenTarget(null);
@@ -230,7 +230,7 @@ export default function AdminEventsPage() {
         }),
       });
       
-      if (!res.ok) throw new Error("Fehler beim Öffnen der Anmeldung");
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Fehler beim Öffnen der Anmeldung");
       
       setOpenDialog(false);
       setOpenTarget(null);
@@ -254,7 +254,7 @@ export default function AdminEventsPage() {
         body: JSON.stringify({ status: "SIGNUP_CLOSED" }),
       });
       
-      if (!res.ok) throw new Error("Fehler beim Schließen der Anmeldung");
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || "Fehler beim Schließen der Anmeldung");
       refreshEvents();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unbekannter Fehler");

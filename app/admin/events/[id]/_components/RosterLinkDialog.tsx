@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useState } from "react";
 import { Event } from "@/types";
 import { toast } from "sonner";
@@ -7,8 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { RequiresRight } from "@/components/RequiresRight";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
 import { Link } from "lucide-react";
-import { useUser } from "@/hooks/useUser";
 
 interface RosterLinkDialogProps {
   event: Event;
@@ -17,11 +19,11 @@ interface RosterLinkDialogProps {
 }
 
 export function RosterLinkDialog({ event, onUpdate, children }: RosterLinkDialogProps) {
+  const { capabilities } = useEventCapabilities(event.id);
   const [open, setOpen] = useState(false);
   const [rosterlink, setRosterlink] = useState(event.rosterlink || "");
   const [loading, setLoading] = useState(false);
 
-  const { canInOwnFIR } = useUser();
 
   const handleSave = async () => {
     setLoading(true);
@@ -48,16 +50,23 @@ export function RosterLinkDialog({ event, onUpdate, children }: RosterLinkDialog
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
-          <Button variant="outline" className="justify-start w-full" size="sm" disabled={!canInOwnFIR("roster.publish")}>
+
+  // Ohne Recht bleibt der Knopf sichtbar, ist aber gesperrt und sagt warum
+  const allowed = capabilities.publishRoster;
+  const trigger = (children as React.ReactElement<{ disabled?: boolean }> | undefined) || (
+          <Button variant="outline" className="justify-start w-full" size="sm">
             <Link className="h-4 w-4 mr-2" />
             Roster-Link {event.rosterlink ? "bearbeiten" : "hinzufügen"}
           </Button>
-        )}
-      </DialogTrigger>
+        );
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {allowed ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : (
+        <RequiresRight allowed={false} capability="publishRoster">{trigger}</RequiresRight>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Roster-Link bearbeiten</DialogTitle>

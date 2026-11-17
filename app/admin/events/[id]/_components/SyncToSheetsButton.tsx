@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useUser } from '@/hooks/useUser';
+import { useEventCapabilities } from '@/hooks/useEventCapabilities';
 import { useState, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
 
@@ -23,7 +23,7 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
   const [selectedAirport, setSelectedAirport] = useState<string | undefined>();
   const [eventAirports, setEventAirports] = useState<string[]>([]);
 
-  const { canInOwnFIR } = useUser();
+  const { capabilities } = useEventCapabilities(eventId);
 
   // Fetch event data to get airports
   useEffect(() => {
@@ -97,7 +97,8 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                disabled={isLoading || !canInOwnFIR("event.export")}
+                title={capabilities.export ? undefined : "Dafür brauchst du das Recht „Anmeldungen exportieren“."}
+                disabled={isLoading || !capabilities.export}
                 className="px-4 py-2 rounded-md font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
               >
                 {isLoading ? (
@@ -133,7 +134,7 @@ export default function SyncToSheetsButton({ eventId, className = '' }: SyncToSh
         ) : (
           <Button
             onClick={() => handleSyncClick()}
-            disabled={isLoading || !canInOwnFIR("event.export")}
+            disabled={isLoading || !capabilities.export}
             className="px-4 py-2 rounded-md font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white transition-colors duration-200"
           >
             {isLoading ? (

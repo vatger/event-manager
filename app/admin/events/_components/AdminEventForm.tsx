@@ -20,6 +20,10 @@ import EventStationBookings from "./EventStationBookings";
 import { Event } from "@/types";
 import type { Station } from "@/lib/stations/types";
 import { useUser } from "@/hooks/useUser";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
+import { RequiresRight } from "@/components/RequiresRight";
+import { missingRightMessage, type CapabilityKey } from "@/lib/events/eventCapabilities";
+import { capabilityForStatus } from "@/lib/events/eventChangeRules";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { normalizeAirportCode, isValidAirportCode } from "@/utils/airportUtils";
@@ -88,6 +92,18 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
   });
 
   const { isVATGERLead } = useUser();
+
+  // Beim Bearbeiten gelten die Rechte am Event: ohne „Stammdaten bearbeiten“
+  // nur lesen, einzelne Felder brauchen ihr eigenes Recht. Beim Anlegen
+  // genügt „Events erstellen“, geprüft beim Speichern.
+  const { capabilities, loading: capabilitiesLoading } = useEventCapabilities(event?.id);
+  const allows = (capability: CapabilityKey) =>
+    !isEdit || capabilitiesLoading || capabilities[capability];
+  const readOnly = !allows("editDetails");
+  // Ein Statuswechsel braucht das Recht seines Ziels (Anmeldephase,
+  // Veröffentlichen, sonst Stammdaten); der aktuelle Status bleibt wählbar.
+  const statusAllowed = (status: Event["status"]) =>
+    status === event?.status || allows(capabilityForStatus(status));
 
   // Initialisierung basierend auf Event (Edit-Modus) oder leere Werte (Create-Modus)
   // Note: We intentionally only depend on event?.id and initialDate, not the full event object.
@@ -437,6 +453,14 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
       </div>
 
 
+      {readOnly && (
+        <Alert className="mb-6">
+          <AlertCircleIcon className="h-4 w-4" />
+          <AlertTitle>Nur lesen</AlertTitle>
+          <AlertDescription>{missingRightMessage("editDetails")}</AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircleIcon className="h-4 w-4" />
@@ -455,6 +479,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
 
           {/* Grunddaten Tab */}
           <TabsContent value="basic" className="space-y-6">
+            <fieldset disabled={readOnly} className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Event Information</CardTitle>
@@ -496,8 +521,11 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                     value={formData.bannerUrl}
                     onChange={handleChange}
                     placeholder="https://example.com/banner.jpg"
-                    disabled={isSaving}
+                    disabled={isSaving || !allows("banner")}
                   />
+                  {!allows("banner") && (
+                    <p className="text-xs text-muted-foreground">{missingRightMessage("banner")}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -567,12 +595,12 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                       <SelectValue placeholder="Status wählen" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="DRAFT">DRAFT – Entwurf</SelectItem>
-                      <SelectItem value="PLANNING">PLANNING – Planung</SelectItem>
-                      <SelectItem value="SIGNUP_OPEN">SIGNUP_OPEN – Anmeldung offen</SelectItem>
-                      <SelectItem value="SIGNUP_CLOSED">SIGNUP_CLOSED – Anmeldung geschlossen</SelectItem>
-                      <SelectItem value="ROSTER_PUBLISHED">ROSTER_PUBLISHED – Roster veröffentlicht</SelectItem>
-                      <SelectItem value="CANCELLED">CANCELLED – Abgesagt</SelectItem>
+                      <SelectItem value="DRAFT" disabled={!statusAllowed("DRAFT")}>DRAFT – Entwurf</SelectItem>
+                      <SelectItem value="PLANNING" disabled={!statusAllowed("PLANNING")}>PLANNING – Planung</SelectItem>
+                      <SelectItem value="SIGNUP_OPEN" disabled={!statusAllowed("SIGNUP_OPEN")}>SIGNUP_OPEN – Anmeldung offen</SelectItem>
+                      <SelectItem value="SIGNUP_CLOSED" disabled={!statusAllowed("SIGNUP_CLOSED")}>SIGNUP_CLOSED – Anmeldung geschlossen</SelectItem>
+                      <SelectItem value="ROSTER_PUBLISHED" disabled={!statusAllowed("ROSTER_PUBLISHED")}>ROSTER_PUBLISHED – Roster veröffentlicht</SelectItem>
+                      <SelectItem value="CANCELLED" disabled={!statusAllowed("CANCELLED")}>CANCELLED – Abgesagt</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
@@ -590,7 +618,7 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                       value={formData.rosterUrl}
                       onChange={handleChange}
                       placeholder="https://docs.google.com/spreadsheets/d/..."
-                      disabled={isSaving}
+                      disabled={isSaving || !allows("publishRoster")}
                     />
                     <p className="text-xs text-muted-foreground">
                       Eine Benachrichtigung an die Nutzer wird hier nicht Versendet. Bitte Plan über Button in der Eventkarte veröffentlichen.
@@ -631,17 +659,23 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                         const val = e.target.value;
                         setFormData(prev => ({ ...prev, deadline: val ? new Date(val).toISOString() : "" }));
                       }}
+                      disabled={isSaving || !allows("signupPhase")}
                     />
+                    {!allows("signupPhase") && (
+                      <p className="text-xs text-muted-foreground">{missingRightMessage("signupPhase")}</p>
+                    )}
                   </div>
                   </>
                 )}
                 
               </CardContent>
             </Card>
+            </fieldset>
           </TabsContent>
 
           {/* Zeit & Datum Tab */}
           <TabsContent value="time">
+            <fieldset disabled={readOnly} className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Zeitplan</CardTitle>
@@ -657,10 +691,12 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                 />
               </CardContent>
             </Card>
+            </fieldset>
           </TabsContent>
 
           {/* Stationen Tab */}
           <TabsContent value="stations">
+            <fieldset disabled={readOnly} className="min-w-0 space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Zu besetzende Stationen</CardTitle>
@@ -744,11 +780,12 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
                   <EventStationBookings
                     eventId={Number(event.id)}
                     stations={formData.staffedStations}
-                    disabled={isSaving}
+                    disabled={isSaving || !allows("publishRoster")}
                   />
                 )}
               </CardContent>
             </Card>
+            </fieldset>
           </TabsContent>
         </Tabs>
 
@@ -762,11 +799,14 @@ export default function AdminEventForm({ event, fir, initialDate }: Props) {
           >
             Abbrechen
           </Button>
-          {isEdit && 
-          <Button type="button" variant={"destructive"} onClick={() => setDeleteDialogOpen(true)}>
-            <Trash2Icon />
-          </Button>}
-          <Button type="submit" disabled={isSaving}>
+          {isEdit && (
+            <RequiresRight allowed={allows("delete")} capability="delete" className="inline-flex cursor-not-allowed">
+              <Button type="button" variant={"destructive"} onClick={() => setDeleteDialogOpen(true)} aria-label="Event löschen">
+                <Trash2Icon />
+              </Button>
+            </RequiresRight>
+          )}
+          <Button type="submit" disabled={isSaving || readOnly}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEdit ? "Event aktualisieren" : "Event erstellen"}
           </Button>

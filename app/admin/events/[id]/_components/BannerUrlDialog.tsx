@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useState } from "react";
 import { Event } from "@/types";
 import { toast } from "sonner";
@@ -7,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { RequiresRight } from "@/components/RequiresRight";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
 import { ImageIcon, X } from "lucide-react";
 
 interface BannerUrlDialogProps {
@@ -16,6 +19,7 @@ interface BannerUrlDialogProps {
 }
 
 export function BannerUrlDialog({ event, onUpdate, children }: BannerUrlDialogProps) {
+  const { capabilities } = useEventCapabilities(event.id);
   const [open, setOpen] = useState(false);
   const [bannerUrl, setBannerUrl] = useState(event.bannerUrl || "");
   const [loading, setLoading] = useState(false);
@@ -73,16 +77,23 @@ export function BannerUrlDialog({ event, onUpdate, children }: BannerUrlDialogPr
     }
   };
 
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || (
+
+  // Ohne Recht bleibt der Knopf sichtbar, ist aber gesperrt und sagt warum
+  const allowed = capabilities.banner;
+  const trigger = (children as React.ReactElement<{ disabled?: boolean }> | undefined) || (
           <Button variant="outline" size="sm">
             <ImageIcon className="h-4 w-4 mr-2" />
             {event.bannerUrl ? "Banner bearbeiten" : "Banner hinzufügen"}
           </Button>
-        )}
-      </DialogTrigger>
+        );
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {allowed ? (
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+      ) : (
+        <RequiresRight allowed={false} capability="banner">{trigger}</RequiresRight>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Banner-URL bearbeiten</DialogTitle>

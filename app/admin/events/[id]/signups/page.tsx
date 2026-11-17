@@ -7,7 +7,8 @@ import EventHeader from "../_components/EventHeader";
 import { AbsencesCard } from "./_components/AbsencesCard";
 import { StatsCardHandle } from "../_components/StatsCard";
 import SyncToSheetsButton from "../_components/SyncToSheetsButton";
-import { useUser } from "@/hooks/useUser";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
+import { RequiresRight } from "@/components/RequiresRight";
 import { AvailabilityTimelineHandle } from "../_components/AvailabilityTimeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SignupsTable, { SignupsTableRef } from "@/components/SignupsTable";
@@ -74,7 +75,7 @@ export default function AdminEventSignupsPage() {
 
   const timelineRef = useRef<AvailabilityTimelineHandle>(null);
   const statsRef = useRef<StatsCardHandle>(null);
-  const { canInFIR } = useUser();
+  const { capabilities } = useEventCapabilities(eventId);
 
   // Event laden
   useEffect(() => {
@@ -265,7 +266,7 @@ export default function AdminEventSignupsPage() {
             <SignupsTable
               ref={tableRef}
               eventId={Number(event.id)}
-              editable={canInFIR(event.firCode, "signups.manage")}
+              editable={capabilities.manageSignups}
               event={event}
               columns={["cid", "name", "group", "airports", "availability", "preferredStations", "remarks"]}
               onRefresh={handleSignupChanged}
@@ -281,7 +282,7 @@ export default function AdminEventSignupsPage() {
         <SignupsTable
           ref={tableRef}
           eventId={Number(event.id)}
-          editable={canInFIR(event.firCode, "signups.manage")}
+          editable={capabilities.manageSignups}
           event={event}
           onRefresh={handleSignupChanged}
         />
@@ -311,7 +312,7 @@ export default function AdminEventSignupsPage() {
           feasibility={feasibility}
           hasStations={planningStations.length > 0}
           canOpenRoster={canEditRoster}
-          canAcknowledge={canInFIR(event.firCode, "signups.manage")}
+          canAcknowledge={capabilities.manageSignups}
           onChanged={handleSignupChanged}
         />
       )}
@@ -329,6 +330,14 @@ export default function AdminEventSignupsPage() {
             Angemeldete Teilnehmer
           </div>
           <div className="flex gap-2">
+            {!capabilities.export ? (
+              <RequiresRight allowed={false} capability="export" className="inline-flex cursor-not-allowed">
+                <Button variant="outline" size="sm">
+                  <Download className="h-4 w-4 mr-2" />
+                  CSV Export
+                </Button>
+              </RequiresRight>
+            ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm">
@@ -354,6 +363,7 @@ export default function AdminEventSignupsPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
             <Button onClick={handleSignupChanged} variant="outline" size="sm">
               <RotateCcw className="h-4 w-4" /> <p className="hidden sm:block ml-1">Neu laden</p>
             </Button>

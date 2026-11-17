@@ -49,9 +49,22 @@ import { BannerUrlDialog } from "./_components/BannerUrlDialog";
 import { RosterLinkDialog } from "./_components/RosterLinkDialog";
 import { SignupDeadlineDialog } from "./_components/SignupDeadlineDialog";
 import { useUser } from "@/hooks/useUser";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
+import { RequiresRight } from "@/components/RequiresRight";
+import type { CapabilityKey } from "@/lib/events/eventCapabilities";
 import Link from "next/link";
 import type { EventTask } from "@/types/task";
 import { getEventStatusStyle } from "@/utils/eventStatus";
+
+/** Fehlermeldung einer API-Antwort – nennt bei fehlenden Rechten das Recht */
+async function errorText(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await res.json();
+    return data.error || data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 interface TeamMember {
   cid: number;
@@ -74,19 +87,18 @@ export default function EventOverviewPage() {
   const [responsibleSearch, setResponsibleSearch] = useState("");
   const [responsibleDialogOpen, setResponsibleDialogOpen] = useState(false);
 
-  const { canInOwnFIR } = useUser();
-  const canEdit = canInOwnFIR("event.edit");
-  const [canBanner, setCanBanner] = useState(false);
+  const { user } = useUser();
+  // Was der Nutzer an diesem Event darf – dieselben Werte prüft die API
+  const { capabilities, reload: reloadCapabilities } = useEventCapabilities(eventId);
 
   const loadEventData = useCallback(async () => {
     setLoading(true);
     try {
-      const [eventRes, signupsRes, tasksRes, teamRes, permRes] = await Promise.all([
+      const [eventRes, signupsRes, tasksRes, teamRes] = await Promise.all([
         fetch(`/api/events/${eventId}`),
         fetch(`/api/events/${eventId}/signup`),
         fetch(`/api/events/${eventId}/tasks`),
         fetch(`/api/events/${eventId}/team`),
-        fetch(`/api/events/${eventId}/permissions`),
       ]);
 
       if (!eventRes.ok || !signupsRes.ok) throw new Error("Fehler beim Laden");
@@ -100,10 +112,6 @@ export default function EventOverviewPage() {
 
       if (tasksRes.ok) setTasks(await tasksRes.json());
       if (teamRes.ok) setTeamMembers(await teamRes.json());
-      if (permRes.ok) {
-        const perms = await permRes.json();
-        setCanBanner(perms.canBanner);
-      }
     } catch (error) {
       console.error("Fehler:", error);
       toast.error("Fehler beim Laden der Event-Daten");
@@ -125,13 +133,13 @@ export default function EventOverviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) throw new Error("Fehler beim Aktualisieren");
+      if (!res.ok) throw new Error(await errorText(res, "Fehler beim Aktualisieren des Status"));
       const updatedEvent = await res.json();
       setEvent(updatedEvent);
       toast.success(`Event Status geändert zu ${getEventStatusStyle(newStatus).label}`);
     } catch (error) {
       console.error("Fehler:", error);
-      toast.error("Fehler beim Aktualisieren des Status");
+      toast.error(error instanceof Error ? error.message : "Fehler beim Aktualisieren des Status");
     } finally {
       setUpdating(false);
     }
@@ -149,14 +157,16 @@ export default function EventOverviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cid }),
       });
-      if (!res.ok) throw new Error("Fehler");
+      if (!res.ok) throw new Error(await errorText(res, "Fehler beim Hinzufügen"));
       const newResponsible = await res.json();
       setEvent({ ...event, responsibles: [...(event.responsibles ?? []), newResponsible] });
-      toast.success("Verantwortlicher hinzugefügt");
+      toast.success(cid === user?.cid ? "Du bist jetzt verantwortlich" : "Verantwortlicher hinzugefügt");
       setResponsibleDialogOpen(false);
       setResponsibleSearch("");
-    } catch {
-      toast.error("Fehler beim Hinzufügen");
+      // Verantwortung bringt Rechte an diesem Event mit
+      if (cid === user?.cid) reloadCapabilities();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Fehler beim Hinzufügen");
     }
   };
 
@@ -164,11 +174,12 @@ export default function EventOverviewPage() {
     if (!event) return;
     try {
       const res = await fetch(`/api/events/${event.id}/responsible/${cid}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Fehler");
+      if (!res.ok) throw new Error(await errorText(res, "Fehler beim Entfernen"));
       setEvent({ ...event, responsibles: (event.responsibles ?? []).filter((r) => r.cid !== cid) });
-      toast.success("Verantwortlicher entfernt");
-    } catch {
-      toast.error("Fehler beim Entfernen");
+      toast.success(cid === user?.cid ? "Du bist nicht mehr verantwortlich" : "Verantwortlicher entfernt");
+      if (cid === user?.cid) reloadCapabilities();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Fehler beim Entfernen");
     }
   };
 
@@ -180,22 +191,22 @@ export default function EventOverviewPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ bannerVisible: visible }),
       });
-      if (!res.ok) throw new Error("Fehler");
+      if (!res.ok) throw new Error(await errorText(res, "Fehler beim Aktualisieren"));
       const updatedEvent = await res.json();
       setEvent(updatedEvent);
       toast.success(visible ? "Banner öffentlich sichtbar" : "Banner ausgeblendet");
-    } catch {
-      toast.error("Fehler beim Aktualisieren");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Fehler beim Aktualisieren");
     }
   };
 
   const getStatusActions = () => {
     if (!event) return [];
-    const actions: Record<string, { label: string; action: string; icon: typeof Play; variant: "default" | "outline" }> = {
-      DRAFT: { label: "In Planung setzen", action: "PLANNING", icon: Play, variant: "default" },
-      PLANNING: { label: "Anmeldung öffnen", action: "SIGNUP_OPEN", icon: Users, variant: "default" },
-      SIGNUP_OPEN: { label: "Anmeldung schließen", action: "SIGNUP_CLOSED", icon: Lock, variant: "outline" },
-      SIGNUP_CLOSED: { label: "Roster veröffentlichen", action: "ROSTER_PUBLISHED", icon: Eye, variant: "default" },
+    const actions: Record<string, { label: string; action: string; icon: typeof Play; variant: "default" | "outline"; capability: CapabilityKey }> = {
+      DRAFT: { label: "In Planung setzen", action: "PLANNING", icon: Play, variant: "default", capability: "editDetails" },
+      PLANNING: { label: "Anmeldung öffnen", action: "SIGNUP_OPEN", icon: Users, variant: "default", capability: "signupPhase" },
+      SIGNUP_OPEN: { label: "Anmeldung schließen", action: "SIGNUP_CLOSED", icon: Lock, variant: "outline", capability: "signupPhase" },
+      SIGNUP_CLOSED: { label: "Roster veröffentlichen", action: "ROSTER_PUBLISHED", icon: Eye, variant: "default", capability: "publishRoster" },
     };
     return actions[event.status] ? [actions[event.status]] : [];
   };
@@ -272,7 +283,7 @@ export default function EventOverviewPage() {
                 <p className="text-white/80 mt-1 text-sm max-w-2xl line-clamp-2">{event.description}</p>
               )}
             </div>
-            {(canEdit || canBanner) && (
+            {capabilities.isTeamMember && (
               <div className="absolute top-4 right-4">
                 <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5">
                   {event.bannerVisible ? (
@@ -283,12 +294,14 @@ export default function EventOverviewPage() {
                   <Label htmlFor="banner-visible" className="text-xs text-white cursor-pointer">
                     {event.bannerVisible ? "Öffentlich" : "Verborgen"}
                   </Label>
-                  <Switch
-                    id="banner-visible"
-                    checked={event.bannerVisible}
-                    onCheckedChange={handleBannerVisibleToggle}
-                    className="scale-75"
-                  />
+                  <RequiresRight allowed={capabilities.banner} capability="banner" className="inline-flex cursor-not-allowed">
+                    <Switch
+                      id="banner-visible"
+                      checked={event.bannerVisible}
+                      onCheckedChange={handleBannerVisibleToggle}
+                      className="scale-75"
+                    />
+                  </RequiresRight>
                 </div>
               </div>
             )}
@@ -421,25 +434,35 @@ export default function EventOverviewPage() {
                 getStatusActions().map((action, index) => {
                   const ActionIcon = action.icon;
                   return (
-                    <Button
-                      key={index}
-                      onClick={() => updateEventStatus(action.action)}
-                      disabled={updating}
-                      variant={action.variant}
-                      className="w-full justify-start"
-                    >
-                      <ActionIcon className="h-4 w-4 mr-2" />
-                      {updating ? "Wird aktualisiert..." : action.label}
-                    </Button>
+                    <RequiresRight key={index} allowed={capabilities[action.capability]} capability={action.capability}>
+                      <Button
+                        onClick={() => updateEventStatus(action.action)}
+                        disabled={updating}
+                        variant={action.variant}
+                        className="w-full justify-start"
+                      >
+                        <ActionIcon className="h-4 w-4 mr-2" />
+                        {updating ? "Wird aktualisiert..." : action.label}
+                      </Button>
+                    </RequiresRight>
                   );
                 })
               )}
-              <Button variant="outline" className="w-full justify-start" asChild>
-                <Link href={`/admin/events/${event.id}/edit`}>
-                  <Edit3 className="h-4 w-4 mr-2" />
-                  Event bearbeiten
-                </Link>
-              </Button>
+              {capabilities.editDetails ? (
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link href={`/admin/events/${event.id}/edit`}>
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Event bearbeiten
+                  </Link>
+                </Button>
+              ) : (
+                <RequiresRight allowed={false} capability="editDetails">
+                  <Button variant="outline" className="w-full justify-start">
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Event bearbeiten
+                  </Button>
+                </RequiresRight>
+              )}
             </div>
 
             {/* Responsible Section - Verbesserte Auswahl */}
@@ -458,7 +481,7 @@ export default function EventOverviewPage() {
                     className="inline-flex items-center gap-1.5 bg-secondary text-secondary-foreground rounded-full pl-2.5 pr-1 py-0.5 text-sm"
                   >
                     <span className="text-xs font-medium">{r.name}</span>
-                    {canEdit && (
+                    {(capabilities.manageResponsibles || r.cid === user?.cid) && (
                       <button
                         onClick={() => handleRemoveResponsible(r.cid)}
                         className="rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
@@ -471,7 +494,22 @@ export default function EventOverviewPage() {
                 ))}
               </div>
 
-              {canEdit && (
+              {/* Sich selbst eintragen darf jedes Mitglied des Departments */}
+              {!capabilities.isResponsible && !capabilities.manageResponsibles && (
+                <RequiresRight allowed={capabilities.selfAssign} capability="selfAssign">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => user && handleAddResponsible(user.cid)}
+                  >
+                    <UserPlus className="h-3.5 w-3.5 mr-2" />
+                    Mich eintragen
+                  </Button>
+                </RequiresRight>
+              )}
+
+              {capabilities.manageResponsibles && (
                 <Dialog open={responsibleDialogOpen} onOpenChange={setResponsibleDialogOpen}>
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="w-full">

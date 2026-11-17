@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Signup } from "@/types";
-import { useUser } from "@/hooks/useUser";
+import { useEventCapabilities } from "@/hooks/useEventCapabilities";
 import { parseEventAirports, fetchAirportEndorsements } from "@/lib/multiAirport";
 import {
   availabilityFromBlocked,
@@ -84,8 +84,9 @@ export default function SignupEditDialog({
   onSaved?: () => void;
   onDeleted?: () => void;
 }) {
-  const { canInOwnFIR } = useUser();
-  const canManage = canInOwnFIR("signups.manage");
+  // Rechte am Event: signups.manage, Besetzungsplan-Bearbeiter oder Verantwortliche
+  const { capabilities } = useEventCapabilities(event.id);
+  const canManage = capabilities.manageSignups;
 
   const eventAirports = useMemo(() => parseEventAirports(event.airports), [event.airports]);
   const grid = useMemo(

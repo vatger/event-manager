@@ -8,6 +8,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { Event } from "@/types";
 import { useUser } from "@/hooks/useUser";
+import { useEventCapabilitiesFor } from "@/hooks/useEventCapabilities";
+import { RequiresRight } from "@/components/RequiresRight";
 import { cn } from "@/lib/utils";
 import { getAvatarColor } from "@/utils/getAvatarColor";
 
@@ -31,7 +33,9 @@ function initials(name: string): string {
 }
 
 export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup, onpublishRoster }: Props) {
-  const { canInFIR, user } = useUser();
+  const { user } = useUser();
+  // Rechte an genau diesem Event – FIR des Events und eigene Verantwortung
+  const can = useEventCapabilitiesFor(event);
 
   const responsibles = event.responsibles ?? [];
   const isOwnResponsibility = responsibles.some((r) => r.cid === user?.cid);
@@ -83,16 +87,17 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
       )}
     >
       <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={onEdit}
-          disabled={!canInFIR(event.firCode, "event.edit")}
-          className="h-8 w-8"
-          aria-label="Event bearbeiten"
-        >
-          <Edit className="w-4 h-4" />
-        </Button>
+        <RequiresRight allowed={can.editDetails} capability="editDetails" className="inline-flex cursor-not-allowed">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={onEdit}
+            className="h-8 w-8"
+            aria-label="Event bearbeiten"
+          >
+            <Edit className="w-4 h-4" />
+          </Button>
+        </RequiresRight>
       </div>
 
       <CardHeader className="pb-3">
@@ -161,25 +166,25 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
       <CardFooter className="flex flex-wrap gap-2 justify-between pt-3 border-t">
         <div className="flex flex-wrap gap-2">
           {event.status === "SIGNUP_OPEN" ? (
-            <Button variant="outline" onClick={() => onCloseSignup(event.id)} size="sm">
-              Anmeldung schließen
-            </Button>
+            <RequiresRight allowed={can.signupPhase} capability="signupPhase" className="inline-flex cursor-not-allowed">
+              <Button variant="outline" onClick={() => onCloseSignup(event.id)} size="sm">
+                Anmeldung schließen
+              </Button>
+            </RequiresRight>
           ) : event.status === "SIGNUP_CLOSED" ? (
-            <Button
-              variant="outline"
-              onClick={() => onpublishRoster(event)}
-              size="sm"
-              disabled={!canInFIR(event.firCode, "roster.publish")}
-            >
-              Roster veröffentlichen
-            </Button>
+            <RequiresRight allowed={can.publishRoster} capability="publishRoster" className="inline-flex cursor-not-allowed">
+              <Button variant="outline" onClick={() => onpublishRoster(event)} size="sm">
+                Roster veröffentlichen
+              </Button>
+            </RequiresRight>
+          ) : event.status === "PLANNING" ? (
+            <RequiresRight allowed={can.signupPhase} capability="signupPhase" className="inline-flex cursor-not-allowed">
+              <Button variant="outline" onClick={() => onOpenSignup(event)} size="sm">
+                Anmeldung öffnen
+              </Button>
+            </RequiresRight>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => onOpenSignup(event)}
-              size="sm"
-              disabled={event.status !== "PLANNING"}
-            >
+            <Button variant="outline" size="sm" disabled>
               Anmeldung öffnen
             </Button>
           )}
@@ -191,15 +196,11 @@ export function EventCard({ event, onEdit, onDelete, onOpenSignup, onCloseSignup
               Verwalten
             </Link>
           </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={onDelete}
-            disabled={!canInFIR(event.firCode, "event.delete")}
-            aria-label="Event löschen"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <RequiresRight allowed={can.delete} capability="delete" className="inline-flex cursor-not-allowed">
+            <Button size="sm" variant="destructive" onClick={onDelete} aria-label="Event löschen">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </RequiresRight>
         </div>
       </CardFooter>
     </Card>
