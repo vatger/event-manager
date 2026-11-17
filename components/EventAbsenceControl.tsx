@@ -119,7 +119,7 @@ export function AbsenceReportButton({
       <AlertDialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Als N/A melden</AlertDialogTitle>
+            <AlertDialogTitle>Als „Not available“ melden</AlertDialogTitle>
             <AlertDialogDescription>
               Das Eventteam sieht so, dass du zu diesem Termin nicht kannst. Anmelden kannst du
               dich trotzdem jederzeit.
