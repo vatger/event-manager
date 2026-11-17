@@ -153,8 +153,8 @@ export const TEAM_BASE_RIGHTS = [
 
 /** Was die Leitungsgruppe einer FIR zusätzlich zu allen Rechten des Katalogs darf. */
 export const LEITUNG_FIXED_RIGHTS = [
-  "Alle Rechte des Katalogs in der eigenen FIR – außer „Ansprechpartner für Abmeldungen“, das nur ausdrücklich über eine Untergruppe vergeben wird",
+  "Alle Rechte des Katalogs in der eigenen FIR (außer „Ansprechpartner für Abmeldungen“)",
   "Untergruppen anlegen, Mitglieder und Rechte verteilen",
-  "Kommentare zu Controllern moderieren",
+  "Interne Notizen zu Controller verwalten",
   "CPT-Verantwortliche der FIR pflegen",
 ] as const;

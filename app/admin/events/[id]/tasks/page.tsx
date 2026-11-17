@@ -525,7 +525,7 @@ export default function EventTasksPage() {
                                       <RefreshCw className={`h-3 w-3 mr-1 ${checkingMyVatsim ? "animate-spin" : ""}`} />Status prüfen
                                     </Button>
                                 )}
-                                <a href="https://my.vatsim.net/events/admin" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
+                                <a href="https://my.vatsim.net/admin" target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline inline-flex items-center gap-0.5">
                                   <ExternalLink className="h-3 w-3" />Admin
                                 </a>
                               </div>
