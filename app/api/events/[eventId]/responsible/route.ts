@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 
 /**
  * GET /api/events/[eventId]/responsible
@@ -34,8 +34,9 @@ const postSchema = z.object({
 
 /**
  * POST /api/events/[eventId]/responsible
- * Adds a responsible person to an event.
- * Requires event.edit permission.
+ * Trägt eine Person als Verantwortliche ein. Andere einzutragen verlangt
+ * „Stammdaten bearbeiten“; sich selbst darf jedes Mitglied des
+ * Eventdepartments der FIR eintragen.
  */
 export async function POST(
   request: Request,
@@ -48,15 +49,17 @@ export async function POST(
   const { eventId } = await params;
   const evId = Number(eventId);
 
-  if (!await userhasPermissiononEvent(Number(user.cid), evId, "event.edit")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const body = await request.json();
   const parsed = postSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Validation failed", details: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
+
+  const capabilities = await getEventCapabilities(Number(user.cid), evId);
+  if (!capabilities) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
+  const isSelf = parsed.data.cid === Number(user.cid);
+  const denied = denyMissing(capabilities, [isSelf && !capabilities.manageResponsibles ? "selfAssign" : "manageResponsibles"]);
+  if (denied) return denied;
 
   // Ensure the target user exists
   const targetUser = await prisma.user.findUnique({ where: { cid: parsed.data.cid }, select: { cid: true, name: true } });

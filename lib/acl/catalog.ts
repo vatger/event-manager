@@ -23,6 +23,7 @@ export const PERMISSION_KEYS = [
   "event.edit",
   "event.delete",
   "event.banner",
+  "signups.phase",
   "roster.edit",
   "roster.publish",
   "signups.manage",
@@ -59,16 +60,15 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   },
   {
     key: "event.edit",
-    label: "Events bearbeiten",
+    label: "Stammdaten bearbeiten",
     description:
-      "Events und Weeklys der FIR vollständig bearbeiten: Stammdaten, Status, Aufgaben, Verantwortliche und Bearbeiter des Besetzungsplans.",
+      "Name, Beschreibung, Zeiten, Flughäfen und Stationen ändern, Events absagen oder in Planung setzen, Verantwortliche und Aufgaben verwalten.",
     category: "events",
-    includes: ["event.banner", "roster.edit", "roster.publish", "signups.manage"],
   },
   {
     key: "event.delete",
     label: "Events löschen",
-    description: "Events, Weeklys und einzelne Weekly-Termine der FIR löschen.",
+    description: "Events, Weeklys und einzelne Weekly-Termine der FIR endgültig löschen.",
     category: "events",
   },
   {
@@ -76,6 +76,12 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
     label: "Banner verwalten",
     description: "Den Banner eines Events setzen und öffentlich ein- oder ausblenden.",
     category: "events",
+  },
+  {
+    key: "signups.phase",
+    label: "Anmeldephase steuern",
+    description: "Die Anmeldung öffnen, schließen oder wieder öffnen und den Anmeldeschluss festlegen.",
+    category: "signups",
   },
   {
     key: "roster.edit",

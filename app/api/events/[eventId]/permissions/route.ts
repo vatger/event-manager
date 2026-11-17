@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { canManageEventTasks, canManageEventBanner, isEventFirTeamMember, userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { getEventCapabilities } from "@/lib/events/eventAccess";
 
 /**
  * GET /api/events/[eventId]/permissions
- * Returns the current user's permission levels for this event.
- * Used by the frontend to conditionally show/hide UI elements.
+ * Was der angemeldete Nutzer an diesem Event darf – die Event-Seiten
+ * deaktivieren ihre Knöpfe danach. Dieselben Werte prüfen die API-Routen.
  */
 export async function GET(
   _request: Request,
@@ -13,24 +13,21 @@ export async function GET(
 ) {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { eventId } = await params;
-  const evId = Number(eventId);
-  const cid = Number(user.cid);
-
-  const [canEdit, canManageTasks, canBanner, isTeamMember] = await Promise.all([
-    userhasPermissiononEvent(cid, evId, "event.edit"),
-    canManageEventTasks(cid, evId),
-    canManageEventBanner(cid, evId),
-    isEventFirTeamMember(cid, evId),
-  ]);
+  const capabilities = await getEventCapabilities(Number(user.cid), Number(eventId));
+  if (!capabilities) {
+    return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
+  }
 
   return NextResponse.json({
-    canEdit,
-    canManageTasks,
-    canBanner,
-    isTeamMember,
+    ...capabilities,
+    // Bisherige Namen – noch von der Aufgaben-Seite genutzt
+    canEdit: capabilities.editDetails,
+    canManageTasks: capabilities.manageTasks,
+    canBanner: capabilities.banner,
+    isTeamMember: capabilities.isTeamMember,
   });
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { isAirportTier1 } from '@/utils/configUtils';
 import { getSessionUser } from '@/lib/getSessionUser';
-import { hasAdminAccess } from '@/lib/acl/permissions';
+import { getEventCapabilities } from '@/lib/events/eventAccess';
 
 export async function GET(
   request: NextRequest,
@@ -13,14 +13,21 @@ export async function GET(
   }
   try {
     const user = await getSessionUser();
-    if (!user || !(await hasAdminAccess(Number(user.cid)))) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const { eventId: id } = await params;
     const eventId = parseInt(id);
 
     if (isNaN(eventId)) {
       return NextResponse.json({ error: 'Ungültige Event-ID' }, { status: 400 });
+    }
+
+    // Nur das Eventdepartment der FIR des Events (und die VATGER-Eventleitung)
+    const capabilities = await getEventCapabilities(Number(user.cid), eventId);
+    if (!capabilities) return NextResponse.json({ error: 'Event nicht gefunden' }, { status: 404 });
+    if (!capabilities.isTeamMember && !capabilities.isResponsible) {
+      return NextResponse.json({ error: 'Nur für das Eventdepartment dieser FIR.' }, { status: 403 });
     }
 
     // Event-Daten abfragen

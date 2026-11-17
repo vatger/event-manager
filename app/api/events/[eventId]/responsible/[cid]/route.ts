@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 
 /**
  * DELETE /api/events/[eventId]/responsible/[cid]
- * Removes a responsible person from an event.
- * Requires event.edit permission.
+ * Trägt eine verantwortliche Person aus. Andere austragen verlangt
+ * „Stammdaten bearbeiten“; sich selbst austragen darf jeder.
  */
 export async function DELETE(
   _request: Request,
@@ -20,8 +20,11 @@ export async function DELETE(
   const evId = Number(eventId);
   const userCID = Number(cid);
 
-  if (!await userhasPermissiononEvent(Number(user.cid), evId, "event.edit")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (userCID !== Number(user.cid)) {
+    const capabilities = await getEventCapabilities(Number(user.cid), evId);
+    if (!capabilities) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
+    const denied = denyMissing(capabilities, ["manageResponsibles"]);
+    if (denied) return denied;
   }
 
   const entry = await prisma.eventResponsible.findUnique({

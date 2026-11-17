@@ -26,13 +26,20 @@ describe("explainPermissions", () => {
 
   it("erklärt Rechte, die in einem anderen enthalten sind", () => {
     const result = explainPermissions([
-      { name: "Planer", kind: "CUSTOM", permissions: ["event.edit"] },
+      { name: "Planer", kind: "CUSTOM", permissions: ["roster.edit"] },
     ]);
-    expect(find(result, "roster.publish").sources).toEqual([
-      { type: "included", groupName: "Planer", via: "event.edit" },
+    expect(find(result, "signups.manage").sources).toEqual([
+      { type: "included", groupName: "Planer", via: "roster.edit" },
     ]);
     // Nicht enthaltene Rechte bleiben verwehrt
-    expect(find(result, "event.delete").granted).toBe(false);
+    expect(find(result, "roster.publish").granted).toBe(false);
+  });
+
+  it("schließt mit „Stammdaten bearbeiten“ keine anderen Rechte mehr ein", () => {
+    const result = explainPermissions([
+      { name: "Stammdaten", kind: "CUSTOM", permissions: ["event.edit"] },
+    ]);
+    expect(result.filter((p) => p.granted).map((p) => p.key)).toEqual(["event.edit"]);
   });
 
   it("gibt über die Leitungsgruppe jedes Recht außer den nur ausdrücklich vergebenen", () => {

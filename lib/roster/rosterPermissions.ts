@@ -13,9 +13,9 @@ import {
  * Zentrale Berechtigungslogik für den Besetzungsplan-Editor.
  *
  * Ansehen:   jeder, der das Event intern sehen kann (FIR-Team-Mitglied) oder bearbeiten darf.
- * Bearbeiten: VATGER-Leitung, event.edit, die neue FIR-Permission roster.edit,
- *             Event-Verantwortliche oder explizit als Roster-Bearbeiter eingetragene Nutzer.
- * Bearbeiter verwalten: VATGER-Leitung, event.edit oder Event-Verantwortliche.
+ * Bearbeiten: VATGER-Leitung, die FIR-Permission roster.edit, Event-Verantwortliche
+ *             oder explizit als Roster-Bearbeiter eingetragene Nutzer.
+ * Bearbeiter verwalten: VATGER-Leitung, roster.edit oder Event-Verantwortliche.
  * Signups verwalten: signups.manage ODER Roster-Bearbeiter (damit man Anmeldungen
  *             direkt aus dem Editor pflegen kann).
  */
@@ -47,10 +47,7 @@ export async function canEditEventRoster(cid: number, eventId: number): Promise<
   if (await isVatgerEventleitung(cid)) return true;
 
   const fir = await getEventFir(eventId);
-  if (fir) {
-    if (await userHasFirPermission(cid, fir, "event.edit")) return true;
-    if (await userHasFirPermission(cid, fir, "roster.edit")) return true;
-  }
+  if (fir && (await userHasFirPermission(cid, fir, "roster.edit"))) return true;
   if (await isEventResponsible(cid, eventId)) return true;
   if (await isExplicitRosterEditor(cid, eventId)) return true;
   return false;
@@ -67,7 +64,7 @@ export async function canViewEventRoster(cid: number, eventId: number): Promise<
 export async function canManageRosterEditors(cid: number, eventId: number): Promise<boolean> {
   if (await isVatgerEventleitung(cid)) return true;
   const fir = await getEventFir(eventId);
-  if (fir && (await userHasFirPermission(cid, fir, "event.edit"))) return true;
+  if (fir && (await userHasFirPermission(cid, fir, "roster.edit"))) return true;
   if (await isEventResponsible(cid, eventId)) return true;
   return false;
 }
@@ -86,14 +83,14 @@ export async function canManageEventSignups(cid: number, eventId: number): Promi
  * Filter auf die Events einer FIR, deren Anmeldungen der Nutzer verwalten darf –
  * dieselben Regeln wie canManageEventSignups (ohne VATGER-Leitung, die vorab zu
  * prüfen ist), aber für alle Events auf einmal: FIR-weite Rechte (signups.manage,
- * event.edit, roster.edit) gelten für jedes Event, Verantwortliche und
+ * roster.edit) gelten für jedes Event, Verantwortliche und
  * eingetragene Roster-Bearbeiter nur für ihr Event.
  */
 export async function eventsWithManageableSignupsWhere(
   cid: number,
   fir: string
 ): Promise<Prisma.EventWhereInput> {
-  if (await userHasAnyFirPermission(cid, fir, ["signups.manage", "event.edit", "roster.edit"])) {
+  if (await userHasAnyFirPermission(cid, fir, ["signups.manage", "roster.edit"])) {
     return { firCode: fir };
   }
   return {

@@ -11,7 +11,9 @@ import {
 } from "@/lib/bookings/eventStationBookings";
 import { authOptions } from "@/lib/auth";
 import { notifyRosterPublished } from "@/lib/notifications/notifyRosterPublished";
-import { getUserWithPermissions, isVatgerEventleitung, userHasFirPermission, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
+import { isVatgerEventleitung, canManageEventBanner, hasAdminAccess } from "@/lib/acl/permissions";
+import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
+import { changedFields, requiredCapabilities, type EventStatus } from "@/lib/events/eventChangeRules";
 import { invalidateSignupTable } from "@/lib/cache/signupTableCache";
 import { getSessionUser } from "@/lib/getSessionUser";
 
@@ -98,27 +100,38 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
     );
   }
 
-  const firbyevent = await prisma.event.findUnique({
-    where: {
-      id: Number(eventId)
-    },
-    select: {
-      firCode: true,
-      status: true,
-      staffedStations: true
-    }
-  })
+  const firbyevent = await prisma.event.findUnique({ where: { id: Number(eventId) } });
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  
-  if(parsed.data.firCode && (parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(Number(session.user.cid)))) {
-    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and  VATGER can move the event to another FIR"}, { status: 401 });
+
+  const cid = Number(session.user.cid);
+  if(parsed.data.firCode && (parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(cid))) {
+    return NextResponse.json({ error: "Nur die VATGER-Eventleitung kann ein Event in eine andere FIR verschieben." }, { status: 403 });
   }
   const fir = parsed.data.firCode || firbyevent.firCode
-  if(!fir) return NextResponse.json({ error: "Invalid FIR" }, { status: 401 });
-  
-  if (!await userHasFirPermission(Number(session.user.cid), fir, "event.edit") && !await isVatgerEventleitung(Number(session.user.cid))) {
-    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
-  }
+
+  // Was das Formular speichern würde – geprüft wird, was sich davon ändert
+  const putData = {
+    name: parsed.data.name,
+    description: parsed.data.description || "",
+    bannerUrl: parsed.data.bannerUrl || null,
+    startTime: new Date(parsed.data.startTime),
+    endTime: new Date(parsed.data.endTime),
+    airports: parsed.data.airports,
+    signupDeadline: parsed.data.signupDeadline ? new Date(parsed.data.signupDeadline) : null,
+    signupSlotMinutes: parsed.data.signupSlotMinutes ?? 30,
+    staffedStations: parsed.data.staffedStations || [],
+    status: parsed.data.status || firbyevent.status,
+    rosterlink: body.rosterlink || null,
+    firCode: fir,
+  };
+  const capabilities = await getEventCapabilities(cid, Number(eventId));
+  if (!capabilities) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  const putChanges = changedFields(firbyevent, putData);
+  const putDenied = denyMissing(
+    capabilities,
+    requiredCapabilities(putChanges, putData.status as EventStatus)
+  );
+  if (putDenied) return putDenied;
 
   // Eine Stationsliste für Event und Besetzungsplan: Stationen, auf denen im
   // Plan schon Schichten liegen, lassen sich hier nicht still entfernen –
@@ -141,23 +154,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ even
 
   const event = await prisma.event.update({
     where: { id: Number(eventId) },
-    data: {
-        name: parsed.data.name,
-        description: parsed.data.description || "",
-        bannerUrl: parsed.data.bannerUrl || null,
-        startTime: new Date(parsed.data.startTime),
-        endTime: new Date(parsed.data.endTime),
-        airports: parsed.data.airports,
-        signupDeadline: parsed.data.signupDeadline
-          ? new Date(parsed.data.signupDeadline)
-          : null,
-        signupSlotMinutes: parsed.data.signupSlotMinutes ?? 30,
-        staffedStations: parsed.data.staffedStations || [],
-        status: parsed.data.status || "PLANNING",
-        createdById: parseInt(session.user.id),
-        rosterlink: body.rosterlink || null,
-        firCode: fir,
-      },
+    data: putData,
   });
   // … und der Plan zieht die geänderte Liste nach.
   if (parsed.data.staffedStations && parsed.data.staffedStations.length > 0) {
@@ -210,9 +207,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ e
   })
   
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  if (!await userHasFirPermission(Number(session.user.cid), firbyevent.firCode, "event.delete") && !await isVatgerEventleitung(Number(session.user.cid))) {
-    return NextResponse.json({ error: "Unauthorized", message: "You have no permission to delete events (in this FIR)", firbyevent}, { status: 401 });
-  }
+  const deleteCapabilities = await getEventCapabilities(Number(session.user.cid), Number(eventId));
+  if (!deleteCapabilities) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  const deleteDenied = denyMissing(deleteCapabilities, ["delete"]);
+  if (deleteDenied) return deleteDenied;
 
   // Die Stationsbuchungen auf der Homepage überleben das Event - sie werden
   // nur zurückgezogen, wenn das beim Löschen ausdrücklich bestätigt wurde.
@@ -277,44 +275,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
       { status: 400 }
     );
   }
-  const user = await getUserWithPermissions(Number(session.user.cid))
-  if(!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  
-  const firbyevent = await prisma.event.findUnique({
-    where: {
-      id: Number(eventId)
-    },
-    select: {
-      firCode: true,
-      status: true,
-      staffedStations: true
-    }
-  })
+  const cid = Number(session.user.cid);
+  const firbyevent = await prisma.event.findUnique({ where: { id: Number(eventId) } });
   if(!firbyevent?.firCode) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
+  if(parsed.data.firCode && parsed.data.firCode != firbyevent.firCode && !await isVatgerEventleitung(cid)) {
+    return NextResponse.json({ error: "Nur die VATGER-Eventleitung kann ein Event in eine andere FIR verschieben." }, { status: 403 });
+  }
 
-  if(parsed.data.firCode && (parsed.data.firCode != firbyevent.firCode && user.effectiveLevel != "MAIN_ADMIN" && user.effectiveLevel != "VATGER_LEITUNG")) {
-    return NextResponse.json({ error: "Unauthorized", message: "Only MainAdmins and VATGER can move the event to another FIR"}, { status: 401 });
-  }
-  
-  const fir = parsed.data.firCode || firbyevent.firCode
-  if(!fir) return NextResponse.json({ error: "Invalid FIR" }, { status: 401 });
-  
-  // Determine required permission level based on what's being changed
-  const evId = Number(eventId);
-  const isBannerOnlyChange = Object.keys(parsed.data).every(k => ["bannerVisible", "bannerUrl"].includes(k));
-  
-  if (isBannerOnlyChange) {
-    // Banner-only changes require event.banner permission (or event responsible)
-    if (!await canManageEventBanner(user.cid, evId)) {
-      return NextResponse.json({ error: "Unauthorized", message: "You need event.banner permission to manage the banner" }, { status: 403 });
-    }
-  } else {
-    // Everything else requires event.edit
-    if (!await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
-      return NextResponse.json({ error: "Unauthorized", message: "You have no permission to edit events (in this FIR)", fir}, { status: 401 });
-    }
-  }
+  // Jede Art von Änderung hat ihr eigenes Recht (siehe eventChangeRules.ts).
+  // Geprüft wird nur, was sich wirklich ändert.
+  const capabilities = await getEventCapabilities(cid, Number(eventId));
+  if (!capabilities) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  const patchChanges = changedFields(firbyevent, parsed.data);
+  const patchDenied = denyMissing(
+    capabilities,
+    requiredCapabilities(patchChanges, parsed.data.status as EventStatus | undefined)
+  );
+  if (patchDenied) return patchDenied;
 
   try {
     const id = parseInt(eventId);
@@ -323,12 +301,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ ev
         { error: "Invalid event ID" },
         { status: 400 }
       );
-    }
-    
-    if(parsed.data.status === "ROSTER_PUBLISHED"){
-      if(!await userHasFirPermission(user.cid, fir, "roster.publish") && !await userHasFirPermission(user.cid, fir, "event.edit") && !await isVatgerEventleitung(user.cid)) {
-        return NextResponse.json({ error: "Insufficient permissions", message: "You need roster.publish or event.edit permission for this action"}, { status: 403})
-      }
     }
 
     // Eine Stationsliste für Event und Besetzungsplan: Stationen, auf denen im

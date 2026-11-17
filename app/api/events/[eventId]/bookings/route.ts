@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { userhasPermissiononEvent } from "@/lib/acl/permissions";
+import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 import {
   eventBookingReference,
   getBookings,
@@ -23,16 +23,9 @@ async function denyUnauthorized(eventId: number): Promise<NextResponse | null> {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const cid = Number(user.cid);
-  const allowed =
-    (await userhasPermissiononEvent(cid, eventId, "event.edit")) ||
-    (await userhasPermissiononEvent(cid, eventId, "roster.publish"));
-
-  if (!allowed) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  return null;
+  const capabilities = await getEventCapabilities(Number(user.cid), eventId);
+  if (!capabilities) return NextResponse.json({ error: "Event nicht gefunden" }, { status: 404 });
+  return denyMissing(capabilities, ["publishRoster"]);
 }
 
 function handleError(error: unknown) {

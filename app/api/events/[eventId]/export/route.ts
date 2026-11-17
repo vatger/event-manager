@@ -3,7 +3,7 @@ import { getCachedSignupTable } from "@/lib/cache/signupTableCache";
 import { generateSignupCSV, generateExportFilename } from "@/lib/exportUtils";
 import prisma from "@/lib/prisma";
 import { getSessionUser } from "@/lib/getSessionUser";
-import { hasAdminAccess } from "@/lib/acl/permissions";
+import { denyMissing, getEventCapabilities } from "@/lib/events/eventAccess";
 
 export async function GET(
   request: NextRequest,
@@ -11,8 +11,8 @@ export async function GET(
 ) {
   try {
     const user = await getSessionUser();
-    if (!user || !(await hasAdminAccess(Number(user.cid)))) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (!prisma) return NextResponse.json({ error: "Database not connected" }, { status: 500 });
     
@@ -22,6 +22,12 @@ export async function GET(
     if (isNaN(eventId)) {
       return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
     }
+
+    // Pro Event geprüft: Recht „Anmeldungen exportieren“ in der FIR des Events
+    const capabilities = await getEventCapabilities(Number(user.cid), eventId);
+    if (!capabilities) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    const denied = denyMissing(capabilities, ["export"]);
+    if (denied) return denied;
 
     // Get selected airport from query params
     const searchParams = request.nextUrl.searchParams;

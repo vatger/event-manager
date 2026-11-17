@@ -48,14 +48,13 @@ export async function POST(
     const allowed =
       (await isVatgerEventleitung(cid)) ||
       (event.firCode
-        ? (await userHasFirPermission(cid, event.firCode, "roster.publish")) ||
-          (await userHasFirPermission(cid, event.firCode, "event.edit"))
+        ? await userHasFirPermission(cid, event.firCode, "roster.publish")
         : false);
     if (!allowed) {
       return NextResponse.json(
         {
           error:
-            "Zum erstmaligen Veröffentlichen wird roster.publish oder event.edit benötigt",
+            "Zum erstmaligen Veröffentlichen brauchst du das Recht „Besetzungsplan veröffentlichen“.",
         },
         { status: 403 }
       );

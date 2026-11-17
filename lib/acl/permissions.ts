@@ -3,6 +3,7 @@ import { getUserWithEffectiveData } from "./policies";
 import { isMainAdminCid } from "./mainAdmins";
 import type { PermissionKey } from "./catalog";
 import { canManageDepartment } from "./teamRules";
+import { getEventCapabilities } from "@/lib/events/eventAccess";
 
 /**
  * Lädt den User inklusive effektiver Berechtigungen
@@ -176,27 +177,19 @@ export async function isEventResponsible(cid: number, eventId: number): Promise<
 }
 
 /**
- * Prüft, ob ein Nutzer Tasks für ein Event verwalten darf.
- * Event-Verantwortliche und FIR-Eventleiter können:
- *   - Tasks erstellen, bearbeiten, löschen
- *   - Tasks anderen zuweisen
- *   - Tasks als erledigt/übersprungen markieren
+ * Darf der Nutzer die Aufgaben eines Events verwalten (anlegen, zuweisen,
+ * löschen)? Stammdaten-Recht oder Event-Verantwortung.
  */
 export async function canManageEventTasks(cid: number, eventId: number): Promise<boolean> {
-  if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
-  if (await isEventResponsible(cid, eventId)) return true;
-  return false;
+  return (await getEventCapabilities(cid, eventId))?.manageTasks ?? false;
 }
 
 /**
- * Prüft, ob ein Nutzer den Banner eines Events verwalten darf (show/hide).
- * Benötigt event.edit, event.banner ODER ist Event-Verantwortlicher.
+ * Darf der Nutzer den Banner eines Events verwalten (setzen, sichtbar schalten)?
+ * Recht event.banner oder Event-Verantwortung.
  */
 export async function canManageEventBanner(cid: number, eventId: number): Promise<boolean> {
-  if (await userhasPermissiononEvent(cid, eventId, "event.edit")) return true;
-  if (await userhasPermissiononEvent(cid, eventId, "event.banner")) return true;
-  if (await isEventResponsible(cid, eventId)) return true;
-  return false;
+  return (await getEventCapabilities(cid, eventId))?.banner ?? false;
 }
 
 /**
