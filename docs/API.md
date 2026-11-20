@@ -38,6 +38,9 @@ Entwürfe (`status: "DRAFT"`) sind nur enthalten für
 
 `includesDrafts` in der Antwort sagt, ob Entwürfe mitgeliefert wurden.
 
+Mit API-Token enthält jedes Event zusätzlich `responsibleCids` – die CIDs
+der Eventverantwortlichen (bei Session-Anfragen nicht enthalten).
+
 Optionale Filter (ISO-8601): `from` – Events, die danach enden; `to` –
 Events, die davor beginnen.
 
@@ -59,7 +62,8 @@ Events, die davor beginnen.
       "signupCount": 23,
       "rosterPublished": true,
       "url": "https://…/events/12",
-      "rosterApiUrl": "https://…/api/v1/events/12/roster"
+      "rosterApiUrl": "https://…/api/v1/events/12/roster",
+      "responsibleCids": [1234567, 7654321]
     }
   ]
 }
@@ -76,6 +80,8 @@ Ausgeliefert wird die **veröffentlichte** Fassung. Ist noch nichts
 veröffentlicht, ist `published` `false` und `shifts` leer.
 `?version=live` liefert den Arbeitsstand – nur mit Session und Zugriff auf
 den Plan im Editor, nie mit einem Token.
+
+Mit API-Token steht in `event` zusätzlich `responsibleCids`.
 
 Für Entwürfe gelten dieselben Rechte wie in der Eventliste; ohne sie
 antwortet der Endpunkt mit `404`.

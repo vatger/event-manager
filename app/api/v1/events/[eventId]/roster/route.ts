@@ -57,6 +57,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
   const result = await buildPublicRoster(id, live);
   if (!result) return apiJson({ error: "Event not found" }, 404);
 
+  // Verantwortliche nur für Integrationen mit Token, nicht für die Session
+  const responsibleCids =
+    principal.kind === "token"
+      ? (
+          await prisma.eventResponsible.findMany({
+            where: { eventId: id },
+            select: { userCID: true },
+            orderBy: { userCID: "asc" },
+          })
+        ).map((r) => r.userCID)
+      : undefined;
+
   const base = {
     event: {
       id: result.event.id,
@@ -65,6 +77,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ eventId:
       status: event.status,
       startTime: result.event.startTime.toISOString(),
       endTime: result.event.endTime.toISOString(),
+      ...(responsibleCids ? { responsibleCids } : {}),
     },
     version,
     published: result.published,

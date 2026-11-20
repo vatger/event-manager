@@ -14,6 +14,9 @@ import { publicUrl } from "@/lib/api/publicUrl";
  * „Entwürfe einschließen“ und für Nutzer, die für die FIR zuständig sind.
  * Anmeldung: Session oder `Authorization: Bearer <API-Token>`.
  *
+ * Mit API-Token enthält jedes Event zusätzlich `responsibleCids` – die CIDs
+ * der Eventverantwortlichen.
+ *
  * Optionale Filter (ISO-8601): `from` – Events, die danach enden;
  * `to` – Events, die davor beginnen.
  */
@@ -51,6 +54,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
   if (!fir) return apiJson({ error: "FIR not found" }, 404);
 
   const includesDrafts = await principalMaySeeDrafts(auth.principal, code);
+  // Verantwortliche nur für Integrationen mit Token, nicht für die Session
+  const withResponsibles = auth.principal.kind === "token";
 
   const events = await prisma.event.findMany({
     where: {
@@ -70,6 +75,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
       airports: true,
       staffedStations: true,
       _count: { select: { signups: { where: { deletedAt: null } } } },
+      responsibles: { select: { userCID: true }, orderBy: { userCID: "asc" } },
     },
     orderBy: { startTime: "asc" },
     take: MAX_EVENTS,
@@ -92,6 +98,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ code: st
       rosterPublished: e.status === "ROSTER_PUBLISHED",
       url: publicUrl(`/events/${e.id}`),
       rosterApiUrl: publicUrl(`/api/v1/events/${e.id}/roster`),
+      ...(withResponsibles ? { responsibleCids: e.responsibles.map((r) => r.userCID) } : {}),
     })),
   });
 }
